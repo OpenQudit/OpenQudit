@@ -1,0 +1,32 @@
+[package]
+name = "qudit-expr"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+qudit-core = { path = "../qudit-core" }
+num = "*"
+inkwell = { version = "0.5.0", features = ["llvm17-0"] }
+llvm-sys = { version = "170.0.1" }
+coe-rs = "*"
+egg = "*"
+ordered-float = "*"
+itertools = "*"
+faer = "0.21.3"
+
+
+rustc-hash = "*"
+indexmap = "*"
+rand = "*"
+
+
+[dev-dependencies]
+proptest = "1.2"
+criterion = "0.5"
+pprof = { version = "0.13", features = ["flamegraph"] }
+
+[[bench]]
+name = "cnotu3u3"
+harness = false

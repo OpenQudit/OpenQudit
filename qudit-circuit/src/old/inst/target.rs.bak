@@ -1,0 +1,452 @@
+// use faer_core::unzipped;
+// use faer_core::zipped;
+
+// use crate::math::unitary::DifferentiableUnitaryFn;
+// use crate::math::unitary::DoublyDifferentiableUnitaryFn;
+// use crate::math::unitary::UnitaryFn;
+// use crate::math::unitary::UnitaryGradient;
+// use crate::math::unitary::UnitaryHessian;
+use crate::math::unitary::UnitaryMatrix;
+use crate::math::ComplexScalar;
+// use crate::math::Function;
+// use crate::sim::ExpressionTree;
+use crate::QuditCircuit;
+// use crate::QuditSystem;
+
+
+pub trait CostFunction<C: ComplexScalar> {
+    fn get_cost(&self, params: &[C::Re]) -> C::Re;
+}
+
+pub trait DifferentiableCostFunction<C: ComplexScalar>: CostFunction<C> {
+    fn get_gradient(&self, params: &[C::Re]) -> Vec<C::Re>;
+    fn get_cost_and_gradient(&self, params: &[C::Re]) -> (C::Re, Vec<C::Re>);
+}
+
+pub trait DoublyDifferentiableCostFunction<C: ComplexScalar>: DifferentiableCostFunction<C> {
+    fn get_hessian(&self, params: &[C::Re]) -> Vec<C::Re>;
+    fn get_cost_and_hessian(&self, params: &[C::Re]) -> (C::Re, Vec<C::Re>);
+    fn get_gradient_and_hessian(&self, params: &[C::Re]) -> (Vec<C::Re>, Vec<C::Re>);
+    fn get_cost_gradient_and_hessian(&self, params: &[C::Re]) -> (C::Re, Vec<C::Re>, Vec<C::Re>);
+}
+
+pub trait CostFunctionGenerator<C: ComplexScalar> {
+    type CostFnType: CostFunction<C>;
+    fn gen_cost(&self, circuit: &QuditCircuit<C>) -> Self::CostFnType;
+}
+
+pub enum InstantiationTarget<C: ComplexScalar> {
+    // StateVector(Array1<c64>),
+    #[allow(dead_code)]
+    UnitaryMatrix(UnitaryMatrix<C>),
+    // StateSystem
+    // DensityMatrix
+    // DensitySystem
+    // SuperOperator
+    CostFunctionGen(Box<dyn CostFunctionGenerator<C>>),
+}
+
+impl<C: ComplexScalar> InstantiationTarget<C> {
+    fn as_cost_fn_gen(&self) -> Box<dyn CostFunctionGenerator<C>> {
+        todo!()
+    }
+}
+
+pub trait StartingPointGenerator<C: ComplexScalar> {
+    fn gen_starting_point(&self, circuit: &QuditCircuit<C>) -> Vec<C::Re>;
+}
+
+pub trait Optimizer<C: ComplexScalar> {
+    type CostFnType: CostFunction<C>;
+
+    fn optimize(
+        &self,
+        cost: &Self::CostFnType,
+        x0: Vec<C::Re>,
+    ) -> Vec<C::Re>;
+}
+
+pub trait Instantiater<C: ComplexScalar> {
+    fn instantiate(
+        &self,
+        circuit: &QuditCircuit<C>,
+        target: &InstantiationTarget<C>,
+    ) -> (C::Re, Vec<C::Re>); // TODO: add result
+}
+
+pub struct BFGSInstantiater<C: ComplexScalar> {
+    starting_point_gen: Box<dyn StartingPointGenerator<C>>,
+}
+
+impl<C: ComplexScalar> Optimizer<C> for BFGSInstantiater<C> {
+    type CostFnType = DifferentiableCostFunction<C>;
+
+    fn optimize(
+        &self,
+        cost: &Self::CostFnType,
+        x0: Vec<C::Re>,
+    ) -> Vec<C::Re> {
+        todo!()
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// impl<C: ComplexScalar> CostFunctionGenerator<C> for InstantiationTarget<C> {
+//     fn gen_cost(&self, _circuit: &QuditCircuit<C>) -> Box<dyn CostFn<C>> {
+//         match self {
+//             Self::UnitaryMatrix(_matrix) => todo!(), /* Box::new(HSDCost::new(&
+//                                                  * circuit, M)), */
+//             // Self::CostFunction(cost) => cost.gen_cost(circuit),
+//         }
+//     }
+// }
+
+// #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+// pub enum CostFunctionType {
+//     DerivativeFree,
+//     Gradient,
+//     Hessian,
+// }
+
+// impl CostFunctionType {
+//     pub fn gradient_capable(&self) -> bool {
+//         match self {
+//             CostFunctionType::DerivativeFree => false,
+//             CostFunctionType::Gradient => true,
+//             CostFunctionType::Hessian => true,
+//         }
+//     }
+
+//     pub fn hessian_capable(&self) -> bool {
+//         match self {
+//             CostFunctionType::DerivativeFree => false,
+//             CostFunctionType::Gradient => false,
+//             CostFunctionType::Hessian => true,
+//         }
+//     }
+// }
+
+// pub trait CostFunctionGenerator<C: ComplexScalar> {
+//     fn gen_cost(&self, circuit: &QuditCircuit<C>) -> impl CostFunction<C>;
+// }
+
+// pub trait CostFunction<C: ComplexScalar> {
+//     fn get_cost(&self, params: &[C::Re]) -> C::Re;
+// 
+//     // fn get_gradient(
+//     //     &self,
+//     //     params: &[C::Re],
+//     // ) -> Array1<C>;
+// 
+//     // fn get_cost_and_gradient(
+//     //     &self,
+//     //     params: &[C::Re],
+//     // ) -> (C, Array1<C>);
+// 
+//     // fn get_hessian(
+//     //     &self,
+//     //     params: &[C::Re],
+//     // ) -> Array2<C>;
+// 
+//     // fn get_cost_and_hessian(
+//     //     &self,
+//     //     params: &[C::Re],
+//     // ) -> (C, Array2<C>);
+// 
+//     // fn get_gradient_and_hessian(
+//     //     &self,
+//     //     params: &[C::Re],
+//     // ) -> (Array1<C>, Array2<C>);
+// 
+//     // fn get_cost_gradient_and_hessian(
+//     //     &self,
+//     //     params: &[C::Re],
+//     // ) -> (C, Array1<C>, Array2<C>);
+// }
+
+// struct HSDCostGenerator<C: ComplexScalar> {
+//     target: UnitaryMatrix<C>,
+// }
+
+// impl<C: ComplexScalar> CostFnGenerator for HSDCostGenerator<C> {
+//     fn gen_cost<S>(&self, circuit: &QuditCircuit) -> impl CostFn<S>
+//     {
+//         HSDCost::new(circuit, &self.target)
+//     }
+// }
+
+// struct HSDCost<C: ComplexScalar> {
+//     target_conj: UnitaryMatrix<C>,
+//     circuit_op: ExpressionTree<C>,
+//     dem: C::Re,
+// 
+//     // Buffers
+//     utry: UnitaryMatrix<C>,
+//     grad: UnitaryGradient<C>,
+//     hess: UnitaryHessian<C>,
+// }
+// 
+// impl<C: ComplexScalar> HSDCost<C> {
+//     pub fn new(circuit: &QuditCircuit<C>, target: &UnitaryMatrix<C>) -> Self {
+//         let dim = target.get_dimension();
+//         let radices = target.get_radices();
+//         let num_params = circuit.get_num_params();
+// 
+//         let target_conj = target.clone().conjugate();
+//         let circuit_op = circuit.expression_tree();
+//         let dem = C::real(dim as f64);
+//         Self {
+//             target_conj: target_conj,
+//             circuit_op: circuit_op,
+//             dem: dem,
+//             utry: UnitaryMatrix::identity(radices.clone()),
+//             grad: UnitaryGradient::zeros(radices.clone(), num_params),
+//             hess: UnitaryHessian::zeros(radices, num_params),
+//         }
+//     }
+// }
+// 
+// impl<C: ComplexScalar> CostFn<C> for HSDCost<C> {
+//     fn get_cost(&self, _params: &[C::Re]) -> C::Re {
+//         todo!()
+//         // let circ_utry = self.circuit_op.get_unitary(params);
+//         // let mut acc = C::zero();
+//         // zipped!(self.target_conj.as_ref(), circ_utry.as_ref()).for_each(|unzipped!(t, c)| {
+//         //     acc += t.read() * c.read();
+//         // });
+//         // let num = acc.abs();
+//         // C::real(1.0) - (num / self.dem)
+//     }
+// 
+//     // fn get_gradient(
+//     //     &self,
+//     //     params: &[C::Re],
+//     // ) -> Array1<C>
+//     // {
+//     //     let circ_grad = self.circuit_op.get_gradient(params);
+//     //     let prods = self.target_conj.clone() * circ_grad;
+//     //     let traces = prods.sum_axis(Axis(1)).sum_axis(Axis(1));
+//     //     traces.map(|t| -t.abs() / self.dem)
+//     // }
+// 
+//     // fn get_cost_and_gradient(
+//     //     &self,
+//     //     params: &[C::Re],
+//     // ) -> (C, Array1<C>)
+//     // {
+//     //     let (circ_utry, circ_grad) =
+//     // self.circuit_op.get_unitary_and_gradient(params);
+// 
+//     //     let num = (circ_utry * self.target_conj.clone()).sum().abs();
+//     //     let cost = C::real(1.0) - (num / self.dem);
+// 
+//     //     let prods = self.target_conj.clone() * circ_grad;
+//     //     let traces = prods.sum_axis(Axis(1)).sum_axis(Axis(1));
+//     //     let grad = traces.map(|t| -t.abs() / self.dem);
+// 
+//     //     (cost, grad)
+//     // }
+// 
+//     // fn get_hessian(
+//     //     &self,
+//     //     params: &[C::Re],
+//     // ) -> Array2<C>
+//     // {
+//     //     let circ_hess = self.circuit_op.get_hessian(params);
+//     //     let prods = self.target_conj.clone() * circ_hess;
+//     //     let traces = prods.sum_axis(Axis(2)).sum_axis(Axis(2));
+//     //     traces.map(|t| -t.abs() / self.dem)
+//     // }
+// 
+//     // fn get_cost_and_hessian(
+//     //     &self,
+//     //     params: &[C::Re],
+//     // ) -> (C, Array2<C>)
+//     // {
+//     //     let (circ_utry, circ_hess) =
+//     // self.circuit_op.get_unitary_and_hessian(params);
+// 
+//     //     let num = (circ_utry * self.target_conj.clone()).sum().abs();
+//     //     let cost = C::real(1.0) - (num / self.dem);
+// 
+//     //     let prods = self.target_conj.clone() * circ_hess;
+//     //     let traces = prods.sum_axis(Axis(2)).sum_axis(Axis(2));
+//     //     let hess = traces.map(|t| -t.abs() / self.dem);
+// 
+//     //     (cost, hess)
+//     // }
+// 
+//     // fn get_gradient_and_hessian(
+//     //     &self,
+//     //     params: &[C::Re],
+//     // ) -> (Array1<C>, Array2<C>)
+//     // {
+//     //     let (circ_grad, circ_hess) =
+//     // self.circuit_op.get_gradient_and_hessian(params);
+// 
+//     //     let prods = self.target_conj.clone() * circ_grad;
+//     //     let traces = prods.sum_axis(Axis(1)).sum_axis(Axis(1));
+//     //     let grad = traces.map(|t| -t.abs() / self.dem);
+// 
+//     //     let prods = self.target_conj.clone() * circ_hess;
+//     //     let traces = prods.sum_axis(Axis(2)).sum_axis(Axis(2));
+//     //     let hess = traces.map(|t| -t.abs() / self.dem);
+// 
+//     //     (grad, hess)
+//     // }
+// 
+//     // fn get_cost_gradient_and_hessian(
+//     //     &self,
+//     //     params: &[C::Re],
+//     // ) -> (C, Array1<C>, Array2<C>)
+//     // {
+//     //     let (circ_utry, circ_grad, circ_hess) =
+//     //         self.circuit_op.get_unitary_gradient_and_hessian(params);
+// 
+//     //     let num = (circ_utry * self.target_conj.clone()).sum().abs();
+//     //     let cost = C::real(1.0) - (num / self.dem);
+// 
+//     //     let prods = self.target_conj.clone() * circ_grad;
+//     //     let traces = prods.sum_axis(Axis(1)).sum_axis(Axis(1));
+//     //     let grad = traces.map(|t| -t.abs() / self.dem);
+// 
+//     //     let prods = self.target_conj.clone() * circ_hess;
+//     //     let traces = prods.sum_axis(Axis(2)).sum_axis(Axis(2));
+//     //     let hess = traces.map(|t| -t.abs() / self.dem);
+// 
+//     //     (cost, grad, hess)
+//     // }
+// }
+
+// struct HSDGenerator {
+//     target: ArrayView2<c64>,
+// }
+
+// impl CostFnGenerator for HSDGenerator {
+//     fn gen_cost_fn(&self, circuit: &QuditCircuit) -> CostFn {
+//         CostFn {
+//             cost: move |params| {
+//                     hsd(circuit.get_unitary_ref(params).view(), self.target)
+//                 },
+//             grad: None,
+//             cost_and_grad: None,
+//             hess: None,
+//             cost_and_hess: None,
+//             grad_and_hess: None,
+//             cost_grad_and_hess: None,
+//         }
+//     }
+// }
+
+// pub struct CostFn {
+//     cost: fn(&[f64]) -> f64,
+//     grad: Option<fn(&[f64]) -> Array1<f64>>,
+//     cost_and_grad: Option<fn(&[f64]) -> (f64, Array1<f64>)>,
+//     hess: Option<fn(&[f64]) -> Array2<f64>>,
+//     cost_and_hess: Option<fn(&[f64]) -> (f64, Array2<f64>)>,
+//     grad_and_hess: Option<fn(&[f64]) -> (Array1<f64>, Array2<f64>)>,
+//     cost_grad_and_hess: Option<fn(&[f64]) -> (f64, Array1<f64>,
+// Array2<f64>)>, }
+
+// pub trait CostFnGenerator {
+//     fn gen_cost_fn(&self, circuit: &QuditCircuit) -> CostFn;
+// }
+
+// pub trait DifferentiableCostFnGenerator {
+//     fn gen_diff_cost_fn(&self, circuit: &QuditCircuit) ->
+// DifferentiableCostFn; }
+
+// pub trait DoublyDifferentiableCostFnGenerator {
+//     fn gen_doubly_diff_cost_fn(&self, circuit: &QuditCircuit) ->
+// DoublyDifferentiableCostFn; }
+
+// pub struct CostFn {
+//     cost: fn(&[f64]) -> f64,
+// }
+
+// pub struct DifferentiableCostFn {
+//     grad: fn(&[f64]) -> Array1<f64>,
+//     cost_and_grad: fn(&[f64]) -> (f64, Array1<f64>),
+// }
+
+// pub struct DoublyDifferentiableCostFn {
+//     hess: fn(&[f64]) -> Array2<f64>,
+//     cost_and_hess: fn(&[f64]) -> (f64, Array2<f64>),
+//     grad_and_hess: fn(&[f64]) -> (Array1<f64>, Array2<f64>),
+//     cost_grad_and_hess: fn(&[f64]) -> (f64, Array1<f64>, Array2<f64>),
+// }
+
+// struct HSDGenerator {
+//     target: ArrayView2<c64>,
+// }
+
+// impl CostFnGenerator for HSDGenerator {
+//     fn gen_cost_fn(&self, circuit: &CircuitOperator) -> fn(&[f64]) -> f64 {
+//         move |params| {
+//             hsd(circuit.get_unitary_ref(params).view(), self.target)
+
+//         }
+//     }
+// }
+
+// pub enum CostFnType {
+//     Cost(CostFn),
+//     Residual(ResidualFn),
+//     Both(CostOrResidualFn),
+// }
+
+// pub struct CostFn {
+//     cost: fn(&[f64]) -> f64,
+//     cost_and_grad: fn(&[f64], &mut[f64]) -> f64,
+// }
+
+// pub struct ResidualFn {
+//     residual: fn(&[f64]) -> f64,
+//     residual_and_grad: fn(&[f64], &mut[f64], &mut[f64]),
+// }
+
+// pub struct CostOrResidualFn {
+//     residual: fn(&[f64]) -> f64,
+//     residual_and_grad: fn(&[f64], &mut[f64], &mut[f64]),
+// }
+
+// pub trait CostFnGenerator {
+//     fn gen_cost_fn(&self, circuit: &CircuitOperator) -> fn(&[f64]) -> f64;
+
+//     fn gen_grad_fn(&self, circuit: &CircuitOperator) -> fn(&[f64],
+// &mut[f64]);
+
+//     fn gen_cost_and_grad_fn(&self, circuit: &CircuitOperator) -> fn(&[f64],
+// &mut[f64]) -> f64;
+
+//     fn gen_residual_fn(&self, circuit: &CircuitOperator) -> fn(&[f64],
+// &mut[f64]);
+
+//     fn gen_residual_grad_fn(&self, circuit: &CircuitOperator) -> fn(&[f64],
+// &mut[f64]);
+
+//     fn gen_residual_and_grad_fn(&self, circuit: &CircuitOperator) ->
+// fn(&[f64], &mut[f64], &mut[f64]); }

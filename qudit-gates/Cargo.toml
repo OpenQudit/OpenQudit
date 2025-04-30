@@ -1,0 +1,11 @@
+[package]
+name = "qudit-gates"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+qudit-core = { path = "../qudit-core" }
+qudit-expr = { path = "../qudit-expr" }
+num-traits = "*"
+rand = "*"
+cargo-show-asm = "0.2.39"

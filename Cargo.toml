@@ -1,0 +1,18 @@
+[workspace]
+members = [
+    "qudit-core",
+    "qudit-expr",
+    "qudit-gates",
+    "qudit-tree",
+    "qudit-circuit",
+    "qudit-python",
+]
+
+[profile.dev]
+opt-level = 2       # Optimize for speed-ish
+
+[profile.release]
+opt-level = 3       # Optimize for speed
+lto = true          # Link Time Optimization
+codegen-units = 1   # Slower builds, potentially faster runtime
+strip = true        # Strip debug symbols from release binary

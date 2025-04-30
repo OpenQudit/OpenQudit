@@ -1,0 +1,37 @@
+[package]
+name = "qudit-circuit"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "qudit_circuit"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+qudit-core = { path = "../qudit-core" }
+qudit-gates = { path = "../qudit-gates" }
+qudit-expr = { path = "../qudit-expr" }
+qudit-tree = { path = "../qudit-tree" }
+indexmap = "2.6"
+itertools = "0.10"
+num-traits = "0.2"
+num-complex = "0.4"
+faer = "0.21.4"
+aligned-vec = "*"
+bytemuck = "*"
+anyhow = "*"
+
+[dev-dependencies]
+proptest = "1.2"
+criterion = "0.5"
+pprof = { version = "0.3", features = ["flamegraph"] }
+
+[package.metadata.docs.rs]
+rustdoc-args = [
+    "--html-in-header","./.cargo/html/docs-header.html",
+    "--html-before-content","./.cargo/html/docs-before-content.html"
+]
+
+[[bench]]
+name = "circuit_struct"
+harness = false

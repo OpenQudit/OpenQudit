@@ -1,0 +1,4 @@
+- [ ] Constants take many different forms: `NotNan<f64>, Ratio<BigInt>, f64, String` throughout the module. We should minimize the number of types as much as possible and put conversions under a microscope so that precision loss is minimized until codegen. We want to support f8, f16, f32, f64, f128, f256 in the long term.
+- [ ] Simultaneous extraction from egraph for simplification rather than greedy search.
+- [ ] There are a lot of inefficiencies in all the wrong places. The small allocations of the Expression tree are expensive, especially when differeniating. Egg has a compact representation for these types of things in the form of RecExpr. We spend time converting back and forth, maybe we can conflate the two representations so there is no conversion cost and less allocation cost.
+
