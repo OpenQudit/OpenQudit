@@ -4,6 +4,7 @@ use faer_traits::ComplexField;
 use super::cartesian_match;
 use crate::matrix::MatMut;
 use crate::matrix::MatRef;
+use crate::ComplexScalar;
 
 unsafe fn kron_kernel<C: ComplexField>(
     mut dst: MatMut<C>,
@@ -23,6 +24,31 @@ unsafe fn kron_kernel<C: ComplexField>(
                     *(dst
                         .rb_mut()
                         .get_mut_unchecked(lhs_i * rhs_rows + rhs_i, lhs_j * rhs_cols + rhs_j)) =
+                        lhs_val.mul_by_ref(rhs_val);
+                }
+            }
+        }
+    }
+}
+
+unsafe fn kron_kernel_add<C: ComplexScalar>(
+    mut dst: MatMut<C>,
+    lhs: MatRef<C>,
+    rhs: MatRef<C>,
+    lhs_rows: usize,
+    lhs_cols: usize,
+    rhs_rows: usize,
+    rhs_cols: usize,
+) {
+    for lhs_j in 0..lhs_cols {
+        for lhs_i in 0..lhs_rows {
+            let lhs_val = lhs.get_unchecked(lhs_i, lhs_j);
+            for rhs_j in 0..rhs_cols {
+                for rhs_i in 0..rhs_rows {
+                    let rhs_val = rhs.get_unchecked(rhs_i, rhs_j);
+                    *(dst
+                        .rb_mut()
+                        .get_mut_unchecked(lhs_i * rhs_rows + rhs_i, lhs_j * rhs_cols + rhs_j)) +=
                         lhs_val.mul_by_ref(rhs_val);
                 }
             }
@@ -127,7 +153,7 @@ pub unsafe fn kron_sq_unchecked<C: ComplexField>(dst: MatMut<C>, lhs: MatRef<C>,
 /// kron(dst.as_mut(), a.as_ref(), b.as_ref());
 /// assert_eq!(dst, c);
 /// ```
-pub fn kron<C: ComplexField>(dst: MatMut<C>, lhs: MatRef<C>, rhs: MatRef<C>) {
+pub fn kron<C: ComplexField>(lhs: MatRef<C>, rhs: MatRef<C>, dst: MatMut<C>) {
     let mut lhs = lhs;
     let mut rhs = rhs;
     let mut dst = dst;
@@ -146,5 +172,30 @@ pub fn kron<C: ComplexField>(dst: MatMut<C>, lhs: MatRef<C>, rhs: MatRef<C>) {
     } else {
         // Safety: The dimensions have been checked.
         unsafe { kron_unchecked(dst, lhs, rhs) }
+    }
+}
+
+pub fn kron_add<C: ComplexScalar>(lhs: MatRef<C>, rhs: MatRef<C>, dst: MatMut<C>) {
+    let mut lhs = lhs;
+    let mut rhs = rhs;
+    let mut dst = dst;
+    if dst.col_stride().unsigned_abs() < dst.row_stride().unsigned_abs() {
+        dst = dst.transpose_mut();
+        lhs = lhs.transpose();
+        rhs = rhs.transpose();
+    }
+
+    assert!(Some(dst.nrows()) == lhs.nrows().checked_mul(rhs.nrows()));
+    assert!(Some(dst.ncols()) == lhs.ncols().checked_mul(rhs.ncols()));
+    unsafe {
+        kron_kernel_add(
+            dst,
+            lhs,
+            rhs,
+            lhs.nrows(),
+            lhs.ncols(),
+            rhs.nrows(),
+            rhs.ncols(),
+        );
     }
 }

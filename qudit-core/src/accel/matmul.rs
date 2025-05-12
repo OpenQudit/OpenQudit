@@ -9,7 +9,80 @@ use crate::matrix::MatMut;
 use crate::matrix::MatRef;
 use crate::ComplexScalar;
 
+pub struct MatMulPlan<C: ComplexScalar> {
+    plan: Plan<C>,
+}
+
+impl<C: ComplexScalar> MatMulPlan<C> {
+    pub fn new(m: usize, n: usize, k: usize) -> Self {
+        if is_same::<C, c32>() {
+            let plan = Plan::new_colmajor_lhs_and_dst_c32(m, n, k);
+            Self { plan: unsafe { std::mem::transmute(plan) } }
+        } else {
+            let plan = Plan::new_colmajor_lhs_and_dst_c64(m, n, k);
+            Self { plan: unsafe { std::mem::transmute(plan) } }
+        }
+    }
+
+    pub fn execute_unchecked(&self, lhs: MatRef<C>, rhs: MatRef<C>, out: MatMut<C>) {
+        let m = lhs.nrows();
+        let n = rhs.ncols();
+        let k = lhs.ncols();
+
+        let out_col_stride = out.col_stride();
+        unsafe {
+            self.plan.execute_unchecked(
+                m,
+                n,
+                k,
+                out.as_ptr_mut() as _,
+                1,
+                out_col_stride,
+                lhs.as_ptr() as _,
+                1,
+                lhs.col_stride(),
+                rhs.as_ptr() as _,
+                1,
+                rhs.col_stride(),
+                C::zero().into(),
+                C::one().into(),
+                false,
+                false,
+            );
+        }
+    }
+
+    pub fn execute_add_unchecked(&self, lhs: MatRef<C>, rhs: MatRef<C>, out: MatMut<C>) {
+        let m = lhs.nrows();
+        let n = rhs.ncols();
+        let k = lhs.ncols();
+
+        let out_col_stride = out.col_stride();
+        unsafe {
+            self.plan.execute_unchecked(
+                m,
+                n,
+                k,
+                out.as_ptr_mut() as _,
+                1,
+                out_col_stride,
+                lhs.as_ptr() as _,
+                1,
+                lhs.col_stride(),
+                rhs.as_ptr() as _,
+                1,
+                rhs.col_stride(),
+                C::one().into(),
+                C::one().into(),
+                false,
+                false,
+            );
+        }
+    }
+}
+
 /// Matrix-matrix multiplication.
+#[inline(always)]
 pub fn matmul_unchecked<C: ComplexScalar>(lhs: MatRef<C>, rhs: MatRef<C>, out: MatMut<C>) {
     let m = lhs.nrows();
     let n = rhs.ncols();

@@ -11,13 +11,13 @@
 //!
 //! (* Start Symbol *)
 //!
-//! utry  ::= 'utry' identifier radices? '(' varlist ')' '{' expression '}'
-//!
-//! state ::= 'state' identifier radices? '(' varlist ')' '{' row '}'
+//! qobj ::= identifier radices? '(' varlist ')' '{' expression '}'
 //!
 //! radices ::= '<' constlist '>'
 //!
 //! (* Expression Grammar *)
+//!
+//! tensor      ::= '[' matrix (',' matrix)* ','? ']' ;
 //!
 //! matrix      ::= '[' row (',' row)* ','? ']' ;
 //!
@@ -34,7 +34,9 @@
 //! primary     ::= variable
 //!              | constant
 //!              | function_call
+//!              | row
 //!              | matrix
+//!              | tensor
 //!              | '(' expression ')' ;
 //!
 //! variable    ::= identifier ;
@@ -92,24 +94,48 @@ mod expr;
 pub(crate) mod lexer;
 mod parser;
 
+pub use expr::ParsedDefinition;
 pub use expr::{Expression, UnitaryDefinition};
 
-pub fn parse_unitary(input: &str) -> Result<UnitaryDefinition, String> {
+pub fn parse_qobj(input: &str) -> Result<ParsedDefinition, String> {
     let mut parser = parser::Parser::new(input);
-    let udef_result = parser.parse();
+    let qdef_result = parser.parse();
 
-    let udef = match udef_result {
-        Ok(udef) => udef,
+    let qdef = match qdef_result {
+        Ok(qdef) => qdef,
         Err(e) => return Err(e.error),
     };
 
-    if udef.len() != 1 {
+    if qdef.len() != 1 {
         return Err(format!(
-            "Expected exactly one unitary definition, found {}",
-            udef.len()
+            "Expected exactly one qobj definition, found {}",
+            qdef.len()
         ));
     }
-    let udef = udef.into_iter().next().unwrap();
 
-    Ok(udef)
+    let qdef = qdef.into_iter().next().unwrap();
+
+    Ok(qdef)
 }
+
+// pub fn parse_unitary(input: &str) -> Result<UnitaryDefinition, String> {
+//     let mut parser = parser::Parser::new(input);
+//     let udef_result = parser.parse();
+
+//     let udef = match udef_result {
+//         Ok(udef) => udef,
+//         Err(e) => return Err(e.error),
+//     };
+
+//     if udef.len() != 1 {
+//         return Err(format!(
+//             "Expected exactly one unitary definition, found {}",
+//             udef.len()
+//         ));
+//     }
+//     let udef = udef.into_iter().next().unwrap();
+
+//     Ok(udef)
+// }
+
+

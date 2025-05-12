@@ -1,15 +1,10 @@
 [package]
-name = "qudit-python"
+name = "qudit-tensor"
 version = "0.1.0"
 edition = "2021"
-
-[lib]
-name = "openqudit"
-crate-type = ["cdylib"]
 
 [dependencies]
 qudit-core = { path = "../qudit-core" }
 qudit-expr = { path = "../qudit-expr" }
-pyo3 = "0.24.2"
-numpy = "0.24"
-
+bit-set = "*"
+faer = "*"

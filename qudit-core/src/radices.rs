@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::radix::ToRadix;
+use crate::radix::{FromRadix, ToRadix};
 use crate::QuditSystem;
 
 /// The size of the statically allocated inline array of radices.
@@ -757,6 +757,16 @@ impl<T: ToRadix, I: IntoIterator<Item = T>> ToRadices for I {
     #[inline(always)]
     fn to_radices(self) -> QuditRadices {
         QuditRadices::from_iter(self)
+    }
+}
+
+impl<T: FromRadix> From<QuditRadices> for Vec<T> {
+    #[inline(always)]
+    fn from(value: QuditRadices) -> Self {
+        match value {
+            QuditRadices::Array(len, array) => array[0..len as usize].into_iter().map(|r| T::from_radix(*r)).collect(),
+            QuditRadices::Heap(vec) => vec.into_iter().map(|r| T::from_radix(r)).collect(),
+        }
     }
 }
 

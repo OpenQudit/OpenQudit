@@ -13,6 +13,7 @@ num-traits = "0.2.19"
 num = "0.4.3"
 nano-gemm = "0.1.2"
 coe-rs = "0.1.2"
+bit-set = "*"
 
 [dev-dependencies]
 proptest = "1.2"

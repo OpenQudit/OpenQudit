@@ -1,4 +1,4 @@
-use super::expr::{Expression, UnitaryDefinition};
+use super::expr::{Expression, ParsedDefinition, UnitaryDefinition};
 use super::lexer::{Lexer, Token};
 
 #[derive(Debug, Clone, PartialEq)]
@@ -48,7 +48,7 @@ impl Parser {
         Parser { tokens, pos: pos }
     }
 
-    pub fn parse(&mut self) -> ParserResult<Vec<UnitaryDefinition>> {
+    pub fn parse(&mut self) -> ParserResult<Vec<ParsedDefinition>> {
         let mut statements = Vec::new();
 
         while !self.at_end() {
@@ -60,6 +60,10 @@ impl Parser {
 
     fn peek(&self) -> Option<&Token> {
         self.tokens.get(self.pos)
+    }
+
+    fn lookahead(&self, offset: usize) -> Option<&Token> {
+        self.tokens.get(self.pos + offset)
     }
 
     fn advance(&mut self) {
@@ -111,11 +115,11 @@ impl Parser {
         Ok(token)
     }
 
-    fn parse_statement(&mut self) -> ParserResult<UnitaryDefinition> {
+    fn parse_statement(&mut self) -> ParserResult<ParsedDefinition> {
         let token = self.current(false)?;
 
         match token {
-            Token::Utry => self.parse_utry_def(),
+            Token::Ident(_) => self.parse_qobj_def(),
             _ => Err(ParserError::with_index(
                 &format!(
                     "Unexpected token: {:?} during statement parse.",
@@ -126,8 +130,9 @@ impl Parser {
         }
     }
 
-    fn parse_utry_def(&mut self) -> ParserResult<UnitaryDefinition> {
-        self.expect(Token::Utry)?;
+    fn parse_qobj_def(&mut self) -> ParserResult<ParsedDefinition> {
+        // self.advance();
+        // self.expect(Token::Utry)?;
 
         let name = self.parse_identifier()?;
 
@@ -203,7 +208,7 @@ impl Parser {
 
         self.expect(Token::RBrace)?;
 
-        Ok(UnitaryDefinition {
+        Ok(ParsedDefinition {
             name,
             radices,
             variables,
@@ -301,12 +306,7 @@ impl Parser {
                 Ok(Expression::Number(num))
             }
 
-            // Token::Negation => {
-            //     self.advance();
-            //     let expr = self.parse_primary()?;
-            //     Ok(Expr::Negation(Box::new(expr)))
-            // },
-            Token::LBracket => self.parse_matrix(),
+            Token::LBracket => self.parse_array(),
 
             Token::Ident(ident) => {
                 self.advance();
@@ -336,13 +336,52 @@ impl Parser {
         }
     }
 
+    fn parse_array(&mut self) -> ParserResult<Expression> {
+        if self.lookahead(1) != Some(&Token::LBracket) {
+            return self.parse_vector();
+        }
+        if self.lookahead(2) != Some(&Token::LBracket) {
+            return self.parse_matrix();
+        }
+        self.parse_tensor()
+    }
+
+    fn parse_tensor(&mut self) -> ParserResult<Expression> {
+        self.expect(Token::LBracket)?;
+
+        let mut mats = Vec::new();
+
+        while self.current(false)? != Token::RBracket {
+            if let Expression::Matrix(mat) = self.parse_matrix()? {
+                mats.push(mat);
+            } else {
+                return Err(ParserError::with_index(
+                    "Expected a matrix in tensor parse.",
+                    self.pos,
+                ));
+            }
+            self.conditional_advance(Token::Comma);
+        }
+
+        self.expect(Token::RBracket)?;
+
+        Ok(Expression::Tensor(mats))
+    }
+
     fn parse_matrix(&mut self) -> ParserResult<Expression> {
         self.expect(Token::LBracket)?;
 
         let mut rows = Vec::new();
 
         while self.current(false)? != Token::RBracket {
-            rows.push(self.parse_row()?);
+            if let Expression::Vector(row) = self.parse_vector()? {
+                rows.push(row);
+            } else {
+                return Err(ParserError::with_index(
+                    "Expected a vector in matrix parse.",
+                    self.pos,
+                ));
+            }
             self.conditional_advance(Token::Comma);
         }
 
@@ -351,14 +390,14 @@ impl Parser {
         Ok(Expression::Matrix(rows))
     }
 
-    fn parse_row(&mut self) -> ParserResult<Vec<Expression>> {
+    fn parse_vector(&mut self) -> ParserResult<Expression> {
         self.expect(Token::LBracket)?;
 
         let row = self.parse_exprlist(Token::RBracket)?;
 
         self.expect(Token::RBracket)?;
 
-        Ok(row)
+        Ok(Expression::Vector(row))
     }
 
     fn parse_exprlist(&mut self, terminating_token: Token) -> ParserResult<Vec<Expression>> {

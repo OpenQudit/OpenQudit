@@ -1081,6 +1081,30 @@ pub fn simplify_matrix(matrix_expression: &Vec<Vec<ComplexExpression>>) -> Vec<V
     simplified_matrix
 }
 
+pub fn simplify_expressions(expression: Vec<Expression>) -> Vec<Expression> {
+    let mut runner: Runner<TrigLanguage, ConstantFold> = Runner::default();
+
+    let mut num_expressions = 0;
+    for expr in expression {
+        let expr: RecExpr<TrigLanguage> = to_egg_expr(&expr);
+        runner = runner.with_expr(&expr);
+        num_expressions += 1;
+    }
+
+    runner = runner.run(&make_rules());
+    let mut extractor = TrigExprExtractor::new(&runner.egraph);
+
+    let mut simplified_expressions = vec![];
+    
+    for i in 0..num_expressions {
+        let root = runner.roots[i];
+        let best = extractor.extract_best(root);
+        simplified_expressions.push(from_egg_expr(best));
+    }
+
+    simplified_expressions
+}
+
 pub fn simplify_matrix_and_matvec(matrix_expression: &Vec<Vec<ComplexExpression>>, matvec_expression: &Vec<Vec<Vec<ComplexExpression>>>) -> (Vec<Vec<ComplexExpression>>, Vec<Vec<Vec<ComplexExpression>>>) {
     let mut runner: Runner<TrigLanguage, ConstantFold> = Runner::default();
 
@@ -1162,59 +1186,59 @@ use crate::UnitaryExpression;
 #[cfg(test)]
 use extract::BottomUpExtractor;
 
-#[test]
-fn test_simplify_matrix_and_matvec() {
-    let u3 = UnitaryExpression::new(
-        String::from("
-            utry U3(f1, f2, f3) {
-                [
-                    [ cos(f1/2), ~e^(i*f3)*sin(f1/2) ],
-                    [ e^(i*f2)*sin(f1/2), e^(i*(f2+f3))*cos(f1/2) ]
-                ]
-            }
-        "),
-    );
-    let grad = u3.differentiate();
-    let start = std::time::Instant::now();
-    let (simplified_matrix, simplified_matvec) = simplify_matrix_and_matvec(&u3.body, &grad.body);
-    let elapsed = start.elapsed();
-    println!("Time taken: {:?}", elapsed);
-    println!("{:?}", simplified_matrix);
-    println!("{:?}", simplified_matvec);
+// #[test]
+// fn test_simplify_matrix_and_matvec() {
+//     let u3 = UnitaryExpression::new(
+//         String::from("
+//             utry U3(f1, f2, f3) {
+//                 [
+//                     [ cos(f1/2), ~e^(i*f3)*sin(f1/2) ],
+//                     [ e^(i*f2)*sin(f1/2), e^(i*(f2+f3))*cos(f1/2) ]
+//                 ]
+//             }
+//         "),
+//     );
+//     let grad = u3.differentiate();
+//     let start = std::time::Instant::now();
+//     let (simplified_matrix, simplified_matvec) = simplify_matrix_and_matvec(&u3.body, &grad.body);
+//     let elapsed = start.elapsed();
+//     println!("Time taken: {:?}", elapsed);
+//     println!("{:?}", simplified_matrix);
+//     println!("{:?}", simplified_matvec);
 
-    // bottom-up test
-    let matrix_expression = &u3.body;
-    let matvec_expression = &grad.body;
+//     // bottom-up test
+//     let matrix_expression = &u3.body;
+//     let matvec_expression = &grad.body;
 
-    let mut runner: Runner<TrigLanguage, ConstantFold> = Runner::default();
+//     let mut runner: Runner<TrigLanguage, ConstantFold> = Runner::default();
 
-    for row in matrix_expression {
-        for expr in row {
-            let ComplexExpression { real, imag } = expr;
-            let real_expr: RecExpr<TrigLanguage> = to_egg_expr(real);
-            let imag_expr: RecExpr<TrigLanguage> = to_egg_expr(imag);
-            runner = runner.with_expr(&real_expr).with_expr(&imag_expr); 
-        }
-    }
+//     for row in matrix_expression {
+//         for expr in row {
+//             let ComplexExpression { real, imag } = expr;
+//             let real_expr: RecExpr<TrigLanguage> = to_egg_expr(real);
+//             let imag_expr: RecExpr<TrigLanguage> = to_egg_expr(imag);
+//             runner = runner.with_expr(&real_expr).with_expr(&imag_expr); 
+//         }
+//     }
 
-    for mat in matvec_expression {
-        for row in mat {
-            for expr in row {
-                let ComplexExpression { real, imag } = expr;
-                let real_expr: RecExpr<TrigLanguage> = to_egg_expr(real);
-                let imag_expr: RecExpr<TrigLanguage> = to_egg_expr(imag);
-                runner = runner.with_expr(&real_expr).with_expr(&imag_expr); 
-            }
-        }
-    }
+//     for mat in matvec_expression {
+//         for row in mat {
+//             for expr in row {
+//                 let ComplexExpression { real, imag } = expr;
+//                 let real_expr: RecExpr<TrigLanguage> = to_egg_expr(real);
+//                 let imag_expr: RecExpr<TrigLanguage> = to_egg_expr(imag);
+//                 runner = runner.with_expr(&real_expr).with_expr(&imag_expr); 
+//             }
+//         }
+//     }
 
-    runner = runner.run(&make_rules());
-    let extractor = BottomUpExtractor;
-    let start = std::time::Instant::now();
-    let _result = extractor.extract(&runner.egraph, &runner.roots);
-    let elapsed = start.elapsed();
-    println!("Time taken: {:?}", elapsed);
-}
+//     runner = runner.run(&make_rules());
+//     let extractor = BottomUpExtractor;
+//     let start = std::time::Instant::now();
+//     let _result = extractor.extract(&runner.egraph, &runner.roots);
+//     let elapsed = start.elapsed();
+//     println!("Time taken: {:?}", elapsed);
+// }
 
 pub fn check_many_equality(expr1s: &[&Expression], expr2s: &[&Expression]) -> bool {
     let expr1s: Vec<RecExpr<TrigLanguage>> = expr1s.iter().map(|expr| to_egg_expr(expr)).collect();

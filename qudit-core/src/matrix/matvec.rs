@@ -660,6 +660,7 @@ impl<'a, C: Memorable> MatVecMut<'a, C> {
 /// A const reference to a 3-dimensional tensor with a matrix-vector layout.
 ///
 /// See the [MatVec] type for more information.
+#[derive(Clone)]
 pub struct MatVecRef<'a, C: Memorable> {
     data: NonNull<C>,
     nrows: usize,

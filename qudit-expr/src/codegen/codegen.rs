@@ -214,6 +214,28 @@ impl<'ctx, C: ComplexScalar> CodeGenerator<'ctx, C> {
         Ok(())
     }
 
+    fn build_var_table(&mut self, variables: &HashMap<String, usize>) {
+        self.variables.clear();
+
+        for (var, offset) in variables.iter() {
+            let ptr = self.fn_value_opt.unwrap().get_nth_param(0).unwrap().into_pointer_value();
+            let offset_ptr = match offset {
+                0 => ptr,
+                _ => unsafe {
+                    self.builder.build_gep(
+                        self.float_type(),
+                        ptr,
+                        &[self.int_type().const_int(*offset as u64, false)],
+                        "offset_ptr"
+                    ).unwrap()
+                }
+            };
+
+            let val = self.builder.build_load(self.float_type(), offset_ptr, "tmp").unwrap().into_float_value();
+            self.variables.insert(var.to_string(), val);
+        }
+    }
+
     fn build_var_map(&mut self, variables: &[String]) {
         self.variables.clear();
 
@@ -309,6 +331,50 @@ impl<'ctx, C: ComplexScalar> CodeGenerator<'ctx, C> {
                 }
                 self.compile_expr(elem, mat_idx_to_offset_map(i, j), i == j)?;
             }
+        }
+
+        match self.builder.build_return(None) {
+            Ok(_) => Ok(()),
+            Err(e) => Err(CodeGenError::new(&format!("Error building return: {}", e))),
+        }
+    }
+
+    pub fn gen_func(
+        &mut self,
+        fn_name: &str,
+        fn_expr: &[Expression],
+        var_table: &HashMap<String, usize>,
+        expr_idx_to_offset_map: &Box<dyn Fn(usize) -> usize>,
+    ) -> CodeGenResult<()> {
+        self.expressions.clear();
+        let func = self.gen_utry_func_proto(fn_name)?;
+        let entry = self.context.context().append_basic_block(func, "entry");
+        self.builder.position_at_end(entry);
+        self.fn_value_opt = Some(func);
+        self.build_var_table(var_table);
+
+        let output_ptr = self.fn_value_opt.unwrap().get_nth_param(1).unwrap().into_pointer_value();
+
+        for (i, expr) in fn_expr.iter().enumerate() {
+            if expr.is_zero_fast() {
+                continue;
+            }
+
+            let val = self.build_expression(&expr)?;
+            let offset = self.int_type().const_int(expr_idx_to_offset_map(i) as u64, false);
+            let offset_ptr = unsafe {
+                self.builder.build_gep(
+                    self.float_type(),
+                    output_ptr,
+                    &[offset],
+                    "offset_ptr"
+                ).unwrap()
+            };
+
+            match self.builder.build_store(offset_ptr, val) {
+                Ok(_) => {},
+                Err(e) => { return Err(CodeGenError::new(&format!("Error storing value: {}", e))); }
+            };
         }
 
         match self.builder.build_return(None) {

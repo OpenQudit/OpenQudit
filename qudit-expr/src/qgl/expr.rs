@@ -1,3 +1,5 @@
+use crate::TensorGenerationShape;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Binary {
@@ -20,55 +22,126 @@ pub enum Expression {
 
     Variable(String),
 
+    Vector(Vec<Expression>),
     Matrix(Vec<Vec<Expression>>),
+    Tensor(Vec<Vec<Vec<Expression>>>),
 }
 
 impl Expression {
-    pub fn dim(&self) -> usize {
+
+    pub fn gen_shape(&self) -> TensorGenerationShape {
         match self {
+            Expression::Vector(vec) => {
+                TensorGenerationShape::Vector(vec.len())
+            }
             Expression::Matrix(mat) => {
                 let nrows = mat.len();
                 let ncols = mat[0].len();
-
-                assert!(nrows == ncols, "Parsed matrix is not square");
 
                 for row in mat.iter() {
                     assert!(row.len() == ncols, "Matrix has inconsistent row lengths");
                 }
 
-                nrows
+                TensorGenerationShape::Matrix(nrows, ncols)
             }
-            Expression::Binary { op: _op, lhs, rhs } => {
-                let lhs_dim = lhs.dim();
-                let rhs_dim = rhs.dim();
-
-                match (lhs_dim, rhs_dim) {
-                    (0, 0) => 0,
-                    (0, _) => rhs_dim,
-                    (_, 0) => lhs_dim,
-                    _ => {
-                        assert!(
-                            lhs_dim == rhs_dim,
-                            "Binary operands have different dimensions"
-                        );
-                        lhs_dim
+            Expression::Tensor(tensor) => {
+                let nmats = tensor.len();
+                let nrows = tensor[0].len();
+                let ncols = tensor[0][0].len();
+                
+                for mat in tensor.iter() {
+                    assert!(mat.len() == nrows, "Tensor has inconsistent matrix lengths");
+                    for row in mat.iter() {
+                        assert!(row.len() == ncols, "Matrix has inconsistent row lengths");
                     }
                 }
+
+                TensorGenerationShape::Tensor(nmats, nrows, ncols)
             }
-            Expression::Unary { expr, .. } => expr.dim(),
+            Expression::Binary { op: op, lhs, rhs } => {
+                let lhs_shape = lhs.gen_shape();
+                let rhs_shape = rhs.gen_shape();
+
+                todo!()
+                // match (lhs_shape, rhs_shape) {
+                    // (TensorGenerationShape::Vector(_), TensorGenerationShape::Vector(_)) => {
+                    //     TensorGenerationShape::Vector(0)
+                    // }
+                    // (TensorGenerationShape::Matrix(_), TensorGenerationShape::Matrix(_)) => {
+                    //     TensorGenerationShape::Matrix(0, 0)
+                    // }
+                    // (TensorGenerationShape::Tensor(_), TensorGenerationShape::Tensor(_)) => {
+                    //     TensorGenerationShape::Tensor(0, 0, 0)
+                    // }
+                    // _ => panic!("Incompatible shapes for binary operation"),
+                // }
+            }
+            Expression::Unary { op: _op, expr } => {
+                expr.gen_shape()
+            }
             Expression::Call { fn_name: _fn_name, args, .. } => {
                 for arg in args.iter() {
                     assert!(
-                        arg.dim() == args[0].dim(),
-                        "Function arguments have different dimensions"
+                        arg.gen_shape() == args[0].gen_shape(),
+                        "Function arguments have different shapes"
                     );
                 }
-                args[0].dim()
+                args[0].gen_shape()
             }
-            Expression::Number(_) => 0,
-            Expression::Variable(_) => 0,
+            Expression::Number(_) => {
+                TensorGenerationShape::Scalar
+            }
+            Expression::Variable(_) => {
+                TensorGenerationShape::Scalar
+            }
         }
     }
+
+    // pub fn dim(&self) -> usize {
+    //     match self {
+    //         Expression::Matrix(mat) => {
+    //             let nrows = mat.len();
+    //             let ncols = mat[0].len();
+
+    //             assert!(nrows == ncols, "Parsed matrix is not square");
+
+    //             for row in mat.iter() {
+    //                 assert!(row.len() == ncols, "Matrix has inconsistent row lengths");
+    //             }
+
+    //             nrows
+    //         }
+    //         Expression::Binary { op: _op, lhs, rhs } => {
+    //             let lhs_dim = lhs.dim();
+    //             let rhs_dim = rhs.dim();
+
+    //             match (lhs_dim, rhs_dim) {
+    //                 (0, 0) => 0,
+    //                 (0, _) => rhs_dim,
+    //                 (_, 0) => lhs_dim,
+    //                 _ => {
+    //                     assert!(
+    //                         lhs_dim == rhs_dim,
+    //                         "Binary operands have different dimensions"
+    //                     );
+    //                     lhs_dim
+    //                 }
+    //             }
+    //         }
+    //         Expression::Unary { expr, .. } => expr.dim(),
+    //         Expression::Call { fn_name: _fn_name, args, .. } => {
+    //             for arg in args.iter() {
+    //                 assert!(
+    //                     arg.dim() == args[0].dim(),
+    //                     "Function arguments have different dimensions"
+    //                 );
+    //             }
+    //             args[0].dim()
+    //         }
+    //         Expression::Number(_) => 0,
+    //         Expression::Variable(_) => 0,
+    //     }
+    // }
 
     fn matrix_multiply(&self, other: &Expression) -> Self {
         match (self, other) {
@@ -113,17 +186,30 @@ impl Expression {
             Expression::Binary { op, lhs, rhs } => {
                 let lhs = lhs.into_element_wise();
                 let rhs = rhs.into_element_wise();
-                let lhs_dim = lhs.dim();
-                let rhs_dim = rhs.dim();
+                let lhs_shape = lhs.gen_shape();
+                let rhs_shape = rhs.gen_shape();
 
                 // Two scalar operands: already element-wise
-                if lhs_dim == 0 && rhs_dim == 0 {
+                if lhs_shape == TensorGenerationShape::Scalar && rhs_shape == TensorGenerationShape::Scalar {
                     return Expression::Binary {
                         op,
                         lhs: Box::new(lhs),
                         rhs: Box::new(rhs),
                     };
                 }
+
+                // supported ops (+,-,*,/,^)
+                // obj + - obj; obj have same dimension
+                // obj + - scalar;
+                // scalar + - obj;
+                // obj / scalar;
+                // scalar / obj; (broadcast)
+                // matrix ^ scalar; scalar has to be an integer
+                // obj * scalar;
+                // scalar * obj;
+                // matrix * matrix;
+                // matrix * vector;
+                // vector * matrix;
 
                 // Exponentiation of a matrix
                 if op == '^' {
@@ -135,9 +221,9 @@ impl Expression {
                                     panic!("Power operator on matrix requires an integer exponent")
                                 }
                             };
-                            if num <= 0 {
-                                panic!("Matrix power must be a positive integer")
-                            }
+                            // if num <= 0 {
+                            //     panic!("Matrix power must be a positive integer")
+                            // }
                             let mut acm = lhs.clone();
                             for _ in 1..num {
                                 acm = acm.matrix_multiply(&lhs);
@@ -148,11 +234,22 @@ impl Expression {
                     }
 
                 // Scalar op Matrix
-                } else if lhs_dim == 0 {
-                    if op == '/' {
-                        panic!("Division by matrix not supported")
-                    }
+                } else if lhs_shape == TensorGenerationShape::Scalar {
+                    // if op == '/' {
+                    //     panic!("Division by vector, matrix, or tensor not supported")
+                    // }
                     match rhs {
+                        Expression::Vector(vec) => {
+                            let vec = vec
+                                .into_iter()
+                                .map(|elem| Expression::Binary {
+                                    op,
+                                    lhs: Box::new(lhs.clone()),
+                                    rhs: Box::new(elem),
+                                })
+                                .collect();
+                            Expression::Vector(vec)
+                        }
                         Expression::Matrix(mat) => {
                             let mat = mat
                                 .into_iter()
@@ -168,12 +265,42 @@ impl Expression {
                                 .collect();
                             Expression::Matrix(mat)
                         }
+                        Expression::Tensor(tensor) => {
+                            let tensor = tensor
+                                .into_iter()
+                                .map(|mat| {
+                                    mat.into_iter()
+                                        .map(|row| {
+                                            row.into_iter()
+                                                .map(|elem| Expression::Binary {
+                                                    op,
+                                                    lhs: Box::new(lhs.clone()),
+                                                    rhs: Box::new(elem),
+                                                })
+                                                .collect()
+                                        })
+                                        .collect()
+                                })
+                                .collect();
+                            Expression::Tensor(tensor)
+                        }
                         _ => panic!("Unexpected non-matrix expression in element-wise addition"),
                     }
 
                 // Matrix op Scalar
-                } else if rhs_dim == 0 {
+                } else if rhs_shape == TensorGenerationShape::Scalar {
                     match lhs {
+                        Expression::Vector(vec) => {
+                            let vec = vec
+                                .into_iter()
+                                .map(|elem| Expression::Binary {
+                                    op,
+                                    lhs: Box::new(elem),
+                                    rhs: Box::new(rhs.clone()),
+                                })
+                                .collect();
+                            Expression::Vector(vec)
+                        }
                         Expression::Matrix(mat) => {
                             let mat = mat
                                 .into_iter()
@@ -189,17 +316,49 @@ impl Expression {
                                 .collect();
                             Expression::Matrix(mat)
                         }
+                        Expression::Tensor(tensor) => {
+                            let tensor = tensor
+                                .into_iter()
+                                .map(|mat| {
+                                    mat.into_iter()
+                                        .map(|row| {
+                                            row.into_iter()
+                                                .map(|elem| Expression::Binary {
+                                                    op,
+                                                    lhs: Box::new(elem),
+                                                    rhs: Box::new(rhs.clone()),
+                                                })
+                                                .collect()
+                                        })
+                                        .collect()
+                                })
+                                .collect();
+                            Expression::Tensor(tensor)
+                        }
                         _ => panic!("Unexpected non-matrix expression in element-wise addition"),
                     }
 
                 // Matrix op Matrix
                 } else {
                     if op == '/' {
-                        panic!("Division of matrices not supported")
+                        panic!("Division of vectors, matrices, or tensors is not supported")
                     }
 
                     match op {
                         '+' | '-' => match (lhs, rhs) {
+                            // TODO: assert that lhs and rhs have the same shape
+                            (Expression::Vector(lhs), Expression::Vector(rhs)) => {
+                                let vec = lhs
+                                    .into_iter()
+                                    .zip(rhs.into_iter())
+                                    .map(|(lhs_elem, rhs_elem)| Expression::Binary {
+                                        op,
+                                        lhs: Box::new(lhs_elem),
+                                        rhs: Box::new(rhs_elem),
+                                    })
+                                    .collect();
+                                Expression::Vector(vec)
+                            }
                             (Expression::Matrix(lhs), Expression::Matrix(rhs)) => {
                                 let mat = lhs
                                     .into_iter()
@@ -218,12 +377,40 @@ impl Expression {
                                     .collect();
                                 Expression::Matrix(mat)
                             }
+                            (Expression::Tensor(lhs), Expression::Tensor(rhs)) => {
+                                let tensor = lhs
+                                    .into_iter()
+                                    .zip(rhs.into_iter())
+                                    .map(|(lhs_mat, rhs_mat)| {
+                                        lhs_mat
+                                            .into_iter()
+                                            .zip(rhs_mat.into_iter())
+                                            .map(|(lhs_row, rhs_row)| {
+                                                lhs_row
+                                                    .into_iter()
+                                                    .zip(rhs_row.into_iter())
+                                                    .map(|(lhs_elem, rhs_elem)| Expression::Binary {
+                                                        op,
+                                                        lhs: Box::new(lhs_elem),
+                                                        rhs: Box::new(rhs_elem),
+                                                    })
+                                                    .collect()
+                                            })
+                                            .collect()
+                                    })
+                                    .collect();
+                                Expression::Tensor(tensor)
+                            }
                             _ => {
                                 panic!("Unexpected non-matrix expression in element-wise addition")
                             }
                         },
 
-                        '*' => lhs.matrix_multiply(&rhs),
+                        '*' => {
+                            todo!()
+                        // match(lhs, rhs) {
+                        }
+                        // lhs.matrix_multiply(&rhs),
                         _ => panic!("Unsupported binary operator for matrix-matrix operation"),
                     }
                 }
@@ -231,6 +418,16 @@ impl Expression {
             Expression::Unary { op, expr } => {
                 let expr = expr.into_element_wise();
                 match expr {
+                    Expression::Vector(vec) => {
+                        let vec = vec
+                            .into_iter()
+                            .map(|elem| Expression::Unary {
+                                op,
+                                expr: Box::new(elem),
+                            })
+                            .collect();
+                        Expression::Vector(vec)
+                    }
                     Expression::Matrix(mat) => {
                         let mat = mat
                             .into_iter()
@@ -245,14 +442,35 @@ impl Expression {
                             .collect();
                         Expression::Matrix(mat)
                     }
+                    Expression::Tensor(tensor) => {
+                        let tensor = tensor
+                            .into_iter()
+                            .map(|mat| {
+                                mat.into_iter()
+                                    .map(|row| {
+                                        row.into_iter()
+                                            .map(|elem| Expression::Unary {
+                                                op,
+                                                expr: Box::new(elem),
+                                            })
+                                            .collect()
+                                    })
+                                    .collect()
+                            })
+                            .collect();
+                        Expression::Tensor(tensor)
+                    }
                     _ => {
-                        panic!("Unexpected non-matrix expression in unary element-wise conversion")
+                        Expression::Unary {
+                            op,
+                            expr: Box::new(expr),
+                        }
                     }
                 }
             }
             Expression::Call { fn_name, args } => {
                 assert!(
-                    args.iter().all(|arg| arg.dim() == 0),
+                    args.iter().all(|arg| arg.gen_shape() == TensorGenerationShape::Scalar),
                     "Function arguments must be scalars."
                 );
                 let args = args
@@ -263,12 +481,103 @@ impl Expression {
             }
             Expression::Number(num) => Expression::Number(num),
             Expression::Variable(var) => Expression::Variable(var),
-            Expression::Matrix(mat) => {
+            Expression::Vector(vec) => {
+                let element_wise_list: Vec<_> = vec.into_iter().map(|elem| elem.into_element_wise()).collect();
+                let element_shape = element_wise_list[0].gen_shape();
                 assert!(
-                    mat.iter().all(|row| row.iter().all(|elem| elem.dim() == 0)),
-                    "Matrix elements must be scalars."
+                    element_wise_list.iter().all(|elem| elem.gen_shape() == element_shape),
+                    "Vector elements must have same shape."
                 );
-                Expression::Matrix(mat)
+                match element_shape {
+                    TensorGenerationShape::Scalar => {
+                        Expression::Vector(element_wise_list)
+                    }
+                    TensorGenerationShape::Vector(_) => {
+                        let exprs = element_wise_list.into_iter()
+                            .map(|elem| {
+                                if let Expression::Vector(vec) = elem {
+                                    vec
+                                } else {
+                                    panic!("Unexpected shape for vector element-wise conversion")
+                                }
+                            })
+                            .collect::<Vec<Vec<Expression>>>();
+                        Expression::Matrix(exprs)
+                    }
+                    TensorGenerationShape::Matrix(_, _) => {
+                        let exprs = element_wise_list.into_iter()
+                            .map(|elem| {
+                                if let Expression::Matrix(mat) = elem {
+                                    mat
+                                } else {
+                                    panic!("Unexpected shape for vector element-wise conversion")
+                                }
+                            })
+                            .collect::<Vec<Vec<Vec<Expression>>>>();
+                        Expression::Tensor(exprs)
+                    }
+                    _ => panic!("Unexpected shape for vector element-wise conversion"),
+                }
+            }
+            Expression::Matrix(mat) => {
+                let element_wise_list: Vec<Vec<_>> = mat.into_iter()
+                    .map(|row| {
+                        row.into_iter()
+                            .map(|elem| elem.into_element_wise())
+                            .collect::<Vec<_>>()
+                    })
+                    .collect();
+                let element_shape = element_wise_list[0][0].gen_shape();
+                assert!(
+                    element_wise_list.iter().all(|row| {
+                        row.iter().all(|elem| elem.gen_shape() == element_shape)
+                    }),
+                    "Matrix elements must have same shape."
+                );
+                match element_shape {
+                    TensorGenerationShape::Scalar => {
+                        Expression::Matrix(element_wise_list)
+                    }
+                    TensorGenerationShape::Vector(_) => {
+                        let exprs = element_wise_list.into_iter()
+                            .map(|row| {
+                                row.into_iter()
+                                    .map(|elem| {
+                                        if let Expression::Vector(vec) = elem {
+                                            vec
+                                        } else {
+                                            panic!("Unexpected shape for matrix element-wise conversion")
+                                        }
+                                    })
+                                    .collect::<Vec<Vec<Expression>>>()
+                            })
+                            .collect::<Vec<Vec<Vec<Expression>>>>();
+                        Expression::Tensor(exprs)
+                    }
+                    _ => panic!("Unexpected shape for matrix element-wise conversion"),
+                }
+            }
+            Expression::Tensor(tensor) => {
+                let element_wise_list: Vec<Vec<Vec<_>>> = tensor.into_iter()
+                    .map(|mat| {
+                        mat.into_iter()
+                            .map(|row| {
+                                row.into_iter()
+                                    .map(|elem| elem.into_element_wise())
+                                    .collect::<Vec<_>>()
+                            })
+                            .collect::<Vec<Vec<_>>>()
+                    })
+                    .collect();
+                assert!(
+                    element_wise_list.iter().all(|mat| {
+                        mat.iter().all(|row| {
+                            row.iter().all(|elem| elem.gen_shape() == TensorGenerationShape::Scalar)
+                        })
+                    }),
+                    "Tensor elements must all be scalar."
+                );
+                Expression::Tensor(element_wise_list)
             }
         }
     }
@@ -283,27 +592,131 @@ pub struct UnitaryDefinition {
     pub body: Expression,
 }
 
-impl UnitaryDefinition {
+// impl UnitaryDefinition {
+    // pub fn get_radices(&self) -> Vec<usize> {
+    //     match &self.radices {
+    //         Some(radices) => radices.clone(),
+    //         None => {
+    //             let mut d = self.dim();
+    //             let power_of_2 = d & (d - 1) == 0 && d != 0;
+    //             if !power_of_2 {
+    //                 panic!("Dimension must be a power of 2");
+    //             }
+    //             let mut radices = Vec::new();
+    //             while d > 1 {
+    //                 radices.push(2);
+    //                 d >>= 1;
+    //             }
+    //             radices
+    //         }
+    //     }
+    // }
+
+    // pub fn dim(&self) -> usize {
+    //     self.body.dim()
+    // }
+// }
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct ParsedDefinition {
+    pub name: String,
+    pub radices: Option<Vec<usize>>,
+    pub variables: Vec<String>,
+    pub body: Expression,
+}
+
+fn get_power_of_two(d: usize) -> Option<usize> {
+    if d == 0 {
+        return None;
+    }
+    if d & (d - 1) != 0 {
+        return None;
+    }
+    let mut power = 1;
+    while d != power {
+        power <<= 1;
+    }
+    Some(power)
+}
+
+impl ParsedDefinition {
     pub fn get_radices(&self) -> Vec<usize> {
         match &self.radices {
             Some(radices) => radices.clone(),
             None => {
-                let mut d = self.dim();
-                let power_of_2 = d & (d - 1) == 0 && d != 0;
-                if !power_of_2 {
-                    panic!("Dimension must be a power of 2");
+                let shape = self.body.gen_shape();
+                match shape {
+                    TensorGenerationShape::Scalar => vec![],
+                    TensorGenerationShape::Vector(d) => {
+                        match get_power_of_two(d) {
+                            Some(n) => vec![2; n],
+                            None => vec![d],
+                        }
+                    },
+                    TensorGenerationShape::Matrix(nrows, ncols) => {
+                        if nrows == ncols {
+                            match get_power_of_two(nrows) {
+                                Some(n) => vec![2; n * 2],
+                                None => vec![nrows, ncols],
+                            }
+                        } else {
+                            match (get_power_of_two(nrows), get_power_of_two(ncols)) {
+                                (Some(n), Some(m)) => vec![2; n * m],
+                                (Some(n), None) => vec![2; n].into_iter().chain(vec![ncols].into_iter()).collect(),
+                                (None, Some(m)) => vec![nrows].into_iter().chain(vec![2; m].into_iter()).collect(),
+                                (None, None) => vec![nrows, ncols],
+                            }
+                        }
+                    },
+                    TensorGenerationShape::Tensor(nmats, nrows, ncols) => {
+                        if nrows == ncols {
+                            match get_power_of_two(nrows) {
+                                Some(n) => vec![2; n * 2].into_iter().chain(vec![nmats].into_iter()).collect(),
+                                None => vec![nrows, ncols, nmats],
+                            }
+                        } else {
+                            match (get_power_of_two(nrows), get_power_of_two(ncols)) {
+                                (Some(n), Some(m)) => vec![2; n * m].into_iter().chain(vec![nmats].into_iter()).collect(),
+                                (Some(n), None) => vec![2; n].into_iter().chain(vec![ncols, nmats].into_iter()).collect(),
+                                (None, Some(m)) => vec![nrows].into_iter().chain(vec![2; m].into_iter()).chain(vec![nmats].into_iter()).collect(),
+                                (None, None) => vec![nrows, ncols, nmats],
+                            }
+                        }
+                    },
                 }
-                let mut radices = Vec::new();
-                while d > 1 {
-                    radices.push(2);
-                    d >>= 1;
-                }
-                radices
             }
         }
     }
+}
 
-    pub fn dim(&self) -> usize {
-        self.body.dim()
-    }
+enum ElementExpression {
+    Number(String),
+    Variable(String),
+    Binary {
+        op: char,
+        lhs: Box<ElementExpression>,
+        rhs: Box<ElementExpression>,
+    },
+    Unary {
+        op: char,
+        expr: Box<ElementExpression>,
+    },
+    Call {
+        fn_name: String,
+        args: Vec<ElementExpression>,
+    },
+}
+
+pub struct ElementWiseDefinition {
+    pub name: String,
+    pub dimensions: Vec<usize>,
+    pub variables: Vec<String>,
+    pub body: Vec<ElementExpression>,
+    pub shape: TensorGenerationShape,
+}
+
+impl ElementWiseDefinition {
+    // pub fn new(pdef: ParsedDefinition) -> Self {
+    //     let mut body = Vec::new();
+    // }
 }

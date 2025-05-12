@@ -17,12 +17,201 @@ use qudit_core::RealScalar;
 use qudit_core::ToRadices;
 use faer::reborrow::ReborrowMut;
 
+use crate::analysis::simplify_expressions;
 use crate::analysis::simplify_matrix;
 use crate::complex::ComplexExpression;
 use crate::expression::Expression;
-use crate::qgl::parse_unitary;
+use crate::qgl::parse_qobj;
+// use crate::qgl::parse_unitary;
 use crate::qgl::Expression as CiscExpression;
+use crate::DifferentiationLevel;
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TensorGenerationShape {
+    Scalar,
+    Vector(usize),
+    Matrix(usize, usize),
+    Tensor(usize, usize, usize),
+}
+
+impl TensorGenerationShape {
+    pub fn num_elements(&self) -> usize {
+        match self {
+            TensorGenerationShape::Scalar => 1,
+            TensorGenerationShape::Vector(n) => *n,
+            TensorGenerationShape::Matrix(m, n) => m * n,
+            TensorGenerationShape::Tensor(m, n, p) => m * n * p,
+        }
+    }
+
+    pub fn derivative_shape(&self, num_params: usize) -> Self {
+        match self {
+            TensorGenerationShape::Scalar => TensorGenerationShape::Vector(num_params),
+            TensorGenerationShape::Vector(n) => TensorGenerationShape::Matrix(*n, num_params),
+            TensorGenerationShape::Matrix(m, n) => TensorGenerationShape::Tensor(num_params, *m, *n),
+            TensorGenerationShape::Tensor(m, n, p) => TensorGenerationShape::Tensor(*m * num_params, *n, *p),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TensorExpression {
+    pub name: String,
+    pub shape: TensorGenerationShape,
+    pub variables: Vec<String>,
+    pub body: Vec<ComplexExpression>,
+    pub dimensions: QuditRadices,
+}
+
+pub struct DerivedExpression {
+    pub name: String,
+    pub shape: TensorGenerationShape,
+    pub variables: Vec<String>,
+    pub body: Vec<Expression>,
+    pub dimensions: QuditRadices,
+    pub flattened_gradient: Vec<Expression>,
+    pub flattened_hessian: Vec<Expression>,
+}
+
+impl DerivedExpression {
+    pub fn new(expr: TensorExpression, diff_lvl: DifferentiationLevel) -> Self {
+        let TensorExpression { name, shape, variables, body, dimensions } = expr;
+        let exprs: Vec<Expression> = body.into_iter().map(|c| vec![c.real, c.imag]).flatten().collect();
+
+        let mut grad_exprs = vec![];
+        if diff_lvl.gradient_capable() {
+            for variable in &variables {
+                for expr in &exprs {
+                    let grad_expr = expr.differentiate(&variable);
+                    grad_exprs.push(grad_expr);
+                }
+            }
+        }
+
+        let mut hess_exprs = vec![];
+        if diff_lvl.hessian_capable() {
+            for variable1 in &variables {
+                for variable2 in &variables {
+                    // todo: symsq
+                    for expr in &exprs {
+                        let hess_expr = expr.differentiate(&variable1).differentiate(&variable2);
+                        hess_exprs.push(hess_expr);
+                    }
+                }
+            }
+        }
+
+        let expr_len = exprs.len();
+        let grad_len = grad_exprs.len();
+
+        let simplified_exprs = simplify_expressions(
+            exprs.into_iter()
+                .chain(grad_exprs.into_iter())
+                .chain(hess_exprs.into_iter())
+                .collect()
+        );
+
+        let exprs = simplified_exprs[0..expr_len].to_vec();
+        let grad_exprs = simplified_exprs[expr_len..expr_len + grad_len].to_vec();
+        let hess_exprs = simplified_exprs[expr_len + grad_len..].to_vec();
+
+        DerivedExpression {
+            name,
+            shape,
+            variables,
+            body: exprs,
+            dimensions,
+            flattened_gradient: grad_exprs,
+            flattened_hessian: hess_exprs,
+        }
+    }
+}
+
+impl TensorExpression {
+    pub fn new<T: AsRef<str>>(input: T) -> Self {
+        let qdef = match parse_qobj(input.as_ref()) {
+            Ok(qdef) => qdef,
+            Err(e) => panic!("Parsing Error: {}", e),
+        };
+
+        let radices = QuditRadices::new(&qdef.get_radices());
+        let name = qdef.name;
+        let variables = qdef.variables;
+        let element_wise = qdef.body.into_element_wise();
+        let shape = element_wise.gen_shape();
+        let body: Vec<ComplexExpression> = match element_wise {
+            CiscExpression::Vector(vec) => vec.into_iter().map(|expr| ComplexExpression::new(expr)).collect(),
+            CiscExpression::Matrix(mat) => mat
+                .into_iter()
+                .flat_map(|row| {
+                    row.into_iter()
+                        .map(|expr| ComplexExpression::new(expr))
+                        .collect::<Vec<_>>()
+                })
+                .collect(),
+            CiscExpression::Tensor(tensor) => tensor
+                .into_iter()
+                .flat_map(|row| {
+                    row.into_iter()
+                        .flat_map(|col| {
+                            col.into_iter()
+                                .map(|expr| ComplexExpression::new(expr))
+                                .collect::<Vec<_>>()
+                        })
+                        .collect::<Vec<_>>()
+                })
+                .collect(),
+            _ => panic!("Tensor body must be a vector"),
+        };
+
+        TensorExpression {
+            name,
+            shape: shape,
+            dimensions: radices,
+            variables,
+            body,
+        }
+    }
+    
+    pub fn num_params(&self) -> usize {
+        self.variables.len()
+    }
+    
+    pub fn dimensions(&self) -> QuditRadices {
+        self.dimensions.clone()
+    }
+
+    pub fn generation_shape(&self) -> TensorGenerationShape {
+        self.shape.clone()
+    }
+    
+    pub fn name(&self) -> &str {
+        self.name.as_str()
+    }
+}
+
+#[test]
+fn test_tensor_gen() {
+    let expr = TensorExpression::new("ZZParity() {
+        [
+            [
+                [ 1, 0, 0, 0 ], 
+                [ 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0 ],
+                [ 0, 0, 0, 1 ],
+            ],
+            [
+                [ 0, 0, 0, 0 ], 
+                [ 0, 1, 0, 0 ],
+                [ 0, 0, 1, 0 ],
+                [ 0, 0, 0, 0 ],
+            ],
+        ]
+    }");
+    for elem in expr.body.iter() {
+        println!("{:?}", elem);
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UnitaryExpression {
@@ -32,41 +221,48 @@ pub struct UnitaryExpression {
     pub body: Vec<Vec<ComplexExpression>>,
 }
 
+// #[test]
+// fn test_state_expression() {
+//     let expr = VectorExpression::new("
+//         |0> + 1.0i * |1> + 2.0 * |2> + 3.0i * |3>
+//     ");
+// }
+
 impl UnitaryExpression {
-    pub fn new<T: AsRef<str>>(input: T) -> Self {
-        let udef = match parse_unitary(input.as_ref()) {
-            Ok(udef) => udef,
-            Err(e) => panic!("Parsing Error: {}", e),
-        };
+    // pub fn new<T: AsRef<str>>(input: T) -> Self {
+    //     let udef = match parse_unitary(input.as_ref()) {
+    //         Ok(udef) => udef,
+    //         Err(e) => panic!("Parsing Error: {}", e),
+    //     };
 
-        let radices = QuditRadices::new(&udef.get_radices());
-        let name = udef.name;
-        let variables = udef.variables;
-        let body = match udef.body.into_element_wise() {
-            CiscExpression::Matrix(mat) => mat
-                .into_iter()
-                .map(|row| {
-                    row.into_iter()
-                        .map(|expr| ComplexExpression::new(expr))
-                        .collect()
-                })
-                // .map(|row: Vec<ComplexExpression>| {
-                //     row.into_iter()
-                //         .map(|expr| simplify_complex(expr))
-                //         .collect()
-                // })
-                .collect(),
-            _ => panic!("Unitary body must be a matrix"),
-        };
-        // let body = simplify_matrix_no_context(&body);
+    //     let radices = QuditRadices::new(&udef.get_radices());
+    //     let name = udef.name;
+    //     let variables = udef.variables;
+    //     let body = match udef.body.into_element_wise() {
+    //         CiscExpression::Matrix(mat) => mat
+    //             .into_iter()
+    //             .map(|row| {
+    //                 row.into_iter()
+    //                     .map(|expr| ComplexExpression::new(expr))
+    //                     .collect()
+    //             })
+    //             // .map(|row: Vec<ComplexExpression>| {
+    //             //     row.into_iter()
+    //             //         .map(|expr| simplify_complex(expr))
+    //             //         .collect()
+    //             // })
+    //             .collect(),
+    //         _ => panic!("Unitary body must be a matrix"),
+    //     };
+    //     // let body = simplify_matrix_no_context(&body);
 
-        UnitaryExpression {
-            name,
-            radices,
-            variables,
-            body,
-        }
-    }
+    //     UnitaryExpression {
+    //         name,
+    //         radices,
+    //         variables,
+    //         body,
+    //     }
+    // }
 
     pub fn identity<S: AsRef<str>, T: ToRadices>(name: S, radices: T) -> Self {
         let radices = radices.to_radices();

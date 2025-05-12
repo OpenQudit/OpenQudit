@@ -28,7 +28,7 @@ impl KronStruct {
         right: MatRef<C>,
         out: MatMut<C>,
     ) {
-        matrix_kron(out, left, right);
+        matrix_kron(left, right, out);
     }
 
     #[inline(always)]
@@ -87,7 +87,7 @@ impl KronStruct {
                     left_hess.nmats() + right_hess_row,
                     left_hess.nmats() + right_hess_col,
                 );
-                matrix_kron(hess_ref, left_utry, right_hess_ref);
+                matrix_kron(left_utry, right_hess_ref, hess_ref);
             }
         }
 
@@ -100,7 +100,7 @@ impl KronStruct {
                     left_grad_row,
                     left_hess.nmats() + right_grad_col,
                 );
-                matrix_kron(hess_ref, left_grad_ref, right_grad_ref);
+                matrix_kron(left_grad_ref, right_grad_ref, hess_ref);
             }
         }
     }

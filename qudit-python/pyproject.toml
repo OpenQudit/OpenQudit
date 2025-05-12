@@ -1,14 +1,17 @@
 [build-system]
-requires = ["setuptools", "setuptools-rust", "setuptools-scm>=8"]
-build-backend = "setuptools.build_meta"
+requires = ["maturin>=1.8,<2.0"]
+build-backend = "maturin"
 
 [project]
 name = "openqudit"
-version = "0.1.1"
+# version = "0.1.1"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Rust",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+dynamic = ["version"]
 
-[tool.setuptools]
-packages = ["qudit"]
-
-[[tool.setuptools-rust.ext-modules]]
-target = "qudit.openqudit" 
-
+[tool.maturin]
+features = ["pyo3/extension-module"]

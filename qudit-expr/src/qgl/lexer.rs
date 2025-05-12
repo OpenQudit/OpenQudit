@@ -21,6 +21,7 @@ pub enum Token {
     RParen,
     State,
     Utry,
+    Qobj,
 }
 
 pub(self) fn is_greek_letter(c: char) -> bool {
@@ -189,6 +190,7 @@ impl<'a> Lexer<'a> {
 
                 match &src[start..pos] {
                     "utry" => Ok(Token::Utry),
+                    "qobj" => Ok(Token::Qobj),
                     "state" => Ok(Token::State),
                     ident => Ok(Token::Ident(ident.to_string())),
                 }

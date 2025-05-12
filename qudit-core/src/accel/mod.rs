@@ -25,6 +25,7 @@ mod kron;
 pub use kron::kron;
 pub use kron::kron_sq_unchecked;
 pub use kron::kron_unchecked;
+pub use kron::kron_add;
 
 mod frpr;
 pub use frpr::fused_reshape_permute_reshape_into;
@@ -33,4 +34,5 @@ pub use frpr::fused_reshape_permute_reshape_into_prepare;
 
 mod matmul;
 pub use matmul::matmul_unchecked;
+pub use matmul::MatMulPlan;
 // pub use matmul::matmul;

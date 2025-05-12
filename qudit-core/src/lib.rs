@@ -18,6 +18,7 @@ pub use bitwidth::BitWidthConvertible;
 pub use function::HasBounds;
 pub use function::HasParams;
 pub use function::HasPeriods;
+pub use function::ParamIndices;
 pub use perm::calc_index_permutation;
 pub use perm::QuditPermutation;
 pub use radices::QuditRadices;

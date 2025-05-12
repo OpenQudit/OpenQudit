@@ -692,6 +692,7 @@ impl<'a, C: Memorable> SymSqMatMatMut<'a, C> {
 /// A const reference to a 4-dimensional symmetrical square tensor.
 ///
 /// See the [SymSqMatMat] type for more information.
+#[derive(Clone)]
 pub struct SymSqMatMatRef<'a, C: Memorable> {
     data: NonNull<C>,
     nrows: usize,
