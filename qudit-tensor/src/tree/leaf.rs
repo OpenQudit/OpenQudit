@@ -9,17 +9,13 @@ use super::tree::ExpressionTree;
 pub struct LeafNode {
     pub expr: TensorExpression,
     pub param_indices: ParamIndices,
-    pub gen_shape: TensorGenerationShape,
 }
 
 impl LeafNode {
     pub fn new(expr: TensorExpression, param_indices: ParamIndices) -> LeafNode {
-        let gen_shape = expr.generation_shape();
-
         LeafNode {
             expr,
             param_indices,
-            gen_shape,
         }
     }
 
@@ -28,11 +24,15 @@ impl LeafNode {
     }
 
     pub fn generation_shape(&self) -> TensorGenerationShape {
-        self.gen_shape.clone()
+        self.expr.generation_shape()
     }
 
     pub fn set_generation_shape(&mut self, gen_shape: TensorGenerationShape) {
-        self.gen_shape = gen_shape;
+        self.expr.reshape(gen_shape);
+    }
+
+    pub fn permute(&mut self, perm: &[usize]) {
+        self.expr.permute(perm);
     }
 
     pub fn param_indices(&self) -> ParamIndices {

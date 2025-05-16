@@ -5,63 +5,8 @@ use crate::tree::ExpressionTree;
 type SubNetwork = u64;
 type Cost = usize;
 
-#[derive(Debug, Clone)]
-struct ContractionPath {
-    cost: usize,
-    open_indices: BTreeSet<usize>,
-    path: Vec<usize>,
-    subnetwork: SubNetwork,
-    param_indices: BitSet,
-}
-
-
-impl ContractionPath {
-    fn calculate_cost(T_a: &Self, T_b: &Self) -> usize {
-        let total_indices = T_a.open_indices
-            .union(&T_b.open_indices)
-            .copied()
-            .collect::<Vec<_>>();
-        T_a.cost + T_b.cost + usize::pow(2, total_indices.len() as u32)
-    }
-
-    fn contract(&self, other: &Self) -> Self {
-        let subnetwork = self.subnetwork | other.subnetwork;
-        let open_indices = self.open_indices
-            .symmetric_difference(&other.open_indices)
-            .copied()
-            .collect();
-        let cost = Self::calculate_cost(self, other);
-        let path = self.path
-            .iter()
-            .chain(other.path.iter())
-            .copied()
-            .chain(std::iter::once(usize::MAX))
-            .collect();
-        let mut param_indices = self.param_indices.clone();
-        param_indices.union_with(&other.param_indices);
-        ContractionPath {
-            cost,
-            open_indices,
-            path,
-            subnetwork,
-            param_indices,
-        }
-    }
-
-    fn trivial(idx: usize, indices: &[usize], param_indices: BitSet) -> Self {
-        let open_indices = indices.iter().copied().collect();
-        let path = vec![idx];
-        let cost = 0;
-        let subnetwork = 1 << idx;
-        ContractionPath {
-            cost,
-            open_indices,
-            path,
-            subnetwork,
-            param_indices,
-        }
-    }
-}
+mod path;
+use path::ContractionPath;
 
 #[derive(Debug, Clone)]
 enum Wire {
@@ -75,10 +20,13 @@ type TensorId = usize;
 type IndexId = usize;
 type IndexSize = usize;
 
+/// IndexDirection represents a tensor's leg direction from the quantum circuit perspective
+///
+/// Left corresponds to inputs, right to outputs, and up as parallel dimensions
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum IndexDirection {
-    Left,
-    Right,
+    Input,
+    Output,
     Up,
 }
 
@@ -109,41 +57,62 @@ struct QuditTensor {
 impl QuditTensor {
     fn new(
         expression: TensorExpression,
-        left_indices: Vec<usize>,
-        right_indices: Vec<usize>,
-        up_indices: Vec<usize>,
+        // left_indices: Vec<usize>,
+        // right_indices: Vec<usize>,
+        // up_indices: Vec<usize>,
         param_indices: ParamIndices,
     ) -> Self {
+        let gen_shape = expression.generation_shape();
+        let (right_indices_total, left_indices_total, up_indices_total) = match gen_shape {
+            qudit_expr::TensorGenerationShape::Scalar => (0, 0, 0),
+            qudit_expr::TensorGenerationShape::Vector(a) => (a, 0, 0),
+            qudit_expr::TensorGenerationShape::Matrix(a, b) => (a, b, 0),
+            qudit_expr::TensorGenerationShape::Tensor(a, b, c) => (b, c, a),
+        };
+        println!("right_indices_total: {}, left_indices_total: {}, up_indices_total: {}", right_indices_total, left_indices_total, up_indices_total);
+
         let mut indices = Vec::new();
         let mut id_counter = 0;
-        for size in right_indices {
-            indices.push(
-                LocalTensorIndex {
-                    direction: IndexDirection::Right,
-                    index_id: id_counter,
-                    index_size: size,
-                }
-            );
-            id_counter += 1;
-        }
-        for size in left_indices {
-            indices.push(
-                LocalTensorIndex {
-                    direction: IndexDirection::Left,
-                    index_id: id_counter,
-                    index_size: size,
-                }
-            );
-            id_counter += 1;
-        }
-        for size in up_indices {
+        let dims = expression.dimensions();
+        let mut up_indices_total_factor = 1;
+
+        while up_indices_total_factor < up_indices_total {
             indices.push(
                 LocalTensorIndex {
                     direction: IndexDirection::Up,
                     index_id: id_counter,
-                    index_size: size,
+                    index_size: dims[id_counter] as usize,
                 }
             );
+            up_indices_total_factor *= dims[id_counter] as usize;
+            id_counter += 1;
+        }
+
+        let mut right_indices_total_factor = 1;
+
+        while right_indices_total_factor < right_indices_total {
+            indices.push(
+                LocalTensorIndex {
+                    direction: IndexDirection::Output,
+                    index_id: id_counter,
+                    index_size: dims[id_counter] as usize,
+                }
+            );
+            right_indices_total_factor *= dims[id_counter] as usize;
+            id_counter += 1;
+        }
+
+        let mut left_indices_total_factor = 1;
+
+        while left_indices_total_factor < left_indices_total {
+            indices.push(
+                LocalTensorIndex {
+                    direction: IndexDirection::Input,
+                    index_id: id_counter,
+                    index_size: dims[id_counter] as usize,
+                }
+            );
+            left_indices_total_factor *= dims[id_counter] as usize;
             id_counter += 1;
         }
         QuditTensor {
@@ -166,37 +135,37 @@ impl QuditTensor {
         indices
     }
 
-    fn right_indices(&self) -> Vec<usize> {
+    fn output_indices(&self) -> Vec<usize> {
         self.indices.iter()
             .filter_map(|index| match index.direction {
-                IndexDirection::Right => Some(index.index_id),
+                IndexDirection::Output => Some(index.index_id),
                 _ => None,
             })
             .collect()
     }
 
-    fn right_radices(&self) -> QuditRadices {
+    fn output_radices(&self) -> QuditRadices {
         self.indices.iter()
             .filter_map(|index| match index.direction {
-                IndexDirection::Right => Some(index.index_size as u8),
+                IndexDirection::Output => Some(index.index_size as u8),
                 _ => None,
             })
             .collect()
     }
 
-    fn left_indices(&self) -> Vec<usize> {
+    fn input_indices(&self) -> Vec<usize> {
         self.indices.iter()
             .filter_map(|index| match index.direction {
-                IndexDirection::Left => Some(index.index_id),
+                IndexDirection::Input => Some(index.index_id),
                 _ => None,
             })
             .collect()
     }
 
-    fn left_radices(&self) -> QuditRadices {
+    fn input_radices(&self) -> QuditRadices {
         self.indices.iter()
             .filter_map(|index| match index.direction {
-                IndexDirection::Left => Some(index.index_size as u8),
+                IndexDirection::Input => Some(index.index_size as u8),
                 _ => None,
             })
             .collect()
@@ -260,7 +229,7 @@ struct QuditCircuitNetwork {
     radices: QuditRadices,
     left: Vec<Wire>,
     right: Vec<Wire>,
-    // up: ?
+    up_indices: Vec<IndexSize>,
     intermediate: Vec<QuditContraction>,
 }
 
@@ -271,6 +240,7 @@ impl QuditCircuitNetwork {
             unused: BTreeSet::new(),
             left: vec![Wire::Empty; radices.len()],
             right: vec![Wire::Empty; radices.len()],
+            up_indices: vec![],
             radices,
             intermediate: vec![],
         }
@@ -290,8 +260,8 @@ impl QuditCircuitNetwork {
     ///    the circuit qudit ids, such that `left_qudit_map[i] == qudit_id` means that the
     ///    `tensor.left_indices[i]` will now be the leftmost leg on `qudit_id`.
     fn prepend(&mut self, tensor: QuditTensor, left_qudit_map: Vec<usize>, right_qudit_map: Vec<usize>) {
-        let left_tensor_indices = tensor.left_indices();
-        let right_tensor_indices = tensor.right_indices();
+        let left_tensor_indices = tensor.output_indices();
+        let right_tensor_indices = tensor.input_indices();
 
         if left_tensor_indices.len() != left_qudit_map.len() {
             panic!("Left tensor indices and left qudit map lengths do not match");
@@ -303,7 +273,7 @@ impl QuditCircuitNetwork {
             if *qudit_id >= self.radices.len() {
                 panic!("Left qudit id {} is out of bounds", qudit_id);
             }
-            if self.radices[*qudit_id] != tensor.left_radices()[i] {
+            if self.radices[*qudit_id] != tensor.input_radices()[i] {
                 panic!("Left qudit id {} has different radices", qudit_id);
             }
         }
@@ -311,8 +281,7 @@ impl QuditCircuitNetwork {
             if *qudit_id >= self.radices.len() {
                 panic!("Right qudit id {} is out of bounds", qudit_id);
             }
-            if self.radices[*qudit_id] != tensor.right_radices()[i] { // TODO: do I need
-                // radices? isn't the size of the index the radix?
+            if self.radices[*qudit_id] != tensor.output_radices()[i] {
                 panic!("Right qudit id {} has different radices", qudit_id);
             }
         }
@@ -386,16 +355,25 @@ impl QuditCircuitNetwork {
         for (i, qudit_id) in left_qudit_map.iter().enumerate() {
             self.tensors[tensor_id].local_to_global_index_map.insert(
                 left_tensor_indices[i],
-                NetworkIndex::Open(*qudit_id, IndexDirection::Left),
+                NetworkIndex::Open(*qudit_id, IndexDirection::Output),
             );
         }
 
         for (i, qudit_id) in right_qudit_map.iter().enumerate() {
             self.tensors[tensor_id].local_to_global_index_map.insert(
                 right_tensor_indices[i],
-                NetworkIndex::Open(*qudit_id, IndexDirection::Right),
+                NetworkIndex::Open(*qudit_id, IndexDirection::Input),
             );
         }
+        for (idx_id, dim) in self.tensors[tensor_id].up_indices().iter().zip(self.tensors[tensor_id].up_radices().iter()) {
+            self.tensors[tensor_id].local_to_global_index_map.insert(
+                *idx_id,
+                NetworkIndex::Open(self.up_indices.len(), IndexDirection::Up)
+            );
+            self.up_indices.push(*dim as usize);
+        }
+
+        println!("local_to_global_index_map for tensor {}: {:?}", tensor_id, self.tensors[tensor_id].local_to_global_index_map);
 
         for (_, contraction) in contracting_nodes.drain() {
             let global_index_id = self.intermediate.len();
@@ -404,11 +382,13 @@ impl QuditCircuitNetwork {
             for i in &contraction.left_indices {
                 self.tensors[contraction.left_id].local_to_global_index_map.insert(*i, NetworkIndex::Shared(global_index_id));
             }
+            println!("local_to_global_index_map for tensor {}: {:?}", contraction.left_id, self.tensors[contraction.left_id].local_to_global_index_map);
 
             // update the right tensor
             for i in &contraction.right_indices {
                 self.tensors[contraction.right_id].local_to_global_index_map.insert(*i, NetworkIndex::Shared(global_index_id));
             }
+            println!("local_to_global_index_map for tensor {}: {:?}", contraction.right_id, self.tensors[contraction.right_id].local_to_global_index_map);
 
             // add contraction to the list of intermediate contractions
             self.intermediate.push(contraction);
@@ -569,27 +549,50 @@ impl QuditCircuitNetwork {
         let partial_tree = tree_stack.pop().unwrap();
         let open_indices = partial_tree.open_indices;
         let tree = partial_tree.tree;
+
+        if open_indices.len() == 0 {
+            return tree.reshape(qudit_expr::TensorGenerationShape::Scalar);
+        }
+
         for i in open_indices.iter() {
             if let NetworkIndex::Shared(_id) = i {
                 panic!("Open index is a shared index");
             }
         }
-        // argsort the open indices so all right first, then left, then up, ordered by id
+        // argsort the open indices so all up first, then output, then input, ordered by id
         let mut indices = open_indices.iter().enumerate().collect::<Vec<(usize, &NetworkIndex)>>();
         indices.sort_by(|a, b| {
             if let (NetworkIndex::Open(id_a, dir_a), NetworkIndex::Open(id_b, dir_b)) = (a.1, b.1) {
                 if dir_a == dir_b {
                     id_a.cmp(&id_b)
                 } else {
-                    if *dir_a == IndexDirection::Right {
+                    if *dir_a == IndexDirection::Up {
                         std::cmp::Ordering::Less
-                    } else if *dir_b == IndexDirection::Right {
+                    } else if *dir_b == IndexDirection::Up {
                         std::cmp::Ordering::Greater
-                    } else if *dir_a == IndexDirection::Left {
+                    } else if *dir_a == IndexDirection::Output {
                         std::cmp::Ordering::Less
                     } else {
                         std::cmp::Ordering::Greater
                     }
+                    // if *dir_a == IndexDirection::Output {
+                    //     std::cmp::Ordering::Less
+                    // } else if *dir_b == IndexDirection::Output {
+                    //     std::cmp::Ordering::Greater
+                    // } else if *dir_a == IndexDirection::Input {
+                    //     std::cmp::Ordering::Less
+                    // } else {
+                    //     std::cmp::Ordering::Greater
+                    // }
+                    // if *dir_a == IndexDirection::Input {
+                    //     std::cmp::Ordering::Less
+                    // } else if *dir_b == IndexDirection::Input {
+                    //     std::cmp::Ordering::Greater
+                    // } else if *dir_a == IndexDirection::Output {
+                    //     std::cmp::Ordering::Less
+                    // } else {
+                    //     std::cmp::Ordering::Greater
+                    // }
                 }
             } else {
                 panic!("Open index is not a shared index");
@@ -598,14 +601,79 @@ impl QuditCircuitNetwork {
         let mut split_at = 0;
         for (i, idx) in indices.iter() {
             if let NetworkIndex::Open(_id, dir) = idx {
-                if *dir == IndexDirection::Left {
+                if *dir == IndexDirection::Output {
                     split_at += 1;
                 }
             }
         }
-        let transpose_order = indices.into_iter().map(|(i, _)| i).collect::<Vec<usize>>();
 
-        tree.transpose(transpose_order, split_at)
+        let mut total_output_dim = None;
+        let mut total_input_dim = None;
+        let mut total_z_dim = None;
+
+        for (_i, idx) in indices.iter() {
+            if let NetworkIndex::Open(id, dir) = idx {
+                match *dir {
+                    IndexDirection::Input => {
+                        let r = self.radices[*id] as usize;
+                        if let Some(value) = total_input_dim.as_mut() {
+                            *value *= r;
+                        } else {
+                            total_input_dim = Some(r);
+                        }
+                    }
+                    IndexDirection::Output => {
+                        let r = self.radices[*id] as usize;
+                        if let Some(value) = total_output_dim.as_mut() {
+                            *value *= r;
+                        } else {
+                            total_output_dim = Some(r);
+                        }
+                    }
+                    IndexDirection::Up => {
+                        let r = self.up_indices[*id];
+                        if let Some(value) = total_z_dim.as_mut() {
+                            *value *= r;
+                        } else {
+                            total_z_dim = Some(r);
+                        }
+                    }
+                }
+            }
+        }
+
+        let transpose_order = indices.into_iter().map(|(i, _)| i).collect::<Vec<usize>>();
+        let permuted_tree = tree.transpose(transpose_order, split_at);
+
+
+        let output_tree = match (total_input_dim, total_output_dim, total_z_dim) {
+            (None, None, None) => {
+                permuted_tree.reshape(qudit_expr::TensorGenerationShape::Scalar)
+            }
+            (Some(b), None, None) => {
+                permuted_tree.reshape(qudit_expr::TensorGenerationShape::Vector(b))
+            }
+            (None, Some(a), None) => {
+                permuted_tree.reshape(qudit_expr::TensorGenerationShape::Vector(a))
+            }
+            (None, None, Some(c)) => {
+                permuted_tree.reshape(qudit_expr::TensorGenerationShape::Vector(c))
+            }
+            (Some(b), Some(a), None) => {
+                permuted_tree.reshape(qudit_expr::TensorGenerationShape::Matrix(a, b))
+            }
+            (Some(b), None, Some(c)) => {
+                permuted_tree.reshape(qudit_expr::TensorGenerationShape::Matrix(b, c))
+            }
+            (None, Some(a), Some(c)) => {
+                permuted_tree.reshape(qudit_expr::TensorGenerationShape::Matrix(a, c))
+            }
+            (Some(b), Some(a), Some(c)) => {
+                permuted_tree.reshape(qudit_expr::TensorGenerationShape::Tensor(c, a, b))
+            }
+        };
+
+        output_tree
     }
 }
 
@@ -616,14 +684,17 @@ struct PartialTree {
 
 #[cfg(test)]
 mod tests {
-    use crate::tree::TreeOptimizer;
+    use qudit_expr::DifferentiationLevel;
+
+    use crate::{bytecode::BytecodeGenerator, tree::TreeOptimizer};
+    use crate::qvm::QVM;
 
     use super::*;
 
     #[test]
     fn test_optimize_optimal() {
-        let mut network = QuditCircuitNetwork::new(QuditRadices::new(&vec![2, 2, 2]));
-        let expr = TensorExpression::new("A() {
+        let mut network = QuditCircuitNetwork::new(QuditRadices::new(&vec![2, 2]));
+        let cnot = TensorExpression::new("CNOT() {
             [
                 [1, 0, 0, 0],
                 [0, 1, 0, 0],
@@ -631,33 +702,77 @@ mod tests {
                 [0, 0, 1, 0],
             ]
         }");
-        network.prepend(
-            QuditTensor::new(expr.clone(), vec![2, 2], vec![2, 2], vec![], ParamIndices::constant()),
-            vec![0, 1],
-            vec![0, 1],
-        );
-        network.prepend(
-            QuditTensor::new(expr.clone(), vec![2, 2], vec![2, 2], vec![], ParamIndices::constant()),
-            vec![1, 2],
-            vec![1, 2],
-        );
-        network.prepend(
-            QuditTensor::new(expr.clone(), vec![2, 2], vec![2, 2], vec![], ParamIndices::constant()),
-            vec![0, 1],
-            vec![0, 1],
-        );
-        network.prepend(
-            QuditTensor::new(expr.clone(), vec![2, 2], vec![2, 2], vec![], ParamIndices::constant()),
-            vec![1, 2],
-            vec![1, 2],
-        );
-        println!("expr shape: {:?}", expr.shape);
+
+        let u3 = TensorExpression::new("U3(a, b, c) {
+            [
+                [cos(a/2), ~e^(c*i)*sin(a/2)],
+                [e^(b*i)*sin(a/2), e^(i*(b+c))*cos(a/2)],
+            ]
+        }"); 
+        let ZZ = TensorExpression::new("ZZParity() {
+            [
+                [
+                    [ 1, 0, 0, 0 ], 
+                    [ 0, 0, 0, 0 ],
+                    [ 0, 0, 0, 0 ],
+                    [ 0, 0, 0, 1 ],
+                ],
+                [
+                    [ 0, 0, 0, 0 ], 
+                    [ 0, 1, 0, 0 ],
+                    [ 0, 0, 1, 0 ],
+                    [ 0, 0, 0, 0 ],
+                ],
+            ]
+        }");
+        network.prepend(QuditTensor::new(u3.clone(), vec![0, 1, 2].into()), vec![0], vec![0]);
+        network.prepend(QuditTensor::new(ZZ.clone(), vec![].into()), vec![0, 1], vec![0, 1]);
+        // network.prepend(QuditTensor::new(cnot.clone(), ParamIndices::constant()), vec![0,1], vec![0,1]);
+        // network.prepend(QuditTensor::new(cnot.clone(), ParamIndices::constant()), vec![1,2], vec![1,2]);
+        // let expr = TensorExpression::new("A() {
+        //     [
+        //         [1, 0, 0, 0],
+        //         [0, 1, 0, 0],
+        //         [0, 0, 0, 1],
+        //         [0, 0, 1, 0],
+        //     ]
+        // }");
+        // network.prepend(
+        //     QuditTensor::new(expr.clone(), vec![2, 2], vec![2, 2], vec![], ParamIndices::constant()),
+        //     vec![0, 1],
+        //     vec![0, 1],
+        // );
+        // network.prepend(
+        //     QuditTensor::new(expr.clone(), vec![2, 2], vec![2, 2], vec![], ParamIndices::constant()),
+        //     vec![1, 2],
+        //     vec![1, 2],
+        // );
+        // network.prepend(
+        //     QuditTensor::new(expr.clone(), vec![2, 2], vec![2, 2], vec![], ParamIndices::constant()),
+        //     vec![0, 1],
+        //     vec![0, 1],
+        // );
+        // network.prepend(
+        //     QuditTensor::new(expr.clone(), vec![2, 2], vec![2, 2], vec![], ParamIndices::constant()),
+        //     vec![1, 2],
+        //     vec![1, 2],
+        // );
+        // println!("expr shape: {:?}", expr.shape);
         let optimal_path = network.optimize_optimal_simple();
         println!("Optimal Path: {:?}", optimal_path.path);
         let tree = network.path_to_expression_tree(&optimal_path);
         println!("Expression Tree: {:?}", tree);
-        let tree  = TreeOptimizer::new().optimize(tree);
+        let tree = TreeOptimizer::new().optimize(tree);
         println!("Expression Tree: {:?}", tree);
+        let code = BytecodeGenerator::new().generate(&tree);
+        println!("Bytecode: {:?}", code);
+        let mut qvm: QVM<qudit_core::c64> = QVM::new(code, DifferentiationLevel::Gradient);
+        let params = [1.7, 1.7, 1.7];
+        let out_buffer = qvm.evaluate(&params);
+        let out_fn = out_buffer.get_fn_result().unpack_matvec();
+        println!("Output: {:?}", out_fn);
+        // let out = qvm.get_unitary(&params);
+        // println!("Unitary: {:?}", out);
         // network.prepend(
         //     QuditTensor::new(vec![2, 2], vec![2, 2], vec![]),
         //     vec![0, 1],

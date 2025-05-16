@@ -5,26 +5,27 @@ use std::collections::HashMap;
 
 // use crate::sim::qvm::QVMType;
 
-use qudit_core::ComplexScalar;
-use qudit_expr::{DifferentiationLevel, Module, ModuleBuilder, UnitaryExpression};
+use qudit_core::{ComplexScalar, ParamIndices};
+use qudit_expr::{DifferentiationLevel, Module, ModuleBuilder, TensorExpression, UnitaryExpression};
 
 use super::{
-    GeneralizedInstruction, MatrixBuffer, SizedMatrixBuffer, SpecializedInstruction,
+    GeneralizedInstruction, SpecializedInstruction, TensorBuffer
     // SpecializedInstruction,
 };
 
 #[derive(Clone)]
 pub struct Bytecode {
+    pub expressions: Vec<(TensorExpression, Option<ParamIndices>, String)>,
     pub static_code: Vec<GeneralizedInstruction>,
     pub dynamic_code: Vec<GeneralizedInstruction>,
-    pub matrix_buffers: Vec<MatrixBuffer>,
+    pub buffers: Vec<TensorBuffer>,
     pub merged_buffers: HashMap<usize, usize>,
 }
 
 impl Bytecode {
     pub fn print_buffers(&self) {
-        println!("Matrix buffers:");
-        for (i, buffer) in self.matrix_buffers.iter().enumerate() {
+        println!("Buffers:");
+        for (i, buffer) in self.buffers.iter().enumerate() {
             println!("  {}: {:?}", i, buffer);
         }
     }
@@ -40,27 +41,10 @@ impl Bytecode {
     ) {
         let mut sized_buffers = Vec::new();
         let mut offset = 0;
-        for buffer in &self.matrix_buffers {
-            let col_stride =
-                qudit_core::memory::calc_col_stride::<C>(buffer.nrows, buffer.ncols);
-            let mat_stride = qudit_core::memory::calc_mat_stride::<C>(buffer.nrows, buffer.ncols, col_stride);
-            sized_buffers.push(SizedMatrixBuffer {
-                offset,
-                nrows: buffer.nrows,
-                ncols: buffer.ncols,
-                col_stride: col_stride as isize,
-                mat_stride: mat_stride as isize,
-                num_params: buffer.num_params,
-            });
-            offset += mat_stride;
-            if diff_lvl.gradient_capable() {
-                offset += mat_stride * buffer.num_params;
-            }
-            if diff_lvl.hessian_capable() {
-                offset += mat_stride
-                    * (buffer.num_params * (buffer.num_params + 1))
-                    / 2;
-            }
+        for buffer in &self.buffers {
+            let sized_buffer = buffer.specialize::<C>(offset);
+            offset += sized_buffer.size(diff_lvl);
+            sized_buffers.push(sized_buffer);
         }
         let memory_size = offset;
         // println!("Memory size: {}", memory_size);
@@ -94,15 +78,16 @@ impl Bytecode {
         // println!("Post Merged Memory size: {}", memory_size);
 
         let mut builder = ModuleBuilder::new("qvm", diff_lvl);
-        for inst in &self.static_code {
-            builder = inst.build_expressions(builder);
+
+        for (expr, params, name) in &self.expressions {
+            let mut expr_clone = expr.clone();
+            expr_clone.name = name.clone();
+            match params {
+                None => builder = builder.add_tensor_expression(expr_clone),
+                Some(params) =>
+                    builder = builder.add_tensor_expression_with_param_indices(expr_clone, params.clone())
+            };
         }
-        for inst in &self.dynamic_code {
-            builder = inst.build_expressions(builder);
-        }
-        // for expr in &self.expression_set {
-        //     builder = builder.add_expression(expr.clone());
-        // }
         let module = builder.build();
 
         let mut static_out = Vec::new();

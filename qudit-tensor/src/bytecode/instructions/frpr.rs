@@ -4,33 +4,34 @@ use qudit_core::matrix::{MatVecMut, MatVecRef};
 use qudit_core::accel::fused_reshape_permute_reshape_into_prepare;
 use qudit_core::accel::fused_reshape_permute_reshape_into_impl;
 use qudit_core::ComplexScalar;
-use crate::bytecode::SizedMatrixBuffer;
 use qudit_core::memory::MemoryBuffer;
+
+use crate::bytecode::buffer::SizedTensorBuffer;
 
 pub struct FRPRStruct {
     pub len: usize,
     pub ins: [isize; 64],
     pub outs: [isize; 64],
     pub dims: [usize; 64],
-    pub input: SizedMatrixBuffer,
-    pub out: SizedMatrixBuffer,
+    pub input: SizedTensorBuffer,
+    pub out: SizedTensorBuffer,
 }
 
 impl FRPRStruct {
     pub fn new(
-        input: SizedMatrixBuffer,
+        input: SizedTensorBuffer,
         shape: &Vec<usize>,
         perm: &Vec<usize>,
-        out: SizedMatrixBuffer,
+        out: SizedTensorBuffer,
     ) -> Self {
         // TODO: Extract 64 to a library level constact (remove magic number)
         let (ins, outs, dims) = fused_reshape_permute_reshape_into_prepare(
-            input.nrows,
-            input.ncols,
-            input.col_stride,
-            out.nrows,
-            out.ncols,
-            out.col_stride,
+            input.nrows(),
+            input.ncols(),
+            input.col_stride as isize,
+            out.nrows(),
+            out.ncols(),
+            out.col_stride as isize,
             shape,
             perm,
         );
@@ -133,14 +134,14 @@ impl FRPRStruct {
     }
 
     #[inline(always)]
-    pub fn execute_unitary<C: ComplexScalar>(&self, memory: &mut MemoryBuffer<C>) {
+    pub fn evaluate<C: ComplexScalar>(&self, memory: &mut MemoryBuffer<C>) {
         let input_matref = self.input.as_matref::<C>(memory);
         let out_matmut = self.out.as_matmut::<C>(memory);
         self.calculate_unitary(input_matref, out_matmut);
     }
 
     #[inline(always)]
-    pub fn execute_unitary_and_gradient<C: ComplexScalar>(
+    pub fn evaluate_gradient<C: ComplexScalar>(
         &self,
         memory: &mut MemoryBuffer<C>,
     ) {
@@ -153,7 +154,7 @@ impl FRPRStruct {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_gradient_and_hessian<C: ComplexScalar>(
+    pub fn evaluate_hessian<C: ComplexScalar>(
         &self,
         memory: &mut MemoryBuffer<C>,
     ) {
@@ -169,7 +170,7 @@ impl FRPRStruct {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_into<C: ComplexScalar>(
+    pub fn evaluate_into<C: ComplexScalar>(
         &self,
         memory: &mut MemoryBuffer<C>,
         out: MatMut<C>,
@@ -179,7 +180,7 @@ impl FRPRStruct {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_and_gradient_into<C: ComplexScalar>(
+    pub fn evaluate_gradient_into<C: ComplexScalar>(
         &self,
         memory: &mut MemoryBuffer<C>,
         out: MatMut<C>,
@@ -192,7 +193,7 @@ impl FRPRStruct {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_gradient_and_hessian_into<C: ComplexScalar>(
+    pub fn evaluate_hessian_into<C: ComplexScalar>(
         &self,
         memory: &mut MemoryBuffer<C>,
         out: MatMut<C>,

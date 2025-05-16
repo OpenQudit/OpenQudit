@@ -7,8 +7,10 @@ mod instructions;
 mod specialized;
 
 
-pub use buffer::MatrixBuffer;
-pub use buffer::SizedMatrixBuffer;
+// pub use buffer::MatrixBuffer;
+// pub use buffer::SizedMatrixBuffer;
+pub use buffer::TensorBuffer;
+pub use buffer::SizedTensorBuffer;
 pub use bytecode::Bytecode;
 pub use generalized::GeneralizedInstruction;
 pub use generator::BytecodeGenerator;

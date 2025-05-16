@@ -1400,16 +1400,16 @@ mod tests {
         // let s2 = "(* (sin (x0)) (- (cos (* 2 x0)) 1))";
         // assert!(check_equality_lhs_only(s1, s2));
         // let s1 = "(/ (+ (* (* (sin (* (pi) (0.25))) (cos (* (0.5) (- (θ) (λ))))) (/ (cos (θ)) (sqrt (2)))) (* (~ (* (sin (* (pi) (0.25))) (sin (* (0.5) (- (θ) (λ)))))) (/ (sin (θ)) (sqrt (2))))) (+ (* (/ (cos (θ)) (sqrt (2))) (/ (cos (θ)) (sqrt (2)))) (* (/ (sin (θ)) (sqrt (2))) (/ (sin (θ)) (sqrt (2))))))";
-        let s2 = "(/ (- (* (~ (* (sin (* (pi) (0.25))) (sin (* (0.5) (- (θ) (λ)))))) (/ (cos (θ)) (sqrt (2)))) (* (* (sin (* (pi) (0.25))) (cos (* (0.5) (- (θ) (λ))))) (/ (sin (θ)) (sqrt (2))))) (+ (* (/ (cos (θ)) (sqrt (2))) (/ (cos (θ)) (sqrt (2)))) (* (/ (sin (θ)) (sqrt (2))) (/ (sin (θ)) (sqrt (2))))))";
-        // let expr1: RecExpr<TrigLanguage> = s1.parse().unwrap();
-        let expr2: RecExpr<TrigLanguage> = s2.parse().unwrap();
-        let mut _runner: Runner<TrigLanguage, ConstantFold> = Runner::default()
-            // .with_explanations_enabled()
-            // .with_expr(&expr1)
-            .with_expr(&expr2)
-            .with_iter_limit(30)
-            .with_node_limit(30_000)
-            .run(&make_rules());
+        // let s2 = "(/ (- (* (~ (* (sin (* (pi) (0.25))) (sin (* (0.5) (- (θ) (λ)))))) (/ (cos (θ)) (sqrt (2)))) (* (* (sin (* (pi) (0.25))) (cos (* (0.5) (- (θ) (λ))))) (/ (sin (θ)) (sqrt (2))))) (+ (* (/ (cos (θ)) (sqrt (2))) (/ (cos (θ)) (sqrt (2)))) (* (/ (sin (θ)) (sqrt (2))) (/ (sin (θ)) (sqrt (2))))))";
+        // // let expr1: RecExpr<TrigLanguage> = s1.parse().unwrap();
+        // let expr2: RecExpr<TrigLanguage> = s2.parse().unwrap();
+        // let mut _runner: Runner<TrigLanguage, ConstantFold> = Runner::default()
+        //     // .with_explanations_enabled()
+        //     // .with_expr(&expr1)
+        //     .with_expr(&expr2)
+        //     .with_iter_limit(30)
+        //     .with_node_limit(30_000)
+        //     .run(&make_rules());
         // println!("{}", runner.explain_equivalence(&"1".parse().unwrap(), &"-1".parse().unwrap()).get_flat_string());
     }
 }

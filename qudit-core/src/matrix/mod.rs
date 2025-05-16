@@ -8,6 +8,10 @@ pub use faer::mat;
 
 pub use faer::Col;
 pub use faer::Row;
+pub use faer::RowRef;
+pub use faer::ColRef;
+pub use faer::RowMut;
+pub use faer::ColMut;
 
 /// Re-export of the basic matrix types from the faer_core crate.
 pub use faer::Mat;

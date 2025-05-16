@@ -37,6 +37,7 @@ pub struct TransposeNode {
 impl TransposeNode {
     pub fn new(child: ExpressionTree, perm: Vec<usize>, split_at: usize) -> TransposeNode {
         let child_dimensions = child.dimensions();
+        println!("{:?}, {:?}", child_dimensions, perm);
         let dimensions: QuditRadices = (0..perm.len()).map(|x| child_dimensions[perm[x]]).collect();
         // let dimensions: QuditRadices = child.dimensions().iter().enumerate().map(|(i, x)| perm[*x as usize]).collect();
         let left_dimension = dimensions[0..split_at].iter().map(|x| *x as usize).product();
@@ -114,7 +115,7 @@ impl fmt::Debug for TransposeNode {
 
 impl PrintTree for TransposeNode {
     fn write_tree(&self, prefix: &str, fmt: &mut std::fmt::Formatter<'_>) {
-        writeln!(fmt, "{}Transpose({:?})", prefix, self.perm).unwrap();
+        writeln!(fmt, "{}Transpose({:?}, {:?})", prefix, self.perm, self.generation_shape).unwrap();
         let child_prefix = self.modify_prefix_for_child(prefix, true);
         self.child.write_tree(&child_prefix, fmt);
     }

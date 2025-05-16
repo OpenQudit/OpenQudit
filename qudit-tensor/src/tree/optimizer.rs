@@ -17,9 +17,61 @@ impl TreeOptimizer {
     pub fn optimize(&self, mut tree: ExpressionTree) -> ExpressionTree {
         // tree = self.fuse_common_operations(tree);
         // tree.traverse_mut(&|n| self.fuse_contraction_pre_post_permutations(n));
+        // tree.traverse_mut(&|n| self.merge_transpose_into_leaf(n));
         // self.constant_propagation(&mut tree);
+        tree = self.merge_transpose_into_leaf(tree);
         tree = self.remove_no_op_transposes(tree);
         tree
+    }
+
+    // pub fn merge_transpose_into_leaf(&self, tree: &mut ExpressionTree) {
+    //     if let ExpressionTree::Transpose(t) = tree {
+    //         if let ExpressionTree::Leaf(l) = *t.child.clone() {
+    //             let mut new_leaf = l;
+    //             new_leaf.permute(&t.perm);
+    //             *tree = ExpressionTree::Leaf(new_leaf);
+    //         }
+    //     }
+    // }
+    //
+    
+    pub fn merge_transpose_into_leaf(&self, tree: ExpressionTree) -> ExpressionTree {
+        match tree {
+            ExpressionTree::Leaf(_) => tree,
+            ExpressionTree::MatMul(MatMulNode { left, right }) => {
+                let left = self.merge_transpose_into_leaf(*left);
+                let right = self.merge_transpose_into_leaf(*right);
+                ExpressionTree::MatMul(MatMulNode::new(left, right))
+            }
+            ExpressionTree::OuterProduct(OuterProductNode { left, right }) => {
+                let left = self.merge_transpose_into_leaf(*left);
+                let right = self.merge_transpose_into_leaf(*right);
+                ExpressionTree::OuterProduct(OuterProductNode::new(left, right))
+            }
+            ExpressionTree::Reshape(ReshapeNode { child, gen_shape }) => {
+                if let ExpressionTree::Leaf(mut l) = *child {
+                    l.set_generation_shape(gen_shape);
+                    ExpressionTree::Leaf(l)
+                } else {
+                    let child = self.merge_transpose_into_leaf(*child);
+                    ExpressionTree::Reshape(ReshapeNode::new(child, gen_shape))
+                }
+            }
+            ExpressionTree::Transpose(TransposeNode { child, perm, split_at, dimensions, generation_shape }) => {
+                if let ExpressionTree::Leaf(mut l) = *child {
+                    l.permute(&perm);
+                    l.set_generation_shape(generation_shape);
+                    ExpressionTree::Leaf(l)
+                } else {
+                    let child = self.merge_transpose_into_leaf(*child);
+                    ExpressionTree::Transpose(TransposeNode::new(child, perm, split_at))
+                }
+            }
+            ExpressionTree::Constant(ConstantNode { child }) => {
+                let child = self.merge_transpose_into_leaf(*child);
+                ExpressionTree::Constant(ConstantNode::new(child))
+            }
+        }
     }
 
     pub fn remove_no_op_transposes(&self, tree: ExpressionTree) -> ExpressionTree {

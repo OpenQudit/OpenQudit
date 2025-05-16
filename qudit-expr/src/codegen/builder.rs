@@ -64,7 +64,23 @@ impl IdxMapBuilder {
     }
 
     pub fn build(self) -> Box<dyn Fn(usize) -> usize> {
-        todo!()
+        let nrows = self.nrows.expect("Nrows must be set");
+        let ncols = self.ncols.expect("Ncols must be set");
+        let nmats = self.nmats.expect("Nmats must be set");
+        let row_stride = self.row_stride.unwrap_or(1);
+        let col_stride = self.col_stride.unwrap_or(nrows);
+        let mat_stride = self.mat_stride.unwrap_or(nrows * ncols);
+        // let dims = self.dims.unwrap_or(vec![nrows, ncols, nmats]);
+        // let perm = self.perm.unwrap_or(vec![0, 1, 2]);
+
+        Box::new(move |idx: usize| -> usize {
+            let mat = (idx/2) / (nrows * ncols);
+            let row = ((idx/2) % (nrows * ncols)) / ncols;
+            let col = (idx/2) % ncols;
+            let imag_offset = idx % 2;
+            // println!("idx: {} || mat: {}, row: {}, col: {}, imag_offset: {}, nrows: {}, ncols: {}", idx, mat, row, col, imag_offset, nrows, ncols);
+            2 * (mat * mat_stride + row * row_stride + col * col_stride) + imag_offset
+        })
     }
 }
 
@@ -92,6 +108,10 @@ impl CompilableUnit {
     }
     
     pub fn add_to_module<C: ComplexScalar>(&self, module: &Module<C>) {
+        // println!("Adding fn_name: {} to module.", self.fn_name);
+        // for expr in &self.exprs {
+        //     println!("{:?}", expr);
+        // }
         let mut codegen = CodeGenerator::new(&module);
         codegen.gen_func(&self.fn_name, &self.exprs, &self.variable_table, &self.expr_idx_to_offset_map).expect("Error generating function.");
     }
@@ -184,7 +204,7 @@ impl CompilableUnitBuilder {
 
         let gen_shape = self.gen_shape.expect("Gen shape must be set");
 
-        assert!(gen_shape.num_elements() == exprs.len());
+        assert!(gen_shape.num_elements()*2 == exprs.len());
         
         let idx_map = match gen_shape {
             TensorGenerationShape::Scalar => {
@@ -212,7 +232,7 @@ impl CompilableUnitBuilder {
                     .col_stride(col_stride)
                     .build()
             }
-            TensorGenerationShape::Tensor(nrows, ncols, nmats) => {
+            TensorGenerationShape::Tensor(nmats, nrows, ncols) => {
                 let col_stride = qudit_core::memory::calc_col_stride::<C>(nrows, ncols);
                 let mat_stride = qudit_core::memory::calc_mat_stride::<C>(nrows, ncols, col_stride);
                 IdxMapBuilder::new()

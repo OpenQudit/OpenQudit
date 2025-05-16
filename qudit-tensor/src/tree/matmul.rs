@@ -82,7 +82,6 @@ impl MatMulNode {
             dims.push(right_dims[right_count_iter]);
             right_count_iter += 1;
         }
-
         dims.into()
     }
 

@@ -1,7 +1,7 @@
 use faer::MatMut;
 use qudit_core::{matrix::{MatVecMut, SymSqMatMatMut}, memory::MemoryBuffer, ComplexScalar};
 
-use super::instructions::{ConsecutiveParamWriteStruct, SplitParamWriteStruct, DisjointMatmulStruct, OverlappingMatMulStruct, DisjointKronStruct, OverlappingKronStruct, FRPRStruct};
+use super::{instructions::{ConsecutiveParamWriteStruct, DisjointKronStruct, DisjointMatmulStruct, FRPRStruct, OverlappingKronStruct, OverlappingMatMulStruct, ReshapeStruct, SplitParamWriteStruct}, SizedTensorBuffer};
 
 pub enum SpecializedInstruction<C: ComplexScalar> {
     CWrite(ConsecutiveParamWriteStruct<C>),
@@ -11,157 +11,104 @@ pub enum SpecializedInstruction<C: ComplexScalar> {
     DKron(DisjointKronStruct),
     OKron(OverlappingKronStruct),
     FRPR(FRPRStruct),
+    Reshape(ReshapeStruct),
 }
 
 impl<C: ComplexScalar> SpecializedInstruction<C> {
+    pub fn get_output_buffer(&self) -> SizedTensorBuffer {
+        match self {
+            SpecializedInstruction::CWrite(w) => w.buffer,
+            SpecializedInstruction::SWrite(w) => w.buffer,
+            SpecializedInstruction::DMatMul(m) => m.out,
+            SpecializedInstruction::OMatMul(m) => m.out,
+            SpecializedInstruction::DKron(k) => k.out,
+            SpecializedInstruction::OKron(k) => k.out,
+            SpecializedInstruction::FRPR(f) => f.out,
+            SpecializedInstruction::Reshape(r) => r.out,
+        }
+    }
+
     #[inline(always)]
-    pub fn execute_unitary (
+    pub fn evaluate (
         &self,
         params: &[C::R],
         memory: &mut MemoryBuffer<C>,
     ) {
         match self {
-            SpecializedInstruction::CWrite(w) => {w.execute_unitary(params, memory)},
-            SpecializedInstruction::SWrite(w) => {w.execute_unitary(params, memory)},
-            SpecializedInstruction::DMatMul(m) => m.execute_unitary(memory),
-            SpecializedInstruction::OMatMul(m) => m.execute_unitary(memory),
-            SpecializedInstruction::DKron(k) => k.execute_unitary::<C>(memory),
-            SpecializedInstruction::OKron(k) => k.execute_unitary::<C>(memory),
-            SpecializedInstruction::FRPR(f) => f.execute_unitary::<C>(memory),
+            SpecializedInstruction::CWrite(w) => {w.evaluate(params, memory)},
+            SpecializedInstruction::SWrite(w) => {w.evaluate(params, memory)},
+            SpecializedInstruction::DMatMul(m) => m.evaluate(memory),
+            SpecializedInstruction::OMatMul(m) => m.evaluate(memory),
+            SpecializedInstruction::DKron(k) => k.evaluate::<C>(memory),
+            SpecializedInstruction::OKron(k) => k.evaluate::<C>(memory),
+            SpecializedInstruction::FRPR(f) => f.evaluate::<C>(memory),
+            SpecializedInstruction::Reshape(r) => r.evaluate::<C>(memory),
         }
     }
 
-    pub fn execute_unitary_and_gradient(
-        &self,
-        params: &[C::R],
-        memory: &mut MemoryBuffer<C>,
-    ) {
-        match self {
-            SpecializedInstruction::CWrite(w) => {
-                w.execute_unitary_and_gradient(params, memory)
-            },
-            SpecializedInstruction::SWrite(w) => {
-                w.execute_unitary_and_gradient(params, memory)
-            },
-            SpecializedInstruction::DMatMul(m) => {
-                m.execute_unitary_and_gradient(memory)
-            },
-            SpecializedInstruction::OMatMul(m) => {
-                m.execute_unitary_and_gradient(memory)
-            },
-            SpecializedInstruction::DKron(k) => {
-                k.execute_unitary_and_gradient::<C>(memory)
-            },
-            SpecializedInstruction::OKron(k) => {
-                k.execute_unitary_and_gradient::<C>(memory)
-            },
-            SpecializedInstruction::FRPR(f) => {
-                f.execute_unitary_and_gradient::<C>(memory)
-            },
-        }
-    }
-
-    pub fn execute_unitary_gradient_and_hessian (
+    pub fn evaluate_gradient(
         &self,
         params: &[C::R],
         memory: &mut MemoryBuffer<C>,
     ) {
         match self {
             SpecializedInstruction::CWrite(w) => {
-                w.execute_unitary_gradient_and_hessian(params, memory)
+                w.evaluate_gradient(params, memory)
             },
             SpecializedInstruction::SWrite(w) => {
-                w.execute_unitary_gradient_and_hessian(params, memory)
+                w.evaluate_gradient(params, memory)
             },
             SpecializedInstruction::DMatMul(m) => {
-                m.execute_unitary_gradient_and_hessian(memory)
+                m.evaluate_gradient(memory)
             },
             SpecializedInstruction::OMatMul(m) => {
-                m.execute_unitary_gradient_and_hessian(memory)
+                m.evaluate_gradient(memory)
             },
             SpecializedInstruction::DKron(k) => {
-                k.execute_unitary_gradient_and_hessian::<C>(memory)
+                k.evaluate_gradient::<C>(memory)
             },
             SpecializedInstruction::OKron(k) => {
-                k.execute_unitary_gradient_and_hessian::<C>(memory)
+                k.evaluate_gradient::<C>(memory)
             },
             SpecializedInstruction::FRPR(f) => {
-                f.execute_unitary_gradient_and_hessian::<C>(memory)
+                f.evaluate_gradient::<C>(memory)
+            },
+            SpecializedInstruction::Reshape(r) => {
+                r.evaluate_gradient::<C>(memory)
             },
         }
     }
 
-    // pub fn execute_unitary_into (
-    //     &self,
-    //     params: &[C::R],
-    //     memory: &mut MemoryBuffer<C>,
-    //     out: MatMut<C>,
-    // ) {
-    //     match self {
-    //         SpecializedInstruction::Write(w) => {
-    //             w.execute_unitary_into(params, memory, out)
-    //         },
-    //         SpecializedInstruction::Matmul(m) => {
-    //             m.execute_unitary_into::<C>(memory, out)
-    //         },
-    //         SpecializedInstruction::Kron(k) => {
-    //             k.execute_unitary_into::<C>(memory, out)
-    //         },
-    //         SpecializedInstruction::FRPR(f) => {
-    //             f.execute_unitary_into::<C>(memory, out)
-    //         },
-    //     }
-    // }
-
-    // pub fn execute_unitary_and_gradient_into (
-    //     &self,
-    //     params: &[C::R],
-    //     memory: &mut MemoryBuffer<C>,
-    //     out: MatMut<C>,
-    //     grad: MatVecMut<C>,
-    // ) {
-    //     match self {
-    //         SpecializedInstruction::Write(w) => w
-    //             .execute_unitary_and_gradient_into(
-    //                 params, memory, out, grad,
-    //             ),
-    //         SpecializedInstruction::Matmul(m) => {
-    //             m.execute_unitary_and_gradient_into::<C>(memory, out, grad)
-    //         },
-    //         SpecializedInstruction::Kron(k) => {
-    //             k.execute_unitary_and_gradient_into::<C>(memory, out, grad)
-    //         },
-    //         SpecializedInstruction::FRPR(f) => {
-    //             f.execute_unitary_and_gradient_into::<C>(memory, out, grad)
-    //         },
-    //     }
-    // }
-
-    // pub fn execute_unitary_gradient_and_hessian_into (
-    //     &self,
-    //     params: &[C::R],
-    //     memory: &mut MemoryBuffer<C>,
-    //     out: MatMut<C>,
-    //     grad: MatVecMut<C>,
-    //     hess: SymSqMatMatMut<C>,
-    // ) {
-    //     match self {
-    //         SpecializedInstruction::Write(w) => w
-    //             .execute_unitary_gradient_and_hessian_into(
-    //                 params, memory, out, grad, hess,
-    //             ),
-    //         SpecializedInstruction::Matmul(m) => m
-    //             .execute_unitary_gradient_and_hessian_into::<C>(
-    //                 memory, out, grad, hess,
-    //             ),
-    //         SpecializedInstruction::Kron(k) => k
-    //             .execute_unitary_gradient_and_hessian_into::<C>(
-    //                 memory, out, grad, hess,
-    //             ),
-    //         SpecializedInstruction::FRPR(f) => f
-    //             .execute_unitary_gradient_and_hessian_into::<C>(
-    //                 memory, out, grad, hess,
-    //             ),
-    //     }
-    // }
+    pub fn evaluate_hessian (
+        &self,
+        params: &[C::R],
+        memory: &mut MemoryBuffer<C>,
+    ) {
+        match self {
+            SpecializedInstruction::CWrite(w) => {
+                w.evaluate_hessian(params, memory)
+            },
+            SpecializedInstruction::SWrite(w) => {
+                w.evaluate_hessian(params, memory)
+            },
+            SpecializedInstruction::DMatMul(m) => {
+                m.evaluate_hessian(memory)
+            },
+            SpecializedInstruction::OMatMul(m) => {
+                m.evaluate_hessian(memory)
+            },
+            SpecializedInstruction::DKron(k) => {
+                k.evaluate_hessian::<C>(memory)
+            },
+            SpecializedInstruction::OKron(k) => {
+                k.evaluate_hessian::<C>(memory)
+            },
+            SpecializedInstruction::FRPR(f) => {
+                f.evaluate_hessian::<C>(memory)
+            },
+            SpecializedInstruction::Reshape(r) => {
+                r.evaluate_hessian::<C>(memory)
+            },
+        }
+    }
 }

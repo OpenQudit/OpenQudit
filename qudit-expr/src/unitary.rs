@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 use std::ops::Range;
 
+use faer::stats::prelude::SliceRandom;
+use itertools::Itertools;
 use qudit_core::matrix::Mat;
 use qudit_core::matrix::MatMut;
 use qudit_core::matrix::MatVecMut;
@@ -26,12 +28,23 @@ use crate::qgl::parse_qobj;
 use crate::qgl::Expression as CiscExpression;
 use crate::DifferentiationLevel;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TensorGenerationShape {
     Scalar,
     Vector(usize),
     Matrix(usize, usize),
     Tensor(usize, usize, usize),
+}
+
+impl std::fmt::Debug for TensorGenerationShape {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            TensorGenerationShape::Scalar => write!(f, "Scalar"),
+            TensorGenerationShape::Vector(n) => write!(f, "Vector({})", n),
+            TensorGenerationShape::Matrix(m, n) => write!(f, "Matrix({}, {})", m, n),
+            TensorGenerationShape::Tensor(m, n, p) => write!(f, "Tensor({}, {}, {})", m, n, p),
+        }
+    }
 }
 
 impl TensorGenerationShape {
@@ -50,6 +63,15 @@ impl TensorGenerationShape {
             TensorGenerationShape::Vector(n) => TensorGenerationShape::Matrix(*n, num_params),
             TensorGenerationShape::Matrix(m, n) => TensorGenerationShape::Tensor(num_params, *m, *n),
             TensorGenerationShape::Tensor(m, n, p) => TensorGenerationShape::Tensor(*m * num_params, *n, *p),
+        }
+    }
+
+    pub fn is_matrix(&self) -> bool {
+        match self {
+            TensorGenerationShape::Scalar => false,
+            TensorGenerationShape::Vector(_) => false,
+            TensorGenerationShape::Matrix(_, _) => true,
+            TensorGenerationShape::Tensor(_, _, c) => *c == 1,
         }
     }
 }
@@ -188,30 +210,65 @@ impl TensorExpression {
     pub fn name(&self) -> &str {
         self.name.as_str()
     }
-}
 
-#[test]
-fn test_tensor_gen() {
-    let expr = TensorExpression::new("ZZParity() {
-        [
-            [
-                [ 1, 0, 0, 0 ], 
-                [ 0, 0, 0, 0 ],
-                [ 0, 0, 0, 0 ],
-                [ 0, 0, 0, 1 ],
-            ],
-            [
-                [ 0, 0, 0, 0 ], 
-                [ 0, 1, 0, 0 ],
-                [ 0, 0, 1, 0 ],
-                [ 0, 0, 0, 0 ],
-            ],
-        ]
-    }");
-    for elem in expr.body.iter() {
-        println!("{:?}", elem);
+    pub fn reshape(&mut self, new_shape: TensorGenerationShape) -> &mut Self {
+        assert_eq!(new_shape.num_elements(), self.body.len()); 
+        self.shape = new_shape;
+        self
+    }
+
+    pub fn permute(&mut self, perm: &[usize]) -> &mut Self {
+        assert_eq!(perm.len(), self.dimensions.len());
+
+        let in_dims = self.dimensions.clone();
+        let in_strides: Vec<usize> = {
+            let mut strides = Vec::with_capacity(in_dims.len() + 1);
+            let mut dim_factor = 1;
+            for &dim in in_dims.iter() {
+                strides.push(dim_factor);
+                dim_factor *= dim as usize;
+            }
+            strides.push(dim_factor);
+            strides
+        };
+
+        let out_strides: Vec<usize> = {
+            let mut strides = Vec::with_capacity(in_dims.len() + 1);
+            let mut dim_factor = 1;
+            for &pd in perm {
+                let dim = in_dims[pd];
+                strides.push(dim_factor);
+                dim_factor *= dim as usize;
+            }
+            strides.push(dim_factor);
+            strides.reverse();
+            strides
+        };
+
+        let mut index_perm: Vec<usize> = Vec::with_capacity(self.body.len());
+        for i in 0..self.body.len() {
+            let coordinate: Vec<usize> = (0..in_dims.len())
+                .into_iter()
+                .map(|d| ((i % in_strides[d+1]) / in_strides[d]))
+                .rev()
+                .collect();
+            // println!("index: {}, coord: {:?}", i, coordinate);
+
+            let perm_index: usize = perm.iter()
+                .enumerate()
+                .map(|(d, pd)| coordinate[*pd] * out_strides[d])
+                .sum();
+
+            index_perm.push(perm_index);
+        }
+
+        let mut swap_vec = vec![];
+        std::mem::swap(&mut swap_vec, &mut self.body);
+        self.body = swap_vec.into_iter().enumerate().sorted_by(|a, b| index_perm[a.0].cmp(&index_perm[b.0])).map(|(_, expr)| expr).collect();
+        self
     }
 }
+
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct UnitaryExpression {
@@ -791,5 +848,153 @@ impl<C: ComplexScalar> DifferentiableUnitaryFn<C> for UnitaryExpression {
 impl AsRef<UnitaryExpression> for UnitaryExpression {
     fn as_ref(&self) -> &UnitaryExpression {
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Module, ModuleBuilder};
+
+    use qudit_core::{c64, matrix::MatVec};
+    use super::*;
+
+    #[test]
+    fn test_cnot_reshape2() {
+        let mut cnot = TensorExpression::new("CNOT() {
+            [
+                [1, 0, 0, 0],
+                [0, 1, 0, 0],
+                [0, 0, 0, 1],
+                [0, 0, 1, 0],
+            ]
+        }");
+
+        let name = cnot.name().to_owned();
+        let reshaped = cnot.reshape(TensorGenerationShape::Matrix(2, 8)).permute(&vec![2, 0, 1, 3]);
+        // println!("{:?}", reshaped);
+
+        let module: Module<c64> = ModuleBuilder::new("test", DifferentiationLevel::None)
+            .add_tensor_expression(reshaped.clone())
+            .build();
+
+        // let mut out_tensor: MatVec<c64> = MatVec::zeros(4, 4, 2);
+        let col_stride = qudit_core::memory::calc_col_stride::<c64>(2, 8);
+        let mut memory = qudit_core::memory::alloc_zeroed_memory::<c64>(col_stride*8);
+        
+        let matmut = unsafe {
+            qudit_core::matrix::MatMut::from_raw_parts_mut(memory.as_mut_ptr(), 2, 8, 1, col_stride as isize)
+        };
+        // let mut out_tensor: Mat<c64> = Mat::zeros(2, 8);
+        // let mut out_ptr: *mut f64 = out_tensor.as_ptr_mut() as *mut f64;
+        let mut out_ptr: *mut f64 = memory.as_mut_ptr() as *mut f64;
+        let func = module.get_function(&name).unwrap();
+
+        let null_ptr = std::ptr::null() as *const f64;
+
+        unsafe { func.call(null_ptr, out_ptr); }
+
+        println!("{:?}", matmut);
+        // for r in 0..matmut.nrows() {
+        //     for c in 0..matmut.ncols() {
+        //         println!("({}, {}): {}", r, c, matmut.get(r, c));
+        //     }
+        // }
+    }
+
+    #[test]
+    fn test_cnot_reshape() {
+        let mut cnot = TensorExpression::new("CNOT() {
+            [
+                [1, 0, 0, 0],
+                [0, 1, 0, 0],
+                [0, 0, 0, 1],
+                [0, 0, 1, 0],
+            ]
+        }");
+
+        let name = cnot.name().to_owned();
+        let reshaped = cnot.reshape(TensorGenerationShape::Matrix(8, 2)).permute(&vec![0, 1, 3, 2]);
+
+        let module: Module<c64> = ModuleBuilder::new("test", DifferentiationLevel::None)
+            .add_tensor_expression(reshaped.clone())
+            .build();
+
+        // let mut out_tensor: MatVec<c64> = MatVec::zeros(4, 4, 2);
+        let mut out_tensor: Mat<c64> = Mat::zeros(8, 2);
+        let mut out_ptr: *mut f64 = out_tensor.as_ptr_mut() as *mut f64;
+        let func = module.get_function(&name).unwrap();
+
+        let null_ptr = std::ptr::null() as *const f64;
+
+        unsafe { func.call(null_ptr, out_ptr); }
+
+        println!("{:?}", out_tensor);
+
+    }
+
+
+    #[test]
+    fn test_tensor_gen() {
+        let expr = TensorExpression::new("ZZParity() {
+            [
+                [
+                    [ 1, 0, 0, 0 ], 
+                    [ 0, 0, 0, 0 ],
+                    [ 0, 0, 0, 0 ],
+                    [ 0, 0, 0, 1 ],
+                ],
+                [
+                    [ 0, 0, 0, 0 ], 
+                    [ 0, 1, 0, 0 ],
+                    [ 0, 0, 1, 0 ],
+                    [ 0, 0, 0, 0 ],
+                ],
+            ]
+        }");
+
+        // for elem in expr.body.iter() {
+        //     println!("{:?}", elem);
+        // }
+
+        let name = expr.name().to_owned();
+
+        let module: Module<c64> = ModuleBuilder::new("test", DifferentiationLevel::None)
+            .add_tensor_expression(expr)
+            .build();
+
+        let mut out_tensor: MatVec<c64> = MatVec::zeros(4, 4, 2);
+        let mut out_ptr: *mut f64 = out_tensor.as_mut_ptr() as *mut f64;
+        let func = module.get_function(&name).unwrap();
+
+        let null_ptr = std::ptr::null() as *const f64;
+
+        unsafe { func.call(null_ptr, out_ptr); }
+
+        println!("{:?}", out_tensor);
+
+//         let params = vec![1.7, 2.3, 3.1];
+//         let mut out_utry: Mat<c64> = Mat::zeros(2, 2);
+//         let mut out_grad: MatVec<c64> = MatVec::zeros(2, 2, 3);
+
+//         let module: Module<c64> = ModuleBuilder::new("test", DifferentiationLevel::Gradient)
+//             .add_expression_with_stride(expr, out_utry.col_stride().try_into().unwrap())
+//             .build();
+
+//         println!("{}", module);
+
+//         let u3_grad_combo_func = module.get_function_and_gradient("U3").unwrap();
+//         let out_ptr = out_utry.as_mut().as_ptr_mut() as *mut f64;
+//         let out_grad_ptr = out_grad.as_mut().as_mut_ptr().as_ptr() as *mut f64;
+
+//         let start = std::time::Instant::now();
+//         for _ in 0..1000000 {
+//             unsafe { u3_grad_combo_func.call(params.as_ptr(), out_ptr, out_grad_ptr); }
+//         }
+//         let duration = start.elapsed();
+//         println!("Time elapsed in expensive_function() is: {:?}", duration);
+//         println!("Average time: {:?}", duration / 1000000);
+
+//         println!("{:?}", out_utry);
+//         println!("{:?}", out_grad);
     }
 }

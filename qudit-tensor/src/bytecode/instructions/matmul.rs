@@ -2,21 +2,21 @@ use qudit_core::matrix::{MatMut, MatRef};
 use qudit_core::matrix::{SymSqMatMatMut, SymSqMatMatRef};
 use qudit_core::matrix::{MatVecMut, MatVecRef};
 use qudit_core::ComplexScalar;
-use crate::bytecode::SizedMatrixBuffer;
+use super::super::buffer::SizedTensorBuffer;
 use qudit_core::memory::MemoryBuffer;
 use qudit_core::accel::MatMulPlan;
 
 pub struct DisjointMatmulStruct<C: ComplexScalar> {
-    pub left: SizedMatrixBuffer,
-    pub right: SizedMatrixBuffer,
-    pub out: SizedMatrixBuffer,
+    pub left: SizedTensorBuffer,
+    pub right: SizedTensorBuffer,
+    pub out: SizedTensorBuffer,
     pub plan: MatMulPlan<C>,
 }
 
 pub struct OverlappingMatMulStruct<C: ComplexScalar> {
-    pub left: SizedMatrixBuffer,
-    pub right: SizedMatrixBuffer,
-    pub out: SizedMatrixBuffer,
+    pub left: SizedTensorBuffer,
+    pub right: SizedTensorBuffer,
+    pub out: SizedTensorBuffer,
     pub left_shared_params: Vec<usize>,
     pub right_shared_params: Vec<usize>,
     pub plan: MatMulPlan<C>,
@@ -24,13 +24,16 @@ pub struct OverlappingMatMulStruct<C: ComplexScalar> {
 
 impl<C: ComplexScalar> OverlappingMatMulStruct<C> {
     pub fn new(
-        left: SizedMatrixBuffer,
-        right: SizedMatrixBuffer,
-        out: SizedMatrixBuffer,
+        left: SizedTensorBuffer,
+        right: SizedTensorBuffer,
+        out: SizedTensorBuffer,
         left_shared_params: Vec<usize>,
         right_shared_params: Vec<usize>,
     ) -> Self {
-        let plan = MatMulPlan::new(left.nrows, right.ncols, left.ncols);
+        assert!(left.is_matrix());
+        assert!(right.is_matrix());
+        assert!(out.is_matrix());
+        let plan = MatMulPlan::new(left.nrows(), right.ncols(), left.ncols());
         Self {
             left,
             right,
@@ -138,7 +141,7 @@ impl<C: ComplexScalar> OverlappingMatMulStruct<C> {
     }
 
     #[inline(always)]
-    pub fn execute_unitary(&self, memory: &mut MemoryBuffer<C>) {
+    pub fn evaluate(&self, memory: &mut MemoryBuffer<C>) {
         let left_matref = self.left.as_matref::<C>(memory);
         let right_matref = self.right.as_matref::<C>(memory);
         let out_matmut = self.out.as_matmut::<C>(memory);
@@ -146,7 +149,7 @@ impl<C: ComplexScalar> OverlappingMatMulStruct<C> {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_and_gradient(
+    pub fn evaluate_gradient(
         &self,
         memory: &mut MemoryBuffer<C>,
     ) {
@@ -167,7 +170,7 @@ impl<C: ComplexScalar> OverlappingMatMulStruct<C> {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_gradient_and_hessian(
+    pub fn evaluate_hessian(
         &self,
         memory: &mut MemoryBuffer<C>,
     ) {
@@ -202,11 +205,14 @@ impl<C: ComplexScalar> OverlappingMatMulStruct<C> {
 
 impl<C: ComplexScalar> DisjointMatmulStruct<C> {
     pub fn new(
-        left: SizedMatrixBuffer,
-        right: SizedMatrixBuffer,
-        out: SizedMatrixBuffer,
+        left: SizedTensorBuffer,
+        right: SizedTensorBuffer,
+        out: SizedTensorBuffer,
     ) -> Self {
-        let plan = MatMulPlan::new(left.nrows, right.ncols, left.ncols);
+        assert!(left.is_matrix());
+        assert!(right.is_matrix());
+        assert!(out.is_matrix());
+        let plan = MatMulPlan::new(left.nrows(), right.ncols(), left.ncols());
         Self { left, right, out, plan }
     }
 
@@ -323,7 +329,7 @@ impl<C: ComplexScalar> DisjointMatmulStruct<C> {
     }
 
     #[inline(always)]
-    pub fn execute_unitary(&self, memory: &mut MemoryBuffer<C>) {
+    pub fn evaluate(&self, memory: &mut MemoryBuffer<C>) {
         let left_matref = self.left.as_matref::<C>(memory);
         let right_matref = self.right.as_matref::<C>(memory);
         let out_matmut = self.out.as_matmut::<C>(memory);
@@ -331,7 +337,7 @@ impl<C: ComplexScalar> DisjointMatmulStruct<C> {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_and_gradient(
+    pub fn evaluate_gradient(
         &self,
         memory: &mut MemoryBuffer<C>,
     ) {
@@ -352,7 +358,7 @@ impl<C: ComplexScalar> DisjointMatmulStruct<C> {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_gradient_and_hessian(
+    pub fn evaluate_hessian(
         &self,
         memory: &mut MemoryBuffer<C>,
     ) {
@@ -388,7 +394,7 @@ impl<C: ComplexScalar> DisjointMatmulStruct<C> {
     }
 
     // #[inline(always)]
-    // pub fn execute_unitary_into<C: ComplexScalar>(
+    // pub fn evaluate_into<C: ComplexScalar>(
     //     &self,
     //     memory: &mut MemoryBuffer<C>,
     //     out: MatMut<C>,
@@ -399,7 +405,7 @@ impl<C: ComplexScalar> DisjointMatmulStruct<C> {
     // }
 
     // #[inline(always)]
-    // pub fn execute_unitary_and_gradient_into<C: ComplexScalar>(
+    // pub fn evaluate_gradient_into<C: ComplexScalar>(
     //     &self,
     //     memory: &mut MemoryBuffer<C>,
     //     out: MatMut<C>,
@@ -420,7 +426,7 @@ impl<C: ComplexScalar> DisjointMatmulStruct<C> {
     // }
 
     // #[inline(always)]
-    // pub fn execute_unitary_gradient_and_hessian_into<C: ComplexScalar>(
+    // pub fn evaluate_hessian_into<C: ComplexScalar>(
     //     &self,
     //     memory: &mut MemoryBuffer<C>,
     //     out: MatMut<C>,

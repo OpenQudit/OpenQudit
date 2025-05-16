@@ -449,6 +449,14 @@ impl<C: std::fmt::Debug + Memorable> std::fmt::Debug for MatVec<C> {
     }
 }
 
+impl<'a, C: std::fmt::Debug + Memorable> std::fmt::Debug for MatVecRef<'a, C> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_list()
+            .entries((0..self.nmats).map(|m| self.mat_ref(m)))
+            .finish()
+    }
+}
+
 impl<C: ComplexField + Memorable> PartialEq for MatVec<C> {
     fn eq(&self, other: &Self) -> bool {
         if self.nrows != other.nrows || self.ncols != other.ncols || self.nmats != other.nmats {

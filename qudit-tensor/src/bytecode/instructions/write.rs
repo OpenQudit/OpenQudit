@@ -2,7 +2,7 @@ use qudit_core::matrix::MatMut;
 use qudit_core::matrix::SymSqMatMatMut;
 use qudit_core::matrix::MatVecMut;
 use qudit_core::ComplexScalar;
-use crate::bytecode::SizedMatrixBuffer;
+use super::super::buffer::SizedTensorBuffer;
 use qudit_core::memory::MemoryBuffer;
 use qudit_expr::UtryFunc;
 use qudit_expr::UtryGradFunc;
@@ -11,16 +11,16 @@ pub struct ConsecutiveParamWriteStruct<C: ComplexScalar> {
     pub utry_fn: UtryFunc<C>,
     pub utry_grad_fn: Option<UtryGradFunc<C>>,
     pub idx: usize,
-    pub buffer: SizedMatrixBuffer,
+    pub buffer: SizedTensorBuffer,
 }
 
 impl<C: ComplexScalar> ConsecutiveParamWriteStruct<C> {
-    pub fn new(utry_fn: UtryFunc<C>, utry_grad_fn: Option<UtryGradFunc<C>>, idx: usize, buffer: SizedMatrixBuffer) -> Self {
+    pub fn new(utry_fn: UtryFunc<C>, utry_grad_fn: Option<UtryGradFunc<C>>, idx: usize, buffer: SizedTensorBuffer) -> Self {
         Self { utry_fn, utry_grad_fn, idx, buffer }
     }
 
     #[inline(always)]
-    pub fn execute_unitary(
+    pub fn evaluate(
         &self,
         params: &[C::R],
         memory: &mut MemoryBuffer<C>,
@@ -32,10 +32,11 @@ impl<C: ComplexScalar> ConsecutiveParamWriteStruct<C> {
             let matmutptr = matmut.as_ptr_mut() as *mut C::R;
             (self.utry_fn)(gate_params.as_ptr() as *const C::R, matmutptr);
         }
+        println!("After Write: {:?}", matmut);
     }
 
     #[inline(always)]
-    pub fn execute_unitary_and_gradient(
+    pub fn evaluate_gradient(
         &self,
         params: &[C::R],
         memory: &mut MemoryBuffer<C>,
@@ -52,7 +53,7 @@ impl<C: ComplexScalar> ConsecutiveParamWriteStruct<C> {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_gradient_and_hessian(
+    pub fn evaluate_hessian(
         &self,
         _params: &[C::R],
         _memory: &mut MemoryBuffer<C>,
@@ -63,7 +64,7 @@ impl<C: ComplexScalar> ConsecutiveParamWriteStruct<C> {
         // let mut matmut = self.buffer.as_matmut::<C>(memory);
         // let mut matgradmut = self.buffer.as_matvecmut::<C>(memory);
         // let mut mathessmut = self.buffer.as_symsqmatmut::<C>(memory);
-        // self.gate.write_unitary_gradient_and_hessian(
+        // self.gate.write_unitary_hessian(
         //     gate_params,
         //     &mut matmut,
         //     &mut matgradmut,
@@ -71,64 +72,64 @@ impl<C: ComplexScalar> ConsecutiveParamWriteStruct<C> {
         // );
     }
 
-    #[inline(always)]
-    pub fn execute_unitary_into(
-        &self,
-        params: &[C::R],
-        _memory: &mut MemoryBuffer<C>,
-        out: MatMut<C>,
-    ) {
-        let gate_params =
-            &params[self.idx..self.idx + self.buffer.num_params];
-        unsafe {
-            let outptr = out.as_ptr_mut() as *mut C::R;
-            (self.utry_fn)(gate_params.as_ptr() as *const C::R, outptr);
-        }
-    }
+    // #[inline(always)]
+    // pub fn evaluate_into(
+    //     &self,
+    //     params: &[C::R],
+    //     _memory: &mut MemoryBuffer<C>,
+    //     out: MatMut<C>,
+    // ) {
+    //     let gate_params =
+    //         &params[self.idx..self.idx + self.buffer.num_params];
+    //     unsafe {
+    //         let outptr = out.as_ptr_mut() as *mut C::R;
+    //         (self.utry_fn)(gate_params.as_ptr() as *const C::R, outptr);
+    //     }
+    // }
 
-    #[inline(always)]
-    pub fn execute_unitary_and_gradient_into(
-        &self,
-        params: &[C::R],
-        _memory: &mut MemoryBuffer<C>,
-        out: MatMut<C>,
-        matgradmut: MatVecMut<C>,
-    ) {
-        let gate_params =
-            &params[self.idx..self.idx + self.buffer.num_params];
-        unsafe {
-            let outptr = out.as_ptr_mut() as *mut C::R;
-            let matgradmutptr = matgradmut.as_mut_ptr().as_ptr() as *mut C::R;
-            self.utry_grad_fn.unwrap()(gate_params.as_ptr() as *const C::R, outptr, matgradmutptr);
-        }
-    }
+    // #[inline(always)]
+    // pub fn evaluate_gradient_into(
+    //     &self,
+    //     params: &[C::R],
+    //     _memory: &mut MemoryBuffer<C>,
+    //     out: MatMut<C>,
+    //     matgradmut: MatVecMut<C>,
+    // ) {
+    //     let gate_params =
+    //         &params[self.idx..self.idx + self.buffer.num_params];
+    //     unsafe {
+    //         let outptr = out.as_ptr_mut() as *mut C::R;
+    //         let matgradmutptr = matgradmut.as_mut_ptr().as_ptr() as *mut C::R;
+    //         self.utry_grad_fn.unwrap()(gate_params.as_ptr() as *const C::R, outptr, matgradmutptr);
+    //     }
+    // }
 
-    #[inline(always)]
-    pub fn execute_unitary_gradient_and_hessian_into(
-        &self,
-        _params: &[C::R],
-        _memory: &mut MemoryBuffer<C>,
-        _out: MatMut<C>,
-        _matgradmut: MatVecMut<C>,
-        _mathessmut: SymSqMatMatMut<C>,
-    ) {
-        todo!()
-    }
+    // #[inline(always)]
+    // pub fn evaluate_hessian_into(
+    //     &self,
+    //     _params: &[C::R],
+    //     _memory: &mut MemoryBuffer<C>,
+    //     _out: MatMut<C>,
+    //     _matgradmut: MatVecMut<C>,
+    //     _mathessmut: SymSqMatMatMut<C>,
+    // ) {
+    //     todo!()
+    // }
 }
 
 pub struct SplitParamWriteStruct<C: ComplexScalar> {
     pub utry_fn: UtryFunc<C>,
     pub utry_grad_fn: Option<UtryGradFunc<C>>,
-    pub buffer: SizedMatrixBuffer,
+    pub buffer: SizedTensorBuffer,
 }
 
 impl<C: ComplexScalar> SplitParamWriteStruct<C> {
-    pub fn new(utry_fn: UtryFunc<C>, utry_grad_fn: Option<UtryGradFunc<C>>, buffer: SizedMatrixBuffer) -> Self {
+    pub fn new(utry_fn: UtryFunc<C>, utry_grad_fn: Option<UtryGradFunc<C>>, buffer: SizedTensorBuffer) -> Self {
         Self { utry_fn, utry_grad_fn, buffer }
     }
 
     #[inline(always)]
-    pub fn execute_unitary(
+    pub fn evaluate(
         &self,
         params: &[C::R],
         memory: &mut MemoryBuffer<C>,
@@ -141,7 +142,7 @@ impl<C: ComplexScalar> SplitParamWriteStruct<C> {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_and_gradient(
+    pub fn evaluate_gradient(
         &self,
         params: &[C::R],
         memory: &mut MemoryBuffer<C>,
@@ -156,7 +157,7 @@ impl<C: ComplexScalar> SplitParamWriteStruct<C> {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_gradient_and_hessian(
+    pub fn evaluate_hessian(
         &self,
         _params: &[C::R],
         _memory: &mut MemoryBuffer<C>,
@@ -167,7 +168,7 @@ impl<C: ComplexScalar> SplitParamWriteStruct<C> {
         // let mut matmut = self.buffer.as_matmut::<C>(memory);
         // let mut matgradmut = self.buffer.as_matvecmut::<C>(memory);
         // let mut mathessmut = self.buffer.as_symsqmatmut::<C>(memory);
-        // self.gate.write_unitary_gradient_and_hessian(
+        // self.gate.write_unitary_hessian(
         //     gate_params,
         //     &mut matmut,
         //     &mut matgradmut,
@@ -176,7 +177,7 @@ impl<C: ComplexScalar> SplitParamWriteStruct<C> {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_into(
+    pub fn evaluate_into(
         &self,
         params: &[C::R],
         _memory: &mut MemoryBuffer<C>,
@@ -189,7 +190,7 @@ impl<C: ComplexScalar> SplitParamWriteStruct<C> {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_and_gradient_into(
+    pub fn evaluate_gradient_into(
         &self,
         params: &[C::R],
         _memory: &mut MemoryBuffer<C>,
@@ -204,7 +205,7 @@ impl<C: ComplexScalar> SplitParamWriteStruct<C> {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_gradient_and_hessian_into(
+    pub fn evaluate_hessian_into(
         &self,
         _params: &[C::R],
         _memory: &mut MemoryBuffer<C>,

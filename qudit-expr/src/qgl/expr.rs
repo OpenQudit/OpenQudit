@@ -58,23 +58,36 @@ impl Expression {
 
                 TensorGenerationShape::Tensor(nmats, nrows, ncols)
             }
-            Expression::Binary { op: op, lhs, rhs } => {
+            Expression::Binary { op, lhs, rhs } => {
                 let lhs_shape = lhs.gen_shape();
                 let rhs_shape = rhs.gen_shape();
 
-                todo!()
-                // match (lhs_shape, rhs_shape) {
-                    // (TensorGenerationShape::Vector(_), TensorGenerationShape::Vector(_)) => {
-                    //     TensorGenerationShape::Vector(0)
-                    // }
-                    // (TensorGenerationShape::Matrix(_), TensorGenerationShape::Matrix(_)) => {
-                    //     TensorGenerationShape::Matrix(0, 0)
-                    // }
-                    // (TensorGenerationShape::Tensor(_), TensorGenerationShape::Tensor(_)) => {
-                    //     TensorGenerationShape::Tensor(0, 0, 0)
-                    // }
-                    // _ => panic!("Incompatible shapes for binary operation"),
-                // }
+                if lhs_shape == TensorGenerationShape::Scalar {
+                    rhs_shape
+                } else if rhs_shape == TensorGenerationShape::Scalar {
+                    lhs_shape
+                } else {
+                    match (lhs_shape, rhs_shape) {
+                        (TensorGenerationShape::Vector(l), TensorGenerationShape::Vector(r)) => {
+                            assert!(l == r, "Vectors must have same length");
+                            TensorGenerationShape::Vector(l)
+                        }
+                        (TensorGenerationShape::Matrix(lrows, lcols), TensorGenerationShape::Matrix(rrows, rcols)) => {
+                            if op.to_string() == "*" {
+                                assert!(lrows == rcols, "Left matrix columns must match right matrix rows");
+                                TensorGenerationShape::Matrix(lrows, rcols)
+                            } else {
+                                assert!(lrows == rrows && lcols == rcols, "Matrices must have same dimensions");
+                                TensorGenerationShape::Matrix(lrows, lcols)
+                            }
+                        }
+                        (TensorGenerationShape::Tensor(lnmats, lnrows, lncols), TensorGenerationShape::Tensor(rnmats, rnrows, rncols)) => {
+                            assert!(lnmats == rnmats && lnrows == rnrows && lncols == rncols, "Tensors must have same dimensions");
+                            TensorGenerationShape::Tensor(lnmats, lnrows, lncols)
+                        }
+                        _ => panic!("Incompatible shapes for binary operation"),
+                    }
+                }
             }
             Expression::Unary { op: _op, expr } => {
                 expr.gen_shape()
@@ -633,10 +646,12 @@ fn get_power_of_two(d: usize) -> Option<usize> {
         return None;
     }
     let mut power = 1;
+    let mut exponent = 0;
     while d != power {
         power <<= 1;
+        exponent += 1;
     }
-    Some(power)
+    Some(exponent)
 }
 
 impl ParsedDefinition {

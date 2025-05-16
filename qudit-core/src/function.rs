@@ -326,6 +326,24 @@ impl<'a> Iterator for ParamIndicesIter<'a> {
     }
 }
 
+// impl From<Range<usize>> for ParamIndices {
+//     fn from(index: Range<usize>) -> Self {
+//         ParamIndices::Joint(index.start, index.end - index.start)
+//     }
+// }
+
+// impl From<usize> for ParamIndices {
+//     fn from(index: usize) -> Self {
+//         ParamIndices::Joint(index, 1)
+//     }
+// }
+
+impl<T: AsRef<[usize]>> From<T> for ParamIndices {
+    fn from(indices: T) -> Self {
+        ParamIndices::Disjoint(indices.as_ref().to_vec())
+    }
+}
+
 /// A parameterized object.
 pub trait HasParams {
     /// The number of parameters this object requires.

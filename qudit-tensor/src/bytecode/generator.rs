@@ -1,30 +1,30 @@
 use std::collections::{HashMap, HashSet};
 
-use super::MatrixBuffer;
+use super::buffer::TensorBuffer;
 use super::{Bytecode, GeneralizedInstruction};
-use qudit_core::HasParams;
+use qudit_core::{HasParams, ParamIndices};
 use crate::tree::{ExpressionTree, LeafNode};
-use qudit_expr::{TensorGenerationShape, UnitaryExpression};
+use qudit_expr::{TensorExpression, TensorGenerationShape, UnitaryExpression};
 use qudit_core::QuditSystem;
 
 pub struct BytecodeGenerator {
-    // expression_set: HashSet<UnitaryExpression>,
+    expression_set: HashMap<TensorExpression, HashMap<Option<ParamIndices>, String>>,
     static_code: Vec<GeneralizedInstruction>,
     dynamic_code: Vec<GeneralizedInstruction>,
-    matrix_buffers: Vec<MatrixBuffer>,
-    param_counter: usize,
+    buffers: Vec<TensorBuffer>,
     static_tree_cache: HashMap<ExpressionTree, usize>,
+    gate_fn_counter: usize,
 }
 
 impl BytecodeGenerator {
     pub fn new() -> Self {
         Self {
-            // expression_set: HashSet::new(),
+            expression_set: HashMap::new(),
             static_code: Vec::new(),
             dynamic_code: Vec::new(),
-            matrix_buffers: Vec::new(),
-            param_counter: 0, // TODO: Handle parameters way better
+            buffers: Vec::new(),
             static_tree_cache: HashMap::new(),
+            gate_fn_counter: 0,
         }
     }
 
@@ -33,17 +33,13 @@ impl BytecodeGenerator {
         gen_shape: &TensorGenerationShape,
         num_params: usize,
     ) -> usize {
-        if let TensorGenerationShape::Matrix(nrows, ncols) = gen_shape {
-            let out = self.matrix_buffers.len();
-            self.matrix_buffers.push(MatrixBuffer {
-                nrows: *nrows,
-                ncols: *ncols,
-                num_params,
-            });
-            out
-        } else {
-            panic!("Only matrix generation shapes are supported");
-        }
+        let out = self.buffers.len();
+        println!("Making new buffer with shape: {:?}", gen_shape);
+        self.buffers.push(TensorBuffer {
+            shape: gen_shape.clone(),
+            num_params,
+        });
+        out
     }
 
     pub fn generate(mut self, tree: &ExpressionTree) -> Bytecode {
@@ -51,27 +47,61 @@ impl BytecodeGenerator {
 
         Bytecode {
             // expression_set: self.expression_set.into_iter().collect(),
+            expressions: self.expression_set
+                .into_iter()
+                .map(|(e, v)| v.into_iter()
+                    .map(|(p, n)| (e.clone(), p.clone(), n.clone()))
+                    .collect::<Vec<(TensorExpression, Option<ParamIndices>, String)>>()
+                ).flatten()
+                .collect(),
             static_code: self.static_code,
             dynamic_code: self.dynamic_code,
-            matrix_buffers: self.matrix_buffers,
+            buffers: self.buffers,
             merged_buffers: HashMap::new(),
         }
     }
 
     pub fn parse(&mut self, tree: &ExpressionTree) -> usize {
         match tree {
-            ExpressionTree::Leaf(LeafNode { expr, param_indices, gen_shape } ) => {
-                let out = self.get_new_buffer(gen_shape, param_indices.num_params());
+            ExpressionTree::Leaf(LeafNode { expr, param_indices } ) => {
+                let out = self.get_new_buffer(&expr.generation_shape(), param_indices.num_params());
+
+                // if this expression exists in set then
+                //  get name and pass that to instructions
+                //  otherwise create new name and add pair to set
+                let param_key = if param_indices.is_consecutive() {
+                    None
+                } else {
+                    Some(param_indices.clone())
+                };
+                let fn_name = if self.expression_set.contains_key(expr) {
+                    let expression_map = self.expression_set.get_mut(expr).unwrap();
+                    if expression_map.contains_key(&param_key) {
+                        expression_map.get(&param_key).unwrap().to_owned()
+                    } else {
+                        let name = String::from("gate") + &self.gate_fn_counter.to_string();
+                        self.gate_fn_counter += 1;
+                        expression_map.insert(param_key, name.clone());
+                        name
+                    }
+                } else {
+                    let name = String::from("gate") + &self.gate_fn_counter.to_string();
+                    self.gate_fn_counter += 1;
+                    let mut expression_map = HashMap::new();
+                    expression_map.insert(param_key, name.clone());
+                    self.expression_set.insert(expr.clone(), expression_map);
+                    name
+                };
 
                 if param_indices.is_consecutive() {
                     self.dynamic_code.push(GeneralizedInstruction::ConsecutiveParamWrite(
-                        expr.clone(),
+                        fn_name,
                         param_indices.start(),
                         out.clone(),
                     ));
                 } else {
                     self.dynamic_code.push(GeneralizedInstruction::SplitParamWrite(
-                        expr.clone(),
+                        fn_name,
                         param_indices.clone(),
                         out.clone(),
                     ));
@@ -125,7 +155,16 @@ impl BytecodeGenerator {
                 out
             },
             ExpressionTree::Reshape(node) => {
-                todo!()
+                let child = self.parse(&node.child);
+                let gen_shape = node.generation_shape();
+                let out = self.get_new_buffer(
+                    &gen_shape, node.param_indices().num_params(),
+                );
+                self.dynamic_code.push(GeneralizedInstruction::Reshape(
+                    child.clone(),
+                    out.clone(),
+                ));
+                out
             },
             ExpressionTree::Transpose(node) => {
                 let child = self.parse(&node.child);
@@ -151,9 +190,9 @@ impl BytecodeGenerator {
 
                 let code = BytecodeGenerator::new().generate(&node.child);
 
-                let buffer_offset = self.matrix_buffers.len();
-                for buffer in code.matrix_buffers {
-                    self.matrix_buffers.push(buffer);
+                let buffer_offset = self.buffers.len();
+                for buffer in code.buffers {
+                    self.buffers.push(buffer);
                 }
 
                 assert!(code.static_code.len() == 0);
@@ -163,145 +202,10 @@ impl BytecodeGenerator {
                     self.static_code.push(inst);
                 }
 
-                let out = self.matrix_buffers.len() - 1;
+                let out = self.buffers.len() - 1;
                 self.static_tree_cache.insert(tree.clone(), out);
                 out
             },
-            // ExpressionTree::Kron(n) => {
-            //     let left = self.parse(&n.left);
-            //     let right = self.parse(&n.right);
-            //     // let out = self.get_free_to_clobber(n.get_dimension(), n.get_dimension(), n.get_num_params());
-            //     let out = self.get_new_buffer(
-            //         n.dimension(),
-            //         n.dimension(),
-            //         n.num_params(),
-            //     );
-            //     self.dynamic_code.push(GeneralizedInstruction::Kron(
-            //         left.clone(),
-            //         right.clone(),
-            //         out.clone(),
-            //     ));
-            //     // self.free_buffer(left);
-            //     // self.free_buffer(right);
-            //     out
-            // },
-            // ExpressionTree::Mul(n) => {
-            //     let left = self.parse(&n.left);
-            //     let right = self.parse(&n.right);
-            //     // let out = self.get_free_to_clobber(n.get_dimension(), n.get_dimension(), n.get_num_params());
-            //     let out = self.get_new_buffer(
-            //         n.dimension(),
-            //         n.dimension(),
-            //         n.num_params(),
-            //     );
-            //     self.dynamic_code.push(GeneralizedInstruction::Matmul(
-            //         right.clone(),
-            //         left.clone(),
-            //         out.clone(),
-            //     ));
-            //     // self.free_buffer(left);
-            //     // self.free_buffer(right);
-            //     out
-            // },
-            // ExpressionTree::Constant(n) => {
-            //     if self.static_tree_cache.contains_key(tree) {
-            //         return self.static_tree_cache[tree];
-            //     }
-
-            //     let code = BytecodeGenerator::new().generate(&n.child);
-
-            //     let buffer_offset = self.matrix_buffers.len();
-            //     for buffer in code.matrix_buffers {
-            //         self.matrix_buffers.push(buffer);
-            //     }
-
-            //     assert!(code.static_code.len() == 0);
-
-            //     for mut inst in code.dynamic_code {
-            //         inst.offset_buffer_indices(buffer_offset);
-            //         self.static_code.push(inst);
-            //     }
-
-            //     for expr in code.expression_set {
-            //         self.expression_set.insert(expr);
-            //     }
-
-            //     let out = self.matrix_buffers.len() - 1;
-            //     self.static_tree_cache.insert(tree.clone(), out);
-            //     out
-            // },
-            // ExpressionTree::Perm(_n) => {
-            //     unreachable!();
-            //     // let child = self.parse(&n.child);
-            //     // let out = self.get_free_to_clobber(n.get_dimension(), n.get_dimension(), n.get_num_params());
-            //     // TODO: let (ins, outs, pshape) = n.get_permutation().as_frpr();
-            //     // self.bytecode.push(GeneralizedInstruction::FRPR(ins, outs, pshape, child.clone(), out.clone()));
-            //     // self.free_buffer(child);
-            //     // out
-            // },
-            // ExpressionTree::Contract(n) => {
-            //     let mut left = self.parse(&n.left);
-            //     let mut right = self.parse(&n.right);
-
-            //     if !n.skip_left {
-            //         let out = self.get_new_buffer(
-            //             n.left_contraction_shape.0,
-            //             n.left_contraction_shape.1,
-            //             n.left.num_params(),
-            //         );
-            //         self.dynamic_code.push(GeneralizedInstruction::FRPR(
-            //             left.clone(),
-            //             n.left_tensor_shape.clone().into_iter().map(|x| x.try_into().unwrap()).collect(),
-            //             n.left_perm.clone(),
-            //             out.clone(),
-            //         ));
-            //         // self.free_buffer(left);
-            //         left = out;
-            //     }
-
-            //     if !n.skip_right {
-            //         let out = self.get_new_buffer(
-            //             n.right_contraction_shape.0,
-            //             n.right_contraction_shape.1,
-            //             n.right.num_params(),
-            //         );
-            //         self.dynamic_code.push(GeneralizedInstruction::FRPR(
-            //             right.clone(),
-            //             n.right_tensor_shape.clone().into_iter().map(|x| x.try_into().unwrap()).collect(),
-            //             n.right_perm.clone(),
-            //             out.clone(),
-            //         ));
-            //         // self.free_buffer(right);
-            //         right = out;
-            //     }
-
-            //     let pre_out = self.get_new_buffer(
-            //         n.right_contraction_shape.0,
-            //         n.left_contraction_shape.1,
-            //         n.num_params(),
-            //     );
-            //     self.dynamic_code.push(GeneralizedInstruction::Matmul(
-            //         right.clone(),
-            //         left.clone(),
-            //         pre_out.clone(),
-            //     ));
-            //     // self.free_buffer(left);
-            //     // self.free_buffer(right);
-
-            //     let out = self.get_new_buffer(
-            //         n.out_matrix_shape.0,
-            //         n.out_matrix_shape.1,
-            //         n.num_params(),
-            //     );
-            //     self.dynamic_code.push(GeneralizedInstruction::FRPR(
-            //         pre_out.clone(),
-            //         n.pre_out_tensor_shape.clone().into_iter().map(|x| x.try_into().unwrap()).collect(),
-            //         n.pre_out_perm.clone().into_iter().map(|x| x.try_into().unwrap()).collect(),
-            //         out.clone(),
-            //     ));
-            //     // self.free_buffer(pre_out);
-            //     out
-            // },
         }
     }
 }

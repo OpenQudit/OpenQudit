@@ -4,28 +4,28 @@ use qudit_core::matrix::{MatVecMut, MatVecRef};
 use qudit_core::accel::kron as matrix_kron;
 use qudit_core::accel::kron_add as matrix_kron_add;
 use qudit_core::ComplexScalar;
-use crate::bytecode::SizedMatrixBuffer;
+use super::super::buffer::SizedTensorBuffer;
 use qudit_core::memory::MemoryBuffer;
 
 pub struct DisjointKronStruct {
-    pub left: SizedMatrixBuffer,
-    pub right: SizedMatrixBuffer,
-    pub out: SizedMatrixBuffer,
+    pub left: SizedTensorBuffer,
+    pub right: SizedTensorBuffer,
+    pub out: SizedTensorBuffer,
 }
 
 pub struct OverlappingKronStruct {
-    pub left: SizedMatrixBuffer,
-    pub right: SizedMatrixBuffer,
-    pub out: SizedMatrixBuffer,
+    pub left: SizedTensorBuffer,
+    pub right: SizedTensorBuffer,
+    pub out: SizedTensorBuffer,
     pub left_shared_indices: Vec<usize>,
     pub right_shared_indices: Vec<usize>,
 }
 
 impl OverlappingKronStruct {
     pub fn new(
-        left: SizedMatrixBuffer,
-        right: SizedMatrixBuffer,
-        out: SizedMatrixBuffer,
+        left: SizedTensorBuffer,
+        right: SizedTensorBuffer,
+        out: SizedTensorBuffer,
         left_shared_indices: Vec<usize>,
         right_shared_indices: Vec<usize>,
     ) -> Self {
@@ -124,7 +124,7 @@ impl OverlappingKronStruct {
     }
 
     #[inline(always)]
-    pub fn execute_unitary<C: ComplexScalar>(&self, memory: &mut MemoryBuffer<C>) {
+    pub fn evaluate<C: ComplexScalar>(&self, memory: &mut MemoryBuffer<C>) {
         let left_matref = self.left.as_matref::<C>(memory);
         let right_matref = self.right.as_matref::<C>(memory);
         let out_matmut = self.out.as_matmut::<C>(memory);
@@ -132,7 +132,7 @@ impl OverlappingKronStruct {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_and_gradient<C: ComplexScalar>(
+    pub fn evaluate_gradient<C: ComplexScalar>(
         &self,
         memory: &mut MemoryBuffer<C>,
     ) {
@@ -153,7 +153,7 @@ impl OverlappingKronStruct {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_gradient_and_hessian<C: ComplexScalar>(
+    pub fn evaluate_hessian<C: ComplexScalar>(
         &self,
         memory: &mut MemoryBuffer<C>,
     ) {
@@ -188,9 +188,9 @@ impl OverlappingKronStruct {
 
 impl DisjointKronStruct {
     pub fn new(
-        left: SizedMatrixBuffer,
-        right: SizedMatrixBuffer,
-        out: SizedMatrixBuffer,
+        left: SizedTensorBuffer,
+        right: SizedTensorBuffer,
+        out: SizedTensorBuffer,
     ) -> Self {
         Self { left, right, out }
     }
@@ -280,7 +280,7 @@ impl DisjointKronStruct {
     }
 
     #[inline(always)]
-    pub fn execute_unitary<C: ComplexScalar>(&self, memory: &mut MemoryBuffer<C>) {
+    pub fn evaluate<C: ComplexScalar>(&self, memory: &mut MemoryBuffer<C>) {
         let left_matref = self.left.as_matref::<C>(memory);
         let right_matref = self.right.as_matref::<C>(memory);
         let out_matmut = self.out.as_matmut::<C>(memory);
@@ -288,7 +288,7 @@ impl DisjointKronStruct {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_and_gradient<C: ComplexScalar>(
+    pub fn evaluate_gradient<C: ComplexScalar>(
         &self,
         memory: &mut MemoryBuffer<C>,
     ) {
@@ -309,7 +309,7 @@ impl DisjointKronStruct {
     }
 
     #[inline(always)]
-    pub fn execute_unitary_gradient_and_hessian<C: ComplexScalar>(
+    pub fn evaluate_hessian<C: ComplexScalar>(
         &self,
         memory: &mut MemoryBuffer<C>,
     ) {
@@ -345,7 +345,7 @@ impl DisjointKronStruct {
     }
 
     // #[inline(always)]
-    // pub fn execute_unitary_into<C: ComplexScalar>(
+    // pub fn evaluate_into<C: ComplexScalar>(
     //     &self,
     //     memory: &mut MemoryBuffer<C>,
     //     out: MatMut<C>,
@@ -356,7 +356,7 @@ impl DisjointKronStruct {
     // }
 
     // #[inline(always)]
-    // pub fn execute_unitary_and_gradient_into<C: ComplexScalar>(
+    // pub fn evaluate_gradient_into<C: ComplexScalar>(
     //     &self,
     //     memory: &mut MemoryBuffer<C>,
     //     out: MatMut<C>,
@@ -377,7 +377,7 @@ impl DisjointKronStruct {
     // }
 
     // #[inline(always)]
-    // pub fn execute_unitary_gradient_and_hessian_into<C: ComplexScalar>(
+    // pub fn evaluate_hessian_into<C: ComplexScalar>(
     //     &self,
     //     memory: &mut MemoryBuffer<C>,
     //     out: MatMut<C>,
