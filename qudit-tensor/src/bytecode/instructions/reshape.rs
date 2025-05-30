@@ -100,7 +100,34 @@ impl ReshapeStruct {
                 todo!()
             }
             (TensorGenerationShape::Matrix(a, b), TensorGenerationShape::Tensor(c, d, e)) => {
-                todo!()
+                for row_index in 0..a {
+                    for col_index in 0..b {
+                        let linear_index = row_index * b + col_index;
+                        let out_mat_index = linear_index / (d*e);
+                        let out_row_index = (linear_index % (d*e)) / d;
+                        let out_col_index = linear_index % d;
+                        
+                        let in_buffer_index = self.input.offset + self.input.col_stride * col_index + self.input.row_stride * row_index;
+                        let out_buffer_index = self.out.offset + self.out.col_stride * out_col_index + self.out.row_stride * out_row_index + self.out.mat_stride * out_mat_index;
+
+                        memory[out_buffer_index] = memory[in_buffer_index];
+                    }
+                }
+                for param_index in 0..self.input.num_params {
+                    for row_index in 0..a {
+                        for col_index in 0..b {
+                            let linear_index = row_index * b + col_index;
+                            let out_mat_index = linear_index / (d*e);
+                            let out_row_index = (linear_index % (d*e)) / d;
+                            let out_col_index = linear_index % d;
+                            
+                            let in_buffer_index = self.input.offset + self.input.col_stride * col_index + self.input.row_stride * row_index + (param_index + 1) * self.input.unit_size();
+                            let out_buffer_index = self.out.offset + self.out.col_stride * out_col_index + self.out.row_stride * out_row_index + self.out.mat_stride * out_mat_index + (param_index + 1) * self.input.unit_size();
+
+                            memory[out_buffer_index] = memory[in_buffer_index];
+                        }
+                    }
+                }
             }
 
             (TensorGenerationShape::Tensor(a, b, c), TensorGenerationShape::Scalar) => {}

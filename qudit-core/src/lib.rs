@@ -8,6 +8,7 @@ mod radices;
 mod radix;
 mod scalar;
 mod system;
+mod shape;
 
 pub mod accel;
 pub mod matrix;
@@ -26,6 +27,7 @@ pub use radices::ToRadices;
 pub use radix::ToRadix;
 pub use scalar::ComplexScalar;
 pub use scalar::RealScalar;
+pub use shape::TensorShape;
 pub use system::ClassicalSystem;
 pub use system::HybridSystem;
 pub use system::QuditSystem;

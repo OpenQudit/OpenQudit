@@ -770,7 +770,9 @@ mod tests {
         let params = [1.7, 1.7, 1.7];
         let out_buffer = qvm.evaluate(&params);
         let out_fn = out_buffer.get_fn_result().unpack_matvec();
+        let out_grad = out_buffer.get_grad_result().unpack_matvec();
         println!("Output: {:?}", out_fn);
+        println!("Output grad: {:?}", out_grad);
         // let out = qvm.get_unitary(&params);
         // println!("Unitary: {:?}", out);
         // network.prepend(

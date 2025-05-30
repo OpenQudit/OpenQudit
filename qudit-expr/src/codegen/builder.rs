@@ -204,6 +204,7 @@ impl CompilableUnitBuilder {
 
         let gen_shape = self.gen_shape.expect("Gen shape must be set");
 
+        println!("Shape: {:?}, Expr length: {}", gen_shape, exprs.len());
         assert!(gen_shape.num_elements()*2 == exprs.len());
         
         let idx_map = match gen_shape {
@@ -359,7 +360,7 @@ impl<C: ComplexScalar> ModuleBuilder<C> {
                 .name(&(name.clone() + "_grad"))
                 .exprs(simplified_exprs)
                 .variable_list(variables.clone())
-                .gen_shape(shape)
+                .gen_shape(shape.derivative_shape(1 + variables.len()))
                 .build::<C>();
             self.exprs.push(unit);
         }
@@ -394,7 +395,7 @@ impl<C: ComplexScalar> ModuleBuilder<C> {
                 .exprs(simplified_exprs)
                 .variable_list(variables.clone())
                 .indices(indices)
-                .gen_shape(shape)
+                .gen_shape(shape.derivative_shape(1 + variables.len()))
                 .build::<C>();
             self.exprs.push(unit);
         }
