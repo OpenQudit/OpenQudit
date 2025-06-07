@@ -343,8 +343,13 @@ impl<C: ComplexScalar> DisjointMatmulStruct<C> {
     ) {
         let left_matref = self.left.as_matref::<C>(memory);
         let left_matgradref = self.left.as_matvecref::<C>(memory);
+        println!("left offset: {}\n", self.left.offset);
+        println!("MATMUL LEFT: {:?}\n", left_matgradref);
+        println!("MATMUL LEFT same as write output {:?}\n", self.left.as_matvecref_for_write::<C>(memory));
         let right_matref = self.right.as_matref::<C>(memory);
         let right_matgradref = self.right.as_matvecref::<C>(memory);
+        println!("right offset: {}\n", self.right.offset);
+        println!("MATMUL RIGHT: {:?}\n", right_matgradref);
         let out_matmut = self.out.as_matmut::<C>(memory);
         let out_matgradmut = self.out.as_matvecmut::<C>(memory);
         self.calculate_unitary(left_matref, right_matref, out_matmut);
@@ -355,6 +360,7 @@ impl<C: ComplexScalar> DisjointMatmulStruct<C> {
             right_matgradref,
             out_matgradmut,
         );
+        println!("MATMUL OUT: {:?}\n", self.out.as_matvecref::<C>(memory));
     }
 
     #[inline(always)]

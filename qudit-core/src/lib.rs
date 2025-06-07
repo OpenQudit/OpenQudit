@@ -14,6 +14,7 @@ pub mod accel;
 pub mod matrix;
 pub mod memory;
 pub mod unitary;
+pub mod array;
 
 pub use bitwidth::BitWidthConvertible;
 pub use function::HasBounds;

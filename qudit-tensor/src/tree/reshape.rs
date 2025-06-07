@@ -2,17 +2,18 @@ use std::hash::Hash;
 
 use super::fmt::PrintTree;
 use qudit_core::{ParamIndices, QuditRadices, RealScalar};
-use qudit_expr::{TensorExpression, TensorGenerationShape};
+use qudit_expr::TensorExpression;
+use qudit_core::TensorShape;
 use super::tree::ExpressionTree;
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct ReshapeNode {
     pub child: Box<ExpressionTree>,
-    pub gen_shape: TensorGenerationShape,
+    pub gen_shape: TensorShape,
 }
 
 impl ReshapeNode {
-    pub fn new(child: ExpressionTree, gen_shape: TensorGenerationShape) -> ReshapeNode {
+    pub fn new(child: ExpressionTree, gen_shape: TensorShape) -> ReshapeNode {
         ReshapeNode {
             child: Box::new(child),
             gen_shape,
@@ -23,11 +24,11 @@ impl ReshapeNode {
         self.child.dimensions()
     }
 
-    pub fn generation_shape(&self) -> TensorGenerationShape {
+    pub fn generation_shape(&self) -> TensorShape {
         self.gen_shape.clone()
     }
 
-    pub fn set_generation_shape(&mut self, gen_shape: TensorGenerationShape) {
+    pub fn set_generation_shape(&mut self, gen_shape: TensorShape) {
         self.gen_shape = gen_shape;
     }
 

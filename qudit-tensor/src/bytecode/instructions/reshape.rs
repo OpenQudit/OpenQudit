@@ -2,7 +2,7 @@ use qudit_core::matrix::{MatMut, MatRef};
 use qudit_core::matrix::{SymSqMatMatMut, SymSqMatMatRef};
 use qudit_core::matrix::{MatVecMut, MatVecRef};
 use qudit_core::ComplexScalar;
-use qudit_expr::TensorGenerationShape;
+use qudit_core::TensorShape;
 use crate::bytecode::buffer::SizedTensorBuffer;
 use qudit_core::memory::MemoryBuffer;
 
@@ -25,28 +25,28 @@ impl ReshapeStruct {
     #[inline(always)]
     pub fn evaluate<C: ComplexScalar>(&self, memory: &mut MemoryBuffer<C>) {
         match (self.input.shape(), self.out.shape()) {
-            (TensorGenerationShape::Scalar, TensorGenerationShape::Scalar) => {}
-            (TensorGenerationShape::Scalar, TensorGenerationShape::Vector(len)) => {} 
-            (TensorGenerationShape::Scalar, TensorGenerationShape::Matrix(a, b)) => {} 
-            (TensorGenerationShape::Scalar, TensorGenerationShape::Tensor(a, b, c)) => {} 
+            (TensorShape::Scalar, TensorShape::Scalar) => {}
+            (TensorShape::Scalar, TensorShape::Vector(len)) => {} 
+            (TensorShape::Scalar, TensorShape::Matrix(a, b)) => {} 
+            (TensorShape::Scalar, TensorShape::Tensor3D(a, b, c)) => {} 
             
-            (TensorGenerationShape::Vector(len), TensorGenerationShape::Scalar) => {}
-            (TensorGenerationShape::Vector(len), TensorGenerationShape::Vector(len_b)) => {}
-            (TensorGenerationShape::Vector(len), TensorGenerationShape::Matrix(a, b)) => {
+            (TensorShape::Vector(len), TensorShape::Scalar) => {}
+            (TensorShape::Vector(len), TensorShape::Vector(len_b)) => {}
+            (TensorShape::Vector(len), TensorShape::Matrix(a, b)) => {
                 todo!()
             }
-            (TensorGenerationShape::Vector(len), TensorGenerationShape::Tensor(a, b, c)) => {
+            (TensorShape::Vector(len), TensorShape::Tensor3D(a, b, c)) => {
                 todo!()
             }
 
-            (TensorGenerationShape::Matrix(a, b), TensorGenerationShape::Scalar) => {}
-            (TensorGenerationShape::Matrix(a, b), TensorGenerationShape::Vector(len)) => {
+            (TensorShape::Matrix(a, b), TensorShape::Scalar) => {}
+            (TensorShape::Matrix(a, b), TensorShape::Vector(len)) => {
                 todo!()
             }
-            (TensorGenerationShape::Matrix(a, b), TensorGenerationShape::Matrix(c, d)) => {
+            (TensorShape::Matrix(a, b), TensorShape::Matrix(c, d)) => {
                 todo!()
             }
-            (TensorGenerationShape::Matrix(a, b), TensorGenerationShape::Tensor(c, d, e)) => {
+            (TensorShape::Matrix(a, b), TensorShape::Tensor3D(c, d, e)) => {
                 for row_index in 0..a {
                     for col_index in 0..b {
                         let linear_index = row_index * b + col_index;
@@ -62,44 +62,45 @@ impl ReshapeStruct {
                 }
             }
 
-            (TensorGenerationShape::Tensor(a, b, c), TensorGenerationShape::Scalar) => {}
-            (TensorGenerationShape::Tensor(a, b, c), TensorGenerationShape::Vector(len)) => {
+            (TensorShape::Tensor3D(a, b, c), TensorShape::Scalar) => {}
+            (TensorShape::Tensor3D(a, b, c), TensorShape::Vector(len)) => {
                 todo!()
             }
-            (TensorGenerationShape::Tensor(a, b, c), TensorGenerationShape::Matrix(d, e)) => {
+            (TensorShape::Tensor3D(a, b, c), TensorShape::Matrix(d, e)) => {
                 todo!()
             }
-            (TensorGenerationShape::Tensor(a, b, c), TensorGenerationShape::Tensor(d, e, f)) => {
+            (TensorShape::Tensor3D(a, b, c), TensorShape::Tensor3D(d, e, f)) => {
                 todo!()
             }
+            _ => panic!("Dynamic tensor shape unsupported"),
         }
     }
 
     #[inline(always)]
     pub fn evaluate_gradient<C: ComplexScalar>(&self, memory: &mut MemoryBuffer<C>) {
         match (self.input.shape(), self.out.shape()) {
-            (TensorGenerationShape::Scalar, TensorGenerationShape::Scalar) => {}
-            (TensorGenerationShape::Scalar, TensorGenerationShape::Vector(len)) => {} 
-            (TensorGenerationShape::Scalar, TensorGenerationShape::Matrix(a, b)) => {} 
-            (TensorGenerationShape::Scalar, TensorGenerationShape::Tensor(a, b, c)) => {} 
+            (TensorShape::Scalar, TensorShape::Scalar) => {}
+            (TensorShape::Scalar, TensorShape::Vector(len)) => {} 
+            (TensorShape::Scalar, TensorShape::Matrix(a, b)) => {} 
+            (TensorShape::Scalar, TensorShape::Tensor3D(a, b, c)) => {} 
             
-            (TensorGenerationShape::Vector(len), TensorGenerationShape::Scalar) => {}
-            (TensorGenerationShape::Vector(len), TensorGenerationShape::Vector(len_b)) => {}
-            (TensorGenerationShape::Vector(len), TensorGenerationShape::Matrix(a, b)) => {
+            (TensorShape::Vector(len), TensorShape::Scalar) => {}
+            (TensorShape::Vector(len), TensorShape::Vector(len_b)) => {}
+            (TensorShape::Vector(len), TensorShape::Matrix(a, b)) => {
                 todo!()
             }
-            (TensorGenerationShape::Vector(len), TensorGenerationShape::Tensor(a, b, c)) => {
+            (TensorShape::Vector(len), TensorShape::Tensor3D(a, b, c)) => {
                 todo!()
             }
 
-            (TensorGenerationShape::Matrix(a, b), TensorGenerationShape::Scalar) => {}
-            (TensorGenerationShape::Matrix(a, b), TensorGenerationShape::Vector(len)) => {
+            (TensorShape::Matrix(a, b), TensorShape::Scalar) => {}
+            (TensorShape::Matrix(a, b), TensorShape::Vector(len)) => {
                 todo!()
             }
-            (TensorGenerationShape::Matrix(a, b), TensorGenerationShape::Matrix(c, d)) => {
+            (TensorShape::Matrix(a, b), TensorShape::Matrix(c, d)) => {
                 todo!()
             }
-            (TensorGenerationShape::Matrix(a, b), TensorGenerationShape::Tensor(c, d, e)) => {
+            (TensorShape::Matrix(a, b), TensorShape::Tensor3D(c, d, e)) => {
                 for row_index in 0..a {
                     for col_index in 0..b {
                         let linear_index = row_index * b + col_index;
@@ -121,66 +122,67 @@ impl ReshapeStruct {
                             let out_row_index = (linear_index % (d*e)) / d;
                             let out_col_index = linear_index % d;
                             
-                            let in_buffer_index = self.input.offset + self.input.col_stride * col_index + self.input.row_stride * row_index + (param_index + 1) * self.input.unit_size();
-                            let out_buffer_index = self.out.offset + self.out.col_stride * out_col_index + self.out.row_stride * out_row_index + self.out.mat_stride * out_mat_index + (param_index + 1) * self.input.unit_size();
-
+                            let in_buffer_index = self.input.offset + self.input.col_stride * col_index + self.input.row_stride * row_index + (param_index + 1) * self.input.mat_stride;
+                            let out_buffer_index = self.out.offset + self.out.col_stride * out_col_index + self.out.row_stride * out_row_index + self.out.mat_stride * out_mat_index + (param_index + 1) * self.out.unit_size();
                             memory[out_buffer_index] = memory[in_buffer_index];
                         }
                     }
                 }
             }
 
-            (TensorGenerationShape::Tensor(a, b, c), TensorGenerationShape::Scalar) => {}
-            (TensorGenerationShape::Tensor(a, b, c), TensorGenerationShape::Vector(len)) => {
+            (TensorShape::Tensor3D(a, b, c), TensorShape::Scalar) => {}
+            (TensorShape::Tensor3D(a, b, c), TensorShape::Vector(len)) => {
                 todo!()
             }
-            (TensorGenerationShape::Tensor(a, b, c), TensorGenerationShape::Matrix(d, e)) => {
+            (TensorShape::Tensor3D(a, b, c), TensorShape::Matrix(d, e)) => {
                 todo!()
             }
-            (TensorGenerationShape::Tensor(a, b, c), TensorGenerationShape::Tensor(d, e, f)) => {
+            (TensorShape::Tensor3D(a, b, c), TensorShape::Tensor3D(d, e, f)) => {
                 todo!()
             }
+            _ => panic!("Dynamic tensor shape unsupported"),
         }
     }
 
     #[inline(always)]
     pub fn evaluate_hessian<C: ComplexScalar>(&self, memory: &mut MemoryBuffer<C>) {
         match (self.input.shape(), self.out.shape()) {
-            (TensorGenerationShape::Scalar, TensorGenerationShape::Scalar) => {}
-            (TensorGenerationShape::Scalar, TensorGenerationShape::Vector(len)) => {} 
-            (TensorGenerationShape::Scalar, TensorGenerationShape::Matrix(a, b)) => {} 
-            (TensorGenerationShape::Scalar, TensorGenerationShape::Tensor(a, b, c)) => {} 
+            (TensorShape::Scalar, TensorShape::Scalar) => {}
+            (TensorShape::Scalar, TensorShape::Vector(len)) => {} 
+            (TensorShape::Scalar, TensorShape::Matrix(a, b)) => {} 
+            (TensorShape::Scalar, TensorShape::Tensor3D(a, b, c)) => {} 
             
-            (TensorGenerationShape::Vector(len), TensorGenerationShape::Scalar) => {}
-            (TensorGenerationShape::Vector(len), TensorGenerationShape::Vector(len_b)) => {}
-            (TensorGenerationShape::Vector(len), TensorGenerationShape::Matrix(a, b)) => {
+            (TensorShape::Vector(len), TensorShape::Scalar) => {}
+            (TensorShape::Vector(len), TensorShape::Vector(len_b)) => {}
+            (TensorShape::Vector(len), TensorShape::Matrix(a, b)) => {
                 todo!()
             }
-            (TensorGenerationShape::Vector(len), TensorGenerationShape::Tensor(a, b, c)) => {
-                todo!()
-            }
-
-            (TensorGenerationShape::Matrix(a, b), TensorGenerationShape::Scalar) => {}
-            (TensorGenerationShape::Matrix(a, b), TensorGenerationShape::Vector(len)) => {
-                todo!()
-            }
-            (TensorGenerationShape::Matrix(a, b), TensorGenerationShape::Matrix(c, d)) => {
-                todo!()
-            }
-            (TensorGenerationShape::Matrix(a, b), TensorGenerationShape::Tensor(c, d, e)) => {
+            (TensorShape::Vector(len), TensorShape::Tensor3D(a, b, c)) => {
                 todo!()
             }
 
-            (TensorGenerationShape::Tensor(a, b, c), TensorGenerationShape::Scalar) => {}
-            (TensorGenerationShape::Tensor(a, b, c), TensorGenerationShape::Vector(len)) => {
+            (TensorShape::Matrix(a, b), TensorShape::Scalar) => {}
+            (TensorShape::Matrix(a, b), TensorShape::Vector(len)) => {
                 todo!()
             }
-            (TensorGenerationShape::Tensor(a, b, c), TensorGenerationShape::Matrix(d, e)) => {
+            (TensorShape::Matrix(a, b), TensorShape::Matrix(c, d)) => {
                 todo!()
             }
-            (TensorGenerationShape::Tensor(a, b, c), TensorGenerationShape::Tensor(d, e, f)) => {
+            (TensorShape::Matrix(a, b), TensorShape::Tensor3D(c, d, e)) => {
                 todo!()
             }
+
+            (TensorShape::Tensor3D(a, b, c), TensorShape::Scalar) => {}
+            (TensorShape::Tensor3D(a, b, c), TensorShape::Vector(len)) => {
+                todo!()
+            }
+            (TensorShape::Tensor3D(a, b, c), TensorShape::Matrix(d, e)) => {
+                todo!()
+            }
+            (TensorShape::Tensor3D(a, b, c), TensorShape::Tensor3D(d, e, f)) => {
+                todo!()
+            }
+            _ => panic!("Dynamic tensor shape unsupported"),
         }
     }
 

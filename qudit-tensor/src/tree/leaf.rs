@@ -2,7 +2,8 @@ use std::hash::Hash;
 
 use super::fmt::PrintTree;
 use qudit_core::{ParamIndices, QuditRadices, RealScalar};
-use qudit_expr::{TensorExpression, TensorGenerationShape};
+use qudit_expr::TensorExpression;
+use qudit_core::TensorShape;
 use super::tree::ExpressionTree;
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
@@ -23,11 +24,11 @@ impl LeafNode {
         self.expr.dimensions()
     }
 
-    pub fn generation_shape(&self) -> TensorGenerationShape {
+    pub fn generation_shape(&self) -> TensorShape {
         self.expr.generation_shape()
     }
 
-    pub fn set_generation_shape(&mut self, gen_shape: TensorGenerationShape) {
+    pub fn set_generation_shape(&mut self, gen_shape: TensorShape) {
         self.expr.reshape(gen_shape);
     }
 

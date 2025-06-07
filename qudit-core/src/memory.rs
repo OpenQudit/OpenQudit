@@ -447,6 +447,27 @@ pub fn calc_mat_stride<C>(_nrows: usize, ncols: usize, col_stride: usize) -> usi
     packed_mat_size + remainder
 }
 
+pub fn calc_next_stride<C>(packed_subtensor_size: usize) -> usize {
+    let unit_size = size_of::<C>();
+
+    if unit_size == 0 {
+        return 0;
+    }
+
+    if unit_size > CACHELINE_ALIGN {
+        // See similar comment in [calc_col_stride].
+        return packed_subtensor_size;
+    }
+
+    let units_per_cache_line = CACHELINE_ALIGN / unit_size;
+
+    let remainder = units_per_cache_line - (packed_subtensor_size % units_per_cache_line);
+    if remainder == units_per_cache_line {
+        return packed_subtensor_size;
+    }
+    packed_subtensor_size + remainder
+}
+
 #[cfg(test)]
 mod tests {
     use faer::c32;

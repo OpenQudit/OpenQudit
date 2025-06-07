@@ -1,3 +1,5 @@
+use qudit_core::array::Tensor;
+use qudit_core::array::TensorRef;
 use qudit_core::matrix::MatMut;
 use qudit_core::matrix::MatRef;
 use qudit_core::matrix::MatVecMut;
@@ -7,7 +9,7 @@ use qudit_core::matrix::SymSqMatMatRef;
 use qudit_core::memory::MemoryBuffer;
 use qudit_core::ComplexScalar;
 use qudit_expr::DifferentiationLevel;
-use qudit_expr::TensorGenerationShape;
+use qudit_core::TensorShape;
 use qudit_expr::UnitaryExpression;
 use qudit_core::QuditSystem;
 use qudit_core::HasParams;
@@ -19,37 +21,40 @@ use qudit_core::HasParams;
 //     pub num_params: usize,
 // }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TensorBuffer {
-    pub shape: TensorGenerationShape,
+    pub shape: TensorShape,
     pub num_params: usize,
 }
 
 impl TensorBuffer {
     pub fn nrows(&self) -> usize {
         match self.shape {
-            TensorGenerationShape::Scalar => 1,
-            TensorGenerationShape::Vector(len) => len,
-            TensorGenerationShape::Matrix(a, _) => a,
-            TensorGenerationShape::Tensor(_, a, _) => a,
+            TensorShape::Scalar => 1,
+            TensorShape::Vector(len) => len,
+            TensorShape::Matrix(a, _) => a,
+            TensorShape::Tensor3D(_, a, _) => a,
+            _ => panic!("Dynamic tensor shape unsupported"),
         }
     }
 
     pub fn ncols(&self) -> usize {
         match self.shape {
-            TensorGenerationShape::Scalar => 1,
-            TensorGenerationShape::Vector(_) => 1,
-            TensorGenerationShape::Matrix(_, b) => b,
-            TensorGenerationShape::Tensor(_, _, b) => b,
+            TensorShape::Scalar => 1,
+            TensorShape::Vector(_) => 1,
+            TensorShape::Matrix(_, b) => b,
+            TensorShape::Tensor3D(_, _, b) => b,
+            _ => panic!("Dynamic tensor shape unsupported"),
         }
     }
 
     pub fn nmats(&self) -> usize {
         match self.shape {
-            TensorGenerationShape::Scalar => 1,
-            TensorGenerationShape::Vector(_) => 1,
-            TensorGenerationShape::Matrix(_, _) => 1,
-            TensorGenerationShape::Tensor(c, _, _) => c,
+            TensorShape::Scalar => 1,
+            TensorShape::Vector(_) => 1,
+            TensorShape::Matrix(_, _) => 1,
+            TensorShape::Tensor3D(c, _, _) => c,
+            _ => panic!("Dynamic tensor shape unsupported"),
         }
     }
 
@@ -58,7 +63,7 @@ impl TensorBuffer {
         let mat_stride = qudit_core::memory::calc_mat_stride::<C>(self.nrows(), self.ncols(), col_stride);
         SizedTensorBuffer {
             offset,
-            shape: self.shape,
+            shape: self.shape.clone(),
             row_stride: 1,
             col_stride,
             mat_stride,
@@ -67,10 +72,10 @@ impl TensorBuffer {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SizedTensorBuffer {
     pub offset: usize,
-    pub shape: TensorGenerationShape,
+    pub shape: TensorShape,
     pub row_stride: usize,
     pub col_stride: usize,
     pub mat_stride: usize,
@@ -78,8 +83,8 @@ pub struct SizedTensorBuffer {
 }
 
 impl SizedTensorBuffer {
-    pub fn shape(&self) -> TensorGenerationShape {
-        self.shape
+    pub fn shape(&self) -> TensorShape {
+        self.shape.clone()
     }
 
     pub fn is_matrix(&self) -> bool {
@@ -88,10 +93,11 @@ impl SizedTensorBuffer {
 
     pub fn unit_size(&self) -> usize {
         match self.shape {
-            TensorGenerationShape::Scalar => 1,
-            TensorGenerationShape::Vector(len) => len,
-            TensorGenerationShape::Matrix(_, _) => self.mat_stride,
-            TensorGenerationShape::Tensor(_, _, c) => self.mat_stride * c,
+            TensorShape::Scalar => 1,
+            TensorShape::Vector(len) => len,
+            TensorShape::Matrix(_, _) => self.mat_stride,
+            TensorShape::Tensor3D(c, _, _) => self.mat_stride * c,
+            _ => panic!("Dynamic tensor shape unsupported"),
         }
     }
 
@@ -107,28 +113,31 @@ impl SizedTensorBuffer {
 
     pub fn nrows(&self) -> usize {
         match self.shape {
-            TensorGenerationShape::Scalar => 1,
-            TensorGenerationShape::Vector(len) => len,
-            TensorGenerationShape::Matrix(a, _) => a,
-            TensorGenerationShape::Tensor(_, a, _) => a,
+            TensorShape::Scalar => 1,
+            TensorShape::Vector(len) => len,
+            TensorShape::Matrix(a, _) => a,
+            TensorShape::Tensor3D(_, a, _) => a,
+            _ => panic!("Dynamic tensor shape unsupported"),
         }
     }
 
     pub fn ncols(&self) -> usize {
         match self.shape {
-            TensorGenerationShape::Scalar => 1,
-            TensorGenerationShape::Vector(_) => 1,
-            TensorGenerationShape::Matrix(_, b) => b,
-            TensorGenerationShape::Tensor(_, _, b) => b,
+            TensorShape::Scalar => 1,
+            TensorShape::Vector(_) => 1,
+            TensorShape::Matrix(_, b) => b,
+            TensorShape::Tensor3D(_, _, b) => b,
+            _ => panic!("Dynamic tensor shape unsupported"),
         }
     }
 
     pub fn nmats(&self) -> usize {
         match self.shape {
-            TensorGenerationShape::Scalar => 1,
-            TensorGenerationShape::Vector(_) => 1,
-            TensorGenerationShape::Matrix(_, _) => 1,
-            TensorGenerationShape::Tensor(c, _, _) => c,
+            TensorShape::Scalar => 1,
+            TensorShape::Vector(_) => 1,
+            TensorShape::Matrix(_, _) => 1,
+            TensorShape::Tensor3D(c, _, _) => c,
+            _ => panic!("Dynamic tensor shape unsupported"),
         }
     }
 
@@ -179,6 +188,39 @@ impl SizedTensorBuffer {
         }
     }
 
+    pub fn as_matvecref_for_write<'a, C: ComplexScalar>(
+        &self,
+        memory: &mut MemoryBuffer<C>,
+    ) -> MatVecRef<'a, C> {
+        unsafe {
+            MatVecRef::from_raw_parts(
+                memory.as_ptr().offset((self.offset) as isize),
+                self.nrows(),
+                self.ncols(),
+                self.num_params + 1,
+                self.col_stride,
+                self.mat_stride,
+            )
+        }
+    }
+
+    pub fn as_matvecmut_for_write<'a, C: ComplexScalar>(
+        &self,
+        memory: &mut MemoryBuffer<C>,
+    ) -> MatVecMut<'a, C> {
+        let mat_size = self.col_stride * self.ncols();
+        unsafe {
+            MatVecMut::from_raw_parts(
+                memory.as_mut_ptr().offset((self.offset) as isize),
+                self.nrows(),
+                self.ncols(),
+                self.num_params + 1,
+                self.col_stride,
+                self.mat_stride,
+            )
+        }
+    }
+
     pub fn as_matvecref_non_gradient<'a, C: ComplexScalar>(
         &self,
         memory: &MemoryBuffer<C>,
@@ -199,15 +241,25 @@ impl SizedTensorBuffer {
         &self,
         memory: &MemoryBuffer<C>,
     ) -> MatVecRef<'a, C> {
-        let mat_size = self.col_stride * self.ncols();
         unsafe {
             MatVecRef::from_raw_parts(
-                memory.as_ptr().offset((self.offset + mat_size) as isize),
+                memory.as_ptr().offset((self.offset + self.mat_stride) as isize),
                 self.nrows(),
                 self.ncols(),
                 self.num_params,
                 self.col_stride,
                 self.mat_stride,
+            )
+        }
+    }
+
+    pub fn as_tensor4d<'a, C: ComplexScalar>(&self, memory: &MemoryBuffer<C>) -> TensorRef<'a, C, 4> {
+        let matvec_size = self.mat_stride * self.nmats();
+        unsafe {
+            TensorRef::from_raw_parts(
+                memory.as_ptr().offset((self.offset + matvec_size) as isize),
+                [self.num_params, self.nmats(), self.nrows(), self.ncols()],
+                [matvec_size, self.mat_stride, 1, self.col_stride],
             )
         }
     }

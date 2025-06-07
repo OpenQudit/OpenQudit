@@ -8,7 +8,7 @@ use qudit_core::RealScalar;
 use qudit_core::QuditRadices;
 use qudit_core::QuditSystem;
 use qudit_core::QuditPermutation;
-use qudit_expr::TensorGenerationShape;
+use qudit_core::TensorShape;
 
 use super::fmt::PrintTree;
 use super::tree::ExpressionTree;
@@ -31,7 +31,7 @@ pub struct TransposeNode {
     pub dimensions: QuditRadices,
 
     /// The shape of the tensor after computation.
-    pub generation_shape: TensorGenerationShape,
+    pub generation_shape: TensorShape,
 }
 
 impl TransposeNode {
@@ -42,7 +42,7 @@ impl TransposeNode {
         // let dimensions: QuditRadices = child.dimensions().iter().enumerate().map(|(i, x)| perm[*x as usize]).collect();
         let left_dimension = dimensions[0..split_at].iter().map(|x| *x as usize).product();
         let right_dimension = dimensions[split_at..].iter().map(|x| *x as usize).product();
-        let shape = TensorGenerationShape::Matrix(left_dimension, right_dimension);
+        let shape = TensorShape::Matrix(left_dimension, right_dimension);
         // let num_params = child.num_params();
         // let _radices = child.radices();
 
@@ -68,11 +68,11 @@ impl TransposeNode {
         self.dimensions.clone()
     }
 
-    pub fn generation_shape(&self) -> TensorGenerationShape {
+    pub fn generation_shape(&self) -> TensorShape {
         self.generation_shape.clone()
     }
 
-    pub fn set_generation_shape(&mut self, gen_shape: TensorGenerationShape) {
+    pub fn set_generation_shape(&mut self, gen_shape: TensorShape) {
         self.generation_shape = gen_shape;
     }
 

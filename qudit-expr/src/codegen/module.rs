@@ -111,12 +111,12 @@ impl<C: ComplexScalar> Module<C> {
         self.engine().get_function(&name).unwrap().as_raw()
     }
 
-    pub fn get_function_and_gradient<'a>(&'a self, name: &str) -> Option<JitFunction<'a, UtryGradFunc<C>>> {
+    pub fn get_function_and_gradient<'a>(&'a self, name: &str) -> Option<JitFunction<'a, UtryFunc<C>>> {
         let name = process_name_for_gen(name) + "_grad";
         unsafe { self.engine().get_function(&name).ok() }
     }
 
-    pub unsafe fn get_function_and_gradient_raw(&self, name: &str) -> UtryGradFunc<C> {
+    pub unsafe fn get_function_and_gradient_raw(&self, name: &str) -> UtryFunc<C> {
         let name = process_name_for_gen(name) + "_grad";
         self.engine().get_function(&name).unwrap().as_raw()
     }

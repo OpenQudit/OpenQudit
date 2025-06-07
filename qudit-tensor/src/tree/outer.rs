@@ -7,7 +7,7 @@ use qudit_core::ParamIndices;
 use qudit_core::RealScalar;
 use qudit_core::QuditRadices;
 use qudit_core::QuditSystem;
-use qudit_expr::TensorGenerationShape;
+use qudit_core::TensorShape;
 use super::tree::ExpressionTree;
 
 /// A kron node in the computation tree that stacks two nodes.
@@ -66,7 +66,7 @@ impl OuterProductNode {
         let left_shape = self.left.generation_shape();
         let right_shape = self.right.generation_shape();
         let mut left_count_iter = 0;
-        if let TensorGenerationShape::Matrix(a, b) = left_shape {
+        if let TensorShape::Matrix(a, b) = left_shape {
             let mut prod_iter = 1;
             while prod_iter < a {
                 dims.push(left_dims[left_count_iter]);
@@ -81,7 +81,7 @@ impl OuterProductNode {
         }
 
         let mut right_count_iter = 0;
-        if let TensorGenerationShape::Matrix(c, d) = right_shape {
+        if let TensorShape::Matrix(c, d) = right_shape {
             let mut prod_iter = 1;
             while prod_iter < c {
                 dims.push(right_dims[right_count_iter]);
@@ -107,44 +107,44 @@ impl OuterProductNode {
         dims.into()
     }
 
-    pub fn generation_shape(&self) -> TensorGenerationShape {
+    pub fn generation_shape(&self) -> TensorShape {
         let left_shape = self.left.generation_shape();
         let right_shape = self.right.generation_shape();
-        if let TensorGenerationShape::Matrix(a, b) = left_shape {
-            if let TensorGenerationShape::Matrix(c, d) = right_shape {
-                return TensorGenerationShape::Matrix(a * c, b * d);
+        if let TensorShape::Matrix(a, b) = left_shape {
+            if let TensorShape::Matrix(c, d) = right_shape {
+                return TensorShape::Matrix(a * c, b * d);
             }
         }
         panic!(
             "OuterProductNode::generation_shape: left and right shapes are not matrices",
         );
         // match (left_shape, right_shape) {
-        //     (TensorGenerationShape::Vector(a0), TensorGenerationShape::Vector(b0)) => {
-        //         TensorGenerationShape::Vector(a0 * b0)
+        //     (TensorShape::Vector(a0), TensorShape::Vector(b0)) => {
+        //         TensorShape::Vector(a0 * b0)
         //     }
-        //     (TensorGenerationShape::Vector(a0), TensorGenerationShape::Matrix(b0, b1)) => {
-        //         TensorGenerationShape::Matrix(a0 * b0, b1)
+        //     (TensorShape::Vector(a0), TensorShape::Matrix(b0, b1)) => {
+        //         TensorShape::Matrix(a0 * b0, b1)
         //     }
-        //     (TensorGenerationShape::Vector(a0), TensorGenerationShape::Tensor(b0, b1, b2)) => {
-        //         TensorGenerationShape::Tensor(a0 * b0, b1, b2)
+        //     (TensorShape::Vector(a0), TensorShape::Tensor(b0, b1, b2)) => {
+        //         TensorShape::Tensor(a0 * b0, b1, b2)
         //     }
-        //     (TensorGenerationShape::Matrix(a0, a1), TensorGenerationShape::Vector(b0)) => {
-        //         TensorGenerationShape::Matrix(a0 * b0, a1)
+        //     (TensorShape::Matrix(a0, a1), TensorShape::Vector(b0)) => {
+        //         TensorShape::Matrix(a0 * b0, a1)
         //     }
-        //     (TensorGenerationShape::Matrix(a0, a1), TensorGenerationShape::Matrix(b0, b1)) => {
-        //         TensorGenerationShape::Matrix(a0 * b0, a1 * b1)
+        //     (TensorShape::Matrix(a0, a1), TensorShape::Matrix(b0, b1)) => {
+        //         TensorShape::Matrix(a0 * b0, a1 * b1)
         //     }
-        //     (TensorGenerationShape::Matrix(a0, a1), TensorGenerationShape::Tensor(b0, b1, b2)) => {
-        //         TensorGenerationShape::Tensor(a0 * b0, a1 * b1, b2)
+        //     (TensorShape::Matrix(a0, a1), TensorShape::Tensor(b0, b1, b2)) => {
+        //         TensorShape::Tensor(a0 * b0, a1 * b1, b2)
         //     }
-        //     (TensorGenerationShape::Tensor(a0, a1, a2), TensorGenerationShape::Vector(b0)) => {
-        //         TensorGenerationShape::Tensor(a0 * b0, a1, a2)
+        //     (TensorShape::Tensor(a0, a1, a2), TensorShape::Vector(b0)) => {
+        //         TensorShape::Tensor(a0 * b0, a1, a2)
         //     }
-        //     (TensorGenerationShape::Tensor(a0, a1, a2), TensorGenerationShape::Matrix(b0, b1)) => {
-        //         TensorGenerationShape::Tensor(a0 * b0, a1 * b1, a2)
+        //     (TensorShape::Tensor(a0, a1, a2), TensorShape::Matrix(b0, b1)) => {
+        //         TensorShape::Tensor(a0 * b0, a1 * b1, a2)
         //     }
-        //     (TensorGenerationShape::Tensor(a0, a1, a2), TensorGenerationShape::Tensor(b0, b1, b2)) => {
-        //         TensorGenerationShape::Tensor(a0 * b0, a1 * b1, a2 * b2)
+        //     (TensorShape::Tensor(a0, a1, a2), TensorShape::Tensor(b0, b1, b2)) => {
+        //         TensorShape::Tensor(a0 * b0, a1 * b1, a2 * b2)
         //     }
         // }
     }

@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use super::{codegen::CodeGenerator, module::Module};
-use qudit_core::{ComplexScalar, ParamIndices, QuditSystem};
+use qudit_core::{TensorShape, ComplexScalar, ParamIndices, QuditSystem};
 
-use crate::{analysis::{simplify_expressions, simplify_matrix_and_matvec}, expression::Expression, unitary::{MatVecExpression, TensorExpression, TensorGenerationShape, UnitaryExpression}, DerivedExpression};
+use crate::{analysis::{simplify_expressions, simplify_matrix_and_matvec}, expression::Expression, unitary::{MatVecExpression, TensorExpression, UnitaryExpression}, DerivedExpression};
 
 
 #[derive(Default, Clone)]
@@ -154,7 +154,7 @@ struct CompilableUnitBuilder {
     exprs: Option<Vec<Expression>>,
     variables: Option<Vec<String>>,
     indices: Option<ParamIndices>,
-    gen_shape: Option<TensorGenerationShape>,
+    gen_shape: Option<TensorShape>,
 }
 
 impl CompilableUnitBuilder {
@@ -182,7 +182,7 @@ impl CompilableUnitBuilder {
         self
     }
 
-    pub fn gen_shape(mut self, gen_shape: TensorGenerationShape) -> Self {
+    pub fn gen_shape(mut self, gen_shape: TensorShape) -> Self {
         self.gen_shape = Some(gen_shape);
         self
     }
@@ -208,14 +208,14 @@ impl CompilableUnitBuilder {
         assert!(gen_shape.num_elements()*2 == exprs.len());
         
         let idx_map = match gen_shape {
-            TensorGenerationShape::Scalar => {
+            TensorShape::Scalar => {
                 IdxMapBuilder::new()
                     .ncols(1)
                     .nrows(0)
                     .nmats(0)
                     .build()
             }
-            TensorGenerationShape::Vector(length) => {
+            TensorShape::Vector(length) => {
                 IdxMapBuilder::new()
                     .ncols(length)
                     .nrows(1)
@@ -223,7 +223,7 @@ impl CompilableUnitBuilder {
                     .row_stride(1)
                     .build()
             }
-            TensorGenerationShape::Matrix(nrows, ncols) => {
+            TensorShape::Matrix(nrows, ncols) => {
                 let col_stride = qudit_core::memory::calc_col_stride::<C>(nrows, ncols);
                 IdxMapBuilder::new()
                     .ncols(ncols)
@@ -233,7 +233,7 @@ impl CompilableUnitBuilder {
                     .col_stride(col_stride)
                     .build()
             }
-            TensorGenerationShape::Tensor(nmats, nrows, ncols) => {
+            TensorShape::Tensor3D(nmats, nrows, ncols) => {
                 let col_stride = qudit_core::memory::calc_col_stride::<C>(nrows, ncols);
                 let mat_stride = qudit_core::memory::calc_mat_stride::<C>(nrows, ncols, col_stride);
                 IdxMapBuilder::new()
@@ -245,6 +245,7 @@ impl CompilableUnitBuilder {
                     .mat_stride(mat_stride)
                     .build()
             }
+            _ => panic!("Unsupported dynamic tensor shape."),
         };
 
         CompilableUnit { fn_name, exprs, variable_table, expr_idx_to_offset_map: idx_map }

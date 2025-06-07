@@ -64,10 +64,11 @@ impl QuditTensor {
     ) -> Self {
         let gen_shape = expression.generation_shape();
         let (right_indices_total, left_indices_total, up_indices_total) = match gen_shape {
-            qudit_expr::TensorGenerationShape::Scalar => (0, 0, 0),
-            qudit_expr::TensorGenerationShape::Vector(a) => (a, 0, 0),
-            qudit_expr::TensorGenerationShape::Matrix(a, b) => (a, b, 0),
-            qudit_expr::TensorGenerationShape::Tensor(a, b, c) => (b, c, a),
+            qudit_core::TensorShape::Scalar => (0, 0, 0),
+            qudit_core::TensorShape::Vector(a) => (a, 0, 0),
+            qudit_core::TensorShape::Matrix(a, b) => (a, b, 0),
+            qudit_core::TensorShape::Tensor3D(a, b, c) => (b, c, a),
+            _ => panic!("Dynamic tensor shape unsupport"),
         };
         println!("right_indices_total: {}, left_indices_total: {}, up_indices_total: {}", right_indices_total, left_indices_total, up_indices_total);
 
@@ -551,7 +552,7 @@ impl QuditCircuitNetwork {
         let tree = partial_tree.tree;
 
         if open_indices.len() == 0 {
-            return tree.reshape(qudit_expr::TensorGenerationShape::Scalar);
+            return tree.reshape(qudit_core::TensorShape::Scalar);
         }
 
         for i in open_indices.iter() {
@@ -648,28 +649,28 @@ impl QuditCircuitNetwork {
 
         let output_tree = match (total_input_dim, total_output_dim, total_z_dim) {
             (None, None, None) => {
-                permuted_tree.reshape(qudit_expr::TensorGenerationShape::Scalar)
+                permuted_tree.reshape(qudit_core::TensorShape::Scalar)
             }
             (Some(b), None, None) => {
-                permuted_tree.reshape(qudit_expr::TensorGenerationShape::Vector(b))
+                permuted_tree.reshape(qudit_core::TensorShape::Vector(b))
             }
             (None, Some(a), None) => {
-                permuted_tree.reshape(qudit_expr::TensorGenerationShape::Vector(a))
+                permuted_tree.reshape(qudit_core::TensorShape::Vector(a))
             }
             (None, None, Some(c)) => {
-                permuted_tree.reshape(qudit_expr::TensorGenerationShape::Vector(c))
+                permuted_tree.reshape(qudit_core::TensorShape::Vector(c))
             }
             (Some(b), Some(a), None) => {
-                permuted_tree.reshape(qudit_expr::TensorGenerationShape::Matrix(a, b))
+                permuted_tree.reshape(qudit_core::TensorShape::Matrix(a, b))
             }
             (Some(b), None, Some(c)) => {
-                permuted_tree.reshape(qudit_expr::TensorGenerationShape::Matrix(b, c))
+                permuted_tree.reshape(qudit_core::TensorShape::Matrix(b, c))
             }
             (None, Some(a), Some(c)) => {
-                permuted_tree.reshape(qudit_expr::TensorGenerationShape::Matrix(a, c))
+                permuted_tree.reshape(qudit_core::TensorShape::Matrix(a, c))
             }
             (Some(b), Some(a), Some(c)) => {
-                permuted_tree.reshape(qudit_expr::TensorGenerationShape::Tensor(c, a, b))
+                permuted_tree.reshape(qudit_core::TensorShape::Tensor3D(c, a, b))
             }
         };
 
@@ -770,7 +771,7 @@ mod tests {
         let params = [1.7, 1.7, 1.7];
         let out_buffer = qvm.evaluate(&params);
         let out_fn = out_buffer.get_fn_result().unpack_matvec();
-        let out_grad = out_buffer.get_grad_result().unpack_matvec();
+        let out_grad = out_buffer.get_grad_result().unpack_tensor4d();
         println!("Output: {:?}", out_fn);
         println!("Output grad: {:?}", out_grad);
         // let out = qvm.get_unitary(&params);

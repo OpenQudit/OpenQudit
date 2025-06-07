@@ -27,59 +27,12 @@ use crate::qgl::parse_qobj;
 // use crate::qgl::parse_unitary;
 use crate::qgl::Expression as CiscExpression;
 use crate::DifferentiationLevel;
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub enum TensorGenerationShape {
-    Scalar,
-    Vector(usize),
-    Matrix(usize, usize),
-    Tensor(usize, usize, usize),
-}
-
-impl std::fmt::Debug for TensorGenerationShape {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            TensorGenerationShape::Scalar => write!(f, "Scalar"),
-            TensorGenerationShape::Vector(n) => write!(f, "Vector({})", n),
-            TensorGenerationShape::Matrix(m, n) => write!(f, "Matrix({}, {})", m, n),
-            TensorGenerationShape::Tensor(m, n, p) => write!(f, "Tensor({}, {}, {})", m, n, p),
-        }
-    }
-}
-
-impl TensorGenerationShape {
-    pub fn num_elements(&self) -> usize {
-        match self {
-            TensorGenerationShape::Scalar => 1,
-            TensorGenerationShape::Vector(n) => *n,
-            TensorGenerationShape::Matrix(m, n) => m * n,
-            TensorGenerationShape::Tensor(m, n, p) => m * n * p,
-        }
-    }
-
-    pub fn derivative_shape(&self, num_params: usize) -> Self {
-        match self {
-            TensorGenerationShape::Scalar => TensorGenerationShape::Vector(num_params),
-            TensorGenerationShape::Vector(n) => TensorGenerationShape::Matrix(*n, num_params),
-            TensorGenerationShape::Matrix(m, n) => TensorGenerationShape::Tensor(num_params, *m, *n),
-            TensorGenerationShape::Tensor(m, n, p) => TensorGenerationShape::Tensor(*m * num_params, *n, *p),
-        }
-    }
-
-    pub fn is_matrix(&self) -> bool {
-        match self {
-            TensorGenerationShape::Scalar => false,
-            TensorGenerationShape::Vector(_) => false,
-            TensorGenerationShape::Matrix(_, _) => true,
-            TensorGenerationShape::Tensor(_, _, c) => *c == 1,
-        }
-    }
-}
+use qudit_core::TensorShape;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TensorExpression {
     pub name: String,
-    pub shape: TensorGenerationShape,
+    pub shape: TensorShape,
     pub variables: Vec<String>,
     pub body: Vec<ComplexExpression>,
     pub dimensions: QuditRadices,
@@ -87,7 +40,7 @@ pub struct TensorExpression {
 
 pub struct DerivedExpression {
     pub name: String,
-    pub shape: TensorGenerationShape,
+    pub shape: TensorShape,
     pub variables: Vec<String>,
     pub body: Vec<Expression>,
     pub dimensions: QuditRadices,
@@ -203,7 +156,7 @@ impl TensorExpression {
         self.dimensions.clone()
     }
 
-    pub fn generation_shape(&self) -> TensorGenerationShape {
+    pub fn generation_shape(&self) -> TensorShape {
         self.shape.clone()
     }
     
@@ -211,7 +164,7 @@ impl TensorExpression {
         self.name.as_str()
     }
 
-    pub fn reshape(&mut self, new_shape: TensorGenerationShape) -> &mut Self {
+    pub fn reshape(&mut self, new_shape: TensorShape) -> &mut Self {
         assert_eq!(new_shape.num_elements(), self.body.len()); 
         self.shape = new_shape;
         self
@@ -870,7 +823,7 @@ mod tests {
         }");
 
         let name = cnot.name().to_owned();
-        let reshaped = cnot.reshape(TensorGenerationShape::Matrix(2, 8)).permute(&vec![2, 0, 1, 3]);
+        let reshaped = cnot.reshape(TensorShape::Matrix(2, 8)).permute(&vec![2, 0, 1, 3]);
         // println!("{:?}", reshaped);
 
         let module: Module<c64> = ModuleBuilder::new("test", DifferentiationLevel::None)
@@ -913,7 +866,7 @@ mod tests {
         }");
 
         let name = cnot.name().to_owned();
-        let reshaped = cnot.reshape(TensorGenerationShape::Matrix(8, 2)).permute(&vec![0, 1, 3, 2]);
+        let reshaped = cnot.reshape(TensorShape::Matrix(8, 2)).permute(&vec![0, 1, 3, 2]);
 
         let module: Module<c64> = ModuleBuilder::new("test", DifferentiationLevel::None)
             .add_tensor_expression(reshaped.clone())

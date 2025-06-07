@@ -4,8 +4,9 @@ use super::buffer::TensorBuffer;
 use super::{Bytecode, GeneralizedInstruction};
 use qudit_core::{HasParams, ParamIndices};
 use crate::tree::{ExpressionTree, LeafNode};
-use qudit_expr::{TensorExpression, TensorGenerationShape, UnitaryExpression};
+use qudit_expr::{TensorExpression, UnitaryExpression};
 use qudit_core::QuditSystem;
+use qudit_core::TensorShape;
 
 pub struct BytecodeGenerator {
     expression_set: HashMap<TensorExpression, HashMap<Option<ParamIndices>, String>>,
@@ -30,7 +31,7 @@ impl BytecodeGenerator {
 
     pub fn get_new_buffer(
         &mut self,
-        gen_shape: &TensorGenerationShape,
+        gen_shape: &TensorShape,
         num_params: usize,
     ) -> usize {
         let out = self.buffers.len();

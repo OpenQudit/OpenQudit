@@ -7,7 +7,7 @@ use qudit_core::ParamIndices;
 use qudit_core::RealScalar;
 use qudit_core::QuditRadices;
 use qudit_core::QuditSystem;
-use qudit_expr::TensorGenerationShape;
+use qudit_core::TensorShape;
 use super::tree::ExpressionTree;
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
@@ -46,7 +46,7 @@ impl MatMulNode {
         let mut dims = vec![];
 
         let left_shape = self.left.generation_shape();
-        if let TensorGenerationShape::Matrix(a, b) = left_shape {
+        if let TensorShape::Matrix(a, b) = left_shape {
             let mut prod_iter = 1;
             let mut left_count_iter = 0;
             while prod_iter < a {
@@ -64,7 +64,7 @@ impl MatMulNode {
 
         let mut right_count_iter = 0;
         let right_shape = self.right.generation_shape();
-        if let TensorGenerationShape::Matrix(c, d) = right_shape {
+        if let TensorShape::Matrix(c, d) = right_shape {
             let mut prod_iter = 1;
             while prod_iter < c {
                 prod_iter *= right_dims[right_count_iter] as usize;
@@ -85,13 +85,13 @@ impl MatMulNode {
         dims.into()
     }
 
-    pub fn generation_shape(&self) -> TensorGenerationShape {
+    pub fn generation_shape(&self) -> TensorShape {
         let left_shape = self.left.generation_shape();
         let right_shape = self.right.generation_shape();
-        if let TensorGenerationShape::Matrix(l0, l1) = left_shape {
-            if let TensorGenerationShape::Matrix(r0, r1) = right_shape {
+        if let TensorShape::Matrix(l0, l1) = left_shape {
+            if let TensorShape::Matrix(r0, r1) = right_shape {
                 if l1 == r0 {
-                    return TensorGenerationShape::Matrix(l0, r1);
+                    return TensorShape::Matrix(l0, r1);
                 }
             }
         }

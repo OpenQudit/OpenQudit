@@ -17,14 +17,14 @@ pub enum SpecializedInstruction<C: ComplexScalar> {
 impl<C: ComplexScalar> SpecializedInstruction<C> {
     pub fn get_output_buffer(&self) -> SizedTensorBuffer {
         match self {
-            SpecializedInstruction::CWrite(w) => w.buffer,
-            SpecializedInstruction::SWrite(w) => w.buffer,
-            SpecializedInstruction::DMatMul(m) => m.out,
-            SpecializedInstruction::OMatMul(m) => m.out,
-            SpecializedInstruction::DKron(k) => k.out,
-            SpecializedInstruction::OKron(k) => k.out,
-            SpecializedInstruction::FRPR(f) => f.out,
-            SpecializedInstruction::Reshape(r) => r.out,
+            SpecializedInstruction::CWrite(w) => w.buffer.clone(),
+            SpecializedInstruction::SWrite(w) => w.buffer.clone(),
+            SpecializedInstruction::DMatMul(m) => m.out.clone(),
+            SpecializedInstruction::OMatMul(m) => m.out.clone(),
+            SpecializedInstruction::DKron(k) => k.out.clone(),
+            SpecializedInstruction::OKron(k) => k.out.clone(),
+            SpecializedInstruction::FRPR(f) => f.out.clone(),
+            SpecializedInstruction::Reshape(r) => r.out.clone(),
         }
     }
 

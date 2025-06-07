@@ -6,7 +6,7 @@ use qudit_core::ParamIndices;
 use qudit_core::QuditRadices;
 use qudit_core::RealScalar;
 use qudit_core::QuditSystem;
-use qudit_expr::TensorGenerationShape;
+use qudit_core::TensorShape;
 
 use super::fmt::PrintTree;
 use super::tree::ExpressionTree;
@@ -27,7 +27,7 @@ impl ConstantNode {
         self.child.dimensions()
     }
 
-    pub fn generation_shape(&self) -> TensorGenerationShape {
+    pub fn generation_shape(&self) -> TensorShape {
         self.child.generation_shape()
     }
 

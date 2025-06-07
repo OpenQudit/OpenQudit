@@ -17,7 +17,7 @@ use qudit_core::HasParams;
 use qudit_core::ParamIndices;
 use qudit_core::RealScalar;
 use qudit_expr::TensorExpression;
-use qudit_expr::TensorGenerationShape;
+use qudit_core::TensorShape;
 use qudit_expr::UnitaryExpression;
 use qudit_core::QuditRadices;
 use qudit_core::QuditSystem;
@@ -71,7 +71,7 @@ impl ExpressionTree {
         Self::MatMul(MatMulNode::new(self, other))
     }
     
-    pub fn reshape(self, shape: TensorGenerationShape) -> Self {
+    pub fn reshape(self, shape: TensorShape) -> Self {
         Self::Reshape(ReshapeNode::new(self, shape))
     }
 
@@ -86,7 +86,7 @@ impl ExpressionTree {
         }
     }
 
-    pub fn generation_shape(&self) -> TensorGenerationShape {
+    pub fn generation_shape(&self) -> TensorShape {
         match self {
             Self::OuterProduct(s) => s.generation_shape(),
             Self::MatMul(s) => s.generation_shape(),

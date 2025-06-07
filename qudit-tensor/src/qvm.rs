@@ -3,7 +3,7 @@
 use faer::reborrow::ReborrowMut;
 use qudit_expr::DifferentiationLevel;
 use qudit_expr::Module;
-use qudit_expr::TensorGenerationShape;
+use qudit_core::TensorShape;
 
 
 use crate::bytecode::SizedTensorBuffer;
@@ -36,6 +36,7 @@ pub enum QVMReturnType<'a, C: ComplexScalar> {
     ColVector(qudit_core::matrix::ColRef<'a, C>),
     Matrix(qudit_core::matrix::MatRef<'a, C>),
     MatVec(qudit_core::matrix::MatVecRef<'a, C>),
+    Tensor4D(qudit_core::array::TensorRef<'a, C, 4>),
 }
 
 impl<'a, C: ComplexScalar> QVMReturnType<'a, C> {
@@ -73,6 +74,13 @@ impl<'a, C: ComplexScalar> QVMReturnType<'a, C> {
             _ => panic!("cannot unpack a non-matvec type as a matvec"),
         }
     }
+
+    pub fn unpack_tensor4d(self) -> qudit_core::array::TensorRef<'a, C, 4> {
+        match self {
+            QVMReturnType::Tensor4D(t) => t,
+            _ => panic!("cannot unpack a non-tensor4d type as a tensor4d"),
+        }
+    }
 }
 
 pub struct QVMResult<'a, C: ComplexScalar> {
@@ -83,24 +91,42 @@ pub struct QVMResult<'a, C: ComplexScalar> {
 impl<'a, C: ComplexScalar> QVMResult<'a, C> {
     pub fn get_fn_result(&self) -> QVMReturnType<'a, C> {
         match self.buffer.shape() {
-            TensorGenerationShape::Scalar => {
+            TensorShape::Scalar => {
                 todo!()
             }
-            TensorGenerationShape::Vector(len) => {
+            TensorShape::Vector(len) => {
                 todo!()
             }
-            TensorGenerationShape::Matrix(rows, cols) => {
+            TensorShape::Matrix(rows, cols) => {
                 QVMReturnType::Matrix(self.buffer.as_matref(self.memory))
             }
-            TensorGenerationShape::Tensor(mats, rows, cols) => {
+            TensorShape::Tensor3D(mats, rows, cols) => {
                 println!("mats: {}, rows: {}, cols: {}", mats, rows, cols);
                 QVMReturnType::MatVec(self.buffer.as_matvecref_non_gradient(self.memory))
             }
+            _ => panic!("Dynamic tensor shape unsupported"),
         }
     }
 
     pub fn get_grad_result(&self) -> QVMReturnType<'a, C> {
-        todo!()
+        match self.buffer.shape() {
+            TensorShape::Scalar => {
+                todo!()
+            }
+            TensorShape::Vector(_len) => {
+                todo!()
+            }
+            TensorShape::Matrix(_rows, _cols) => {
+                QVMReturnType::MatVec(self.buffer.as_matvecref(self.memory))
+            }
+            TensorShape::Tensor3D(_mats, _rows, _cols) => {
+                QVMReturnType::Tensor4D(self.buffer.as_tensor4d(self.memory))
+                // // For a tensor (MatVec) function, the gradient would be a higher-order tensor
+                // // This is typically represented as a MatVec where each original matrix's gradient is included.
+                // QVMReturnType::MatVec(self.buffer.as_matvecref_gradient(self.memory))
+            }
+            _ => panic!("Dynamic tensor shape unsupported"),
+        }
     }
 
     pub fn get_hess_result(&self) -> QVMReturnType<'a, C> {
