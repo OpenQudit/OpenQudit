@@ -1,4 +1,4 @@
-use qudit_expr::{TensorExpression, TensorExpressionGenerator};
+use qudit_expr::{UnitaryExpression, UnitaryExpressionGenerator};
 
 /// The one-qudit shift (X) gate. This is a Weyl-Heisenberg gate.
 ///
@@ -38,8 +38,8 @@ impl XGate {
     }
 }
 
-impl TensorExpressionGenerator for XGate {
-    fn gen_expr(&self) -> TensorExpression {
+impl UnitaryExpressionGenerator for XGate {
+    fn gen_expr(&self) -> UnitaryExpression {
         let proto = format!("utry X<{}>()", self.radix);
         let mut body = "[".to_string();
         for i in 0..self.radix {
@@ -55,7 +55,7 @@ impl TensorExpressionGenerator for XGate {
         }
         body += "]";
 
-        TensorExpression::new(proto + "{" + &body + "}")
+        UnitaryExpression::new(proto + "{" + &body + "}")
     }
 }
 

@@ -1,4 +1,4 @@
-use qudit_expr::{TensorExpression, TensorExpressionGenerator};
+use qudit_expr::{UnitaryExpression, UnitaryExpressionGenerator};
 
 /// The identity or no-op gate.
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
@@ -12,8 +12,8 @@ impl IGate {
     }
 }
 
-impl TensorExpressionGenerator for IGate {
-    fn gen_expr(&self) -> TensorExpression {
+impl UnitaryExpressionGenerator for IGate {
+    fn gen_expr(&self) -> UnitaryExpression {
         let proto = format!("utry I<{}>()", self.radix);
         let mut body = "".to_string();
         body += "[";
@@ -30,6 +30,6 @@ impl TensorExpressionGenerator for IGate {
         }
         body += "]";
 
-        TensorExpression::new(proto + "{" + &body + "}")
+        UnitaryExpression::new(proto + "{" + &body + "}")
     }
 }

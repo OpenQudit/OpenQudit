@@ -1,4 +1,4 @@
-use qudit_expr::{TensorExpression, TensorExpressionGenerator};
+use qudit_expr::{UnitaryExpression, UnitaryExpressionGenerator};
 
 /// The one-qudit Hadamard gate. This is a Clifford/Weyl-Heisenberg gate.
 ///
@@ -41,13 +41,13 @@ impl HGate {
     }
 }
 
-impl TensorExpressionGenerator for HGate {
-    fn gen_expr(&self) -> TensorExpression {
+impl UnitaryExpressionGenerator for HGate {
+    fn gen_expr(&self) -> UnitaryExpression {
         let proto = format!("utry H<{}>()", self.radix);
         let mut body = "".to_string();
         if self.radix == 2 {
             body += "[[1/sqrt(2), 1/sqrt(2)], [1/sqrt(2), ~1/sqrt(2)]]";
-            return TensorExpression::new(proto + "{" + &body + "}");
+            return UnitaryExpression::new(proto + "{" + &body + "}");
         }
         let omega = format!("e^(2*π*i/{})", self.radix);
         let invsqrt = format!("1/sqrt({})", self.radix);
@@ -63,6 +63,6 @@ impl TensorExpressionGenerator for HGate {
         }
         body += "]";
 
-        TensorExpression::new(proto + "{" + &body + "}")
+        UnitaryExpression::new(proto + "{" + &body + "}")
     }
 }

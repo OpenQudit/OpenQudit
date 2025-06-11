@@ -1,5 +1,5 @@
 use qudit_core::{HasParams, QuditRadices, QuditSystem, ToRadix};
-use qudit_expr::{TensorExpression, TensorExpressionGenerator};
+use qudit_expr::{UnitaryExpression, UnitaryExpressionGenerator};
 
 
 /// An arbitrary controlled gate.
@@ -116,7 +116,7 @@ use qudit_expr::{TensorExpression, TensorExpressionGenerator};
 /// $$
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct ControlledGate {
-    expr: TensorExpression,
+    expr: UnitaryExpression,
 }
 
 impl ControlledGate {
@@ -152,7 +152,7 @@ impl ControlledGate {
     /// # Examples
     ///
     /// // TODO: Come back to later
-    pub fn new<E: TensorExpressionGenerator>(
+    pub fn new<E: UnitaryExpressionGenerator>(
         expr: E,
         control_radices: QuditRadices, // TODO: Make a ToRadices generic
         control_levels: Vec<Vec<usize>>,
@@ -194,7 +194,7 @@ impl ControlledGate {
         // Build appropriately sized identity expression
         let name = format!("Controlled({})", gate_expr.name());
         let radices = control_radices.concat(&gate_expr.radices());
-        let mut expr = TensorExpression::identity(&name, radices);
+        let mut expr = UnitaryExpression::identity(&name, radices);
 
         // Embed gate expression into identity expression at correct spots
         let diagonal_indices: Vec<usize> =
@@ -258,26 +258,26 @@ impl HasParams for ControlledGate {
     }
 }
 
-// impl QuditSystem for ControlledGate {
-//     #[inline]
-//     fn radices(&self) -> QuditRadices {
-//         self.expr.radices()
-//     }
-
-//     #[inline]
-//     fn num_qudits(&self) -> usize {
-//         self.expr.num_qudits()
-//     }
-
-//     #[inline]
-//     fn dimension(&self) -> usize {
-//         self.expr.dimension()
-//     }
-// }
-
-impl TensorExpressionGenerator for ControlledGate {
+impl QuditSystem for ControlledGate {
     #[inline]
-    fn gen_expr(&self) -> TensorExpression {
+    fn radices(&self) -> QuditRadices {
+        self.expr.radices()
+    }
+
+    #[inline]
+    fn num_qudits(&self) -> usize {
+        self.expr.num_qudits()
+    }
+
+    #[inline]
+    fn dimension(&self) -> usize {
+        self.expr.dimension()
+    }
+}
+
+impl UnitaryExpressionGenerator for ControlledGate {
+    #[inline]
+    fn gen_expr(&self) -> UnitaryExpression {
         self.expr.clone()
     }
 }

@@ -1,5 +1,5 @@
-use qudit_expr::TensorExpression;
-use qudit_expr::TensorExpressionGenerator;
+use qudit_expr::UnitaryExpression;
+use qudit_expr::UnitaryExpressionGenerator;
 
 /// The single-qubit U3 gate parameterizes a general single-qubit unitary.
 ///
@@ -20,13 +20,13 @@ use qudit_expr::TensorExpressionGenerator;
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub struct U3Gate;
 
-impl TensorExpressionGenerator for U3Gate {
-    fn gen_expr(&self) -> TensorExpression {
+impl UnitaryExpressionGenerator for U3Gate {
+    fn gen_expr(&self) -> UnitaryExpression {
         let proto = "utry U3(θ0, θ1, θ2)";
         let body = "[
                 [cos(θ0/2), ~e^(i*θ2)*sin(θ0/2)],
                 [e^(i*θ1)*sin(θ0/2), e^(i*(θ1+θ2))*cos(θ0/2)]
         ]";
-        TensorExpression::new(proto.to_owned() + "{" + &body + "}")
+        UnitaryExpression::new(proto.to_owned() + "{" + &body + "}")
     }
 }
