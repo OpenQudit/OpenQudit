@@ -11,7 +11,7 @@ crate-type = ["cdylib", "rlib"]
 qudit-core = { path = "../qudit-core" }
 qudit-gates = { path = "../qudit-gates" }
 qudit-expr = { path = "../qudit-expr" }
-qudit-tree = { path = "../qudit-tree" }
+qudit-tensor = { path = "../qudit-tensor" }
 indexmap = "2.6"
 itertools = "0.10"
 num-traits = "0.2"

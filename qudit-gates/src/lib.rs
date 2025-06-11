@@ -6,7 +6,7 @@ use qudit_core::radices;
 //use qudit_core::ComplexScalar;
 use qudit_core::HasParams;
 use qudit_core::QuditRadices;
-use qudit_expr::{UnitaryExpression, UnitaryExpressionGenerator};
+use qudit_expr::{TensorExpression, TensorExpressionGenerator};
 
 pub mod constant {
     pub mod h;
@@ -38,7 +38,7 @@ pub enum Gate {
     XGate(XGate),
     U3Gate(U3Gate),
     Controlled(ControlledGate),
-    Expression(UnitaryExpression),
+    Expression(TensorExpression),
 }
 
 impl Gate {
@@ -73,8 +73,8 @@ impl Gate {
     }
 }
 
-impl UnitaryExpressionGenerator for Gate {
-    fn gen_expr(&self) -> UnitaryExpression {
+impl TensorExpressionGenerator for Gate {
+    fn gen_expr(&self) -> TensorExpression {
         match self {
             Gate::HGate(gate) => gate.gen_expr(),
             Gate::PGate(gate) => gate.gen_expr(),

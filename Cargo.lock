@@ -1752,7 +1752,7 @@ dependencies = [
  "qudit-core",
  "qudit-expr",
  "qudit-gates",
- "qudit-tree",
+ "qudit-tensor",
 ]
 
 [[package]]
@@ -1806,6 +1806,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "qudit-inst"
+version = "0.1.0"
+dependencies = [
+ "qudit-circuit",
+ "qudit-core",
+ "qudit-expr",
+ "qudit-tensor",
+]
+
+[[package]]
 name = "qudit-python"
 version = "0.1.0"
 dependencies = [
@@ -1821,18 +1831,6 @@ version = "0.1.0"
 dependencies = [
  "bit-set",
  "faer",
- "qudit-core",
- "qudit-expr",
-]
-
-[[package]]
-name = "qudit-tree"
-version = "0.1.0"
-dependencies = [
- "aligned-vec",
- "bytemuck",
- "faer",
- "proptest",
  "qudit-core",
  "qudit-expr",
 ]

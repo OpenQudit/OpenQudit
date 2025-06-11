@@ -1,5 +1,5 @@
-use qudit_expr::UnitaryExpression;
-use qudit_expr::UnitaryExpressionGenerator;
+use qudit_expr::TensorExpression;
+use qudit_expr::TensorExpressionGenerator;
 
 /// The single-qudit phase gate.
 ///
@@ -40,8 +40,8 @@ impl PGate {
     }
 }
 
-impl UnitaryExpressionGenerator for PGate {
-    fn gen_expr(&self) -> UnitaryExpression {
+impl TensorExpressionGenerator for PGate {
+    fn gen_expr(&self) -> TensorExpression {
         let mut proto = format!("utry P<{}>(", self.radix);
         for i in 0..self.radix - 1 {
             proto += "θ";
@@ -69,7 +69,7 @@ impl UnitaryExpressionGenerator for PGate {
         }
         body += "]";
 
-        UnitaryExpression::new(proto + "{" + &body + "}")
+        TensorExpression::new(proto + "{" + &body + "}")
     }
 }
 

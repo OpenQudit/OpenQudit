@@ -4,8 +4,8 @@ members = [
     "qudit-expr",
     "qudit-gates",
     "qudit-tensor",
-    "qudit-tree",
     "qudit-circuit",
+    "qudit-inst",
     "qudit-python",
 ]
 

@@ -13,6 +13,7 @@ pub use unitary::DerivedExpression;
 pub use unitary::UnitaryExpression;
 pub use unitary::MatVecExpression;
 pub use unitary::UnitaryExpressionGenerator;
+pub use unitary::TensorExpressionGenerator;
 pub use unitary::TensorExpression;
 pub use codegen::DifferentiationLevel;
 pub use codegen::ModuleBuilder;

@@ -1,4 +1,4 @@
-use qudit_expr::{UnitaryExpression, UnitaryExpressionGenerator};
+use qudit_expr::{TensorExpression, TensorExpressionGenerator};
 
 /// The qudit swap gate. This is a two-qudit Clifford/Weyl-Heisenberg gate
 /// that swaps the state of two qudits.
@@ -53,8 +53,8 @@ impl SwapGate {
     }
 }
 
-impl UnitaryExpressionGenerator for SwapGate {
-    fn gen_expr(&self) -> UnitaryExpression {
+impl TensorExpressionGenerator for SwapGate {
+    fn gen_expr(&self) -> TensorExpression {
         let proto = format!("utry Swap<{}, {}>()", self.radix, self.radix);
         let mut body = "".to_string();
         body += "[";
@@ -75,7 +75,7 @@ impl UnitaryExpressionGenerator for SwapGate {
         }
         body += "]";
 
-        UnitaryExpression::new(proto + "{" + &body + "}")
+        TensorExpression::new(proto + "{" + &body + "}")
     }
 }
 

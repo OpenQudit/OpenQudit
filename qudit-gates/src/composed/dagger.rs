@@ -1,5 +1,5 @@
 use qudit_core::{HasParams, QuditRadices, QuditSystem};
-use qudit_expr::{UnitaryExpression, UnitaryExpressionGenerator};
+use qudit_expr::{TensorExpression, TensorExpressionGenerator};
 
 /// An arbitrary inverted gate.
 ///
@@ -7,7 +7,7 @@ use qudit_expr::{UnitaryExpression, UnitaryExpressionGenerator};
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct DaggerGate {
     // The expression being inverted.
-    expr: UnitaryExpression,
+    expr: TensorExpression,
 }
 
 impl DaggerGate {
@@ -24,10 +24,13 @@ impl DaggerGate {
     /// # Examples
     ///
     /// // TODO: Come back to later
-    pub fn new<E: UnitaryExpressionGenerator>(expr: E) -> Self {
+    pub fn new<E: TensorExpressionGenerator>(expr: E) -> Self {
         let gate_expr = expr.gen_expr();
-        let expr = gate_expr.conjugate().transpose();
-        DaggerGate { expr }
+        let expr = gate_expr.conjugate().permute(&[1, 0]).clone();
+        // TODO: This is an error, the permutation indices must actually be from tensor indices not
+        // matrix indices...
+        todo!("Fix permutation indices to make dagger work...");
+        // DaggerGate { expr }
     }
 }
 
@@ -38,26 +41,26 @@ impl HasParams for DaggerGate {
     }
 }
 
-impl QuditSystem for DaggerGate {
-    #[inline]
-    fn radices(&self) -> QuditRadices {
-        self.expr.radices()
-    }
+// impl QuditSystem for DaggerGate {
+//     #[inline]
+//     fn radices(&self) -> QuditRadices {
+//         self.expr.radices()
+//     }
 
-    #[inline]
-    fn num_qudits(&self) -> usize {
-        self.expr.num_qudits()
-    }
+//     #[inline]
+//     fn num_qudits(&self) -> usize {
+//         self.expr.num_qudits()
+//     }
 
-    #[inline]
-    fn dimension(&self) -> usize {
-        self.expr.dimension()
-    }
-}
+//     #[inline]
+//     fn dimension(&self) -> usize {
+//         self.expr.dimension()
+//     }
+// }
 
-impl UnitaryExpressionGenerator for DaggerGate {
+impl TensorExpressionGenerator for DaggerGate {
     #[inline]
-    fn gen_expr(&self) -> UnitaryExpression {
+    fn gen_expr(&self) -> TensorExpression {
         self.expr.clone()
     }
 }

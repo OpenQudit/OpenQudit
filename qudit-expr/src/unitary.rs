@@ -147,6 +147,29 @@ impl TensorExpression {
             body,
         }
     }
+
+    pub fn to_unitary_expression(&self) -> UnitaryExpression {
+        match self.shape {
+            TensorShape::Matrix(nrows, ncols) => {
+                assert_eq!(nrows, ncols);
+                let mut body = Vec::with_capacity(nrows);
+                for i in 0..nrows {
+                    let start = i * ncols;
+                    let end = start + ncols;
+                    let row = self.body[start..end].to_vec();
+                    body.push(row);
+                }
+                let radices = self.dimensions[0..(self.dimensions.len()/2)].to_vec().into();
+                UnitaryExpression {
+                    name: self.name.clone(),
+                    radices,
+                    variables: self.variables.clone(),
+                    body,
+                }
+            }
+            _ => panic!("TensorExpression shape must be a matrix to convert to UnitaryExpression"),
+        }
+    }
     
     pub fn num_params(&self) -> usize {
         self.variables.len()
@@ -162,6 +185,20 @@ impl TensorExpression {
     
     pub fn name(&self) -> &str {
         self.name.as_str()
+    }
+
+    pub fn conjugate(&self) -> Self {
+        let mut out_body = Vec::new();
+        for expr in &self.body {
+            out_body.push(expr.conjugate());
+        }
+        TensorExpression {
+            name: format!("{}^_", self.name),
+            shape: self.generation_shape(),
+            variables: self.variables.clone(),
+            body: out_body,
+            dimensions: self.dimensions()
+        }
     }
 
     pub fn reshape(&mut self, new_shape: TensorShape) -> &mut Self {
@@ -239,40 +276,9 @@ pub struct UnitaryExpression {
 // }
 
 impl UnitaryExpression {
-    // pub fn new<T: AsRef<str>>(input: T) -> Self {
-    //     let udef = match parse_unitary(input.as_ref()) {
-    //         Ok(udef) => udef,
-    //         Err(e) => panic!("Parsing Error: {}", e),
-    //     };
-
-    //     let radices = QuditRadices::new(&udef.get_radices());
-    //     let name = udef.name;
-    //     let variables = udef.variables;
-    //     let body = match udef.body.into_element_wise() {
-    //         CiscExpression::Matrix(mat) => mat
-    //             .into_iter()
-    //             .map(|row| {
-    //                 row.into_iter()
-    //                     .map(|expr| ComplexExpression::new(expr))
-    //                     .collect()
-    //             })
-    //             // .map(|row: Vec<ComplexExpression>| {
-    //             //     row.into_iter()
-    //             //         .map(|expr| simplify_complex(expr))
-    //             //         .collect()
-    //             // })
-    //             .collect(),
-    //         _ => panic!("Unitary body must be a matrix"),
-    //     };
-    //     // let body = simplify_matrix_no_context(&body);
-
-    //     UnitaryExpression {
-    //         name,
-    //         radices,
-    //         variables,
-    //         body,
-    //     }
-    // }
+    pub fn new<T: AsRef<str>>(input: T) -> Self {
+        TensorExpression::new(input).to_unitary_expression()
+    }
 
     pub fn identity<S: AsRef<str>, T: ToRadices>(name: S, radices: T) -> Self {
         let radices = radices.to_radices();
@@ -735,6 +741,16 @@ pub struct MatVecExpression {
     pub name: String,
     pub variables: Vec<String>,
     pub body: Vec<Vec<Vec<ComplexExpression>>>,
+}
+
+pub trait TensorExpressionGenerator {
+    fn gen_expr(&self) -> TensorExpression;
+}
+
+impl TensorExpressionGenerator for TensorExpression {
+    fn gen_expr(&self) -> TensorExpression {
+        self.clone()
+    }
 }
 
 pub trait UnitaryExpressionGenerator {
