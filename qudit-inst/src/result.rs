@@ -2,7 +2,7 @@ use qudit_core::ComplexScalar;
 
 pub struct InstantiationResult<C: ComplexScalar> {
     /// The instantiated solution.
-    params: Vec<C::R>,
+    params: Option<Vec<C::R>>,
 
     /// Optional Function Evaluation
     fun: Option<C::R>,

@@ -5,6 +5,9 @@ use qudit_circuit::QuditCircuit;
 mod result;
 mod target;
 mod instantiater;
+mod qfactor;
+mod minimizer;
+mod function;
 
 pub use result::InstantiationResult;
 pub use target::InstantiationTarget;
@@ -29,52 +32,11 @@ pub use instantiater::Instantiater;
 
 
 
-// pub trait Minimizer<C: ComplexScalar> {
-//     fn minimize(
-//         &self,
-//         cost: BoxedCostFunction,
-//         x0: Vec<C::R>,
-//     ) -> InstantiationResult<Vec<C::R>>;
-
-//     fn gen_x0(&self, cost: &BoxedCostFunction) -> Vec<C::R>;
-// }
 
 // pub trait LeastSquaresSolver<C: ComplexScalar> {
 //     fn minimize(&self, cost, BoxedResidualFunction, x0: Vec<C::R>) -> InstantiationResult<Vec<C::R>>;
 // }
 
-// impl<C: ComplexScalar, M: Minimizer> Instantiater<C> for M {
-//     fn instantiate(
-//         &self,
-//         circuit: &QuditCircuit<C>,
-//         target: &InstantiationTarget<C>,
-//     ) -> InstantiationResult<Vec<<C as ComplexScalar>::R>> {
-//         let cost = target.gen_cost_fn(circuit);
-//         let x0 = self.gen_x0(&cost);
-//         self.minimize(cost, x0)
-//     }
-// }
-
-// pub struct MultiStartMinimizer<C: ComplexScalar, M: Minimizer<C>> {
-//     inner: M,
-//     num_starts: usize,
-// }
-
-// impl<C: ComplexScalar, M: Minimizer<C>> MultiStartMinimizer<C, M> {
-//     pub fn new(minimizer: M, num_starts: usize) -> Self {
-//         MultiStartMinimizer { inner: minimizer, num_starts }
-//     }
-// }
-
-// impl<C: ComplexScalar, M: Minimizer<C>> Minimizer<C: ComplexScalar> for MultiStartMinimizer<C, M> {
-//     fn minimize(
-//         &self,
-//         cost: BoxedCostFunction,
-//         x0: Vec<C::R>,
-//     ) -> InstantiationResult<Vec<C::R>> {
-        
-//     }
-// }
 
 // Desired Features:
 //  - Enable instantiation experimentation for better results
@@ -83,19 +45,38 @@ pub use instantiater::Instantiater;
 //
 //  - Provide a suite of instantiaters that work well across the spectrum of standard problems 
 
+// pub trait Synthesizer {
+//     fn synthesize<C: ComplexScalar>(&self, target: InstantiationTarget<C>) -> QuditCircuit<C>;
+// }
+
+// pub struct QSearchSynthesizer<C: ComplexScalar, I: Instantiater<C>> {
+//     // layer gen
+//     instantiater: I,
+// }
+
 // Use Cases
 // let synthesizer = SomeSynthesizer(..., BoxedInstantiater<C>, ...);
 // synthesizer.synthesize(unitary.into())
-//
-// fn synthesize(self, input: InstantiationTarget):
-//      let mut circuit = self.initial_circuit();
-//      while not synthesized:
-//          self.extend(circuit)
-//          let result = self.intantiater.instantiate_in_place(circuit, input)
-//          if result.fail() -> report to user depending on fail
+
+
+// impl<C: ComplexScalar, I: Instantiater<C>> Synthesizer for QSearchSynthesizer<C, I> {
+//     fn synthesize(&self, target: InstantiationTarget<C>) -> QuditCircuit<C> {
+//         // let mut circuit = self.initial_circuit();
+//         //
+//         // while not synthesized:
+//         //      self.extend(&circuit)
+//         //      let result = self.instantiater.instantiate(circuit, target)
+//         //      if self.success(circuit, result) {
+//         //          return self.finalize(circuit, result)
+//         //      }
+//         todo!()
+//     }
+// }
+
 //
 // CPUParallelInstantiater(num_cores)
 // CPUSampleInstantiater
+// GPUSampleInstantiater
 //
 // Multi-Start:
 // let ms_instantiater = MultiStartCPUWrapper(BoxedInstantiater<C>, SelectionFN, 16)
@@ -108,7 +89,6 @@ pub use instantiater::Instantiater;
 //      let gpu_optimizer = WhateverLibrary::Optimizer::new(gpu_qvm::fn_eval, starting_x)
 //      let result = gpu_optimizer.optimize()
 //
-// GPUSampleInstantiater
 //
 // QFACTOR
 // let qfactor_instantiater = QFactorInstantiater::new(all_the_params)

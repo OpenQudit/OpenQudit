@@ -1,17 +1,18 @@
 use std::collections::HashMap;
-use qudit_core::{HasParams, QuditSystem};
+use qudit_core::{ComplexScalar, HasParams, QuditSystem};
 
 use indexmap::IndexSet;
-use qudit_core::{QuditRadices, RealScalar};
+use qudit_core::{QuditRadices, RealScalar, c64};
 use qudit_gates::Gate;
 use qudit_expr::UnitaryExpressionGenerator;
-use qudit_tree::{BuilderExpressionInput, ExpressionTree, TreeBuilder, TreeOptimizer};
+// use qudit_tensor::{BuilderExpressionInput, ExpressionTree, TreeBuilder, TreeOptimizer};
+use qudit_tensor::QuditCircuitNetwork;
 
 use crate::{compact::CompactIntegerVector, cpoint, cyclelist::CycleList, instruction::{Instruction, InstructionReference}, location::CircuitLocation, operation::{Operation, OperationReference}, qpoint, CircuitPoint, DitOrBit};
 
 /// A quantum circuit that can be defined with qudits and classical bits.
 #[derive(Clone)]
-pub struct QuditCircuit<R: RealScalar = f64> {
+pub struct QuditCircuit<C: ComplexScalar = c64> {
     /// The number of qudits in the circuit.
     num_qudits: usize,
 
@@ -52,13 +53,13 @@ pub struct QuditCircuit<R: RealScalar = f64> {
     pub gates: IndexSet<Gate>,
 
     /// The set of subcircuits in the circuit.
-    pub subcircuits: IndexSet<ExpressionTree>,
+    // pub subcircuits: IndexSet<ExpressionTree>,
 
     /// The stored parameters of the circuit.
-    params: Vec<R>,
+    params: Vec<C::R>,
 }
 
-impl<R: RealScalar> QuditCircuit<R> {
+impl<C: ComplexScalar> QuditCircuit<C> {
 
     /// Creates a new QuditCircuit object.
     ///
@@ -91,7 +92,7 @@ impl<R: RealScalar> QuditCircuit<R> {
     /// Note in the `two_qutrit_circuit` example, we have four classical bits
     /// even though we only have two qudits. This is because each qudit has
     /// three possible values, so we need two bits to store/measure each qudit.
-    pub fn new(radices: QuditRadices, num_clbits: usize) -> QuditCircuit<R> {
+    pub fn new(radices: QuditRadices, num_clbits: usize) -> QuditCircuit<C> {
         QuditCircuit::with_capacity(radices, num_clbits, 1)
     }
 
@@ -116,7 +117,7 @@ impl<R: RealScalar> QuditCircuit<R> {
         radices: QuditRadices,
         num_clbits: usize,
         capacity: usize,
-    ) -> QuditCircuit<R> {
+    ) -> QuditCircuit<C> {
         QuditCircuit {
             num_qudits: radices.num_qudits(),
             num_clbits: num_clbits,
@@ -129,7 +130,7 @@ impl<R: RealScalar> QuditCircuit<R> {
             crear: vec![None; num_clbits],
             radices: radices,
             gates: IndexSet::new(),
-            subcircuits: IndexSet::new(),
+            // subcircuits: IndexSet::new(),
             params: Vec::new(),
         }
     }
@@ -154,7 +155,7 @@ impl<R: RealScalar> QuditCircuit<R> {
     }
 
     /// A reference to the parameters of the circuit.
-    pub fn params(&self) -> &Vec<R> {
+    pub fn params(&self) -> &Vec<C::R> {
         &self.params
     }
 
@@ -385,7 +386,7 @@ impl<R: RealScalar> QuditCircuit<R> {
     /// # Arguments
     ///
     /// * `inst` - The instruction to append.
-    pub fn append_instruction(&mut self, inst: Instruction<R>) {
+    pub fn append_instruction(&mut self, inst: Instruction<C::R>) {
         // check valid operation for radix match, measurement bandwidth etc
         let Instruction { op, location, params } = inst;
 
@@ -455,7 +456,7 @@ impl<R: RealScalar> QuditCircuit<R> {
         &mut self,
         gate: Gate,
         location: CircuitLocation,
-        params: Vec<R>,
+        params: Vec<C::R>,
     ) {
         self.append_instruction(Instruction::new(Operation::Gate(gate), location, params));
     }
@@ -741,86 +742,86 @@ impl<R: RealScalar> QuditCircuit<R> {
     }
 
 
-    /// Convert the circuit to an expression tree.
-    pub fn to_tree(&self) -> ExpressionTree {
-        let mut point_to_index_map = HashMap::new();
-        let mut op_index_count = 0;
-        for (cycle_index, cycle) in self.cycles.iter().enumerate() {
-            for inst in cycle {
-                for qudit_index in inst.location.qudits() {
-                    let point = qpoint![cycle_index, qudit_index];
-                    point_to_index_map.insert(point, op_index_count);
-                }
-                op_index_count += 1;
-            }
-        }
+    // Convert the circuit to an expression tree.
+    // pub fn to_tree(&self) -> ExpressionTree {
+    //     let mut point_to_index_map = HashMap::new();
+    //     let mut op_index_count = 0;
+    //     for (cycle_index, cycle) in self.cycles.iter().enumerate() {
+    //         for inst in cycle {
+    //             for qudit_index in inst.location.qudits() {
+    //                 let point = qpoint![cycle_index, qudit_index];
+    //                 point_to_index_map.insert(point, op_index_count);
+    //             }
+    //             op_index_count += 1;
+    //         }
+    //     }
 
-        let mut expressions = Vec::new();
-        let mut qudits_list = Vec::new();
-        let mut next_list = Vec::new();
-        let mut prev_list = Vec::new();
+    //     let mut expressions = Vec::new();
+    //     let mut qudits_list = Vec::new();
+    //     let mut next_list = Vec::new();
+    //     let mut prev_list = Vec::new();
 
-        for cycle in &self.cycles {
-            for inst in cycle {
-                let op = inst.op.dereference(self);
-                match op {
-                    Operation::Gate(gate) => {
-                        expressions.push(BuilderExpressionInput::Unitary(gate.gen_expr()));
-                    },
-                    Operation::Subcircuit(subcircuit) => {
-                        expressions.push(BuilderExpressionInput::Tree(subcircuit));
-                    },
-                    Operation::Control(_) => {
-                        panic!("Control operations are not supported in expression trees currently.");
-                    },
-                }
+    //     for cycle in &self.cycles {
+    //         for inst in cycle {
+    //             let op = inst.op.dereference(self);
+    //             match op {
+    //                 Operation::Gate(gate) => {
+    //                     expressions.push(BuilderExpressionInput::Unitary(gate.gen_expr()));
+    //                 },
+    //                 Operation::Subcircuit(subcircuit) => {
+    //                     expressions.push(BuilderExpressionInput::Tree(subcircuit));
+    //                 },
+    //                 Operation::Control(_) => {
+    //                     panic!("Control operations are not supported in expression trees currently.");
+    //                 },
+    //             }
 
-                let mut qudits = Vec::new();
-                for qudit_index in inst.location.qudits() {
-                    qudits.push(qudit_index);
-                }
-                qudits_list.push(qudits);
+    //             let mut qudits = Vec::new();
+    //             for qudit_index in inst.location.qudits() {
+    //                 qudits.push(qudit_index);
+    //             }
+    //             qudits_list.push(qudits);
 
-                let mut op_nexts = Vec::new();
-                let mut op_prevs = Vec::new();
+    //             let mut op_nexts = Vec::new();
+    //             let mut op_prevs = Vec::new();
 
-                for qudit_index in inst.location.qudits() {
-                    let physical_cycle_index = cycle.get_qnext(qudit_index);
-                    match physical_cycle_index {
-                        Some(next_cycle_index) => {
-                            let next_point = qpoint![next_cycle_index, qudit_index];
-                            op_nexts.push(Some(point_to_index_map[&next_point]));
-                        },
-                        None => op_nexts.push(None),
-                    }
+    //             for qudit_index in inst.location.qudits() {
+    //                 let physical_cycle_index = cycle.get_qnext(qudit_index);
+    //                 match physical_cycle_index {
+    //                     Some(next_cycle_index) => {
+    //                         let next_point = qpoint![next_cycle_index, qudit_index];
+    //                         op_nexts.push(Some(point_to_index_map[&next_point]));
+    //                     },
+    //                     None => op_nexts.push(None),
+    //                 }
 
-                    let physical_cycle_index = cycle.get_qprev(qudit_index);
-                    match physical_cycle_index {
-                        Some(prev_cycle_index) => {
-                            let prev_point = qpoint![prev_cycle_index, qudit_index];
-                            op_prevs.push(Some(point_to_index_map[&prev_point]));
-                        },
-                        None => op_prevs.push(None),
-                    }
-                }
+    //                 let physical_cycle_index = cycle.get_qprev(qudit_index);
+    //                 match physical_cycle_index {
+    //                     Some(prev_cycle_index) => {
+    //                         let prev_point = qpoint![prev_cycle_index, qudit_index];
+    //                         op_prevs.push(Some(point_to_index_map[&prev_point]));
+    //                     },
+    //                     None => op_prevs.push(None),
+    //                 }
+    //             }
 
-                next_list.push(op_nexts);
-                prev_list.push(op_prevs);
-            }
-        }
+    //             next_list.push(op_nexts);
+    //             prev_list.push(op_prevs);
+    //         }
+    //     }
 
-        let tree = TreeBuilder::new(
-            self.num_qudits(),
-            expressions,
-            qudits_list,
-            next_list,
-            prev_list,
-        ).build_tree();
-        TreeOptimizer::new().optimize(tree)
-    }
+    //     let tree = TreeBuilder::new(
+    //         self.num_qudits(),
+    //         expressions,
+    //         qudits_list,
+    //         next_list,
+    //         prev_list,
+    //     ).build_tree();
+    //     TreeOptimizer::new().optimize(tree)
+    // }
 }
 
-impl<R: RealScalar> QuditSystem for QuditCircuit<R> {
+impl<C: ComplexScalar> QuditSystem for QuditCircuit<C> {
     fn num_qudits(&self) -> usize {
         self.num_qudits
     }
@@ -834,7 +835,7 @@ impl<R: RealScalar> QuditSystem for QuditCircuit<R> {
     }
 }
 
-impl<R: RealScalar> HasParams for QuditCircuit<R> {
+impl<C: ComplexScalar> HasParams for QuditCircuit<C> {
     fn num_params(&self) -> usize {
         self.params.len()
     }

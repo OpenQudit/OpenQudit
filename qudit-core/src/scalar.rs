@@ -267,3 +267,4 @@ impl RealScalar for f64 {
         r.to_f64().expect("Failed to convert Rational to f64")
     }
 }
+

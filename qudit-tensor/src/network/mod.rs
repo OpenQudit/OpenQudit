@@ -223,7 +223,7 @@ use qudit_core::{ParamIndices, QuditRadices};
 //   stored in `intermediate` maps these global ids to their contraction data.
 //   The contraction data captures which tensors are involved and the local ids
 //   for each involved.
-struct QuditCircuitNetwork {
+pub struct QuditCircuitNetwork {
     tensors: Vec<QuditTensor>,
     unused: BTreeSet<usize>,
 

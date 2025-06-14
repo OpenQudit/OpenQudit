@@ -12,26 +12,32 @@ pub trait Instantiater<C: ComplexScalar> {
         &self,
         circuit: &QuditCircuit<C>,
         target: &InstantiationTarget<C>,
-        data: HashMap<String, Box<dyn Any>>,
-    ) -> InstantiationResult<Vec<C::R>>;
+        data: &HashMap<String, Box<dyn Any>>,
+    ) -> InstantiationResult<C>;
 
-    fn instantiate_in_place(
-        &self,
-        circuit: &mut QuditCircuit<C>,
-        target: &InstantiationTarget<C>,
-        data: HashMap<String, Box<dyn Any>>,
-    ) -> InstantiationResult<()> {
-        let result = self.instantiate(circuit, target, data)?;
-        circuit.update_params(result.unpack());
-        Ok(())
-    }
+    // fn instantiate_in_place(
+    //     &self,
+    //     circuit: &mut QuditCircuit<C>,
+    //     target: &InstantiationTarget<C>,
+    //     data: HashMap<String, Box<dyn Any>>,
+    // ) -> InstantiationResult<()> {
+    //     let result = self.instantiate(circuit, target, data)?;
+    //     circuit.update_params(result.unpack());
+    //     Ok(())
+    // }
 
     fn batched_instantiate(
         &self,
         circuit: &QuditCircuit<C>,
-        targets: &[&InstantiationTarget<C>]
-        data: HashMap<String, Box<dyn Any>>,
-    ) -> InstantiationResult<Vec<Vec<C::R>>> {
-        targets.iter().map(|t| self.instantiate(circuit, t)).collect()
+        targets: &[&InstantiationTarget<C>],
+        data: &HashMap<String, Box<dyn Any>>,
+    ) -> Vec<InstantiationResult<C>> {
+        targets.iter().map(|t| self.instantiate(circuit, t, data)).collect()
     }
 }
+
+// TODO: QfactorInstantiater
+// TODO: QfactorSampleInstantiater
+// TODO: QfactorGPUInstantiater
+// TODO: QfactorSampleGPUInstantiater
+// TODO: MinimizingInstantiater<R: MinimizationRunner>
