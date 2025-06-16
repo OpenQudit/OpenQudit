@@ -144,6 +144,15 @@ impl<C: ComplexScalar> QuditCircuit<C> {
         self.cycles.len()
     }
 
+    /// Returns the number of parameters in the circuit.
+    ///
+    /// # Performance
+    ///
+    /// This method is 0(1).
+    pub fn num_params(&self) -> usize {
+        self.params.len()
+    }
+
     /// Returns the number of operations in the circuit.
     ///
     /// # Performance

@@ -6,17 +6,16 @@ mod result;
 mod target;
 mod instantiater;
 mod qfactor;
-mod minimizer;
-mod function;
+mod numerical;
 
 pub use result::InstantiationResult;
 pub use target::InstantiationTarget;
 pub use instantiater::Instantiater;
 
 // Open Questions:
-//  - How do I expose intitial input generation; even through wrapper instantiaters
 //
 //  Answered Questions:
+//  - How do I expose intitial input generation; even through wrapper instantiaters
 //  - Multi Start will be a wrapper instantiation; will not be part of API
 //  - Should batched instantiation be part of instantiate? Yes.
 //  - Sample will be a wrapper instantiation if possible, otherwise its own thing

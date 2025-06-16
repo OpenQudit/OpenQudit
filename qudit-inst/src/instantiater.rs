@@ -15,16 +15,6 @@ pub trait Instantiater<C: ComplexScalar> {
         data: &HashMap<String, Box<dyn Any>>,
     ) -> InstantiationResult<C>;
 
-    // fn instantiate_in_place(
-    //     &self,
-    //     circuit: &mut QuditCircuit<C>,
-    //     target: &InstantiationTarget<C>,
-    //     data: HashMap<String, Box<dyn Any>>,
-    // ) -> InstantiationResult<()> {
-    //     let result = self.instantiate(circuit, target, data)?;
-    //     circuit.update_params(result.unpack());
-    //     Ok(())
-    // }
 
     fn batched_instantiate(
         &self,
@@ -35,6 +25,16 @@ pub trait Instantiater<C: ComplexScalar> {
         targets.iter().map(|t| self.instantiate(circuit, t, data)).collect()
     }
 }
+    // fn instantiate_in_place(
+    //     &self,
+    //     circuit: &mut QuditCircuit<C>,
+    //     target: &InstantiationTarget<C>,
+    //     data: HashMap<String, Box<dyn Any>>,
+    // ) -> InstantiationResult<()> {
+    //     let result = self.instantiate(circuit, target, data)?;
+    //     circuit.update_params(result.unpack());
+    //     Ok(())
+    // }
 
 // TODO: QfactorInstantiater
 // TODO: QfactorSampleInstantiater
