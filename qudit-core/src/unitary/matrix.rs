@@ -175,7 +175,7 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
             let r = if r == C::zero() {
                 C::one()
             } else {
-                r / ComplexScalar::abs(r)
+                r / r.abs()
             };
 
             zip!(q.as_mut().col_mut(j)).for_each(|unzip!(q)| {
@@ -294,7 +294,7 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
         zip!(self.matrix.as_ref(), mat_ref).for_each(|unzip!(a, b)| {
             acc += *a * b.conj();
         });
-        let num = ComplexScalar::abs(acc);
+        let num = acc.abs();
         let dem = C::real(self.dimension() as f64);
         if num > dem {
             // This shouldn't happen but can due to floating point errors.

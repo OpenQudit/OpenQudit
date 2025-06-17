@@ -1,4 +1,7 @@
+use faer::col::AsColRef;
+
 use crate::ComplexScalar;
+use crate::RealScalar;
 use crate::QuditRadices;
 use crate::matrix::Col;
 use crate::ToRadices;
@@ -47,5 +50,11 @@ impl<C: ComplexScalar> StateVector<C> {
             radices: radices.to_radices(),
             vector,
         }
+    }
+
+    pub fn is_pure_state<S: AsColRef<T = C>>(vector: S) -> bool {
+        let col_ref = vector.as_col_ref();
+        let norm: C::R = col_ref.iter().map(|c| c.abs().powi(2)).sum();
+        (norm - C::R::new(1.0)).abs() < C::THRESHOLD
     }
 }

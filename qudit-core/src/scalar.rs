@@ -22,23 +22,33 @@ use crate::bitwidth::BitWidthConvertible;
 
 /// A real number type that can be used as a scalar in the Qudit-Core library.
 pub trait RealScalar:
-    RealField
+    RealField<Real = Self, Conj = Self>
     + Copy
     + Sized
     + Float
     + FloatConst
     + NumAssign
     + Memorable
+    + std::iter::Sum
     + std::fmt::Debug
     + std::fmt::Display
     + BitWidthConvertible<Width32 = f32, Width64 = f64>
     + 'static
 {
+    /// Create a new real value
+    fn new(r: impl BitWidthConvertible<Width32 = f32, Width64 = f64>) -> Self;
+
+    /// Compute the absolute value of the complex number.
+    fn abs(self) -> Self;
+
     /// Generate a random scalar from the standard normal distribution.
     fn standard_random() -> Self;
 
     /// Convert a rational number to the real number type.
     fn from_rational(r: &Ratio<BigInt>) -> Self;
+
+    /// Raise the real number to an integer power.
+    fn powi(self, n: i32) -> Self;
 }
 
 /// A complex number type that can be used as a scalar in the Qudit-Core library.
@@ -50,9 +60,10 @@ pub trait ComplexScalar:
     + Memorable
     + Neg<Output = Self>
     + NumAssignOps<Self::R>
-    + ComplexFloat
+    + ComplexFloat<Real = Self::R>
     // + NumAssignOps<Self::Conj>
     + NumOps<Self::R, Self>
+    + std::iter::Sum
     // + NumOps<Self::Conj, Self>
     + std::fmt::Debug
     + std::fmt::Display
@@ -80,8 +91,8 @@ pub trait ComplexScalar:
     /// Compute the cosine of the complex number.
     fn cos(self) -> Self;
 
-    /// Compute the absolute value of the complex number.
-    fn abs(self) -> Self::R;
+    // /// Compute the absolute value of the complex number.
+    // fn abs(self) -> Self::R;
 
     /// Raise the complex number to a non-negative integer power.
     fn powu(self, n: u32) -> Self;
@@ -138,10 +149,10 @@ impl ComplexScalar for c32 {
         self.cos()
     }
 
-    #[inline(always)]
-    fn abs(self) -> Self::R {
-        <c32 as ComplexFloat>::abs(self)
-    }
+    // #[inline(always)]
+    // fn abs(self) -> Self::R {
+    //     <c32 as ComplexFloat>::abs(self)
+    // }
 
     #[inline(always)]
     fn powu(self, n: u32) -> Self {
@@ -202,10 +213,10 @@ impl ComplexScalar for c64 {
         self.cos()
     }
 
-    #[inline(always)]
-    fn abs(self) -> Self::R {
-        <c64 as ComplexFloat>::abs(self)
-    }
+    // #[inline(always)]
+    // fn abs(self) -> Self::R {
+    //     <c64 as ComplexFloat>::abs(self)
+    // }
 
     #[inline(always)]
     fn powu(self, n: u32) -> Self {
@@ -246,6 +257,16 @@ impl ComplexScalar for c64 {
 
 impl RealScalar for f32 {
     #[inline(always)]
+    fn new(r: impl BitWidthConvertible<Width32 = f32, Width64 = f64>) -> Self {
+        r.to32()
+    }
+
+    #[inline(always)]
+    fn abs(self) -> Self {
+        Float::abs(self)
+    }
+
+    #[inline(always)]
     fn standard_random() -> Self {
         rand::rng().random()
     }
@@ -254,9 +275,24 @@ impl RealScalar for f32 {
     fn from_rational(r: &Ratio<BigInt>) -> Self {
         r.to_f32().expect("Failed to convert Rational to f32")
     }
+
+    #[inline(always)]
+    fn powi(self, n: i32) -> Self {
+        f32::powi(self, n)
+    }
 }
 
 impl RealScalar for f64 {
+    #[inline(always)]
+    fn new(r: impl BitWidthConvertible<Width32 = f32, Width64 = f64>) -> Self {
+        r.to64()
+    }
+
+    #[inline(always)]
+    fn abs(self) -> Self {
+        Float::abs(self)
+    }
+
     #[inline(always)]
     fn standard_random() -> Self {
         rand::rng().random()
@@ -265,6 +301,11 @@ impl RealScalar for f64 {
     #[inline(always)]
     fn from_rational(r: &Ratio<BigInt>) -> Self {
         r.to_f64().expect("Failed to convert Rational to f64")
+    }
+
+    #[inline(always)]
+    fn powi(self, n: i32) -> Self {
+        f64::powi(self, n)
     }
 }
 
