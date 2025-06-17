@@ -8,7 +8,7 @@ use qudit_expr::UnitaryExpressionGenerator;
 // use qudit_tensor::{BuilderExpressionInput, ExpressionTree, TreeBuilder, TreeOptimizer};
 use qudit_tensor::QuditCircuitNetwork;
 
-use crate::{compact::CompactIntegerVector, cpoint, cyclelist::CycleList, instruction::{Instruction, InstructionReference}, location::CircuitLocation, operation::{Operation, OperationReference}, qpoint, CircuitPoint, DitOrBit};
+use crate::{compact::CompactIntegerVector, cpoint, cycle::QuditCycle, cyclelist::CycleList, instruction::{Instruction, InstructionReference}, iterator::{QuditCircuitBFIterator, QuditCircuitDFIterator, QuditCircuitFastIterator}, location::CircuitLocation, operation::{Operation, OperationReference}, qpoint, CircuitPoint, DitOrBit};
 
 /// A quantum circuit that can be defined with qudits and classical bits.
 #[derive(Clone)]
@@ -224,6 +224,11 @@ impl<C: ComplexScalar> QuditCircuit<C> {
                 self.graph_info.remove(&pair);
             }
         }
+    }
+
+    /// Retrieve the cycle at the logical `index` in the circuit.
+    pub(super) fn get_cycle(&self, index: usize) -> &QuditCycle {
+        &self.cycles[index]
     }
 
     /// Checks if `location` is a valid location in the circuit.
@@ -750,84 +755,45 @@ impl<C: ComplexScalar> QuditCircuit<C> {
         }
     }
 
+    /// Return an iterator over the operations in the circuit.
+    ///
+    /// The ordering is not guaranteed to be consistent, but it will
+    /// be in a simulation/topological order. For more control over the
+    /// ordering of iteration see [`QuditCircuit::iter_df`] or
+    /// [`QuditCircuit::iter_bf`].
+    pub fn iter(&self) -> QuditCircuitFastIterator<C> {
+        QuditCircuitFastIterator::new(self)
+    }
 
-    // Convert the circuit to an expression tree.
-    // pub fn to_tree(&self) -> ExpressionTree {
-    //     let mut point_to_index_map = HashMap::new();
-    //     let mut op_index_count = 0;
-    //     for (cycle_index, cycle) in self.cycles.iter().enumerate() {
-    //         for inst in cycle {
-    //             for qudit_index in inst.location.qudits() {
-    //                 let point = qpoint![cycle_index, qudit_index];
-    //                 point_to_index_map.insert(point, op_index_count);
-    //             }
-    //             op_index_count += 1;
-    //         }
-    //     }
+    /// Return a depth-first iterator over the operations in the circuit.
+    ///
+    /// See [`QuditCircuitDFIterator`] for more info.
+    pub fn iter_df(&self) -> QuditCircuitDFIterator<C> {
+        QuditCircuitDFIterator::new(self)
+    }
 
-    //     let mut expressions = Vec::new();
-    //     let mut qudits_list = Vec::new();
-    //     let mut next_list = Vec::new();
-    //     let mut prev_list = Vec::new();
+    /// Return a breadth-first iterator over the operations in the circuit.
+    ///
+    /// See [`QuditCircuitBFIterator`] for more info.
+    pub fn iter_bf(&self) -> QuditCircuitBFIterator<C> {
+        QuditCircuitBFIterator::new(self)
+    }
 
-    //     for cycle in &self.cycles {
-    //         for inst in cycle {
-    //             let op = inst.op.dereference(self);
-    //             match op {
-    //                 Operation::Gate(gate) => {
-    //                     expressions.push(BuilderExpressionInput::Unitary(gate.gen_expr()));
-    //                 },
-    //                 Operation::Subcircuit(subcircuit) => {
-    //                     expressions.push(BuilderExpressionInput::Tree(subcircuit));
-    //                 },
-    //                 Operation::Control(_) => {
-    //                     panic!("Control operations are not supported in expression trees currently.");
-    //                 },
-    //             }
+//     /// Return an iterator over the operations in the circuit with cycles.
+//     pub fn iter_with_cycles(&self) -> QuditCircuitFastIteratorWithCycles<C> {
+//         QuditCircuitFastIteratorWithCycles::new(self)
+//     }
 
-    //             let mut qudits = Vec::new();
-    //             for qudit_index in inst.location.qudits() {
-    //                 qudits.push(qudit_index);
-    //             }
-    //             qudits_list.push(qudits);
-
-    //             let mut op_nexts = Vec::new();
-    //             let mut op_prevs = Vec::new();
-
-    //             for qudit_index in inst.location.qudits() {
-    //                 let physical_cycle_index = cycle.get_qnext(qudit_index);
-    //                 match physical_cycle_index {
-    //                     Some(next_cycle_index) => {
-    //                         let next_point = qpoint![next_cycle_index, qudit_index];
-    //                         op_nexts.push(Some(point_to_index_map[&next_point]));
-    //                     },
-    //                     None => op_nexts.push(None),
-    //                 }
-
-    //                 let physical_cycle_index = cycle.get_qprev(qudit_index);
-    //                 match physical_cycle_index {
-    //                     Some(prev_cycle_index) => {
-    //                         let prev_point = qpoint![prev_cycle_index, qudit_index];
-    //                         op_prevs.push(Some(point_to_index_map[&prev_point]));
-    //                     },
-    //                     None => op_prevs.push(None),
-    //                 }
-    //             }
-
-    //             next_list.push(op_nexts);
-    //             prev_list.push(op_prevs);
-    //         }
-    //     }
-
-    //     let tree = TreeBuilder::new(
-    //         self.num_qudits(),
-    //         expressions,
-    //         qudits_list,
-    //         next_list,
-    //         prev_list,
-    //     ).build_tree();
-    //     TreeOptimizer::new().optimize(tree)
-    // }
+    /// Convert the circuit to a symbolic tensor network.
+    pub fn to_tensor_network(&self) -> QuditCircuitNetwork {
+        let mut network = QuditCircuitNetwork::new(QuditRadices::new(&vec![2, 2]));
+        for op in self.iter() {
+            
+        }
+        // network.prepend(QuditTensor::new(u3.clone(), vec![0, 1, 2].into()), vec![0], vec![0]);
+        // network.prepend(QuditTensor::new(ZZ.clone(), vec![].into()), vec![0, 1], vec![0, 1]);
+        todo!()
+    }
 }
 
 impl<C: ComplexScalar> QuditSystem for QuditCircuit<C> {

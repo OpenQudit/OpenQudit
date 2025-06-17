@@ -30,8 +30,14 @@ pub enum OperationType {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Operation {
     Gate(Gate),
-    // Subcircuit(ExpressionTree),
-    Control(ControlOperation),
+    // ProjectiveMeasurement(Operators),
+    // TerminatingMeasurement(Basis),
+    // ClassicallyControlled(Gate, Activation),
+    // Initialization(State)
+    // TODO: Delay
+    // Subcircuit(ImmutableCircuit),
+    Reset,
+    Barrier,
 }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Copy)]

@@ -9,6 +9,7 @@ mod radix;
 mod scalar;
 mod system;
 mod shape;
+mod state;
 
 pub mod accel;
 pub mod matrix;

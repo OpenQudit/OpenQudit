@@ -235,7 +235,7 @@ pub struct QuditCircuitNetwork {
 }
 
 impl QuditCircuitNetwork {
-    fn new(radices: QuditRadices) -> Self {
+    pub fn new(radices: QuditRadices) -> Self {
         QuditCircuitNetwork {
             tensors: vec![],
             unused: BTreeSet::new(),
@@ -260,7 +260,7 @@ impl QuditCircuitNetwork {
     /// * `left_qudit_map` - An array of qudit ids that maps the tensors left local indices to
     ///    the circuit qudit ids, such that `left_qudit_map[i] == qudit_id` means that the
     ///    `tensor.left_indices[i]` will now be the leftmost leg on `qudit_id`.
-    fn prepend(&mut self, tensor: QuditTensor, left_qudit_map: Vec<usize>, right_qudit_map: Vec<usize>) {
+    pub fn prepend(&mut self, tensor: QuditTensor, left_qudit_map: Vec<usize>, right_qudit_map: Vec<usize>) {
         let left_tensor_indices = tensor.output_indices();
         let right_tensor_indices = tensor.input_indices();
 

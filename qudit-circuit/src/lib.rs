@@ -9,6 +9,7 @@ mod location;
 mod compact;
 mod circuit;
 mod instruction;
+mod iterator;
 
 pub use point::DitOrBit;
 pub use point::CircuitPoint;
