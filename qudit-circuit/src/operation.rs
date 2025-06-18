@@ -1,5 +1,7 @@
 use qudit_core::{ComplexScalar, HasParams, RealScalar};
+use qudit_expr::StateExpression;
 use qudit_gates::Gate;
+use qudit_core::state::StateVector;
 // use qudit_tree::ExpressionTree;
 
 use crate::circuit::QuditCircuit;
@@ -33,7 +35,7 @@ pub enum Operation {
     // ProjectiveMeasurement(Operators),
     // TerminatingMeasurement(Basis),
     // ClassicallyControlled(Gate, Activation),
-    // Initialization(State)
+    Initialization(StateExpression),
     // TODO: Delay
     // Subcircuit(ImmutableCircuit),
     Reset,

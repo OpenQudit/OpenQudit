@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-faer = "0.21.3"
+faer = "0.21.9"
 faer-traits = "0.21.0"
 aligned-vec = "0.6.1"
 bytemuck = "1.21.0"

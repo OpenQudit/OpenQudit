@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::ops::Range;
 
-use faer::stats::prelude::SliceRandom;
 use itertools::Itertools;
 use qudit_core::matrix::Mat;
 use qudit_core::matrix::MatMut;
@@ -9,6 +8,7 @@ use qudit_core::matrix::MatVecMut;
 use qudit_core::unitary::DifferentiableUnitaryFn;
 use qudit_core::unitary::UnitaryFn;
 use qudit_core::unitary::UnitaryMatrix;
+use qudit_core::state::StateVector;
 use qudit_core::ComplexScalar;
 use qudit_core::HasParams;
 use qudit_core::HasPeriods;
@@ -170,6 +170,20 @@ impl TensorExpression {
             _ => panic!("TensorExpression shape must be a matrix to convert to UnitaryExpression"),
         }
     }
+
+    pub fn to_state_expression(&self) -> StateExpression {
+        match self.shape {
+            TensorShape::Vector(_) => {
+                StateExpression {
+                    name: self.name.clone(),
+                    radices: self.dimensions.clone(),
+                    variables: self.variables.clone(),
+                    body: self.body.clone(),
+                }
+            }
+            _ => panic!("TensorExpression shape must be a vector to convert to StateExpression"),
+        }
+    }
     
     pub fn num_params(&self) -> usize {
         self.variables.len()
@@ -256,6 +270,69 @@ impl TensorExpression {
         std::mem::swap(&mut swap_vec, &mut self.body);
         self.body = swap_vec.into_iter().enumerate().sorted_by(|a, b| index_perm[a.0].cmp(&index_perm[b.0])).map(|(_, expr)| expr).collect();
         self
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct StateExpression {
+    pub name: String,
+    pub radices: QuditRadices,
+    pub variables: Vec<String>,
+    pub body: Vec<ComplexExpression>,
+}
+
+impl StateExpression {
+    /// Creates a new `StateExpression` from a QGL string representation.
+    ///
+    /// This function parses the input string as a QGL object, then converts it
+    /// into a `TensorExpression` and subsequently into a `StateExpression`.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - A type that can be converted to a string reference,
+    ///             representing the QGL definition of the state expression.
+    ///
+    /// # Returns
+    ///
+    /// A new `StateExpression` instance.
+    pub fn new<T: AsRef<str>>(input: T) -> Self {
+        TensorExpression::new(input).to_state_expression()
+    }
+
+    /// Evaluates the state expression with the given arguments and returns a `StateVector`.
+    ///
+    /// This function substitutes the provided real scalar arguments into the complex
+    /// expressions that define the state vector's body, and then constructs a
+    /// `StateVector` from the evaluated complex values.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C`: A type that implements `ComplexScalar`, representing the complex number
+    ///        type for the state vector elements.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - A slice of real scalar values (`C::R`) to substitute for the
+    ///            variables in the expression. The order of arguments must match
+    ///            the order of `self.variables`.
+    ///
+    /// # Returns
+    ///
+    /// A `StateVector<C>` containing the evaluated complex elements of the state.
+    pub fn eval<C: ComplexScalar>(&self, args: &[C::R]) -> StateVector<C> {
+        let arg_map = self.variables.iter().zip(args.iter()).map(|(a, b)| (a.as_str(), *b)).collect();
+        let evaluated_body: Vec<C> = self.body.iter().map(|expr| expr.eval(&arg_map)).collect();
+        StateVector::new(self.radices.clone(), evaluated_body)
+    }
+
+    pub fn conjugate(&self) -> Self {
+        let new_body = self.body.iter().map(|expr| expr.conjugate()).collect();
+        StateExpression {
+            name: format!("{}^_", self.name),
+            radices: self.radices.clone(),
+            variables: self.variables.clone(),
+            body: new_body,
+        }
     }
 }
 

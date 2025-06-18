@@ -9,13 +9,13 @@ mod radix;
 mod scalar;
 mod system;
 mod shape;
-mod state;
 
 pub mod accel;
 pub mod matrix;
 pub mod memory;
 pub mod unitary;
 pub mod array;
+pub mod state;
 
 pub use bitwidth::BitWidthConvertible;
 pub use function::HasBounds;
