@@ -51,13 +51,13 @@ pub struct DerivedExpression {
 impl DerivedExpression {
     pub fn new(expr: TensorExpression, diff_lvl: DifferentiationLevel) -> Self {
         let TensorExpression { name, shape, variables, body, dimensions } = expr;
-        let exprs: Vec<Expression> = body.into_iter().map(|c| vec![c.real, c.imag]).flatten().collect();
+        let exprs: Vec<Expression> = body.into_iter().flat_map(|c| vec![c.real, c.imag]).collect();
 
         let mut grad_exprs = vec![];
         if diff_lvl.gradient_capable() {
             for variable in &variables {
                 for expr in &exprs {
-                    let grad_expr = expr.differentiate(&variable);
+                    let grad_expr = expr.differentiate(variable);
                     grad_exprs.push(grad_expr);
                 }
             }
@@ -69,7 +69,7 @@ impl DerivedExpression {
                 for variable2 in &variables {
                     // todo: symsq
                     for expr in &exprs {
-                        let hess_expr = expr.differentiate(&variable1).differentiate(&variable2);
+                        let hess_expr = expr.differentiate(variable1).differentiate(variable2);
                         hess_exprs.push(hess_expr);
                     }
                 }
@@ -81,8 +81,8 @@ impl DerivedExpression {
 
         let simplified_exprs = simplify_expressions(
             exprs.into_iter()
-                .chain(grad_exprs.into_iter())
-                .chain(hess_exprs.into_iter())
+                .chain(grad_exprs)
+                .chain(hess_exprs)
                 .collect()
         );
 
@@ -141,7 +141,7 @@ impl TensorExpression {
 
         TensorExpression {
             name,
-            shape: shape,
+            shape,
             dimensions: radices,
             variables,
             body,
@@ -182,6 +182,28 @@ impl TensorExpression {
                 }
             }
             _ => panic!("TensorExpression shape must be a vector to convert to StateExpression"),
+        }
+    }
+
+    pub fn to_state_system_expression(&self) -> StateSystemExpression {
+        match self.shape {
+            TensorShape::Matrix(nrows, ncols) => {
+                let mut body = Vec::with_capacity(nrows);
+                for i in 0..nrows {
+                    let start = i * ncols;
+                    let end = start + ncols;
+                    let row = self.body[start..end].to_vec();
+                    body.push(row);
+                }
+                let radices = self.dimensions.clone();
+                StateSystemExpression {
+                    name: self.name.clone(),
+                    radices,
+                    variables: self.variables.clone(),
+                    body,
+                }
+            }
+            _ => panic!("TensorExpression shape must be a matrix to convert to StateSystemExpression"),
         }
     }
     
@@ -297,7 +319,7 @@ impl StateExpression {
     /// A new `StateExpression` instance.
     pub fn new<T: AsRef<str>>(input: T) -> Self {
         TensorExpression::new(input).to_state_expression()
-    }
+}
 
     /// Evaluates the state expression with the given arguments and returns a `StateVector`.
     ///
@@ -333,6 +355,10 @@ impl StateExpression {
             variables: self.variables.clone(),
             body: new_body,
         }
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
     }
 }
 
@@ -397,6 +423,8 @@ impl UnitaryExpression {
         }
         UnitaryMatrix::new(self.radices.clone(), mat)
     }
+
+
 
     pub fn embed(&mut self, sub_matrix: UnitaryExpression, top_left_row_idx: usize, top_left_col_idx: usize) {
         let nrows = self.body.len();
@@ -583,6 +611,19 @@ impl UnitaryExpression {
             name: format!("∇{}", self.name),
             variables: self.variables.clone(),
             body: grad_exprs,
+        }
+    }
+
+    pub fn to_tensor_expression(&self) -> TensorExpression {
+        let nrows = self.body.len();
+        let ncols = self.body[0].len();
+        let flattened_body = self.body.clone().into_iter().flat_map(|row| row.into_iter()).collect();
+        TensorExpression {
+            name: self.name.clone(),
+            shape: TensorShape::Matrix(nrows, ncols),
+            variables: self.variables.clone(),
+            body: flattened_body,
+            dimensions: self.radices.concat(&self.radices),
         }
     }
 
@@ -813,6 +854,70 @@ impl QuditSystem for UnitaryExpression {
 //     pub variables: Vec<String>,
 //     pub body: Vec<Vec<ComplexExpression>>,
 // }
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct StateSystemExpression {
+    pub name: String,
+    pub radices: QuditRadices,
+    pub variables: Vec<String>,
+    pub body: Vec<Vec<ComplexExpression>>,
+}
+
+impl StateSystemExpression {
+    /// Creates a new `StateSystemExpression` from a QGL string representation.
+    ///
+    /// This function parses the input string as a QGL object, then converts it
+    /// into a `TensorExpression` and subsequently into a `StateSystemExpression`.
+    ///
+    /// # Arguments
+    ///
+    /// * `input` - A type that can be converted to a string reference,
+    ///             representing the QGL definition of the state system expression.
+    ///
+    /// # Returns
+    ///
+    /// A new `StateSystemExpression` instance.
+    pub fn new<T: AsRef<str>>(input: T) -> Self {
+        TensorExpression::new(input).to_state_system_expression()
+    }
+
+    /// Evaluates the state system expression with the given arguments and returns a `Mat`.
+    ///
+    /// This function substitutes the provided real scalar arguments into the complex
+    /// expressions that define the state system's body, and then constructs a
+    /// `Mat` from the evaluated complex values.
+    ///
+    /// # Type Parameters
+    ///
+    /// * `C`: A type that implements `ComplexScalar`, representing the complex number
+    ///        type for the state system elements.
+    ///
+    /// # Arguments
+    ///
+    /// * `args` - A slice of real scalar values (`C::R`) to substitute for the
+    ///            variables in the expression. The order of arguments must match
+    ///            the order of `self.variables`.
+    ///
+    /// # Returns
+    ///
+    /// A `Mat<C>` containing the evaluated complex elements of the state system.
+    pub fn eval<C: ComplexScalar>(&self, args: &[C::R]) -> Mat<C> {
+        let arg_map = self.variables.iter().zip(args.iter()).map(|(a, b)| (a.as_str(), *b)).collect();
+        let nrows = self.body.len();
+        let ncols = self.body[0].len();
+        let mut mat = Mat::zeros(nrows, ncols);
+        for i in 0..nrows {
+            for j in 0..ncols {
+                *mat.get_mut(i, j) = self.body[i][j].eval(&arg_map);
+            }
+        }
+        mat
+    }
+
+    pub fn name(&self) -> String {
+        self.name.clone()
+    }
+}
 
 pub struct MatVecExpression {
     pub name: String,

@@ -22,7 +22,7 @@ pub struct U3Gate;
 
 impl UnitaryExpressionGenerator for U3Gate {
     fn gen_expr(&self) -> UnitaryExpression {
-        let proto = "utry U3(θ0, θ1, θ2)";
+        let proto = "U3(θ0, θ1, θ2)";
         let body = "[
                 [cos(θ0/2), ~e^(i*θ2)*sin(θ0/2)],
                 [e^(i*θ1)*sin(θ0/2), e^(i*(θ1+θ2))*cos(θ0/2)]

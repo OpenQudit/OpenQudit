@@ -249,6 +249,10 @@ impl ControlledGate {
         }
         prod
     }
+
+    pub fn name(&self) -> String {
+        self.expr.name()
+    }
 }
 
 impl HasParams for ControlledGate {

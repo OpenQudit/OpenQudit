@@ -14,7 +14,7 @@ impl IGate {
 
 impl UnitaryExpressionGenerator for IGate {
     fn gen_expr(&self) -> UnitaryExpression {
-        let proto = format!("utry I<{}>()", self.radix);
+        let proto = format!("I<{}>()", self.radix);
         let mut body = "".to_string();
         body += "[";
         for i in 0..self.radix {

@@ -55,7 +55,7 @@ impl SwapGate {
 
 impl UnitaryExpressionGenerator for SwapGate {
     fn gen_expr(&self) -> UnitaryExpression {
-        let proto = format!("utry Swap<{}, {}>()", self.radix, self.radix);
+        let proto = format!("Swap<{}, {}>()", self.radix, self.radix);
         let mut body = "".to_string();
         body += "[";
         for i in 0..self.radix {

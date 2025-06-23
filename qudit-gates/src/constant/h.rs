@@ -43,7 +43,7 @@ impl HGate {
 
 impl UnitaryExpressionGenerator for HGate {
     fn gen_expr(&self) -> UnitaryExpression {
-        let proto = format!("utry H<{}>()", self.radix);
+        let proto = format!("H<{}>()", self.radix);
         let mut body = "".to_string();
         if self.radix == 2 {
             body += "[[1/sqrt(2), 1/sqrt(2)], [1/sqrt(2), ~1/sqrt(2)]]";

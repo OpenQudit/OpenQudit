@@ -42,7 +42,7 @@ impl PGate {
 
 impl UnitaryExpressionGenerator for PGate {
     fn gen_expr(&self) -> UnitaryExpression {
-        let mut proto = format!("utry P<{}>(", self.radix);
+        let mut proto = format!("P<{}>(", self.radix);
         for i in 0..self.radix - 1 {
             proto += "θ";
             proto += &i.to_string();

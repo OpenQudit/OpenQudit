@@ -6,6 +6,8 @@ use criterion::Criterion;
 mod common;
 use common::build_qft_circuit;
 use common::FlamegraphProfiler;
+use pprof::criterion::{PProfProfiler, Output};
+use pprof::flamegraph::Options;
 
 pub fn circuit_struct_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("build_qft");

@@ -16,6 +16,7 @@ pub use unitary::UnitaryExpressionGenerator;
 pub use unitary::TensorExpressionGenerator;
 pub use unitary::TensorExpression;
 pub use unitary::StateExpression;
+pub use unitary::StateSystemExpression;
 pub use codegen::DifferentiationLevel;
 pub use codegen::ModuleBuilder;
 pub use codegen::Module;

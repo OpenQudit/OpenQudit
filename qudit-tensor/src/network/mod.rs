@@ -47,7 +47,7 @@ use bit_set::BitSet;
 use qudit_expr::TensorExpression;
 
 #[derive(Debug, Clone)]
-struct QuditTensor {
+pub struct QuditTensor {
     indices: Vec<LocalTensorIndex>,
     local_to_global_index_map: HashMap<usize, NetworkIndex>,
     expression: TensorExpression,
@@ -55,7 +55,7 @@ struct QuditTensor {
 }
 
 impl QuditTensor {
-    fn new(
+    pub fn new(
         expression: TensorExpression,
         // left_indices: Vec<usize>,
         // right_indices: Vec<usize>,

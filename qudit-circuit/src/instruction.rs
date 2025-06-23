@@ -1,4 +1,4 @@
-use qudit_core::{HasParams, RealScalar};
+use qudit_core::{HasParams, ParamIndices, RealScalar};
 
 use crate::{compact::CompactIntegerVector, operation::{Operation, OperationReference}, CircuitLocation};
 
@@ -27,17 +27,18 @@ impl<R: RealScalar> Instruction<R> {
 pub struct InstructionReference {
     pub op: OperationReference,
     pub location: CircuitLocation,
-    pub param_indices: CompactIntegerVector,
-    _packing: u64,
+    pub param_indices: ParamIndices,
+    // pub param_indices: CompactIntegerVector,
+    // _packing: u64,
 }
 
 impl InstructionReference {
-    pub fn new(op: OperationReference, location: CircuitLocation, param_indices: CompactIntegerVector) -> InstructionReference {
+    pub fn new(op: OperationReference, location: CircuitLocation, param_indices: ParamIndices) -> InstructionReference {
         InstructionReference {
             op,
             location,
             param_indices,
-            _packing: 0,
+            // _packing: 0,
         }
     }
 
@@ -46,13 +47,13 @@ impl InstructionReference {
         self.op = OperationReference::from(0);
         let location = self.location.to_owned();
         let param_indices = self.param_indices.to_owned();
-        let _packing = self._packing.clone();
-        self._packing = 0;
+        // let _packing = self._packing.clone();
+        // self._packing = 0;
         InstructionReference {
             op,
             location,
             param_indices,
-            _packing,
+            // _packing,
         }
     }
 }

@@ -6,6 +6,7 @@ use itertools::Itertools;
 use qudit_core::ComplexScalar;
 
 use crate::instruction::Instruction;
+use crate::instruction::InstructionReference;
 
 use super::operation::Operation;
 use super::point::CircuitPoint;
@@ -16,7 +17,7 @@ use super::QuditCircuit;
 
 pub struct QuditCircuitFastIterator<'a, C: ComplexScalar> {
     circuit: &'a QuditCircuit<C>,
-    frontier: Vec<&'a Instruction<C::R>>,
+    frontier: Vec<&'a InstructionReference>,
     next_cycle_index: usize,
 }
 
@@ -31,7 +32,7 @@ impl<'a, C: ComplexScalar> QuditCircuitFastIterator<'a, C> {
 }
 
 impl<'a, C: ComplexScalar> Iterator for QuditCircuitFastIterator<'a, C> {
-    type Item = &'a Instruction<C::R>;
+    type Item = &'a InstructionReference;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.frontier.is_empty() {
@@ -41,25 +42,15 @@ impl<'a, C: ComplexScalar> Iterator for QuditCircuitFastIterator<'a, C> {
             let cycle = self.circuit.get_cycle(self.next_cycle_index);
             self.next_cycle_index += 1;
 
-            for (i, node) in cycle.nodes.iter().enumerate() {
+            for (i, inst) in cycle.insts.iter().enumerate() {
                 if cycle.free.contains(&i) {
                     continue;
                 }
-                self.frontier.push(&node.op);
+                self.frontier.push(&inst);
             }
         }
 
-        let frontier = self.frontier.as_mut().unwrap();
-
-        let to_return = frontier.pop();
-
-        if frontier.is_empty() {
-            self.frontier = None;
-        } else {
-            self.frontier = Some(frontier.to_vec());
-        }
-
-        to_return
+        self.frontier.pop()
     }
 }
 // pub struct QuditCircuitFastIteratorWithCycles<'a, C: ComplexScalar> {
@@ -119,7 +110,7 @@ impl<'a, C: ComplexScalar> Iterator for QuditCircuitFastIterator<'a, C> {
 
 pub struct QuditCircuitBFIterator<'a, C: ComplexScalar> {
     circuit: &'a QuditCircuit<C>,
-    frontier: Option<Vec<&'a Operation<C>>>,
+    frontier: Option<Vec<&'a Operation>>,
     next_cycle_index: usize,
 }
 
@@ -134,41 +125,42 @@ impl<'a, C: ComplexScalar> QuditCircuitBFIterator<'a, C> {
 }
 
 impl<'a, C: ComplexScalar> Iterator for QuditCircuitBFIterator<'a, C> {
-    type Item = &'a Operation<C>;
+    type Item = &'a Operation;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.frontier.is_none() {
-            if self.next_cycle_index >= self.circuit.num_cycles() {
-                return None;
-            }
+        todo!()
+        // if self.frontier.is_none() {
+        //     if self.next_cycle_index >= self.circuit.num_cycles() {
+        //         return None;
+        //     }
 
-            let cycle = self.circuit.get_cycle(self.next_cycle_index);
-            self.next_cycle_index += 1;
+        //     let cycle = self.circuit.get_cycle(self.next_cycle_index);
+        //     self.next_cycle_index += 1;
 
-            let mut frontier = Vec::with_capacity(cycle.num_ops);
-            let mut seen = HashSet::with_capacity(cycle.num_ops);
+        //     let mut frontier = Vec::with_capacity(cycle.num_ops);
+        //     let mut seen = HashSet::with_capacity(cycle.num_ops);
 
-            cycle.qudit_map.iter().sorted().for_each(|(_, &i)| {
-                if !seen.contains(&i) {
-                    seen.insert(i);
-                    frontier.push(&cycle.nodes[i].op);
-                }
-            });
+        //     cycle.qudit_map.iter().sorted().for_each(|(_, &i)| {
+        //         if !seen.contains(&i) {
+        //             seen.insert(i);
+        //             frontier.push(&cycle.nodes[i].op);
+        //         }
+        //     });
 
-            self.frontier = Some(frontier);
-        }
+        //     self.frontier = Some(frontier);
+        // }
 
-        let frontier = self.frontier.as_mut().unwrap();
+        // let frontier = self.frontier.as_mut().unwrap();
 
-        let to_return = frontier.pop();
+        // let to_return = frontier.pop();
 
-        if frontier.is_empty() {
-            self.frontier = None;
-        } else {
-            self.frontier = Some(frontier.to_vec());
-        }
+        // if frontier.is_empty() {
+        //     self.frontier = None;
+        // } else {
+        //     self.frontier = Some(frontier.to_vec());
+        // }
 
-        to_return
+        // to_return
     }
 }
 
@@ -196,41 +188,43 @@ impl<'a, C: ComplexScalar> QuditCircuitDFIterator<'a, C> {
     }
 
     pub fn standardize_point(&self, point: CircuitPoint) -> CircuitPoint {
-        let loc = self.circuit.get(point).location();
-        if loc.get_num_qudits() == 0 {
-            CircuitPoint {
-                cycle: point.cycle,
-                dit_or_bit: DitOrBit::Clbit(loc.clbits()[0]),
-            }
-        } else {
-            CircuitPoint {
-                cycle: point.cycle,
-                dit_or_bit: DitOrBit::Qudit(loc.qudits()[0]),
-            }
-        }
+        todo!()
+        // let loc = self.circuit.get(point).location();
+        // if loc.get_num_qudits() == 0 {
+        //     CircuitPoint {
+        //         cycle: point.cycle,
+        //         dit_or_bit: DitOrBit::Clbit(loc.clbits()[0]),
+        //     }
+        // } else {
+        //     CircuitPoint {
+        //         cycle: point.cycle,
+        //         dit_or_bit: DitOrBit::Qudit(loc.qudits()[0]),
+        //     }
+        // }
     }
 }
 
 impl<'a, C: ComplexScalar> Iterator for QuditCircuitDFIterator<'a, C> {
-    type Item = &'a Operation<C>;
+    type Item = &'a Operation;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let point = match self.frontier.pop_front() {
-            Some(p) => p,
-            None => return None,
-        };
+        todo!()
+        // let point = match self.frontier.pop_front() {
+        //     Some(p) => p,
+        //     None => return None,
+        // };
 
-        let nexts = QuditCircuit::next(self.circuit, point);
-        let nexts = nexts.values();
+        // let nexts = QuditCircuit::next(self.circuit, point);
+        // let nexts = nexts.values();
 
-        for next in nexts {
-            let point = self.standardize_point(*next);
-            if !self.seen.contains(&point) {
-                self.seen.insert(point);
-                self.frontier.push_front(point);
-            }
-        }
+        // for next in nexts {
+        //     let point = self.standardize_point(*next);
+        //     if !self.seen.contains(&point) {
+        //         self.seen.insert(point);
+        //         self.frontier.push_front(point);
+        //     }
+        // }
 
-        Some(self.circuit.get(point))
+        // Some(self.circuit.get(point))
     }
 }

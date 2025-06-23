@@ -42,6 +42,17 @@ pub enum Gate {
 }
 
 impl Gate {
+    pub fn name(&self) -> String {
+        match self {
+            Gate::HGate(_) => "H".to_string(),
+            Gate::PGate(_) => "P".to_string(),
+            Gate::XGate(_) => "X".to_string(),
+            Gate::U3Gate(_) => "U3".to_string(),
+            Gate::Controlled(gate) => gate.name().to_string(),
+            Gate::Expression(expr) => expr.name().to_string(),
+        }
+    }
+
     #[allow(non_snake_case)]
     pub fn H(radix: usize) -> Self {
         Gate::HGate(HGate::new(radix))

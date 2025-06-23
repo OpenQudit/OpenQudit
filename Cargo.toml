@@ -16,4 +16,4 @@ opt-level = 2       # Optimize for speed-ish
 opt-level = 3       # Optimize for speed
 lto = true          # Link Time Optimization
 codegen-units = 1   # Slower builds, potentially faster runtime
-strip = true        # Strip debug symbols from release binary
+strip = false       # Strip debug symbols from release binary (Set to false during benchmarking)

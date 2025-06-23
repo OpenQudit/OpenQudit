@@ -40,7 +40,7 @@ impl XGate {
 
 impl UnitaryExpressionGenerator for XGate {
     fn gen_expr(&self) -> UnitaryExpression {
-        let proto = format!("utry X<{}>()", self.radix);
+        let proto = format!("X<{}>()", self.radix);
         let mut body = "[".to_string();
         for i in 0..self.radix {
             body += "[";

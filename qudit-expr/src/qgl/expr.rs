@@ -656,10 +656,45 @@ fn get_power_of_two(d: usize) -> Option<usize> {
 
 impl ParsedDefinition {
     pub fn get_radices(&self) -> Vec<usize> {
+        let shape = self.body.gen_shape();
         match &self.radices {
-            Some(radices) => radices.clone(),
+            Some(radices) => {
+                let prod: usize = radices.iter().product();
+                match shape {
+                    TensorShape::Scalar => vec![],
+                    TensorShape::Vector(d) => {
+                        assert_eq!(d, prod);
+                        radices.clone()
+                    },
+                    TensorShape::Matrix(nrows, ncols) => {
+                        if nrows == prod && ncols == prod {
+                            radices.iter().chain(radices.iter()).cloned().collect()
+                        }
+                        else if nrows == prod {
+                            radices.iter().chain([ncols].iter()).cloned().collect()
+                        }
+                        else if ncols == prod {
+                            [nrows].iter().chain(radices.iter()).cloned().collect()
+                        }
+                        else {
+                            panic!("Matrix expression parsed with explicit radices, but no dimension matchingwhat is expected from radices.")
+                        }
+                    },
+                    TensorShape::Tensor3D(nmats, nrows, ncols) => {
+                        if nrows == prod && ncols == prod {
+                            [nmats].into_iter().chain(radices.iter().cloned()).chain(radices.iter().cloned()).collect()
+                        } else if nrows == prod {
+                            [nmats].into_iter().chain(radices.iter().cloned()).chain([ncols].iter().cloned()).collect()
+                        } else if ncols == prod {
+                            [nmats, nrows].into_iter().chain(radices.iter().cloned()).collect()
+                        } else {
+                            panic!("Tensor3D expression parsed with explicit radices, but its product does not match nrows or ncols.")
+                        }
+                    },
+                    _ => panic!("Dynamic tensor not support.")
+                }
+            }
             None => {
-                let shape = self.body.gen_shape();
                 match shape {
                     TensorShape::Scalar => vec![],
                     TensorShape::Vector(d) => {

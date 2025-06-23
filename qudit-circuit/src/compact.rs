@@ -248,6 +248,14 @@ impl CompactIntegerVector {
             }
         }
     }
+
+    pub fn to_vec(&self) -> Vec<usize> {
+        let mut vec = Vec::new();
+        for value in self.iter() {
+            vec.push(value);
+        }
+        vec
+    }
 }
 
 impl<'a> IntoIterator for &'a CompactIntegerVector {

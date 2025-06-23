@@ -65,38 +65,30 @@ pub fn build_qsearch_thick_step_circuit(n: usize) -> QuditCircuit {
     circ
 }
 
-/// Simple profiler that generates a flamegraph of the benchmark.
-pub struct FlamegraphProfiler<'a> {
-    frequency: c_int,
-    active_profiler: Option<ProfilerGuard<'a>>,
+use pprof::criterion::{Output, PProfProfiler};
+use pprof::flamegraph::Options;
+
+pub struct FlamegraphProfiler<'a, 'b> {
+    inner: PProfProfiler<'a, 'b>
 }
 
-impl<'a> FlamegraphProfiler<'a> {
+impl<'a, 'b> FlamegraphProfiler<'a, 'b> {
     pub fn new(frequency: c_int) -> Self {
+        let mut options = Options::default();
+        options.image_width = Some(2560);
+        options.hash = true;
         FlamegraphProfiler {
-            frequency,
-            active_profiler: None,
+            inner: PProfProfiler::new(frequency, Output::Flamegraph(Some(options)))
         }
     }
 }
 
-impl<'a> Profiler for FlamegraphProfiler<'a> {
-    fn start_profiling(&mut self, _benchmark_id: &str, _benchmark_dir: &Path) {
-        self.active_profiler = Some(ProfilerGuard::new(self.frequency).unwrap());
+impl<'a, 'b> Profiler for FlamegraphProfiler<'a, 'b> {
+    fn start_profiling(&mut self, benchmark_id: &str, benchmark_dir: &Path) {
+        self.inner.start_profiling(benchmark_id, benchmark_dir);
     }
 
-    fn stop_profiling(&mut self, _benchmark_id: &str, benchmark_dir: &Path) {
-        std::fs::create_dir_all(benchmark_dir).unwrap();
-        let flamegraph_path = benchmark_dir.join("flamegraph.svg");
-        let flamegraph_file = File::create(&flamegraph_path)
-            .expect("File system error while creating flamegraph.svg");
-        if let Some(profiler) = self.active_profiler.take() {
-            profiler
-                .report()
-                .build()
-                .unwrap()
-                .flamegraph(flamegraph_file)
-                .expect("Error writing flamegraph");
-        }
+    fn stop_profiling(&mut self, benchmark_id: &str, benchmark_dir: &Path) {
+        self.inner.stop_profiling(benchmark_id, benchmark_dir);
     }
 }

@@ -3,6 +3,7 @@ mod network;
 mod bytecode;
 mod qvm;
 
+pub use network::QuditTensor;
 pub use network::QuditCircuitNetwork;
 pub use qvm::QVM;
 pub use qvm::QVMResult;

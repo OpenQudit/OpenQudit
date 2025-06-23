@@ -1,13 +1,13 @@
 use std::collections::HashMap;
-use qudit_core::{ComplexScalar, HasParams, QuditSystem};
+use qudit_core::{ComplexScalar, HasParams, ParamIndices, QuditSystem};
 
 use indexmap::IndexSet;
 use qudit_core::{QuditRadices, RealScalar, c64};
 use qudit_gates::Gate;
-use qudit_expr::UnitaryExpressionGenerator;
+use qudit_expr::{TensorExpression, UnitaryExpressionGenerator};
 // use qudit_tensor::{BuilderExpressionInput, ExpressionTree, TreeBuilder, TreeOptimizer};
-use qudit_tensor::QuditCircuitNetwork;
-
+use qudit_tensor::{QuditCircuitNetwork, QuditTensor};
+use crate::exprset::{ExpressionSet, OperationSet};
 use crate::{compact::CompactIntegerVector, cpoint, cycle::QuditCycle, cyclelist::CycleList, instruction::{Instruction, InstructionReference}, iterator::{QuditCircuitBFIterator, QuditCircuitDFIterator, QuditCircuitFastIterator}, location::CircuitLocation, operation::{Operation, OperationReference}, qpoint, CircuitPoint, DitOrBit};
 
 /// A quantum circuit that can be defined with qudits and classical bits.
@@ -50,7 +50,9 @@ pub struct QuditCircuit<C: ComplexScalar = c64> {
     crear: Vec<Option<usize>>,
 
     /// The set of gates in the circuit.
-    pub gates: IndexSet<Gate>,
+    // pub gates: IndexSet<Gate>,
+    // pub expression_set: IndexSet<TensorExpression>,
+    pub expression_set: OperationSet,
 
     /// The set of subcircuits in the circuit.
     // pub subcircuits: IndexSet<ExpressionTree>,
@@ -129,7 +131,8 @@ impl<C: ComplexScalar> QuditCircuit<C> {
             cfront: vec![None; num_clbits],
             crear: vec![None; num_clbits],
             radices: radices,
-            gates: IndexSet::new(),
+            // gates: IndexSet::new(),
+            expression_set: OperationSet::new(),
             // subcircuits: IndexSet::new(),
             params: Vec::new(),
         }
@@ -455,7 +458,8 @@ impl<C: ComplexScalar> QuditCircuit<C> {
         }
 
         // update params
-        let param_indices = CompactIntegerVector::from_range((self.params.len() - params.len())..self.params.len());
+        // let param_indices = CompactIntegerVector::from_range(self.params.len()..(self.params.len() + params.len()));
+        let param_indices = ParamIndices::Joint(self.params.len(), params.len());
         self.params.extend(params);
 
         // Build instruction reference
@@ -787,8 +791,19 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     /// Convert the circuit to a symbolic tensor network.
     pub fn to_tensor_network(&self) -> QuditCircuitNetwork {
         let mut network = QuditCircuitNetwork::new(QuditRadices::new(&vec![2, 2]));
-        for op in self.iter() {
-            
+        for inst_ref in self.iter() {
+            let op_ref = inst_ref.op.dereference(self);
+            match op_ref {
+                Operation::Gate(gate) => {
+                    network.prepend(QuditTensor::new(gate.gen_expr().to_tensor_expression(), inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec());
+                }
+                Operation::ProjectiveMeasurement(t) => {}
+                Operation::TerminatingMeasurement(s) => {}
+                Operation::ClassicallyControlled(g, _) => {}
+                Operation::Initialization(s) => {}
+                Operation::Reset => {}
+                Operation::Barrier => {}
+            }
         }
         // network.prepend(QuditTensor::new(u3.clone(), vec![0, 1, 2].into()), vec![0], vec![0]);
         // network.prepend(QuditTensor::new(ZZ.clone(), vec![].into()), vec![0, 1], vec![0, 1]);
@@ -825,10 +840,8 @@ mod tests {
     use qudit_core::radices;
     use qudit_core::QuditRadices;
     use qudit_expr::DifferentiationLevel;
-    use qudit_tree::QVM;
     use crate::loc;
     use crate::CircuitLocation;
-    use qudit_tree::compile;
     use qudit_core::unitary::UnitaryMatrix;
     use qudit_core::unitary::UnitaryFn;
 
@@ -848,24 +861,33 @@ mod tests {
     }
 
     #[test]
-    fn test_u3_mul_circuit() {
-        let mut circ: QuditCircuit<f64> = QuditCircuit::new(radices![2; 1], 0);
-        circ.append_gate(Gate::U3(), loc![0], vec![1.7, 1.7, 1.7]);
-        circ.append_gate(Gate::U3(), loc![0], vec![1.7, 1.7, 1.7]);
-        let tree = circ.to_tree();
-        println!("{:?}", tree);
-        let code = compile(&tree);
-        println!("{:?}", code);
-        let mut qvm: QVM<c64> = QVM::new(code, DifferentiationLevel::None);
-        let params = vec![1.7; 6];
-        let utry = qvm.get_unitary(&params);
-
-        let u3utry: UnitaryMatrix<c64> = Gate::U3().gen_expr().get_unitary(&[1.7, 1.7, 1.7]);
-        let expected = u3utry.dot(&u3utry);
-        let dist = UnitaryMatrix::new([2], utry.to_owned()).get_distance_from(expected);
-        println!("{:?}", dist);
-        assert!(dist < 1e-7);
+    fn build_qsearch_thin_step_circuit_test() {
+        build_qsearch_thin_step_circuit(3);
+        build_qsearch_thin_step_circuit(4);
+        build_qsearch_thin_step_circuit(5);
+        build_qsearch_thin_step_circuit(6);
+        build_qsearch_thin_step_circuit(7);
     }
+
+    // #[test]
+    // fn test_u3_mul_circuit() {
+    //     let mut circ: QuditCircuit<f64> = QuditCircuit::new(radices![2; 1], 0);
+    //     circ.append_gate(Gate::U3(), loc![0], vec![1.7, 1.7, 1.7]);
+    //     circ.append_gate(Gate::U3(), loc![0], vec![1.7, 1.7, 1.7]);
+    //     let tree = circ.to_tree();
+    //     println!("{:?}", tree);
+    //     let code = compile(&tree);
+    //     println!("{:?}", code);
+    //     let mut qvm: QVM<c64> = QVM::new(code, DifferentiationLevel::None);
+    //     let params = vec![1.7; 6];
+    //     let utry = qvm.get_unitary(&params);
+
+    //     let u3utry: UnitaryMatrix<c64> = Gate::U3().gen_expr().get_unitary(&[1.7, 1.7, 1.7]);
+    //     let expected = u3utry.dot(&u3utry);
+    //     let dist = UnitaryMatrix::new([2], utry.to_owned()).get_distance_from(expected);
+    //     println!("{:?}", dist);
+    //     assert!(dist < 1e-7);
+    // }
 
     // #[test]
     // fn test_u3_kron_circuit() {
@@ -887,154 +909,154 @@ mod tests {
     //     assert!(dist < 1e-7);
     // }
 
-    #[test]
-    fn test_qsearch_block_circuit() {
-        let mut circ: QuditCircuit<f64> = QuditCircuit::new(radices![2; 2], 0);
-        circ.append_gate(Gate::CP(), loc![0, 1], vec![]);
-        circ.append_gate(Gate::U3(), loc![0], vec![]);
-        circ.append_gate(Gate::U3(), loc![1], vec![]);
-        let tree = circ.to_tree();
-        let code = compile(&tree);
-        println!("{:?}", tree);
-        println!("{:?}", code);
-        let mut qvm: QVM<c64> = QVM::new(code, DifferentiationLevel::None);
-        let params = vec![1.7; 6];
-        let utry = qvm.get_unitary(&params);
+    // #[test]
+    // fn test_qsearch_block_circuit() {
+    //     let mut circ: QuditCircuit<f64> = QuditCircuit::new(radices![2; 2], 0);
+    //     circ.append_gate(Gate::CP(), loc![0, 1], vec![]);
+    //     circ.append_gate(Gate::U3(), loc![0], vec![]);
+    //     circ.append_gate(Gate::U3(), loc![1], vec![]);
+    //     let tree = circ.to_tree();
+    //     let code = compile(&tree);
+    //     println!("{:?}", tree);
+    //     println!("{:?}", code);
+    //     let mut qvm: QVM<c64> = QVM::new(code, DifferentiationLevel::None);
+    //     let params = vec![1.7; 6];
+    //     let utry = qvm.get_unitary(&params);
 
 
-        let u3utry: UnitaryMatrix<c64> = Gate::U3().gen_expr().get_unitary(&[1.7, 1.7, 1.7]);
-        let cnotutry: UnitaryMatrix<c64> = Gate::CP().gen_expr().get_unitary(&[]);
-        let u3utry2 = u3utry.kron(&u3utry);
-        let expected = u3utry2.dot(&cnotutry);
-        let dist = UnitaryMatrix::new([2], utry.to_owned()).get_distance_from(expected);
-        println!("{:?}", dist);
-        assert!(dist < 1e-7);
-    }
+    //     let u3utry: UnitaryMatrix<c64> = Gate::U3().gen_expr().get_unitary(&[1.7, 1.7, 1.7]);
+    //     let cnotutry: UnitaryMatrix<c64> = Gate::CP().gen_expr().get_unitary(&[]);
+    //     let u3utry2 = u3utry.kron(&u3utry);
+    //     let expected = u3utry2.dot(&cnotutry);
+    //     let dist = UnitaryMatrix::new([2], utry.to_owned()).get_distance_from(expected);
+    //     println!("{:?}", dist);
+    //     assert!(dist < 1e-7);
+    // }
 
-    #[test]
-    fn test_gen_code_for_paper() {
-        let mut circ: QuditCircuit<f64> = QuditCircuit::new(radices![2; 3], 0);
-        circ.append_gate(Gate::U3(), loc![0], vec![]);
-        circ.append_gate(Gate::U3(), loc![1], vec![]);
-        circ.append_gate(Gate::U3(), loc![2], vec![]);
-        circ.append_gate(Gate::CP(), loc![1, 2], vec![]);
-        circ.append_gate(Gate::CP(), loc![0, 1], vec![]);
-        circ.append_gate(Gate::U3(), loc![0], vec![]);
-        circ.append_gate(Gate::CP(), loc![0, 1], vec![]);
-        circ.append_gate(Gate::CP(), loc![1, 2], vec![]);
-        circ.append_gate(Gate::U3(), loc![0], vec![]);
-        circ.append_gate(Gate::U3(), loc![1], vec![]);
-        circ.append_gate(Gate::U3(), loc![2], vec![]);
-        let tree = circ.to_tree();
-        println!("{:?}", tree);
-        let code = compile(&tree);
-        println!("{:?}", code);
-    }
+    // #[test]
+    // fn test_gen_code_for_paper() {
+    //     let mut circ: QuditCircuit<f64> = QuditCircuit::new(radices![2; 3], 0);
+    //     circ.append_gate(Gate::U3(), loc![0], vec![]);
+    //     circ.append_gate(Gate::U3(), loc![1], vec![]);
+    //     circ.append_gate(Gate::U3(), loc![2], vec![]);
+    //     circ.append_gate(Gate::CP(), loc![1, 2], vec![]);
+    //     circ.append_gate(Gate::CP(), loc![0, 1], vec![]);
+    //     circ.append_gate(Gate::U3(), loc![0], vec![]);
+    //     circ.append_gate(Gate::CP(), loc![0, 1], vec![]);
+    //     circ.append_gate(Gate::CP(), loc![1, 2], vec![]);
+    //     circ.append_gate(Gate::U3(), loc![0], vec![]);
+    //     circ.append_gate(Gate::U3(), loc![1], vec![]);
+    //     circ.append_gate(Gate::U3(), loc![2], vec![]);
+    //     let tree = circ.to_tree();
+    //     println!("{:?}", tree);
+    //     let code = compile(&tree);
+    //     println!("{:?}", code);
+    // }
 
-    #[test]
-    fn test_qsearch_2block_circuit() {
-        let mut circ: QuditCircuit<f64> = QuditCircuit::new(radices![2; 3], 0);
-        circ.append_gate(Gate::CP(), loc![0, 1], vec![]);
-        circ.append_gate(Gate::U3(), loc![0], vec![]);
-        circ.append_gate(Gate::U3(), loc![1], vec![]);
-        circ.append_gate(Gate::CP(), loc![1, 2], vec![]);
-        circ.append_gate(Gate::U3(), loc![1], vec![]);
-        circ.append_gate(Gate::U3(), loc![2], vec![]);
-        let tree = circ.to_tree();
-        println!("{:?}", tree);
-        let code = compile(&tree);
-        println!("{:?}", code);
-        let mut qvm: QVM<c64> = QVM::new(code, DifferentiationLevel::None);
-        let params = vec![1.7; 12];
-        let utry = qvm.get_unitary(&params);
+    // #[test]
+    // fn test_qsearch_2block_circuit() {
+    //     let mut circ: QuditCircuit<f64> = QuditCircuit::new(radices![2; 3], 0);
+    //     circ.append_gate(Gate::CP(), loc![0, 1], vec![]);
+    //     circ.append_gate(Gate::U3(), loc![0], vec![]);
+    //     circ.append_gate(Gate::U3(), loc![1], vec![]);
+    //     circ.append_gate(Gate::CP(), loc![1, 2], vec![]);
+    //     circ.append_gate(Gate::U3(), loc![1], vec![]);
+    //     circ.append_gate(Gate::U3(), loc![2], vec![]);
+    //     let tree = circ.to_tree();
+    //     println!("{:?}", tree);
+    //     let code = compile(&tree);
+    //     println!("{:?}", code);
+    //     let mut qvm: QVM<c64> = QVM::new(code, DifferentiationLevel::None);
+    //     let params = vec![1.7; 12];
+    //     let utry = qvm.get_unitary(&params);
 
 
-        let u3utry: UnitaryMatrix<c64> = Gate::U3().gen_expr().get_unitary(&[1.7, 1.7, 1.7]);
-        let cnotutry: UnitaryMatrix<c64> = Gate::CP().gen_expr().get_unitary(&[]);
-        let u3utry2 = u3utry.kron(&u3utry);
-        let block = u3utry2.dot(&cnotutry);
-        let block_i = block.kron(&UnitaryMatrix::identity([2]));
-        let i_block = UnitaryMatrix::identity([2]).kron(&block);
-        let expected = i_block.dot(&block_i);
-        let dist = UnitaryMatrix::new([2], utry.to_owned()).get_distance_from(expected);
-        println!("{:?}", dist);
-        assert!(dist < 1e-7);
-    }
+    //     let u3utry: UnitaryMatrix<c64> = Gate::U3().gen_expr().get_unitary(&[1.7, 1.7, 1.7]);
+    //     let cnotutry: UnitaryMatrix<c64> = Gate::CP().gen_expr().get_unitary(&[]);
+    //     let u3utry2 = u3utry.kron(&u3utry);
+    //     let block = u3utry2.dot(&cnotutry);
+    //     let block_i = block.kron(&UnitaryMatrix::identity([2]));
+    //     let i_block = UnitaryMatrix::identity([2]).kron(&block);
+    //     let expected = i_block.dot(&block_i);
+    //     let dist = UnitaryMatrix::new([2], utry.to_owned()).get_distance_from(expected);
+    //     println!("{:?}", dist);
+    //     assert!(dist < 1e-7);
+    // }
 
-    #[test]
-    fn test_qsearch_thin_step_circuit() {
-        let circ = build_qsearch_thin_step_circuit(3);
-        // assert_eq!(circ.num_cycles(), 2 * 2 * 3 + 1);
-        // assert_eq!(circ.num_operations(), 3 * 2 * 3 + 3);
+    // #[test]
+    // fn test_qsearch_thin_step_circuit() {
+    //     let circ = build_qsearch_thin_step_circuit(3);
+    //     // assert_eq!(circ.num_cycles(), 2 * 2 * 3 + 1);
+    //     // assert_eq!(circ.num_operations(), 3 * 2 * 3 + 3);
 
-        let tree = circ.to_tree();
-        println!("{:?}", tree);
+    //     let tree = circ.to_tree();
+    //     println!("{:?}", tree);
 
-        let code = compile(&tree);
-        println!("{:?}", code);
+    //     let code = compile(&tree);
+    //     println!("{:?}", code);
 
-        let mut qvm: QVM<c32> = QVM::new(code, DifferentiationLevel::Gradient);
-        let params = vec![1.7; 3 * 2 * 3 * 4 + 12];
-        let start = std::time::Instant::now();
-        let mut utry = qudit_core::matrix::Mat::zeros(8, 8);
-        let mut grad = qudit_core::matrix::MatVec::zeros(8, 8, params.len());
-        let n = 1000;
-        for _ in 0..n {
-            qvm.write_unitary_and_gradient(&params, utry.as_mut(), grad.as_mut());
-        }
-        let elapsed = start.elapsed();
-        println!("Time per unitary: {:?}", elapsed / n as u32);
-        // let utry = qvm.get_unitary(&params);
-        // println!("{:?}", utry);
-    }
+    //     let mut qvm: QVM<c32> = QVM::new(code, DifferentiationLevel::Gradient);
+    //     let params = vec![1.7; 3 * 2 * 3 * 4 + 12];
+    //     let start = std::time::Instant::now();
+    //     let mut utry = qudit_core::matrix::Mat::zeros(8, 8);
+    //     let mut grad = qudit_core::matrix::MatVec::zeros(8, 8, params.len());
+    //     let n = 1000;
+    //     for _ in 0..n {
+    //         qvm.write_unitary_and_gradient(&params, utry.as_mut(), grad.as_mut());
+    //     }
+    //     let elapsed = start.elapsed();
+    //     println!("Time per unitary: {:?}", elapsed / n as u32);
+    //     // let utry = qvm.get_unitary(&params);
+    //     // println!("{:?}", utry);
+    // }
 
-    use qudit_expr::Module;
-    use qudit_expr::ModuleBuilder;
-    use qudit_core::memory::alloc_zeroed_memory;
-    use qudit_core::memory::calc_col_stride;
-    use qudit_core::matrix::MatMut;
+    // use qudit_expr::Module;
+    // use qudit_expr::ModuleBuilder;
+    // use qudit_core::memory::alloc_zeroed_memory;
+    // use qudit_core::memory::calc_col_stride;
+    // use qudit_core::matrix::MatMut;
 
-    #[test]
-    fn test_cnot_expr_utry() {
-        let cnot = Gate::CP().gen_expr();
-        let col_stride = calc_col_stride::<c64>(4, 4);
-        let mut memory = alloc_zeroed_memory::<c64>(4 * col_stride);
-        let name = cnot.name();
+    // #[test]
+    // fn test_cnot_expr_utry() {
+    //     let cnot = Gate::CP().gen_expr();
+    //     let col_stride = calc_col_stride::<c64>(4, 4);
+    //     let mut memory = alloc_zeroed_memory::<c64>(4 * col_stride);
+    //     let name = cnot.name();
 
-        let module: Module<c64> = ModuleBuilder::new("test", DifferentiationLevel::None)
-            .add_expression(cnot)
-            .build();
+    //     let module: Module<c64> = ModuleBuilder::new("test", DifferentiationLevel::None)
+    //         .add_expression(cnot)
+    //         .build();
 
-        println!("{}", module);
+    //     println!("{}", module);
 
-        unsafe {
-            let mut matmut: MatMut<c64> = faer::MatMut::from_raw_parts_mut(
-                memory.as_mut_ptr() as *mut c64,
-                4,
-                4,
-                1,
-                col_stride as isize,
-            );
+    //     unsafe {
+    //         let mut matmut: MatMut<c64> = faer::MatMut::from_raw_parts_mut(
+    //             memory.as_mut_ptr() as *mut c64,
+    //             4,
+    //             4,
+    //             1,
+    //             col_stride as isize,
+    //         );
 
-            for i in 0..4 {
-                *matmut.rb_mut().get_mut(i, i) = c64::new(1.0, 0.0);
-            }
-        }
+    //         for i in 0..4 {
+    //             *matmut.rb_mut().get_mut(i, i) = c64::new(1.0, 0.0);
+    //         }
+    //     }
 
-        let matmut: MatMut<c64> = unsafe {
-            let cnot_func = module.get_function_raw(&name);
-            cnot_func([].as_ptr(), memory.as_ptr() as *mut f64);
+    //     let matmut: MatMut<c64> = unsafe {
+    //         let cnot_func = module.get_function_raw(&name);
+    //         cnot_func([].as_ptr(), memory.as_ptr() as *mut f64);
 
-            faer::MatMut::from_raw_parts_mut(
-                memory.as_mut_ptr() as *mut c64,
-                4,
-                4,
-                1,
-                col_stride as isize,
-            )
-        };
-        println!("{:?}", matmut);
-        // let utry: UnitaryMatrix<c64> = cnot.get_unitary(&[]);
-        // println!("{:?}", utry);
-    }
+    //         faer::MatMut::from_raw_parts_mut(
+    //             memory.as_mut_ptr() as *mut c64,
+    //             4,
+    //             4,
+    //             1,
+    //             col_stride as isize,
+    //         )
+    //     };
+    //     println!("{:?}", matmut);
+    //     // let utry: UnitaryMatrix<c64> = cnot.get_unitary(&[]);
+    //     // println!("{:?}", utry);
+    // }
 }

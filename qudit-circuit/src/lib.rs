@@ -10,6 +10,7 @@ mod compact;
 mod circuit;
 mod instruction;
 mod iterator;
+mod exprset;
 
 pub use point::DitOrBit;
 pub use point::CircuitPoint;
