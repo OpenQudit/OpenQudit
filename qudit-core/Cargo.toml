@@ -18,4 +18,8 @@ bit-set = "*"
 [dev-dependencies]
 proptest = "1.2"
 criterion = "0.5"
+pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
 
+[[bench]]
+name = "frpr"
+harness = false

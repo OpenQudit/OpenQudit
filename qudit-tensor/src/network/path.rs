@@ -9,6 +9,8 @@ use super::SubNetwork;
 pub struct ContractionPath {
     pub cost: usize,
     pub open_indices: BTreeSet<usize>,
+    pub unsummed_indices: BTreeSet<usize>, // can appear on both sides of a contraction, but are
+    // not summed over.
     pub path: Vec<usize>,
     pub subnetwork: SubNetwork,
     pub param_indices: BitSet,
@@ -28,8 +30,10 @@ impl ContractionPath {
         let subnetwork = self.subnetwork | other.subnetwork;
         let open_indices = self.open_indices
             .symmetric_difference(&other.open_indices)
+            .chain(self.unsummed_indices.intersection(&other.unsummed_indices))
             .copied()
             .collect();
+        let unsummed_indices = self.unsummed_indices.union(&other.unsummed_indices).copied().collect();
         let cost = Self::calculate_cost(self, other);
         let path = self.path
             .iter()
@@ -42,20 +46,23 @@ impl ContractionPath {
         ContractionPath {
             cost,
             open_indices,
+            unsummed_indices,
             path,
             subnetwork,
             param_indices,
         }
     }
 
-    pub fn trivial(idx: usize, indices: &[usize], param_indices: BitSet) -> Self {
+    pub fn trivial(idx: usize, indices: &[usize], unsummed_indices: &[usize], param_indices: BitSet) -> Self {
         let open_indices = indices.iter().copied().collect();
+        let unsummed_indices = unsummed_indices.iter().copied().collect();
         let path = vec![idx];
         let cost = 0;
         let subnetwork = 1 << idx;
         ContractionPath {
             cost,
             open_indices,
+            unsummed_indices,
             path,
             subnetwork,
             param_indices,

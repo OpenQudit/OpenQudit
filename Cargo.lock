@@ -1637,6 +1637,7 @@ dependencies = [
  "nano-gemm",
  "num",
  "num-traits",
+ "pprof 0.15.0",
  "proptest",
  "rand 0.9.1",
 ]

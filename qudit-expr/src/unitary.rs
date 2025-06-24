@@ -293,6 +293,55 @@ impl TensorExpression {
         self.body = swap_vec.into_iter().enumerate().sorted_by(|a, b| index_perm[a.0].cmp(&index_perm[b.0])).map(|(_, expr)| expr).collect();
         self
     }
+
+    pub fn stack_with_identity(&self, positions: &[usize], new_dim: usize) -> TensorExpression {
+        // Assertions for input validity
+        let (nrows, ncols) = match self.shape {
+            TensorShape::Matrix(r, c) => (r, c),
+            _ => panic!("TensorExpression must be a square matrix to use stack_with_identity, got {:?}", self.shape),
+        };
+        assert_eq!(nrows, ncols, "TensorExpression must be a square matrix for stack_with_identity");
+        // assert_eq!(nrows, self.dimensions.dimension(), "Matrix dimension must match qudit dimensions for stack_with_identity");
+        assert!(positions.len() <= new_dim, "Cannot place tensor in more locations than length of new dimension.");
+
+        // Ensure positions are unique
+        let mut sorted_positions = positions.to_vec();
+        sorted_positions.sort_unstable();
+        assert!(sorted_positions.iter().dedup().count() == sorted_positions.len(), "Positions must be unique");
+
+        // Construct identity expression
+        let mut identity = Vec::with_capacity(nrows * ncols);
+        for i in 0..nrows {
+            for j in 0..ncols {
+                if i == j {
+                    identity.push(ComplexExpression::one());
+                } else {
+                    identity.push(ComplexExpression::zero());
+                }
+            }
+        }
+
+        // construct larger tensor
+        let mut expressions = Vec::with_capacity(nrows * ncols * new_dim);
+        for i in 0..new_dim {
+            if positions.contains(&i) {
+                expressions.extend(self.body.iter().cloned());
+            } else {
+                expressions.extend(identity.iter().cloned());
+            }
+        }
+
+        let new_shape = TensorShape::Tensor3D(new_dim, nrows, ncols);
+        let new_radices = QuditRadices::new(&[new_dim as u8]).concat(&self.dimensions);
+
+        TensorExpression {
+            name: format!("Stacked_{}", self.name),
+            shape: new_shape,
+            variables: self.variables.clone(),
+            body: expressions,
+            dimensions: new_radices,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

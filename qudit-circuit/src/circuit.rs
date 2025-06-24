@@ -799,7 +799,7 @@ impl<C: ComplexScalar> QuditCircuit<C> {
                 }
                 Operation::ProjectiveMeasurement(t) => {}
                 Operation::TerminatingMeasurement(s) => {}
-                Operation::ClassicallyControlled(g, _) => {}
+                Operation::ClassicallyControlled(g, a) => {}
                 Operation::Initialization(s) => {}
                 Operation::Reset => {}
                 Operation::Barrier => {}
