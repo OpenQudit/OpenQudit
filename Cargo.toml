@@ -14,6 +14,10 @@ opt-level = 2       # Optimize for speed-ish
 
 [profile.release]
 opt-level = 3       # Optimize for speed
-lto = true          # Link Time Optimization
+lto = "fat"          # Link Time Optimization
 codegen-units = 1   # Slower builds, potentially faster runtime
-strip = false       # Strip debug symbols from release binary (Set to false during benchmarking)
+strip = true       # Strip debug symbols from release binary
+
+[profile.bench]
+inherits = "release"
+strip = false

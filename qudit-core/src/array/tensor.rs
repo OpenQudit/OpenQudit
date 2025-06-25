@@ -127,6 +127,11 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
         &self.dimensions
     }
 
+    /// Returns the tensor's shape.
+    pub fn shape(&self) -> &[usize; D] {
+        &self.dimensions
+    }
+
     /// Returns the tensor's strides.
     pub fn strides(&self) -> &[usize; D] {
         &self.strides

@@ -31,6 +31,7 @@ mod frpr;
 pub use frpr::fused_reshape_permute_reshape_into;
 pub use frpr::fused_reshape_permute_reshape_into_impl;
 pub use frpr::fused_reshape_permute_reshape_into_prepare;
+pub use frpr::tensor_fused_reshape_permute_reshape_into_prepare;
 
 mod matmul;
 pub use matmul::matmul_unchecked;
