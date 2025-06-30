@@ -473,18 +473,18 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
     // Calculate input tensor strides
     let mut tensor_in_strides = vec![0isize; K];
     let mut stride_index = 0usize;
-    // let mut dim_accumulator = 1isize;
+    let mut dim_accumulator = 1isize;
 
     // for (dim, suffix_prod) in shape.iter().zip(tensor_in_strides.iter_mut()) {
-    //     *suffix_prod = dim_accumulator * in_strides[in_stride_index];
+    //     *suffix_prod = dim_accumulator * in_strides[stride_index];
     //     dim_accumulator *= *dim as isize;
 
-    //     if dim_accumulator >= in_shape[in_stride_index] as isize {
-    //         in_stride_index += 1;
+    //     if dim_accumulator >= in_shape[stride_index] as isize {
+    //         stride_index += 1;
     //         dim_accumulator = 1;
     //     }
 
-    //     if in_stride_index >= N {
+    //     if stride_index >= N {
     //         break;
     //     }
     // }
@@ -505,10 +505,10 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
     }
 
     // Permute input tensor strides
-    let mut permuted_input_tensor_strides = vec![0isize; K];
-    for (i, dim_index) in perm.iter().enumerate() {
-        permuted_input_tensor_strides[i] = tensor_in_strides[*dim_index];
-    }
+    let permuted_input_tensor_strides = perm
+        .iter()
+        .map(|&p| tensor_in_strides[p] as isize)
+        .collect::<Vec<_>>();
 
     // Permute shape
     let mut permuted_shape = vec![0usize; K];
@@ -534,26 +534,32 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
         }
     }
 
+    // (permuted_input_tensor_strides, tensor_out_strides, permuted_shape)
 
     // Optimize strides:    
     let candidate_outputs1 = {
-        let sorted_out_strides = tensor_out_strides.clone();
         let sorted_perm_in_strides = permuted_input_tensor_strides.clone();
+        println!("sorted_perm_in_strides: {:?}", sorted_perm_in_strides);
+        let sorted_out_strides = tensor_out_strides.clone();
+        println!("sorted_out_strides: {:?}", sorted_out_strides);
         let sorted_perm_shape = permuted_shape.clone();
+        println!("sorted_perm_shape: {:?}", sorted_perm_shape);
 
         // 2. Going from right group together consecutive groups in
         // sorted_perm_in_strides
         let mut merged_indices = VecDeque::new();
-        let mut last_stride = sorted_perm_in_strides[sorted_perm_in_strides.len() - 1];
+        let mut last_stride_in = sorted_perm_in_strides[sorted_perm_in_strides.len() - 1];
+        let mut last_stride_out = sorted_out_strides[sorted_out_strides.len() - 1];
         let mut group = vec![sorted_perm_in_strides.len() - 1];
-        for (i, &s) in sorted_perm_in_strides.iter().rev().skip(1).enumerate() {
-            if s == last_stride * sorted_perm_shape[sorted_perm_in_strides.len() - 1 - i] as isize {
+        for (i, (&is, &os)) in sorted_perm_in_strides.iter().rev().skip(1).zip(sorted_out_strides.iter().rev().skip(1)).enumerate() {
+            if is == last_stride_in * sorted_perm_shape[sorted_perm_in_strides.len() - 1 - i] as isize && os == last_stride_out * sorted_perm_shape[sorted_perm_in_strides.len() - 1 - i] as isize {
                 group.push(sorted_perm_in_strides.len() - 2 - i);
             } else {
                 merged_indices.push_front(group);
                 group = vec![sorted_perm_in_strides.len() - 2 - i];
             }
-            last_stride = s;
+            last_stride_in = is;
+            last_stride_out = os;
         }
         merged_indices.push_front(group);
 
@@ -604,16 +610,18 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
         // 2. Going from right group together consecutive groups in
         // sorted_perm_in_strides
         let mut merged_indices = VecDeque::new();
-        let mut last_stride = sorted_perm_in_strides[sorted_perm_in_strides.len() - 1];
+        let mut last_stride_in = sorted_perm_in_strides[sorted_perm_in_strides.len() - 1];
+        let mut last_stride_out = sorted_out_strides[sorted_out_strides.len() - 1];
         let mut group = vec![sorted_perm_in_strides.len() - 1];
-        for (i, &s) in sorted_perm_in_strides.iter().rev().skip(1).enumerate() {
-            if s == last_stride * sorted_perm_shape[sorted_perm_in_strides.len() - 1 - i] as isize {
+        for (i, (&is, &os)) in sorted_perm_in_strides.iter().rev().skip(1).zip(sorted_out_strides.iter().rev().skip(1)).enumerate() {
+            if is == last_stride_in * sorted_perm_shape[sorted_perm_in_strides.len() - 1 - i] as isize && os == last_stride_out * sorted_perm_shape[sorted_perm_in_strides.len() - 1 - i] as isize {
                 group.push(sorted_perm_in_strides.len() - 2 - i);
             } else {
                 merged_indices.push_front(group);
                 group = vec![sorted_perm_in_strides.len() - 2 - i];
             }
-            last_stride = s;
+            last_stride_in = is;
+            last_stride_out = os;
         }
         merged_indices.push_front(group);
 
@@ -645,8 +653,10 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
     };
     
     if candidate_outputs2.0.len() < candidate_outputs1.0.len() {
+        println!("Candidate2");
         candidate_outputs2
     } else {
+        println!("Candidate1");
         candidate_outputs1
     }
 }
@@ -1091,6 +1101,66 @@ mod tests {
                 for c_iter in 0..c_out {
                     assert_eq!(*tensor_out.at([a_iter, b_iter, c_iter]), i);
                     i += 1.0;
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_tensor_fused_reshape_permute_reshape_2() {
+        let (a_in, b_in, c_in) = (2, 8, 2);
+        let input_strides = [16, 1, 8];
+        let (a_out, b_out, c_out) = (2, 4, 4);
+        let output_strides = [16, 1, 4];
+        let intermediate_tensor_shape = [2, 2, 2, 2, 2];
+        let intermediate_tensor_transposition = [0, 4, 1, 2, 3];
+
+        let mut tensor_in = Tensor::zeros_with_strides(&[a_in, b_in, c_in], &input_strides);
+        let mut i = 0.0;
+        for a_iter in 0..a_in {
+            for b_iter in 0..b_in {
+                for c_iter in 0..c_in {
+                    *tensor_in.at_mut([a_iter, b_iter, c_iter]) = i;
+                    i += 1.0;
+                }
+            }
+        }
+
+        println!("{:?}", tensor_in);
+
+        let mut tensor_out = Tensor::zeros_with_strides(&[a_out, b_out, c_out], &output_strides);
+        
+        let in_strides_isize: Vec<isize> = tensor_in.strides().iter().map(|&s| s as isize).collect();
+        println!("in_strides_isize: {:?}", in_strides_isize);
+        let out_strides_isize: Vec<isize> = tensor_out.strides().iter().map(|&s| s as isize).collect();
+        println!("out_strides_isize: {:?}", out_strides_isize);
+        let (is, os, dim) = tensor_fused_reshape_permute_reshape_into_prepare(
+            tensor_in.shape(),
+            &in_strides_isize,
+            tensor_out.shape(),
+            &out_strides_isize,
+            &intermediate_tensor_shape,
+            &intermediate_tensor_transposition,
+        );
+
+        println!("is: {:?}, os: {:?}, dim: {:?}", is, os, dim);
+        let (cis, cos, cdim) = fused_reshape_permute_reshape_into_prepare(8, 2, 8, 4, 4, 4, &[2, 2, 2, 2], &[3, 0, 1, 2]);
+        println!("cis: {:?}, cos: {:?}, cdim: {:?}", cis, cos, cdim);
+        
+        unsafe {
+            fused_reshape_permute_reshape_into_impl(tensor_in.as_ptr(), tensor_out.as_mut_ptr(), &is, &os, &dim);
+        }
+        println!("tensor_in.data: {:?}", tensor_in.data);
+        println!("tensor_out.data: {:?}", tensor_out.data);
+
+        let correct = Tensor::from_slice(&[0.0,2.0,4.0,6.0,8.0,10.0,12.0,14.0,1.0,3.0,5.0,7.0,9.0,11.0,13.0,15.0,16.0,18.0,20.0,22.0,24.0,26.0,28.0,30.0,17.0,19.0,21.0,23.0,25.0,27.0,29.0,31.0], [2, 4, 4]);
+        println!("{:?}", tensor_out);
+        println!("{:?}", correct);
+
+        for a_iter in 0..a_out {
+            for b_iter in 0..b_out {
+                for c_iter in 0..c_out {
+                    assert_eq!(*tensor_out.at([a_iter, b_iter, c_iter]), *correct.at([a_iter, b_iter, c_iter]));
                 }
             }
         }

@@ -100,6 +100,18 @@ mod tests {
         println!("Optimal Path: {:?}", optimal_path.path);
         let tree = network.path_to_expression_tree(&optimal_path);
         println!("Expression Tree: {:?}", tree);
+        let tree = TreeOptimizer::new().optimize(tree);
+        println!("Expression Tree: {:?}", tree);
+        let code = BytecodeGenerator::new().generate(&tree);
+        println!("Bytecode: {:?}", code);
+
+        let mut qvm: QVM<qudit_core::c64> = QVM::new(code, DifferentiationLevel::None);
+        let params = [1.7, 1.7, 1.7];
+        let out_buffer = qvm.evaluate(&params);
+        let out_fn = out_buffer.get_fn_result().unpack_matvec();
+        // let out_grad = out_buffer.get_grad_result().unpack_tensor4d();
+        println!("Output: {:?}", out_fn);
+        // println!("Output grad: {:?}", out_grad);
     }
 
     // #[test]

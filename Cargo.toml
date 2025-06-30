@@ -6,7 +6,7 @@ members = [
     "qudit-tensor",
     "qudit-circuit",
     "qudit-inst",
-    "qudit-python",
+    # "qudit-python",
 ]
 
 [profile.dev]

@@ -422,12 +422,12 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     /// use qudit_core::matrix::Mat;
     /// use qudit_core::unitary::UnitaryMatrix;
     /// use num_traits::Zero;
-    /// let y_mat = mat![
+    /// let y_mat: Mat<c64> = mat![
     ///     [c64::zero(), c64::new(0.0, -1.0)],
     ///     [c64::new(0.0, 1.0), c64::zero()],
     /// ];
     /// let unitary = UnitaryMatrix::new([2], y_mat);
-    /// let dagger = unitary.dagger();
+    /// let dagger: UnitaryMatrix<c64> = unitary.dagger();
     /// let y_mat_adjoint = mat![
     ///     [c64::zero(), c64::new(0.0, -1.0)],
     ///     [c64::new(0.0, 1.0), c64::zero()],

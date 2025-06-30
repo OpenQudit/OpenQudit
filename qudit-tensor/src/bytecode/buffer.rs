@@ -91,6 +91,22 @@ impl SizedTensorBuffer {
         self.shape.is_matrix()
     }
 
+    pub fn is_tensor3d(&self) -> bool {
+        self.shape.is_tensor3d()
+    }
+
+    pub fn strides(&self) -> Vec<isize> {
+        if self.shape.is_vector() {
+            vec![1isize]
+        } else if self.shape.is_matrix() {
+            vec![self.row_stride as isize, self.col_stride as isize]
+        } else if self.shape.is_tensor3d() {
+            vec![self.mat_stride as isize, self.row_stride as isize, self.col_stride as isize]
+        } else {
+            vec![]
+        }
+    }
+
     pub fn unit_size(&self) -> usize {
         match self.shape {
             TensorShape::Scalar => 1,
@@ -215,6 +231,22 @@ impl SizedTensorBuffer {
                 self.nrows(),
                 self.ncols(),
                 self.num_params + 1,
+                self.col_stride,
+                self.mat_stride,
+            )
+        }
+    }
+
+    pub fn as_matvecmut_non_gradient<'a, C: ComplexScalar>(
+        &self,
+        memory: &mut MemoryBuffer<C>,
+    ) -> MatVecMut<'a, C> {
+        unsafe {
+            MatVecMut::from_raw_parts(
+                memory.as_mut_ptr().offset((self.offset) as isize),
+                self.nrows(),
+                self.ncols(),
+                self.nmats(),
                 self.col_stride,
                 self.mat_stride,
             )

@@ -26,12 +26,179 @@ fn check_bounds<const D: usize>(indices: &[usize; D], dimensions: &[usize; D]) {
 use crate::memory::{alloc_zeroed_memory, calc_next_stride, Memorable, MemoryBuffer};
 
 pub struct Tensor<C: Memorable, const D: usize> {
-    data: MemoryBuffer<C>,
+    pub data: MemoryBuffer<C>,
     dimensions: [usize; D],
     strides: [usize; D],
 }
 
 impl<C: Memorable, const D: usize> Tensor<C, D> {
+    /// Helper function to calculate strides based on dimensions.
+    /// This function is intended for internal use by the constructors.
+    ///
+    /// For a D-dimensional tensor with dimensions `[d0, d1, ..., dD-1]`,
+    /// the strides are calculated such that `strides[i]` is the number of elements
+    /// to skip in the flattened data buffer to move one step along dimension `i`.
+    /// The last dimension (D-1) always has a stride of 1.
+    fn calculate_strides(dimensions: &[usize; D]) -> [usize; D] {
+        let mut strides = [0; D];
+        if D == 0 {
+            // Scalar case (0-dimensional tensor): no dimensions to stride over.
+            // The strides array will be empty.
+            return strides;
+        }
+
+        // The innermost dimension (D-1) has a stride of 1, as moving one step
+        // in this dimension means moving one element in the flattened data.
+        strides[D - 1] = 1;
+
+        // Iterate backwards from the second-to-last dimension to calculate strides.
+        // The stride for dimension `i` is the stride for `i+1` multiplied by the size of dimension `i+1`.
+        for i in (0..(D - 1)).rev() {
+            strides[i] = strides[i + 1] * dimensions[i + 1];
+        }
+        strides
+    }
+
+
+    /// Creates a new `Tensor` from a `MemoryBuffer` and its dimensions.
+    ///
+    /// The `MemoryBuffer` should contain the flattened data of the tensor.
+    /// The `dimensions` array defines the shape of the tensor.
+    ///
+    /// # Panics
+    /// Panics if the total number of elements implied by `dimensions`
+    /// (which is the product of all dimension sizes) does not match the length
+    /// of the provided `data` buffer.
+    /// ```
+    pub fn new(data: MemoryBuffer<C>, dimensions: [usize; D]) -> Self {
+        let total_elements: usize = dimensions.iter().product();
+        assert_eq!(data.len(), total_elements,
+            "Data buffer length ({}) must match total elements implied by dimensions ({})",
+            data.len(), total_elements);
+
+        let strides = Self::calculate_strides(&dimensions);
+        Tensor {
+            data,
+            dimensions,
+            strides,
+        }
+    }
+
+    /// Creates a new `Tensor` from a flat `Vec` and its dimensions.
+    ///
+    /// This is a convenience constructor that automatically converts the `Vec`
+    /// into a `MemoryBuffer` and then calls the `new` constructor.
+    ///
+    /// # Panics
+    /// Panics if the total number of elements implied by `dimensions`
+    /// (product of all dimension sizes) does not match the length of the `data_vec`.
+    ///
+    /// # Examples
+    /// ```
+    /// let tensor_from_vec = Tensor::from_vec(vec![10, 20, 30, 40], [2, 2]);
+    /// assert_eq!(tensor_from_vec.dimensions, [2, 2]);
+    /// assert_eq!(tensor_from_vec.strides, [2, 1]);
+    /// assert_eq!(tensor_from_vec.data.as_slice(), &[10, 20, 30, 40]);
+    /// ```
+    pub fn from_slice(slice: &[C], dimensions: [usize; D]) -> Self {
+        let data = MemoryBuffer::from_slice(64, slice);
+        Self::new(data, dimensions)
+    }
+
+    /// Creates a new `Tensor` from a slice of data, explicit dimensions, and strides.
+    ///
+    /// This constructor allows for creating tensors with custom stride patterns,
+    /// which can be useful for representing views or sub-tensors of larger data
+    /// structures without copying the underlying data.
+    ///
+    /// # Panics
+    /// Panics if:
+    /// - The `dimensions` and `strides` arrays do not have the same number of elements as `D`.
+    /// - The total number of elements implied by `dimensions` and `strides` (i.e., the
+    ///   maximum flat index + 1) exceeds the length of the `slice`.
+    /// - Any stride is zero unless its corresponding dimension is also zero.
+    ///
+    /// # Arguments
+    /// * `slice` - The underlying data slice.
+    /// * `dimensions` - An array of `usize` defining the size of each dimension.
+    /// * `strides` - An array of `usize` defining the stride for each dimension.
+    ///
+    /// # Examples
+    /// ```
+    /// // Create a 2x3 tensor from a slice with custom strides
+    /// let data = vec![1, 2, 3, 4, 5, 6];
+    /// let tensor = Tensor::from_slice_with_strides(
+    ///     &data,
+    ///     [2, 3], // 2 rows, 3 columns
+    ///     [3, 1], // Stride for rows is 3 elements, for columns is 1 element
+    /// );
+    /// assert_eq!(tensor.dimensions(), &[2, 3]);
+    /// assert_eq!(tensor.strides(), &[3, 1]);
+    /// assert_eq!(tensor.at([0, 0]), &1);
+    /// assert_eq!(tensor.at([0, 1]), &2);
+    /// assert_eq!(tensor.at([1, 0]), &4);
+    ///
+    /// // Creating a column vector view from a larger matrix's data
+    /// let matrix_data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9]; // A 3x3 matrix's data
+    /// // View the second column (elements 2, 5, 8) as a 3x1 tensor
+    /// let column_view = Tensor::from_slice_with_strides(
+    ///     &matrix_data,
+    ///     [3, 1], // 3 rows, 1 column
+    ///     [3, 1], // Stride to next row is 3, stride to next column is 1 (but only 1 column)
+    /// );
+    /// assert_eq!(column_view.dimensions(), &[3, 1]);
+    /// assert_eq!(column_view.strides(), &[3, 1]);
+    /// // Note: This example is slightly misleading as the slice itself doesn't change for the column.
+    /// // A more accurate example for strides would involve a sub-view that skips elements.
+    /// // This specific case would be more typical for `TensorRef`.
+    /// ```
+    pub fn from_slice_with_strides(slice: &[C], dimensions: [usize; D], strides: [usize; D]) -> Self {
+        // Validate that dimensions and strides match the tensor's dimensionality.
+        // This is implicitly handled by the const generic D.
+
+        // Calculate the maximum flat index that can be accessed with the given dimensions and strides.
+        // This determines the minimum required length of the underlying slice.
+        let mut max_flat_index = 0;
+        for i in 0..D {
+            if dimensions[i] > 0 {
+                // For each dimension, the maximum index reached is (dimension_size - 1).
+                // Multiply by the stride to get the offset for that dimension.
+                max_flat_index += (dimensions[i] - 1) * strides[i];
+            } else {
+                // If a dimension is zero, its contribution to the max_flat_index is zero.
+                // However, if a dimension is zero, its stride should ideally also be zero or handled carefully.
+                // We'll panic if stride is non-zero for a zero dimension, as it's likely an error.
+                if strides[i] != 0 {
+                    panic!("Stride for dimension {} is non-zero ({}) but dimension size is zero.", i, strides[i]);
+                }
+            }
+        }
+
+        // The required length of the slice is max_flat_index + 1 (because indices are 0-based).
+        let required_len = if D == 0 { 0 } else { max_flat_index + 1 };
+
+        // Ensure the slice is large enough to contain all accessed elements.
+        assert!(slice.len() >= required_len,
+            "Input slice length ({}) is too small for the given dimensions and strides. Minimum required length: {}",
+            slice.len(), required_len);
+
+        // Ensure that if a dimension is non-zero, its stride is also non-zero.
+        // A zero stride for a non-zero dimension means no progress is made along that dimension,
+        // which might be an error or indicate a degenerate tensor.
+        for i in 0..D {
+            if dimensions[i] > 0 && strides[i] == 0 {
+                panic!("Stride for non-zero dimension {} cannot be zero.", i);
+            }
+        }
+
+        let data = MemoryBuffer::from_slice(64, slice);
+        Tensor {
+            data,
+            dimensions,
+            strides,
+        }
+    }
+
     pub fn zeros(dims: &[usize]) -> Self {
         assert_eq!(dims.len(), D);
 
@@ -67,6 +234,58 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
             data,
             dimensions,
             strides,
+        }
+    }
+
+    pub fn zeros_with_strides(dims: &[usize], strides: &[usize]) -> Self {
+        assert_eq!(dims.len(), D);
+        assert_eq!(strides.len(), D);
+
+        // Handle the 0-dimensional tensor case (scalar)
+        if D == 0 {
+            // A 0-dimensional tensor (scalar) conceptually holds one element, even if its dimensions array is empty.
+            // Allocate memory for this single element.
+            return Self {
+                data: alloc_zeroed_memory::<C>(1),
+                dimensions: [0; D], // For D=0, this is an empty array `[]`
+                strides: [0; D],    // For D=0, this is an empty array `[]`
+            };
+        }
+
+        let mut max_flat_index = 0;
+        for i in 0..D {
+            if dims[i] > 0 {
+                // For each dimension, the maximum index reached is (dimension_size - 1).
+                // Multiply by the stride to get the offset for that dimension.
+                max_flat_index += (dims[i] - 1) * strides[i];
+            } else {
+                // If a dimension is zero, its contribution to the max_flat_index is zero.
+                // If the dimension is zero but its stride is non-zero, it indicates a likely error.
+                if strides[i] != 0 {
+                    panic!("Stride for dimension {} is non-zero ({}) but dimension size is zero.", i, strides[i]);
+                }
+            }
+        }
+
+        // The required length of the underlying data buffer is max_flat_index + 1,
+        // as indices are 0-based.
+        let required_len = max_flat_index + 1;
+
+        // Ensure that if a dimension is non-zero, its stride is also non-zero.
+        // A zero stride for a non-zero dimension implies no progress along that dimension,
+        // which could lead to unexpected behavior or degenerate tensor access.
+        for i in 0..D {
+            if dims[i] > 0 && strides[i] == 0 {
+                panic!("Stride for non-zero dimension {} cannot be zero.", i);
+            }
+        }
+
+        let data = alloc_zeroed_memory::<C>(required_len);
+
+        Self {
+            data,
+            dimensions: dims.try_into().unwrap(), // Convert slice to array, safe due to assert_eq!
+            strides: strides.try_into().unwrap(), // Convert slice to array, safe due to assert_eq!
         }
     }
 

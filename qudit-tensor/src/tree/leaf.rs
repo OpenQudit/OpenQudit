@@ -20,7 +20,7 @@ impl LeafNode {
         }
     }
 
-    pub fn dimensions(&self) -> QuditRadices {
+    pub fn dimensions(&self) -> Vec<usize> {
         self.expr.dimensions()
     }
 

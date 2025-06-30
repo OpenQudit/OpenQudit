@@ -728,6 +728,12 @@ impl<'a, C: Memorable> MatVecRef<'a, C> {
         self.data.as_ptr().offset(offset as isize)
     }
 
+    /// Returns a pointer to the tensor data.
+    #[inline(always)]
+    pub fn as_ptr(&self) -> *const C {
+        self.data.as_ptr()
+    }
+
     /// Returns a const reference to a specific matrix in the tensor.
     ///
     /// # Arguments

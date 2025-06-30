@@ -17,8 +17,8 @@ pub enum OperationType {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Operation {
     Gate(Gate),
-    ProjectiveMeasurement(TensorExpression),
-    TerminatingMeasurement(StateSystemExpression),
+    ProjectiveMeasurement(TensorExpression, BitSet),
+    TerminatingMeasurement(StateSystemExpression, BitSet),
     ClassicallyControlled(Gate, BitSet),
     Initialization(StateExpression),
     // TODO: Delay
@@ -31,8 +31,8 @@ impl Operation {
     pub fn name(&self) -> String {
         match self {
             Operation::Gate(gate) => gate.name().to_string(),
-            Operation::ProjectiveMeasurement(t) => format!("ProjectiveMeasurement({})", t.name()),
-            Operation::TerminatingMeasurement(s) => format!("TerminatingMeasurement({})", s.name()),
+            Operation::ProjectiveMeasurement(t, _) => format!("ProjectiveMeasurement({})", t.name()),
+            Operation::TerminatingMeasurement(s, _) => format!("TerminatingMeasurement({})", s.name()),
             Operation::ClassicallyControlled(g, _) => format!("ClassicallyControlled({})", g.name()),
             Operation::Initialization(s) => format!("Initialization({})", s.name()),
             Operation::Reset => "Reset".to_string(),
@@ -43,8 +43,8 @@ impl Operation {
     pub fn discriminant(&self) -> usize {
         match self {
             Operation::Gate(_) => 0,
-            Operation::ProjectiveMeasurement(_) => 1,
-            Operation::TerminatingMeasurement(_) => 2,
+            Operation::ProjectiveMeasurement(_, _) => 1,
+            Operation::TerminatingMeasurement(_, _) => 2,
             Operation::ClassicallyControlled(_, _) => 3,
             Operation::Initialization(_) => 4,
             Operation::Reset => 5,

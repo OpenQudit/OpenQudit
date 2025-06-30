@@ -23,7 +23,7 @@ impl ConstantNode {
         }
     }
 
-    pub fn dimensions(&self) -> QuditRadices {
+    pub fn dimensions(&self) -> Vec<usize> {
         self.child.dimensions()
     }
 

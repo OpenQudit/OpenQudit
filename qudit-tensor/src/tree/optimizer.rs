@@ -57,14 +57,14 @@ impl TreeOptimizer {
                     ExpressionTree::Reshape(ReshapeNode::new(child, gen_shape))
                 }
             }
-            ExpressionTree::Transpose(TransposeNode { child, perm, split_at, dimensions, generation_shape }) => {
+            ExpressionTree::Transpose(TransposeNode { child, perm, dimensions, generation_shape }) => {
                 if let ExpressionTree::Leaf(mut l) = *child {
                     l.permute(&perm);
                     l.set_generation_shape(generation_shape);
                     ExpressionTree::Leaf(l)
                 } else {
                     let child = self.merge_transpose_into_leaf(*child);
-                    ExpressionTree::Transpose(TransposeNode::new(child, perm, split_at))
+                    ExpressionTree::Transpose(TransposeNode::new(child, perm, generation_shape))
                 }
             }
             ExpressionTree::Constant(ConstantNode { child }) => {
@@ -98,9 +98,10 @@ impl TreeOptimizer {
                     ExpressionTree::reshape(child, gen_shape)
                 }
             }
-            ExpressionTree::Transpose(TransposeNode { child, perm, split_at, dimensions, generation_shape }) => {
+            ExpressionTree::Transpose(TransposeNode { child, perm, dimensions, generation_shape }) => {
                 let child = self.remove_no_op_transposes(*child);
-                if perm.is_sorted() {
+                if perm.is_sorted() && child.generation_shape() == generation_shape { // Added
+                    // extra clause because we are now the reshaper too; TODO: cleanup
                     // if the permutation is sorted, then we can remove the transpose
                     // and just return the child
                     match child {
@@ -128,7 +129,7 @@ impl TreeOptimizer {
                     }
                 } else {
                     // otherwise, we need to keep the transpose
-                    ExpressionTree::Transpose(TransposeNode::new(child, perm, split_at))
+                    ExpressionTree::Transpose(TransposeNode::new(child, perm, generation_shape))
                 }
             }
         }

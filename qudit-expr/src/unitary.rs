@@ -35,7 +35,7 @@ pub struct TensorExpression {
     pub shape: TensorShape,
     pub variables: Vec<String>,
     pub body: Vec<ComplexExpression>,
-    pub dimensions: QuditRadices,
+    pub dimensions: Vec<usize>,
 }
 
 pub struct DerivedExpression {
@@ -43,7 +43,7 @@ pub struct DerivedExpression {
     pub shape: TensorShape,
     pub variables: Vec<String>,
     pub body: Vec<Expression>,
-    pub dimensions: QuditRadices,
+    pub dimensions: Vec<usize>,
     pub flattened_gradient: Vec<Expression>,
     pub flattened_hessian: Vec<Expression>,
 }
@@ -109,7 +109,7 @@ impl TensorExpression {
             Err(e) => panic!("Parsing Error: {}", e),
         };
 
-        let radices = QuditRadices::new(&qdef.get_radices());
+        let radices = qdef.get_radices();
         let name = qdef.name;
         let variables = qdef.variables;
         let element_wise = qdef.body.into_element_wise();
@@ -176,7 +176,7 @@ impl TensorExpression {
             TensorShape::Vector(_) => {
                 StateExpression {
                     name: self.name.clone(),
-                    radices: self.dimensions.clone(),
+                    radices: QuditRadices::new(&self.dimensions),
                     variables: self.variables.clone(),
                     body: self.body.clone(),
                 }
@@ -195,10 +195,9 @@ impl TensorExpression {
                     let row = self.body[start..end].to_vec();
                     body.push(row);
                 }
-                let radices = self.dimensions.clone();
                 StateSystemExpression {
                     name: self.name.clone(),
-                    radices,
+                    radices: QuditRadices::new(&self.dimensions),
                     variables: self.variables.clone(),
                     body,
                 }
@@ -211,7 +210,7 @@ impl TensorExpression {
         self.variables.len()
     }
     
-    pub fn dimensions(&self) -> QuditRadices {
+    pub fn dimensions(&self) -> Vec<usize> {
         self.dimensions.clone()
     }
 
@@ -235,6 +234,12 @@ impl TensorExpression {
             body: out_body,
             dimensions: self.dimensions()
         }
+    }
+
+    pub fn redimension(&mut self, new_dimensions: Vec<usize>) -> &mut Self {
+        assert_eq!(new_dimensions.iter().product::<usize>(), self.body.len(), "Product of new dimensions must match the total number of elements in the tensor body.");
+        self.dimensions = new_dimensions;
+        self
     }
 
     pub fn reshape(&mut self, new_shape: TensorShape) -> &mut Self {
@@ -332,7 +337,7 @@ impl TensorExpression {
         }
 
         let new_shape = TensorShape::Tensor3D(new_dim, nrows, ncols);
-        let new_radices = QuditRadices::new(&[new_dim as u8]).concat(&self.dimensions);
+        let new_radices = [[new_dim].as_slice(), self.dimensions.as_slice()].concat();
 
         TensorExpression {
             name: format!("Stacked_{}", self.name),
@@ -672,7 +677,7 @@ impl UnitaryExpression {
             shape: TensorShape::Matrix(nrows, ncols),
             variables: self.variables.clone(),
             body: flattened_body,
-            dimensions: self.radices.concat(&self.radices),
+            dimensions: self.radices.concat(&self.radices).iter().map(|&x| x as usize).collect(),
         }
     }
 

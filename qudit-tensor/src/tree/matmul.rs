@@ -40,42 +40,64 @@ impl MatMulNode {
         }
     }
 
-    pub fn dimensions(&self) -> QuditRadices {
+    pub fn dimensions(&self) -> Vec<usize> {
         let left_dims = self.left.dimensions();
         let right_dims = self.right.dimensions();
         let mut dims = vec![];
 
         let left_shape = self.left.generation_shape();
-        if let TensorShape::Matrix(a, b) = left_shape {
-            let mut prod_iter = 1;
-            let mut left_count_iter = 0;
-            while prod_iter < a {
-                dims.push(left_dims[left_count_iter]);
-                prod_iter *= left_dims[left_count_iter] as usize;
-                left_count_iter += 1;
+        match left_shape {
+            TensorShape::Matrix(a, _) => {
+                let mut prod_iter = 1;
+                let mut left_count_iter = 0;
+                while prod_iter < a {
+                    dims.push(left_dims[left_count_iter]);
+                    prod_iter *= left_dims[left_count_iter] as usize;
+                    left_count_iter += 1;
+                }
             }
-        }
-        else {
-            panic!(
-                "Left shape is not a matrix: {:?}",
-                left_shape
-            );
+            TensorShape::Tensor3D(_, a, _) => {
+                dims.push(left_dims[0]);
+                let mut prod_iter = 1;
+                let mut left_count_iter = 1;
+                while prod_iter < a {
+                    dims.push(left_dims[left_count_iter]);
+                    prod_iter *= left_dims[left_count_iter] as usize;
+                    left_count_iter += 1;
+                }
+            }
+            _ => {
+                panic!(
+                    "Left shape is not a matrix or 3D tensor: {:?}",
+                    left_shape
+                );
+            }
         }
 
         let mut right_count_iter = 0;
         let right_shape = self.right.generation_shape();
-        if let TensorShape::Matrix(c, d) = right_shape {
-            let mut prod_iter = 1;
-            while prod_iter < c {
-                prod_iter *= right_dims[right_count_iter] as usize;
-                right_count_iter += 1;
+        match right_shape {
+            TensorShape::Matrix(c, _) => {
+                let mut prod_iter = 1;
+                while prod_iter < c {
+                    prod_iter *= right_dims[right_count_iter] as usize;
+                    right_count_iter += 1;
+                }
             }
-        }
-        else {
-            panic!(
-                "Right shape is not a matrix: {:?}",
-                right_shape
-            );
+            TensorShape::Tensor3D(_, c, _) => {
+                right_count_iter += 1;
+                let mut prod_iter = 1;
+                while prod_iter < c {
+                    prod_iter *= right_dims[right_count_iter] as usize;
+                    right_count_iter += 1;
+                }
+            }
+            _ => {
+                panic!(
+                    "Right shape is not a matrix or 3D tensor: {:?}",
+                    right_shape
+                );
+            }
         }
 
         while right_count_iter < right_dims.len() {
@@ -88,14 +110,24 @@ impl MatMulNode {
     pub fn generation_shape(&self) -> TensorShape {
         let left_shape = self.left.generation_shape();
         let right_shape = self.right.generation_shape();
-        if let TensorShape::Matrix(l0, l1) = left_shape {
-            if let TensorShape::Matrix(r0, r1) = right_shape {
+        match (left_shape.clone(), right_shape.clone()) {
+            (TensorShape::Matrix(l0, l1), TensorShape::Matrix(r0, r1)) => {
                 if l1 == r0 {
                     return TensorShape::Matrix(l0, r1);
                 }
             }
+            (TensorShape::Tensor3D(l0, l1, l2), TensorShape::Tensor3D(r0, r1, r2)) => {
+                if l0 == r0 && l2 == r1 {
+                    return TensorShape::Tensor3D(l0, l1, r2);
+                }
+            }
+            _ => (),
         }
-        panic!("Cannot multiply matrices with incompatible shapes: {:?} and {:?}", left_shape, right_shape);
+        panic!(
+            "Cannot multiply tensors with incompatible shapes: {:?} and {:?}",
+            left_shape,
+            right_shape
+        );
     }
 
     pub fn param_indices(&self) -> ParamIndices {

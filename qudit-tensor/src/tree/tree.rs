@@ -63,8 +63,8 @@ impl ExpressionTree {
         Self::Leaf(LeafNode::new(expr, param_indices))
     }
 
-    pub fn transpose(self, perm: Vec<usize>, split_at: usize) -> Self {
-        Self::Transpose(TransposeNode::new(self, perm, split_at))
+    pub fn transpose(self, perm: Vec<usize>, shape: TensorShape) -> Self {
+        Self::Transpose(TransposeNode::new(self, perm, shape))
     }
 
     pub fn matmul(self, other: Self) -> Self {
@@ -75,7 +75,7 @@ impl ExpressionTree {
         Self::Reshape(ReshapeNode::new(self, shape))
     }
 
-    pub fn dimensions(&self) -> QuditRadices {
+    pub fn dimensions(&self) -> Vec<usize> {
         match self {
             Self::OuterProduct(s) => s.dimensions(),
             Self::MatMul(s) => s.dimensions(),

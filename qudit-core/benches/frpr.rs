@@ -34,12 +34,12 @@ pub fn frpr_benchmarks(c: &mut Criterion) {
         let mut memory_out = alloc_zeroed_memory::<c64>(out_ncols * col_stride_out);
 
         let (is, os, dims) = tensor_fused_reshape_permute_reshape_into_prepare(
-            [in_nrows, in_ncols],
-            [1, col_stride_in as isize],
-            [out_nrows, out_ncols],
-            [1, col_stride_out as isize],
-            shape,
-            perm,
+            &[in_nrows, in_ncols],
+            &[1, col_stride_in as isize],
+            &[out_nrows, out_ncols],
+            &[1, col_stride_out as isize],
+            &shape,
+            &perm,
         );
         println!("{:?}, {:?}, {:?}", is, os, dims);
 
@@ -68,12 +68,12 @@ pub fn frpr_benchmarks(c: &mut Criterion) {
         let mut memory_out = alloc_zeroed_memory::<c64>(out_ncols * col_stride_out);
 
         let (is, os, dims) = tensor_fused_reshape_permute_reshape_into_prepare(
-            [in_nrows, in_ncols],
-            [1, col_stride_in as isize],
-            [out_nrows, out_ncols],
-            [1, col_stride_out as isize],
-            shape,
-            perm,
+            &[in_nrows, in_ncols],
+            &[1, col_stride_in as isize],
+            &[out_nrows, out_ncols],
+            &[1, col_stride_out as isize],
+            &shape,
+            &perm,
         );
         println!("{:?}, {:?}, {:?}", is, os, dims);
 

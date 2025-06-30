@@ -1,7 +1,7 @@
 use qudit_core::matrix::{MatMut, MatRef};
 use qudit_core::matrix::{SymSqMatMatMut, SymSqMatMatRef};
 use qudit_core::matrix::{MatVecMut, MatVecRef};
-use qudit_core::accel::fused_reshape_permute_reshape_into_prepare;
+use qudit_core::accel::{fused_reshape_permute_reshape_into_prepare, tensor_fused_reshape_permute_reshape_into_prepare};
 use qudit_core::accel::fused_reshape_permute_reshape_into_impl;
 use qudit_core::ComplexScalar;
 use qudit_core::memory::MemoryBuffer;
@@ -25,16 +25,28 @@ impl FRPRStruct {
         out: SizedTensorBuffer,
     ) -> Self {
         // TODO: Extract 64 to a library level constact (remove magic number)
-        let (ins, outs, dims) = fused_reshape_permute_reshape_into_prepare(
-            input.nrows(),
-            input.ncols(),
-            input.col_stride as isize,
-            out.nrows(),
-            out.ncols(),
-            out.col_stride as isize,
+        println!("FRPR: input shape: {:?}", input.shape().to_vec());
+        println!("FRPR: input strides: {:?}", input.strides());
+        println!("FRPR: output shape: {:?}", out.shape().to_vec());
+        println!("FRPR: output strides: {:?}", out.strides());
+        let (ins, outs, dims) = tensor_fused_reshape_permute_reshape_into_prepare(
+            &input.shape().to_vec(),
+            &input.strides(),
+            &out.shape().to_vec(),
+            &out.strides(),
             shape,
-            perm,
+            perm
         );
+        // let (ins, outs, dims) = fused_reshape_permute_reshape_into_prepare(
+        //     input.nrows(),
+        //     input.ncols(),
+        //     input.col_stride as isize,
+        //     out.nrows(),
+        //     out.ncols(),
+        //     out.col_stride as isize,
+        //     shape,
+        //     perm,
+        // );
         let len = ins.len();
         if len > 64 {
             // TODO: Better error message
@@ -72,8 +84,8 @@ impl FRPRStruct {
         // for the same sized input and output matrices with same strides.
         unsafe {
             fused_reshape_permute_reshape_into_impl(
-                input,
-                out,
+                input.as_ptr(),
+                out.as_ptr_mut(),
                 &self.ins[..self.len],
                 &self.outs[..self.len],
                 &self.dims[..self.len],
@@ -97,8 +109,8 @@ impl FRPRStruct {
             // for the same sized input and output matrices with same strides.
             unsafe {
                 fused_reshape_permute_reshape_into_impl(
-                    input_gradref,
-                    out_gradmut,
+                    input_gradref.as_ptr(),
+                    out_gradmut.as_ptr_mut(),
                     &self.ins[..self.len],
                     &self.outs[..self.len],
                     &self.dims[..self.len],
@@ -122,8 +134,8 @@ impl FRPRStruct {
                 // for the same sized input and output matrices with same strides.
                 unsafe {
                     fused_reshape_permute_reshape_into_impl(
-                        input_hessref,
-                        out_hessmut,
+                        input_hessref.as_ptr(),
+                        out_hessmut.as_ptr_mut(),
                         &self.ins[..self.len],
                         &self.outs[..self.len],
                         &self.dims[..self.len],
@@ -135,9 +147,23 @@ impl FRPRStruct {
 
     #[inline(always)]
     pub fn evaluate<C: ComplexScalar>(&self, memory: &mut MemoryBuffer<C>) {
-        let input_matref = self.input.as_matref::<C>(memory);
-        let out_matmut = self.out.as_matmut::<C>(memory);
-        self.calculate_unitary(input_matref, out_matmut);
+        if self.input.is_tensor3d() {
+            let input_matvecref = self.input.as_matvecref_non_gradient::<C>(memory);
+            let out_matvecmut = self.out.as_matvecmut_non_gradient::<C>(memory);
+            unsafe {
+                fused_reshape_permute_reshape_into_impl(
+                    input_matvecref.as_ptr(),
+                    out_matvecmut.as_mut_ptr().as_ptr(),
+                    &self.ins[..self.len],
+                    &self.outs[..self.len],
+                    &self.dims[..self.len],
+                );
+            }
+        } else {
+            let input_matref = self.input.as_matref::<C>(memory);
+            let out_matmut = self.out.as_matmut::<C>(memory);
+            self.calculate_unitary(input_matref, out_matmut);
+        }
     }
 
     #[inline(always)]

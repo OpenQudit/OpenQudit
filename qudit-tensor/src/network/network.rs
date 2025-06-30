@@ -1,3 +1,4 @@
+use qudit_core::TensorShape;
 use qudit_core::{ParamIndices, QuditRadices};
 use super::path::ContractionPath;
 use super::IndexDirection;
@@ -57,6 +58,14 @@ impl QuditCircuitNetwork {
             up_indices: Vec::new(),
             radices,
             intermediate: vec![],
+        }
+    }
+
+    pub fn index_size(&self, index: &NetworkIndex) -> usize {
+        match index {
+            &NetworkIndex::Open(qudit_id, _) => self.radices[qudit_id] as usize,
+            &NetworkIndex::Contracted(contraction_id) => self.intermediate[contraction_id].total_dimension,
+            &NetworkIndex::Shared(batch_id, _) => self.up_indices[batch_id].1,
         }
     }
 
@@ -360,8 +369,6 @@ impl QuditCircuitNetwork {
                     .collect::<Vec<_>>();
                 println!("Left goal index order: {:?}", left_goal_index_order);
 
-                let left_split = left.open_indices.len() - contraction_indices.len();
-
                 let left_index_transpose = left_goal_index_order
                     .iter()
                     .map(|i| left.open_indices.iter().position(|x| x == i).unwrap())
@@ -381,21 +388,37 @@ impl QuditCircuitNetwork {
                     .collect::<Vec<_>>();
                 println!("Right goal index order: {:?}", right_goal_index_order);
 
-                let right_split = contraction_indices.len();
-
                 let right_index_transpose = right_goal_index_order
                     .iter()
                     .map(|i| right.open_indices.iter().position(|x| x == i).unwrap())
                     .collect::<Vec<_>>();
 
-                let left_tree = left.tree.transpose(left_index_transpose, left_split);
-                let right_tree = right.tree.transpose(right_index_transpose, right_split);
+                let batch_size = shared_indices.iter().map(|i| self.index_size(i)).product::<usize>();
+                let contraction_size = contraction_indices.iter().map(|i| self.index_size(i)).product::<usize>();
+                let left_nrows = left.open_indices
+                            .iter()
+                            .filter(|i| !contraction_indices.contains(i))
+                            .filter(|i| !shared_indices.contains(i))
+                            .map(|i| self.index_size(i))
+                            .product::<usize>();
+                let right_ncols = right.open_indices
+                            .iter()
+                            .filter(|i| !contraction_indices.contains(i))
+                            .filter(|i| !shared_indices.contains(i))
+                            .map(|i| self.index_size(i))
+                            .product::<usize>(); 
+                let left_shape = if batch_size == 1 { TensorShape::Matrix(left_nrows, contraction_size) } else { TensorShape::Tensor3D(batch_size, left_nrows, contraction_size) };
+                let right_shape = if batch_size == 1 { TensorShape::Matrix(contraction_size, right_ncols) } else { TensorShape::Tensor3D(batch_size, contraction_size, right_ncols) };
+
+                let left_tree = left.tree.transpose(left_index_transpose, left_shape);
+                let right_tree = right.tree.transpose(right_index_transpose, right_shape);
                 let matmul_tree = left_tree.matmul(right_tree);
 
-                let output_index_order = left_goal_index_order
+                let output_index_order = shared_indices
                     .iter()
-                    .chain(right_goal_index_order.iter())
-                    .filter(|&i| !contraction_indices.contains(&i))
+                    .chain(left_goal_index_order.iter().filter(|i| !shared_indices.contains(i)))
+                    .chain(right_goal_index_order.iter().filter(|i| !shared_indices.contains(i))) 
+                    .filter(|i| !contraction_indices.contains(i))
                     .cloned()
                     .collect::<Vec<_>>();
                 println!("Output index order: {:?}", output_index_order);
@@ -433,40 +456,40 @@ impl QuditCircuitNetwork {
         // argsort the open indices so all up first, then output, then input, ordered by id
         let mut indices = open_indices.iter().enumerate().collect::<Vec<(usize, &NetworkIndex)>>();
         indices.sort_by(|a, b| {
-            if let (NetworkIndex::Open(id_a, dir_a), NetworkIndex::Open(id_b, dir_b)) = (a.1, b.1) {
-                if dir_a == dir_b {
-                    id_a.cmp(&id_b)
-                } else {
-                    if *dir_a == IndexDirection::Up {
-                        std::cmp::Ordering::Less
-                    } else if *dir_b == IndexDirection::Up {
-                        std::cmp::Ordering::Greater
-                    } else if *dir_a == IndexDirection::Output {
-                        std::cmp::Ordering::Less
+            match (a.1, b.1) {
+                (NetworkIndex::Shared(id_a, dir_a), NetworkIndex::Shared(id_b, dir_b)) => {
+                    if dir_a == dir_b {
+                        id_a.cmp(&id_b)
                     } else {
-                        std::cmp::Ordering::Greater
+                        if *dir_a == IndexDirection::Up {
+                            std::cmp::Ordering::Less
+                        } else if *dir_b == IndexDirection::Up {
+                            std::cmp::Ordering::Greater
+                        } else if *dir_a == IndexDirection::Output {
+                            std::cmp::Ordering::Less
+                        } else {
+                            std::cmp::Ordering::Greater
+                        }
                     }
-                    // if *dir_a == IndexDirection::Output {
-                    //     std::cmp::Ordering::Less
-                    // } else if *dir_b == IndexDirection::Output {
-                    //     std::cmp::Ordering::Greater
-                    // } else if *dir_a == IndexDirection::Input {
-                    //     std::cmp::Ordering::Less
-                    // } else {
-                    //     std::cmp::Ordering::Greater
-                    // }
-                    // if *dir_a == IndexDirection::Input {
-                    //     std::cmp::Ordering::Less
-                    // } else if *dir_b == IndexDirection::Input {
-                    //     std::cmp::Ordering::Greater
-                    // } else if *dir_a == IndexDirection::Output {
-                    //     std::cmp::Ordering::Less
-                    // } else {
-                    //     std::cmp::Ordering::Greater
-                    // }
-                }
-            } else {
-                panic!("Open index is not a shared index");
+                },
+                (NetworkIndex::Open(id_a, dir_a), NetworkIndex::Open(id_b, dir_b)) => {
+                    if dir_a == dir_b {
+                        id_a.cmp(&id_b)
+                    } else {
+                        if *dir_a == IndexDirection::Up {
+                            std::cmp::Ordering::Less
+                        } else if *dir_b == IndexDirection::Up {
+                            std::cmp::Ordering::Greater
+                        } else if *dir_a == IndexDirection::Output {
+                            std::cmp::Ordering::Less
+                        } else {
+                            std::cmp::Ordering::Greater
+                        }
+                    }
+                },
+                (NetworkIndex::Shared(_, _), NetworkIndex::Open(_, _)) => std::cmp::Ordering::Less,
+                (NetworkIndex::Open(_, _), NetworkIndex::Shared(_, _)) => std::cmp::Ordering::Greater,
+                _ => panic!("Open index is not a shared index"),
             }
         });
         let mut split_at = 0;
@@ -483,6 +506,34 @@ impl QuditCircuitNetwork {
         let mut total_z_dim = None;
 
         for (_i, idx) in indices.iter() {
+            if let NetworkIndex::Shared(id, dir) = idx {
+                match *dir {
+                    IndexDirection::Input => {
+                        let r = self.radices[*id] as usize;
+                        if let Some(value) = total_input_dim.as_mut() {
+                            *value *= r;
+                        } else {
+                            total_input_dim = Some(r);
+                        }
+                    }
+                    IndexDirection::Output => {
+                        let r = self.radices[*id] as usize;
+                        if let Some(value) = total_output_dim.as_mut() {
+                            *value *= r;
+                        } else {
+                            total_output_dim = Some(r);
+                        }
+                    }
+                    IndexDirection::Up => {
+                        let r = self.up_indices[*id].1;
+                        if let Some(value) = total_z_dim.as_mut() {
+                            *value *= r;
+                        } else {
+                            total_z_dim = Some(r);
+                        }
+                    }
+                }
+            }
             if let NetworkIndex::Open(id, dir) = idx {
                 match *dir {
                     IndexDirection::Input => {
@@ -514,33 +565,31 @@ impl QuditCircuitNetwork {
         }
 
         let transpose_order = indices.into_iter().map(|(i, _)| i).collect::<Vec<usize>>();
-        let permuted_tree = tree.transpose(transpose_order, split_at);
-
 
         let output_tree = match (total_input_dim, total_output_dim, total_z_dim) {
             (None, None, None) => {
-                permuted_tree.reshape(qudit_core::TensorShape::Scalar)
+                tree.transpose(transpose_order, qudit_core::TensorShape::Scalar)
             }
             (Some(b), None, None) => {
-                permuted_tree.reshape(qudit_core::TensorShape::Vector(b))
+                tree.transpose(transpose_order, qudit_core::TensorShape::Vector(b))
             }
             (None, Some(a), None) => {
-                permuted_tree.reshape(qudit_core::TensorShape::Vector(a))
+                tree.transpose(transpose_order, qudit_core::TensorShape::Vector(a))
             }
             (None, None, Some(c)) => {
-                permuted_tree.reshape(qudit_core::TensorShape::Vector(c))
+                tree.transpose(transpose_order, qudit_core::TensorShape::Vector(c))
             }
             (Some(b), Some(a), None) => {
-                permuted_tree.reshape(qudit_core::TensorShape::Matrix(a, b))
+                tree.transpose(transpose_order, qudit_core::TensorShape::Matrix(a, b))
             }
             (Some(b), None, Some(c)) => {
-                permuted_tree.reshape(qudit_core::TensorShape::Matrix(b, c))
+                tree.transpose(transpose_order, qudit_core::TensorShape::Matrix(b, c))
             }
             (None, Some(a), Some(c)) => {
-                permuted_tree.reshape(qudit_core::TensorShape::Matrix(a, c))
+                tree.transpose(transpose_order, qudit_core::TensorShape::Matrix(a, c))
             }
             (Some(b), Some(a), Some(c)) => {
-                permuted_tree.reshape(qudit_core::TensorShape::Tensor3D(c, a, b))
+                tree.transpose(transpose_order, qudit_core::TensorShape::Tensor3D(c, a, b))
             }
         };
 

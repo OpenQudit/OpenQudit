@@ -30,9 +30,9 @@ impl<C: ComplexScalar> OverlappingMatMulStruct<C> {
         left_shared_params: Vec<usize>,
         right_shared_params: Vec<usize>,
     ) -> Self {
-        assert!(left.is_matrix());
-        assert!(right.is_matrix());
-        assert!(out.is_matrix());
+        assert!(left.is_matrix() || left.is_tensor3d());
+        assert!(right.is_matrix() || left.is_tensor3d());
+        assert!(out.is_matrix() || left.is_tensor3d());
         let plan = MatMulPlan::new(left.nrows(), right.ncols(), left.ncols());
         Self {
             left,
@@ -142,10 +142,22 @@ impl<C: ComplexScalar> OverlappingMatMulStruct<C> {
 
     #[inline(always)]
     pub fn evaluate(&self, memory: &mut MemoryBuffer<C>) {
-        let left_matref = self.left.as_matref::<C>(memory);
-        let right_matref = self.right.as_matref::<C>(memory);
-        let out_matmut = self.out.as_matmut::<C>(memory);
-        self.calculate_unitary(left_matref, right_matref, out_matmut);
+        if self.left.is_tensor3d() {
+            let left_matvecref = self.left.as_matvecref_non_gradient::<C>(memory);
+            let right_matvecref = self.right.as_matvecref_non_gradient::<C>(memory);
+            let mut out_matvecmut = self.out.as_matvecmut_non_gradient::<C>(memory);
+            for m in 0..self.left.nmats() {
+                let left_matref = left_matvecref.mat_ref(m);
+                let right_matref = right_matvecref.mat_ref(m);
+                let out_matmut = out_matvecmut.mat_mut(m);
+                self.calculate_unitary(left_matref, right_matref, out_matmut);
+            }
+        } else {
+            let left_matref = self.left.as_matref::<C>(memory);
+            let right_matref = self.right.as_matref::<C>(memory);
+            let out_matmut = self.out.as_matmut::<C>(memory);
+            self.calculate_unitary(left_matref, right_matref, out_matmut);
+        }
     }
 
     #[inline(always)]
@@ -153,20 +165,24 @@ impl<C: ComplexScalar> OverlappingMatMulStruct<C> {
         &self,
         memory: &mut MemoryBuffer<C>,
     ) {
-        let left_matref = self.left.as_matref::<C>(memory);
-        let left_matgradref = self.left.as_matvecref::<C>(memory);
-        let right_matref = self.right.as_matref::<C>(memory);
-        let right_matgradref = self.right.as_matvecref::<C>(memory);
-        let out_matmut = self.out.as_matmut::<C>(memory);
-        let out_matgradmut = self.out.as_matvecmut::<C>(memory);
-        self.calculate_unitary(left_matref, right_matref, out_matmut);
-        self.calculate_gradient(
-            left_matref,
-            left_matgradref,
-            right_matref,
-            right_matgradref,
-            out_matgradmut,
-        );
+        if self.left.is_tensor3d() {
+            todo!()
+        } else {
+            let left_matref = self.left.as_matref::<C>(memory);
+            let left_matgradref = self.left.as_matvecref::<C>(memory);
+            let right_matref = self.right.as_matref::<C>(memory);
+            let right_matgradref = self.right.as_matvecref::<C>(memory);
+            let out_matmut = self.out.as_matmut::<C>(memory);
+            let out_matgradmut = self.out.as_matvecmut::<C>(memory);
+            self.calculate_unitary(left_matref, right_matref, out_matmut);
+            self.calculate_gradient(
+                left_matref,
+                left_matgradref,
+                right_matref,
+                right_matgradref,
+                out_matgradmut,
+            );
+        }
     }
 
     #[inline(always)]
@@ -174,32 +190,33 @@ impl<C: ComplexScalar> OverlappingMatMulStruct<C> {
         &self,
         memory: &mut MemoryBuffer<C>,
     ) {
-        let left_matref = self.left.as_matref::<C>(memory);
-        let left_matgradref = self.left.as_matvecref::<C>(memory);
-        let left_mathessref = self.left.as_symsqmatref::<C>(memory);
-        let right_matref = self.right.as_matref::<C>(memory);
-        let right_matgradref = self.right.as_matvecref::<C>(memory);
-        let right_mathessref = self.right.as_symsqmatref::<C>(memory);
-        let out_matmut = self.out.as_matmut::<C>(memory);
-        let out_matgradmut = self.out.as_matvecmut::<C>(memory);
-        let out_mathessmut = self.out.as_symsqmatmut::<C>(memory);
-        self.calculate_unitary(left_matref, right_matref, out_matmut);
-        self.calculate_gradient(
-            left_matref,
-            left_matgradref.clone(),
-            right_matref,
-            right_matgradref.clone(),
-            out_matgradmut,
-        );
-        self.calculate_hessian(
-            left_matref,
-            left_matgradref,
-            left_mathessref,
-            right_matref,
-            right_matgradref,
-            right_mathessref,
-            out_mathessmut,
-        );
+        todo!()
+        // let left_matref = self.left.as_matref::<C>(memory);
+        // let left_matgradref = self.left.as_matvecref::<C>(memory);
+        // let left_mathessref = self.left.as_symsqmatref::<C>(memory);
+        // let right_matref = self.right.as_matref::<C>(memory);
+        // let right_matgradref = self.right.as_matvecref::<C>(memory);
+        // let right_mathessref = self.right.as_symsqmatref::<C>(memory);
+        // let out_matmut = self.out.as_matmut::<C>(memory);
+        // let out_matgradmut = self.out.as_matvecmut::<C>(memory);
+        // let out_mathessmut = self.out.as_symsqmatmut::<C>(memory);
+        // self.calculate_unitary(left_matref, right_matref, out_matmut);
+        // self.calculate_gradient(
+        //     left_matref,
+        //     left_matgradref.clone(),
+        //     right_matref,
+        //     right_matgradref.clone(),
+        //     out_matgradmut,
+        // );
+        // self.calculate_hessian(
+        //     left_matref,
+        //     left_matgradref,
+        //     left_mathessref,
+        //     right_matref,
+        //     right_matgradref,
+        //     right_mathessref,
+        //     out_mathessmut,
+        // );
     }
 }
 
@@ -209,9 +226,9 @@ impl<C: ComplexScalar> DisjointMatmulStruct<C> {
         right: SizedTensorBuffer,
         out: SizedTensorBuffer,
     ) -> Self {
-        assert!(left.is_matrix());
-        assert!(right.is_matrix());
-        assert!(out.is_matrix());
+        assert!(left.is_matrix() || left.is_tensor3d());
+        assert!(right.is_matrix() || left.is_tensor3d());
+        assert!(out.is_matrix() || left.is_tensor3d());
         let plan = MatMulPlan::new(left.nrows(), right.ncols(), left.ncols());
         Self { left, right, out, plan }
     }
@@ -330,10 +347,30 @@ impl<C: ComplexScalar> DisjointMatmulStruct<C> {
 
     #[inline(always)]
     pub fn evaluate(&self, memory: &mut MemoryBuffer<C>) {
-        let left_matref = self.left.as_matref::<C>(memory);
-        let right_matref = self.right.as_matref::<C>(memory);
-        let out_matmut = self.out.as_matmut::<C>(memory);
-        self.calculate_unitary(left_matref, right_matref, out_matmut);
+        if self.left.is_tensor3d() {
+            let left_matvecref = self.left.as_matvecref_non_gradient::<C>(memory);
+            let right_matvecref = self.right.as_matvecref_non_gradient::<C>(memory);
+            let mut out_matvecmut = self.out.as_matvecmut_non_gradient::<C>(memory);
+            println!("MATMUL");
+            for m in 0..self.left.nmats() {
+                println!("{}", m);
+                let left_matref = left_matvecref.mat_ref(m);
+                let right_matref = right_matvecref.mat_ref(m);
+                let out_matmut = out_matvecmut.mat_mut(m);
+                println!("left_matref");
+                println!("{:?}", left_matref);
+                println!("right_matref");
+                println!("{:?}", right_matref);
+                self.calculate_unitary(left_matref, right_matref, out_matmut);
+                println!("out_matmut");
+                println!("{:?}", out_matvecmut.mat_mut(m));
+            }
+        } else {
+            let left_matref = self.left.as_matref::<C>(memory);
+            let right_matref = self.right.as_matref::<C>(memory);
+            let out_matmut = self.out.as_matmut::<C>(memory);
+            self.calculate_unitary(left_matref, right_matref, out_matmut);
+        }
     }
 
     #[inline(always)]
@@ -341,26 +378,30 @@ impl<C: ComplexScalar> DisjointMatmulStruct<C> {
         &self,
         memory: &mut MemoryBuffer<C>,
     ) {
-        let left_matref = self.left.as_matref::<C>(memory);
-        let left_matgradref = self.left.as_matvecref::<C>(memory);
-        println!("left offset: {}\n", self.left.offset);
-        println!("MATMUL LEFT: {:?}\n", left_matgradref);
-        println!("MATMUL LEFT same as write output {:?}\n", self.left.as_matvecref_for_write::<C>(memory));
-        let right_matref = self.right.as_matref::<C>(memory);
-        let right_matgradref = self.right.as_matvecref::<C>(memory);
-        println!("right offset: {}\n", self.right.offset);
-        println!("MATMUL RIGHT: {:?}\n", right_matgradref);
-        let out_matmut = self.out.as_matmut::<C>(memory);
-        let out_matgradmut = self.out.as_matvecmut::<C>(memory);
-        self.calculate_unitary(left_matref, right_matref, out_matmut);
-        self.calculate_gradient(
-            left_matref,
-            left_matgradref,
-            right_matref,
-            right_matgradref,
-            out_matgradmut,
-        );
-        println!("MATMUL OUT: {:?}\n", self.out.as_matvecref::<C>(memory));
+        if self.left.is_tensor3d() {
+            todo!()
+        } else {
+            let left_matref = self.left.as_matref::<C>(memory);
+            let left_matgradref = self.left.as_matvecref::<C>(memory);
+            println!("left offset: {}\n", self.left.offset);
+            println!("MATMUL LEFT: {:?}\n", left_matgradref);
+            println!("MATMUL LEFT same as write output {:?}\n", self.left.as_matvecref_for_write::<C>(memory));
+            let right_matref = self.right.as_matref::<C>(memory);
+            let right_matgradref = self.right.as_matvecref::<C>(memory);
+            println!("right offset: {}\n", self.right.offset);
+            println!("MATMUL RIGHT: {:?}\n", right_matgradref);
+            let out_matmut = self.out.as_matmut::<C>(memory);
+            let out_matgradmut = self.out.as_matvecmut::<C>(memory);
+            self.calculate_unitary(left_matref, right_matref, out_matmut);
+            self.calculate_gradient(
+                left_matref,
+                left_matgradref,
+                right_matref,
+                right_matgradref,
+                out_matgradmut,
+            );
+            println!("MATMUL OUT: {:?}\n", self.out.as_matvecref::<C>(memory));
+        }
     }
 
     #[inline(always)]

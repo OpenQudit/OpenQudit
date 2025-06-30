@@ -23,48 +23,30 @@ pub struct TransposeNode {
     /// The permutation to apply to the child node.
     pub perm: Vec<usize>,
 
-    pub split_at: usize,
-
     // num_params: usize,
     //
     /// The dimension of each of the resulting tensor's indices.
-    pub dimensions: QuditRadices,
+    pub dimensions: Vec<usize>,
 
     /// The shape of the tensor after computation.
     pub generation_shape: TensorShape,
 }
 
 impl TransposeNode {
-    pub fn new(child: ExpressionTree, perm: Vec<usize>, split_at: usize) -> TransposeNode {
+    pub fn new(child: ExpressionTree, perm: Vec<usize>, shape: TensorShape) -> TransposeNode {
         let child_dimensions = child.dimensions();
-        println!("{:?}, {:?}", child_dimensions, perm);
-        let dimensions: QuditRadices = (0..perm.len()).map(|x| child_dimensions[perm[x]]).collect();
-        // let dimensions: QuditRadices = child.dimensions().iter().enumerate().map(|(i, x)| perm[*x as usize]).collect();
-        let left_dimension = dimensions[0..split_at].iter().map(|x| *x as usize).product();
-        let right_dimension = dimensions[split_at..].iter().map(|x| *x as usize).product();
-        let shape = TensorShape::Matrix(left_dimension, right_dimension);
-        // let num_params = child.num_params();
-        // let _radices = child.radices();
-
-        // if perm.num_qudits() != child.num_qudits() {
-        //     panic!("Number of qudits in permutation must match number of qudits in node.");
-        // }
-
-        // if perm.radices() != child.radices() {
-        //     panic!("Radices of permutation must match radices of node.");
-        // }
+        let dimensions: Vec<usize> = (0..perm.len()).map(|x| child_dimensions[perm[x]]).collect();
 
         TransposeNode {
             child: Box::new(child),
             perm,
             // num_params,
-            split_at,
             dimensions,
             generation_shape: shape,
         }
     }
 
-    pub fn dimensions(&self) -> QuditRadices {
+    pub fn dimensions(&self) -> Vec<usize> {
         self.dimensions.clone()
     }
 

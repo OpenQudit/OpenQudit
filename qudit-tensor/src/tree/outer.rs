@@ -58,7 +58,7 @@ impl OuterProductNode {
         }
     }
 
-    pub fn dimensions(&self) -> QuditRadices {
+    pub fn dimensions(&self) -> Vec<usize> {
         let left_dims = self.left.dimensions();
         let right_dims = self.right.dimensions();
         let mut dims = vec![];
