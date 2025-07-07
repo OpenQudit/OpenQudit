@@ -102,7 +102,34 @@ impl TensorShape {
         }
     }
 
-
+    /// Checks if the current `TensorShape` can be conceptually treated as a scalar.
+    ///
+    /// This is true for:
+    /// - `TensorShape::Scalar`.
+    /// - `TensorShape::Vector` where the number of elements is 1.
+    /// - `TensorShape::Matrix` where the number of columns and rows are 1.
+    /// - `TensorShape::Tensor3D` where the number of matrices, rows, and columns are all 1.
+    /// - `TensorShape::TensorND` where the size of all dimensions is 1.
+    ///
+    /// # Returns
+    /// `true` if the shape can be treated as a scalar, `false` otherwise.
+    /// 
+    /// # Examples
+    /// ```
+    /// use qudit_core::TensorShape;
+    /// 
+    /// let test_scalar = TensorShape::Scalar;
+    /// let test_vector = TensorShape::Vector(1);
+    /// let test_matrix = TensorShape::Matrix(1, 1);
+    /// let test_tensor3d = TensorShape::Tensor3D(1, 1, 1);
+    /// let test_tensor_nd = TensorShape::TensorND(vec![1, 1, 1, 1]);
+    ///
+    /// assert!(test_scalar.is_scalar());
+    /// assert!(test_vector.is_scalar());
+    /// assert!(test_matrix.is_scalar());
+    /// assert!(test_tensor3d.is_scalar());
+    /// assert!(test_tensor_nd.is_scalar());
+    /// ```
     pub fn is_scalar(&self) -> bool {
         match self {
             TensorShape::Scalar => true,
@@ -116,7 +143,6 @@ impl TensorShape {
     /// Checks if the current `TensorShape` can be conceptually treated as a 1-dimensional vector.
     ///
     /// This is true for:
-    /// - `TensorShape::Scalar` (considered a 1-element vector).
     /// - `TensorShape::Vector`.
     /// - `TensorShape::Matrix` where one of its dimensions is 1 (e.g., a row or column vector).
     /// - `TensorShape::Tensor3D` where at most one of its dimensions is greater than 1 (meaning it's
@@ -142,6 +168,32 @@ impl TensorShape {
         }
     }
 
+    /// Checks if the current `TensorShape` can be conceptually treated as a 3D tensor.
+    ///
+    /// This is true for:
+    /// - `TensorShape::Tensor3D`.
+    /// - `TensorShape::TensorND` where the dimensionality is at least 3 and all axes
+    ///     outside the first 3 axes have size 1.
+    ///
+    /// # Returns
+    /// `true` if the shape can be treated as a 3D tensor, `false` otherwise.
+    /// 
+    /// # Examples
+    /// ```
+    /// use qudit_core::TensorShape;
+    /// 
+    /// let test_scalar = TensorShape::Scalar;
+    /// let test_vector = TensorShape::Vector(1);
+    /// let test_matrix = TensorShape::Matrix(1, 1);
+    /// let test_tensor3d = TensorShape::Tensor3D(9, 9, 9);
+    /// let test_tensor_nd = TensorShape::TensorND(vec![1, 1, 9, 9, 9]);
+    ///
+    /// assert_eq!(test_scalar.is_tensor3d(), false);
+    /// assert_eq!(test_vector.is_tensor3d(), false);
+    /// assert_eq!(test_matrix.is_tensor3d(), false);
+    /// assert_eq!(test_tensor3d.is_tensor3d(), true);
+    /// assert_eq!(test_tensor_nd.is_tensor3d(), true);
+    /// ```
     pub fn is_tensor3d(&self) -> bool {
         match self {
             TensorShape::Scalar => false,
@@ -152,6 +204,28 @@ impl TensorShape {
         }
     }
 
+    /// Converts the tensor shape object to a vector of integers.
+    /// 
+    /// # Returns
+    /// 
+    /// A `Vec<usize>` containing the dimensions of the shape.
+    /// 
+    /// # Examples
+    /// ```
+    /// use qudit_core::shape::TensorShape;
+    /// 
+    /// let scalar_shape = TensorShape::Scalar;
+    /// assert_eq!(scalar_shape.to_vec(), vec![]);
+    /// 
+    /// let vector_shape = TensorShape::Vector(5);
+    /// assert_eq!(vector_shape.to_vec(), vec![5]);
+    /// 
+    /// let matrix_shape = TensorShape::Matrix(2, 3);
+    /// assert_eq!(matrix_shape.to_vec(), vec![2, 3]);
+    /// 
+    /// let tensor_shape = TensorShape::TensorND(vec![2, 3, 4, 5]);
+    /// assert_eq!(tensor_shape.to_vec(), vec![2, 3, 4, 5]);
+    /// ```
     pub fn to_vec(&self) -> Vec<usize> {
         match self {
             TensorShape::Scalar => vec![],

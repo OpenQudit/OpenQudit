@@ -14,8 +14,8 @@ impl<T: Sized + Zeroable + Copy> Memorable for T {}
 
 /// An aligned memory buffer.
 ///
-/// The memory buffer is used to store the data for matrices, vectors,
-/// and other data structures. This type aliases a group of aligned
+/// The memory buffer is used to store the data for matrices, vectors, 
+/// and other data structures. This type aliases a group of aligned 
 /// vectors of the unit type of a given faer entity. For faer's native
 /// complex numbers this simplfies to a single vector of complex numbers.
 /// For num_complex complex numbers this because two vectors, one for the
@@ -288,6 +288,7 @@ pub fn alloc_zeroed_memory<C: Zeroable + Clone>(size: usize) -> MemoryBuffer<C> 
 ///
 /// This function always assumes the row stride is 1. If the row stride is
 /// not 1, the column stride will be incorrect.
+/// 
 pub fn calc_col_stride<C>(nrows: usize, ncols: usize) -> usize {
     if nrows == 0 || ncols == 0 {
         return 0;
@@ -421,6 +422,7 @@ pub fn calc_col_stride<C>(nrows: usize, ncols: usize) -> usize {
 ///
 /// This function always assumes the row stride is 1. If the row stride is
 /// not 1, the column stride will be incorrect.
+/// 
 pub fn calc_mat_stride<C>(_nrows: usize, ncols: usize, col_stride: usize) -> usize {
     let packed_mat_size = ncols
         .checked_mul(col_stride)
@@ -447,6 +449,22 @@ pub fn calc_mat_stride<C>(_nrows: usize, ncols: usize, col_stride: usize) -> usi
     packed_mat_size + remainder
 }
 
+
+/// Calculate the subtensor stride for a packed tensor.
+/// 
+/// # Arguments
+/// 
+/// * `packed_subtensor_size` - The number of elements in the packed subtensor.
+/// 
+/// # Returns
+/// 
+/// * The subtensor stride, aligned to cachelines.
+/// 
+/// # Example
+/// ```
+/// use qudit_
+/// 
+/// ```
 pub fn calc_next_stride<C>(packed_subtensor_size: usize) -> usize {
     let unit_size = size_of::<C>();
 
@@ -454,17 +472,20 @@ pub fn calc_next_stride<C>(packed_subtensor_size: usize) -> usize {
         return 0;
     }
 
+    // See similar comment in [calc_col_stride].
     if unit_size > CACHELINE_ALIGN {
-        // See similar comment in [calc_col_stride].
         return packed_subtensor_size;
     }
 
     let units_per_cache_line = CACHELINE_ALIGN / unit_size;
-
     let remainder = units_per_cache_line - (packed_subtensor_size % units_per_cache_line);
+    
+    // The case where the packed subtensor is already aligned to the cacheline
     if remainder == units_per_cache_line {
         return packed_subtensor_size;
     }
+
+    // Adds padding `remainder` to align with the next cacheline.
     packed_subtensor_size + remainder
 }
 
