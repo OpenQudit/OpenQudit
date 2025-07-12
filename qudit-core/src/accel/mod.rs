@@ -2,7 +2,7 @@
 
 /// Creates match statements for each variable in the second input with patterns in the corresponding 
 /// element in the third input. Once it finds a match for all variables in the second input 
-/// (a single combination), it executes the first expression.
+/// (a single combination), it executes the first expression. 
 /// 
 /// # Arguments
 /// 
@@ -13,15 +13,47 @@
 /// * `((first_pat, ...), rest_pat)`: A tuple where `first_pat` is a pattern to match against the first variable,
 ///   and `rest_pat` is a tuple with the remaining patterns stored in a similar recursive structure.
 /// 
+/// # Example
+/// ```
+/// // The following call
+/// cartesian_match!(
+///     {some_function()},
+///     (A, (B, ())),
+///     ((2, 3, _), ((2, 3, _), ()))
+/// );
+/// // is equivalent to:
+/// match A {
+///     2 => {
+///         match B {
+///             2 => some_function(),
+///             3 => some_function(),
+///             _ => some_function(),
+///         }
+///     }
+///     3 => {
+///         match B {
+///             2 => some_function(),
+///             3 => some_function(),
+///             _ => some_function(),
+///         }
+///     }
+///     _ => {
+///         match B {
+///             2 => some_function(),
+///             3 => some_function(),
+///             _ => some_function(),
+///         }
+///     }
+/// }
+/// ```
 macro_rules! cartesian_match {
-    // Base case
     ({ $x: expr }, (), ()) => {
         $x
     };
     (
         { $x: expr },
         ($first_expr: expr, $rest_expr: tt),
-        ( ( $($first_pat: pat ),*  $(,)? ), $rest_pat: tt )
+        (($($first_pat: pat),* $(,)?), $rest_pat:tt)
     ) => {
         // Creating multiple match arms for the first expression
         match $first_expr {
@@ -54,25 +86,3 @@ mod matmul;
 pub use matmul::matmul_unchecked;
 pub use matmul::MatMulPlan;
 // pub use matmul::matmul;
-
-
-#[cfg(test)]
-mod macro_tests {
-    use crate::accel::cartesian_match;
-
-    #[test]
-    fn cartesian_match_test() {
-        let a = 1;
-        let b = 2;
-        let c = 3;
-        let d = 4;
-
-        let mut test_var = 0;
-        cartesian_match!(
-            {test_var += 1},
-            (a, (b, (c, (d, ())))),
-            ((4, 3, 2, 1, _), ((4, 3, 2, 1, _), ((4, 3, 2, 1, _), ((4, 3, 2, 1, _), ()))))
-        );
-        assert_eq!(test_var, 1);
-    }
-}

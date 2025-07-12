@@ -14,8 +14,8 @@ impl<T: Sized + Zeroable + Copy> Memorable for T {}
 
 /// An aligned memory buffer.
 ///
-/// The memory buffer is used to store the data for matrices, vectors, 
-/// and other data structures. This type aliases a group of aligned 
+/// The memory buffer is used to store the data for matrices, vectors,
+/// and other data structures. This type aliases a group of aligned
 /// vectors of the unit type of a given faer entity. For faer's native
 /// complex numbers this simplfies to a single vector of complex numbers.
 /// For num_complex complex numbers this because two vectors, one for the
@@ -288,7 +288,6 @@ pub fn alloc_zeroed_memory<C: Zeroable + Clone>(size: usize) -> MemoryBuffer<C> 
 ///
 /// This function always assumes the row stride is 1. If the row stride is
 /// not 1, the column stride will be incorrect.
-/// 
 pub fn calc_col_stride<C>(nrows: usize, ncols: usize) -> usize {
     if nrows == 0 || ncols == 0 {
         return 0;
@@ -422,7 +421,6 @@ pub fn calc_col_stride<C>(nrows: usize, ncols: usize) -> usize {
 ///
 /// This function always assumes the row stride is 1. If the row stride is
 /// not 1, the column stride will be incorrect.
-/// 
 pub fn calc_mat_stride<C>(_nrows: usize, ncols: usize, col_stride: usize) -> usize {
     let packed_mat_size = ncols
         .checked_mul(col_stride)
@@ -449,8 +447,8 @@ pub fn calc_mat_stride<C>(_nrows: usize, ncols: usize, col_stride: usize) -> usi
     packed_mat_size + remainder
 }
 
-
-/// Calculate the subtensor stride for a packed tensor.
+/// Calculates a subtensor's stride, given its size. We ensure the subtensor
+/// is aligned to cachelines.
 /// 
 /// # Arguments
 /// 
@@ -462,8 +460,12 @@ pub fn calc_mat_stride<C>(_nrows: usize, ncols: usize, col_stride: usize) -> usi
 /// 
 /// # Example
 /// ```
-/// use qudit_
-/// 
+/// use qudit_core::memory::calc_next_stride;
+/// use qudit_core::c64;
+///
+/// let stride = calc_next_stride::<c64>(5);
+/// let expected = 8;
+/// assert_eq!(stride, expected);
 /// ```
 pub fn calc_next_stride<C>(packed_subtensor_size: usize) -> usize {
     let unit_size = size_of::<C>();

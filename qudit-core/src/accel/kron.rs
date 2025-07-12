@@ -1,3 +1,5 @@
+//! Functions to efficiently perform the Kronecker product and fused Kronecker-add operations.
+
 use faer::reborrow::ReborrowMut;
 use faer_traits::ComplexField;
 
@@ -11,8 +13,7 @@ use crate::ComplexScalar;
 ///
 /// # Safety
 ///
-/// * The dimensions of `dst` must be `lhs_rows * rhs_rows` by `lhs_cols * rhs_cols`.
-/// * The matrices must all be column-major.
+/// * The dimensions of `dst` must be at least `lhs_rows * rhs_rows` by `lhs_cols * rhs_cols`.
 ///
 /// # See also
 /// 
@@ -55,8 +56,7 @@ unsafe fn kron_kernel<C: ComplexField>(
 /// 
 /// # Safety
 ///
-/// * The dimensions of `dst` must be `lhs_rows * rhs_rows` by `lhs_cols * rhs_cols`.
-/// * The matrices must all be column-major.
+/// * The dimensions of `dst` must be at least `lhs_rows * rhs_rows` by `lhs_cols * rhs_cols`.
 ///
 /// # See also
 /// 
@@ -96,8 +96,7 @@ unsafe fn kron_kernel_add<C: ComplexScalar>(
 ///
 /// # Safety
 ///
-/// * The dimensions of `dst` must be `lhs.nrows() * rhs.nrows()` by `lhs.ncols() * rhs.ncols()`.
-/// * The matrices must all be column-major.
+/// * The dimensions of `dst` must be at least `lhs.nrows() * rhs.nrows()` by `lhs.ncols() * rhs.ncols()`.
 ///
 /// # See also
 ///
@@ -109,7 +108,6 @@ pub unsafe fn kron_unchecked<C: ComplexField>(dst: MatMut<C>, lhs: MatRef<C>, rh
     let rhs_rows = rhs.nrows();
     let rhs_cols = rhs.ncols();
 
-    // TODO: ask Ed about the purpose of this macro...
     cartesian_match!(
         { kron_kernel(dst, lhs, rhs, lhs_rows, lhs_cols, rhs_rows, rhs_cols) },
         (lhs_rows, (lhs_cols, (rhs_rows, (rhs_cols, ())))),
@@ -121,8 +119,7 @@ pub unsafe fn kron_unchecked<C: ComplexField>(dst: MatMut<C>, lhs: MatRef<C>, rh
 ///
 /// # Safety
 ///
-/// * The dimensions of `dst` must be `lhs.nrows() * rhs.nrows()` by `lhs.ncols() * rhs.ncols()`.
-/// * The matrices must all be column-major.
+/// * The dimensions of `dst` must be at least `lhs.nrows() * rhs.nrows()` by `lhs.ncols() * rhs.ncols()`.
 /// * The matrices must be square.
 ///
 /// # See also
@@ -133,7 +130,6 @@ pub unsafe fn kron_sq_unchecked<C: ComplexField>(dst: MatMut<C>, lhs: MatRef<C>,
     let lhs_dim = lhs.nrows();
     let rhs_dim = rhs.nrows();
 
-    // TODO: ask Ed about the purpose of this macro...
     cartesian_match!(
         { kron_kernel(dst, lhs, rhs, lhs_dim, lhs_dim, rhs_dim, rhs_dim) },
         (lhs_dim, (rhs_dim, ())),
@@ -220,8 +216,8 @@ pub fn kron<C: ComplexField>(lhs: MatRef<C>, rhs: MatRef<C>, dst: MatMut<C>) {
 
 /// Computes the Kronecker product of two matrices and adds the result to a destination matrix.
 /// 
-/// For `A` ∈ M(A_r, A_c), `B` ∈ M(B_r, B_c), `C` ∈ M(A_r * B_r, A_c * B_c), this function mutates `C` 
-/// such C_{i * B_r + k , j * B_c + l} -> C_{i * B_r + k , j * B_c + l} + A_{i, j} * B_{k, l}.
+/// For `A` ∈ M(R_a, C_a), `B` ∈ M(R_b, C_b), `C` ∈ M(R_a * R_b, C_a * C_b), this function mutates `C` 
+/// such C_{i * R_b + k , j * C_b + l} -> C_{i * R_b + k , j * C_b + l} + A_{i, j} * B_{k, l}.
 /// 
 /// # Arguments
 /// 
@@ -297,51 +293,32 @@ mod kron_tests {
     use crate::accel::{kron, kron_add};
     use crate::matrix::{mat, Mat};
     use crate::c64;
-
-    // Temporary macro to create a complex matrix from a 2D array of f64s. 
-    // All elements have imaginary part 0.0.
-    macro_rules! cmat {
-        ( $( [ $( $x: expr ),* ] ),* ) => {
-            {
-                let mut temp_vec_vec = Vec::new();
-                $(
-                    let mut temp_vec = Vec::new(); 
-                    $(
-                        temp_vec.push($x);
-                    )* 
-                    temp_vec_vec.push(temp_vec);
-                )*
-                let rows = temp_vec_vec.len();
-                let cols = temp_vec_vec[0].len();
-                Mat::from_fn(
-                    rows,
-                    cols, 
-                    |row, col| -> c64 {
-                        c64::new(temp_vec_vec[row][col] , 0.0)
-                    }
-                )
-            }
-        };
-    }
+    use qudit_core_proc_macros::complex_mat;
 
     #[test]
     fn kron_add_test() {
-        let mut dst= cmat![
-            [1.0, 2.0, 3.0, 4.0], 
+        let mut dst = complex_mat!([
+            [1.0-8.0j, 2.0+67.0j, 3.0, 4.0], 
             [5.0, 6.0, 7.0, 8.0], 
             [9.0, 10.0, 11.0, 12.0], 
-            [13.0, 14.0, 15.0, 16.0]];
-        let lhs= cmat![[1.0, 2.0], [3.0, 4.0]];
-        let rhs = cmat![[5.0, 6.0], [7.0, 8.0]];
+            [13.0, 14.0, 15.0, 16.0]]);
+        let lhs= complex_mat!([
+            [1.0+9.0j, 2.0], 
+            [3.0, 4.0]
+        ]);
+        let rhs = complex_mat!([
+            [5.0-8.0j, 6.0],
+            [7.0, 8.0]
+        ]);
 
         kron_add(lhs.as_ref(), rhs.as_ref(), dst.as_mut());
 
-        let expected = cmat![
-            [6.0, 8.0, 13.0, 16.0],
-            [12.0, 14.0, 21.0, 24.0],
-            [24.0, 28.0, 31.0, 36.0],
+        let expected = complex_mat!([
+            [78.0+29.0j, 8.0+121.0j, 13.0-16.0j, 16.0],
+            [12.0+63.0j, 14.0+72.0j, 21.0, 24.0],
+            [24.0-24.0j, 28.0, 31.0-32.0j, 36.0],
             [34.0, 38.0, 43.0, 48.0]
-        ];
+        ]);
 
         assert_eq!(dst, expected);
     }

@@ -1,4 +1,9 @@
-//! 
+//! Functions to efficiently perform a fused reshape, permute, and reshape operation.
+//!
+//! In Numpy terms, this is equivalent to:
+//! ```python
+//! out = inp.reshape(shape).transpose(perm).reshape(out.shape)
+//! ```
 
 use std::collections::VecDeque;
 use std::num::Wrapping;
@@ -9,7 +14,6 @@ use crate::matrix::MatRef;
 
 /// Copies elements of the input to output 0D tensors, even if their strides are different.
 /// Effectively provides a reshaped version of the input.
-/// We do not verify assumptions.
 /// 
 /// # Arguments
 /// 
@@ -21,8 +25,7 @@ use crate::matrix::MatRef;
 /// 
 /// # Safety
 ///
-/// * The dimension and stride values (arguments 3 ~ 5) must be valid
-///     for the provided input and output tensors.
+/// * The dimension and stride values must be valid for the provided input and output tensors.
 /// 
 fn __reshape_kernel_0<E: Copy>(
     out: *mut E,
@@ -38,7 +41,6 @@ fn __reshape_kernel_0<E: Copy>(
 
 /// Copies elements of the input to output 5D tensors, even if their strides are different.
 /// Effectively provides a reshaped version of the input.
-/// We do not verify assumptions.
 /// 
 /// # Arguments
 /// 
@@ -50,8 +52,7 @@ fn __reshape_kernel_0<E: Copy>(
 /// 
 /// # Safety
 ///
-/// * The dimension and stride values (arguments 3 ~ 5) must be valid
-///     for the provided input and output tensors.
+/// * The dimension and stride values must be valid for the provided input and output tensors.
 /// 
 #[inline(always)]
 unsafe fn __reshape_kernel_5_impl<E: Copy>(
@@ -107,7 +108,7 @@ unsafe fn __reshape_kernel_5_impl<E: Copy>(
 
 /// Copies elements of the input to output 6D tensors, even if their strides are different.
 /// Effectively provides a reshaped version of the input.
-/// We do not verify assumptions.
+/// 
 /// 
 /// # Arguments
 /// 
@@ -119,8 +120,7 @@ unsafe fn __reshape_kernel_5_impl<E: Copy>(
 /// 
 /// # Safety
 ///
-/// * The dimension and stride values (arguments 3 ~ 5) must be valid
-///     for the provided input and output tensors.
+/// * The dimension and stride values must be valid for the provided input and output tensors.
 /// 
 #[inline(always)]
 unsafe fn __reshape_kernel_6_impl<E: Copy>(
@@ -184,7 +184,6 @@ unsafe fn __reshape_kernel_6_impl<E: Copy>(
 
 /// Copies elements of the input to output 2D tensors, even if their strides are different.
 /// Effectively provides a reshaped version of the input.
-/// We do not verify assumptions.
 /// 
 /// # Arguments
 /// 
@@ -196,8 +195,7 @@ unsafe fn __reshape_kernel_6_impl<E: Copy>(
 /// 
 /// # Safety
 ///
-/// * The dimension and stride values (arguments 3 ~ 5) must be valid
-///     for the provided input and output tensors.
+/// * The dimension and stride values must be valid for the provided input and output tensors.
 /// 
 #[inline(always)]
 unsafe fn __reshape_kernel_2_impl<E: Copy>(
@@ -229,7 +227,6 @@ unsafe fn __reshape_kernel_2_impl<E: Copy>(
 
 /// Copies elements of the input to output 3D tensors, even if their strides are different.
 /// Effectively provides a reshaped version of the input.
-/// We do not verify assumptions.
 /// 
 /// # Arguments
 /// 
@@ -241,8 +238,7 @@ unsafe fn __reshape_kernel_2_impl<E: Copy>(
 /// 
 /// # Safety
 ///
-/// * The dimension and stride values (arguments 3 ~ 5) must be valid
-///     for the provided input and output tensors.
+/// * The dimension and stride values must be valid for the provided input and output tensors.
 /// 
 #[inline(always)]
 unsafe fn __reshape_kernel_3_impl<E: Copy>(
@@ -282,7 +278,6 @@ unsafe fn __reshape_kernel_3_impl<E: Copy>(
 
 /// Copies elements of the input to output 4D tensors, even if their strides are different.
 /// Effectively provides a reshaped version of the input.
-/// We do not verify assumptions.
 /// 
 /// # Arguments
 /// 
@@ -294,8 +289,7 @@ unsafe fn __reshape_kernel_3_impl<E: Copy>(
 /// 
 /// # Safety
 ///
-/// * The dimension and stride values (arguments 3 ~ 5) must be valid
-///     for the provided input and output tensors.
+/// * The dimension and stride values must be valid for the provided input and output tensors.
 /// 
 #[inline(always)]
 unsafe fn __reshape_kernel_4_impl<E: Copy>(
@@ -637,7 +631,8 @@ unsafe fn reshape_outer_kernel<E: Copy>(
     }
 }
 
-/// Calculates the optimal strides and shape for a tensor that is reshaped, permuted, and reshaped again.
+/// Prepare optimized parameters for `fused_reshape_permute_reshape_into_impl`. Specifically,
+/// calculates the optimal strides and shape for a tensor that is reshaped, permuted, and reshaped again.
 /// 
 /// The strides with respect to the memory layout of both the input and output tensors are returned.
 /// Optimization involves reducing the number of axes in the permuted tensor by merging contiguous axes.
@@ -662,10 +657,13 @@ unsafe fn reshape_outer_kernel<E: Copy>(
 /// 
 /// * If `in_shape`, `in_strides`, `out_shape`, `out_strides`, `shape`, or `perm` do not have the expected lengths.
 /// * If `perm` contains duplicate elements.
-/// * The number of elements in `shape` does not match the number of elements in `in_shape` or `out_shape`.
+/// * If the number of elements in `shape` does not match the number of elements in `in_shape` or `out_shape`.
+/// * If we attempt to merge non-contiguous axes during any of the two reshapes.
 /// 
 /// # See Also
 ///
+/// * [`fused_reshape_permute_reshape_into`] - All-in-one function for the frpr operation.
+/// * [`fused_reshape_permute_reshape_into_impl`] - Low-level implementation for the frpr operation.
 /// * [`fused_reshape_permute_reshape_into_prepare`] - A specialized version of this function for 2D tensors.
 /// 
 #[allow(non_snake_case)]
@@ -704,51 +702,43 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
         panic!("output shape is incompatible with tensor shape");
     }
 
-    // Calculate the reshaped input tensor's strides
+    // Determines the strides of the reshaped input tensor.
+    // Reshapes via both axes merging and splitting are supported.
     let mut tensor_in_strides = vec![0isize; K];
-    let mut stride_index = 0usize;
+    let mut in_shape_index: usize = 0;
+    let mut shape_index: usize = 0;
+    let mut accumulator: usize;
+    while (in_shape_index < N) && (shape_index < K) {
 
-    //let mut dim_accumulator = 1isize;
-    // for (dim, suffix_prod) in shape.iter().zip(tensor_in_strides.iter_mut()) {
-    //     *suffix_prod = dim_accumulator * in_strides[stride_index];
-    //     dim_accumulator *= *dim as isize;
-
-    //     if dim_accumulator >= in_shape[stride_index] as isize {
-    //         stride_index += 1;
-    //         dim_accumulator = 1;
-    //     }
-
-    //     if stride_index >= N {
-    //         break;
-    //     }
-    // }
-    
-    // Determines the strides of the reshaped input tensor, assuming the
-    // reshape only involves the splitting of axes.
-    let mut dim_accumulator = in_shape[stride_index] as isize;
-    for (dim, suffix_prod) in shape.iter().zip(tensor_in_strides.iter_mut()) {
-        // `dim_accumulator` is the product of dimensions of axes that the input's `stride_index`th axis
-        // needs to split into. If no further splitting is required, `dim_accumulator` should be 1. If 
-        // `dim_accumulator` > 1, further splitting is required.
-        dim_accumulator /= *dim as isize;
-
-        // Calculates the stride along an axis of the reshaped input tensor.
-        *suffix_prod = dim_accumulator * in_strides[stride_index];
-
-        // Once we finish calculating the strides for the axes in the reshaped tensor
-        // derived from (the splitting of) the input's `stride_index`th axis, we move
-        // to the next axis of the input tensor.
-        if dim_accumulator == 1 {
-            stride_index += 1;
-            if stride_index >= N {
-                break;
+        if in_shape[in_shape_index] == shape[shape_index] {
+            tensor_in_strides[shape_index] = in_strides[in_shape_index];
+            in_shape_index += 1;
+            shape_index += 1;
+        } else if in_shape[in_shape_index] > shape[shape_index] {
+            // Splitting axes
+            accumulator = in_shape[in_shape_index];   
+            while accumulator != 1 {
+                accumulator /= shape[shape_index];
+                tensor_in_strides[shape_index] = in_strides[in_shape_index] * (accumulator as isize);
+                shape_index += 1;
             }
-            dim_accumulator = in_shape[stride_index] as isize;
+            in_shape_index += 1;
+        } else {
+            // Merging axes
+            accumulator = shape[shape_index];
+            while accumulator != 1 {
+                accumulator /= in_shape[in_shape_index];
+                
+                if accumulator != 1 && 
+                in_strides[in_shape_index] != in_strides[in_shape_index + 1] * (in_shape[in_shape_index + 1] as isize) {
+                    panic!("Can't merge non-contiguous axes")
+                }
+                in_shape_index += 1;
+            }
+            tensor_in_strides[shape_index] = in_strides[in_shape_index - 1];
+            shape_index += 1;
         }
     }
-    //TODO: #1 write a test that fails (the merge case) - in terms of writing the test, hard to create 
-    //difficult tensors ()
-    // #2 Fix the code such the function passes
 
     // Permute input tensor strides
     let permuted_input_tensor_strides = perm
@@ -764,21 +754,39 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
 
     // Calculates the strides of the permuted tensor with respect to the output tensor's memory layout.
     // Notice that both `tensor_out_strides` and `permuted_input_tensor_strides` are necessary for a fused operation.
-    // It is assumed that the shape `permute_shape` can be achieved by only merging axes in `out_shape`.
-    // Alternately, it is assumed that the shape `permute_shape` can be achieved by only splitting axes in `out_shape`.
+    // Reshapes via both axes merging and splitting are supported.
     let mut tensor_out_strides = vec![0isize; K];
-    stride_index = 0usize;
-    dim_accumulator = out_shape[stride_index] as isize;
-    for (dim, suffix_prod) in permuted_shape.iter().zip(tensor_out_strides.iter_mut()) {
-        dim_accumulator /= *dim as isize;
-        *suffix_prod = dim_accumulator * out_strides[stride_index];
+    let mut out_shape_index: usize = 0;
+    shape_index = 0;
+    while (out_shape_index < M) && (shape_index < K) {
 
-        if dim_accumulator == 1 {
-            stride_index += 1;
-            if stride_index >= M {
-                break;
+        if out_shape[out_shape_index] == permuted_shape[shape_index] {
+            tensor_out_strides[shape_index] = out_strides[out_shape_index];
+            out_shape_index += 1;
+            shape_index += 1;
+        } else if out_shape[out_shape_index] > permuted_shape[shape_index] {
+            // Splitting axes
+            accumulator = out_shape[out_shape_index];   
+            while accumulator != 1 {
+                accumulator /= permuted_shape[shape_index];
+                tensor_out_strides[shape_index] = out_strides[out_shape_index] * (accumulator as isize);
+                shape_index += 1;
             }
-            dim_accumulator = out_shape[stride_index] as isize;
+            out_shape_index += 1;
+        } else {
+            // Merging axes
+            accumulator = permuted_shape[shape_index];
+            while accumulator != 1 {
+                accumulator /= out_shape[out_shape_index];
+
+                if accumulator != 1 && 
+                out_strides[out_shape_index] != out_strides[out_shape_index + 1] * (out_shape[out_shape_index + 1] as isize) {
+                    panic!("Can't merge non-contiguous axes")
+                }
+                out_shape_index += 1;
+            }
+            tensor_out_strides[shape_index] = out_strides[out_shape_index - 1];
+            shape_index += 1;
         }
     }
 
@@ -947,9 +955,10 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
 ///
 /// # See Also
 ///
-/// * [`fused_reshape_permute_reshape_into`] - All-in-one function
-/// * [`fused_reshape_permute_reshape_into_impl`] - Low-level implementation
-/// * [`tensor_fused_reshape_permute_reshape_into_prepare`] - A generalized version of this function for higher-dimensional input and output tensors.
+/// * [`fused_reshape_permute_reshape_into`] - All-in-one function for the frpr operation.
+/// * [`fused_reshape_permute_reshape_into_impl`] - Low-level implementation for the frpr operation.
+/// * [`tensor_fused_reshape_permute_reshape_into_prepare`] - A generalized version of this function 
+///     for higher-dimensional input and output tensors.
 /// 
 pub fn fused_reshape_permute_reshape_into_prepare(
     in_nrows: usize,
@@ -1326,6 +1335,160 @@ mod tests {
     use crate::matrix::Mat;
     use crate::accel::frpr::{__reshape_kernel_2_impl, __reshape_kernel_0};
     use crate::c64;
+
+    #[test]
+    fn test_tensor_fused_reshape_permute_reshape_into_prepare1() {
+        
+        // Baseline test
+        // Reshape 1 is a split, reshape 2 is a merge.
+        // Everything is contiguous.
+        {
+            let sample1_in_shape = [2*3, 4*5, 6*7];
+            let sample1_in_strides = [840, 42, 1];
+            let sample1_out_shape = [2*3, 4*5, 6*7];
+            let sample1_out_strides = [840, 42, 1];
+            let sample1_shape = [2, 3, 4, 5, 2, 3, 7];
+            let sample1_perm = [0, 1, 2, 3, 4, 5, 6];
+            let result1 = tensor_fused_reshape_permute_reshape_into_prepare(
+                &sample1_in_shape,
+                &sample1_in_strides,
+                &sample1_out_shape,
+                &sample1_out_strides,
+                &sample1_shape,
+                &sample1_perm,
+            );
+            let expected1 = (
+                vec![1],
+                vec![1],
+                vec![2*3*4*5*6*7],
+            );
+            assert_eq!(result1, expected1);
+        }
+
+        // Merge test (the previous implementation failed this test)
+        // Reshape 1 is a merge, reshape 2 is a split. 
+        // Everything is contiguous.
+        {
+            let sample2_in_shape = [2, 3, 4, 5, 2, 3, 7];
+            let sample2_in_strides = [3*4*5*2*3*7, 4*5*2*3*7, 5*2*3*7, 2*3*7, 3*7, 7, 1];
+            let sample2_out_shape = [2, 3, 4, 5, 2, 3, 7];
+            let sample2_out_strides = [3*4*5*2*3*7, 4*5*2*3*7, 5*2*3*7, 2*3*7, 3*7, 7, 1];
+            let sample2_shape = [2*3, 4*5, 2*3*7];
+            let sample2_perm = [0, 1, 2];
+            let result2 = tensor_fused_reshape_permute_reshape_into_prepare(
+                &sample2_in_shape,
+                &sample2_in_strides,
+                &sample2_out_shape,
+                &sample2_out_strides,
+                &sample2_shape,
+                &sample2_perm,
+            );
+            let expected2 = (
+                vec![1],
+                vec![1],
+                vec![2*3*4*5*2*3*7],
+            );
+            assert_eq!(result2, expected2);
+        }
+        
+        // Non-contiguous test (easy)
+        // Reshape 1 is a merge, reshape 2 doesn't do anything.
+        {
+            let sample3_in_shape = &[2, 3, 20];
+            let sample3_in_strides = &[63, 21, 1]; // axes (0, 1) are contiguous. (1, 2) is non-contiguous
+            let sample3_out_shape = &[6, 20];
+            let sample3_out_strides = &[20, 1]; // all contiguous
+            let sample3_shape = &[6, 20];
+            let sample3_perm = &[0, 1];
+
+            let result3 = tensor_fused_reshape_permute_reshape_into_prepare(
+                sample3_in_shape,
+                sample3_in_strides,
+                sample3_out_shape,
+                sample3_out_strides,
+                sample3_shape,
+                sample3_perm,
+            );
+
+            let expected3 = (
+                vec![21, 1],
+                vec![20, 1],
+                vec![6, 20],
+            );
+            assert_eq!(result3, expected3);
+        }
+
+        // Non-contiguous test (harder)
+        // Reshape 1 is a merge, reshape 2 is a split.
+        {
+            let offset_in_1 = 2;
+            let offset_in_2 = 3;
+            let offset_out_1 = 1;
+            let offset_out_2 = 7;
+
+            let sample4_in_shape = [2, 3, 4, 5, 2, 3, 7];
+            
+            // axes (0, 1), (2, 3), (4, 5, 6) are contiguous. Other pairs are non-contiguous.
+            let sample4_in_strides = [ 
+                3*(4*5*(2*3*7+offset_in_1)+offset_in_2),
+                4*5*(2*3*7+offset_in_1)+offset_in_2, 
+                5*(2*3*7+offset_in_1), 
+                2*3*7+offset_in_1, 
+                3*7, 7, 1];
+            
+            let sample4_out_shape = [2, 3, 4, 5, 2, 3, 7];
+            
+            // axes (0, 1), (2, 3), (4, 5, 6) are contiguous. Other pairs are non-contiguous.
+            let sample4_out_strides = [ 
+                3*(4*5*(2*3*7+offset_out_1)+offset_out_2),
+                4*5*(2*3*7+offset_out_1)+offset_out_2, 
+                5*(2*3*7+offset_out_1), 
+                2*3*7+offset_out_1, 
+                3*7, 7, 1];
+            
+            let sample4_shape = [2*3, 4*5, 2*3*7];
+            let sample4_perm = [0, 1, 2];
+            
+            let result4 = tensor_fused_reshape_permute_reshape_into_prepare(
+                &sample4_in_shape,
+                &sample4_in_strides,
+                &sample4_out_shape,
+                &sample4_out_strides,
+                &sample4_shape,
+                &sample4_perm,
+            );
+            let expected4 = (
+                vec![4*5*(2*3*7+offset_in_1)+offset_in_2, 2*3*7+offset_in_1, 1],
+                vec![4*5*(2*3*7+offset_out_1)+offset_out_2, 2*3*7+offset_out_1, 1],
+                vec![2*3, 4*5, 2*3*7],
+            );
+            assert_eq!(result4, expected4);
+        }
+
+    }
+
+    #[test]
+    #[should_panic(expected = "Can't merge non-contiguous axes")]
+    fn test_tensor_fused_reshape_permute_reshape_into_prepare2() {
+
+        // Reshape 1 is a merge, reshape 2 doesn't do anything.
+        // The input is non-contiguous
+        let in_shape = [2, 3, 4];
+        let in_strides = [, 4+1, 1];
+        let out_shape = [2, 12];
+        let out_strides = [12, 1]; 
+        let shape = [2, 12];
+        let perm = [0, 1];
+
+        tensor_fused_reshape_permute_reshape_into_prepare(
+            &in_shape,
+            &in_strides,
+            &out_shape,
+            &out_strides,
+            &shape,
+            &perm,
+        );
+    }
 
     #[test]
     fn test_reshape_kernel_2_impl() {

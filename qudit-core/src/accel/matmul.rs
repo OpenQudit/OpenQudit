@@ -1,3 +1,5 @@
+//! Functions and structs for efficient generalized matrix multiplication (GEMM).
+
 use coe::is_same;
 use nano_gemm::Plan;
 use num_traits::One;
@@ -11,11 +13,6 @@ use crate::ComplexScalar;
 
 /// Stores a plan for a generalized matrix multiplication (GEMM). Based on the dimensions and underlying
 /// field of the matrices, the plan will select the appropriate mili/micro-kernels for performance.
-/// 
-/// The GEMM is of the form: `C` -> `alpha * C + beta * A * B`. 
-/// We will refer to `A` as the left-hand side matrix (`lhs`) and `B` as the right-hand side matrix. (`rhs`)
-/// (Warning: other packages like BLAS, LAPACK swaps the role of `alpha` and `beta`.)
-/// 
 pub struct MatMulPlan<C: ComplexScalar> {
     plan: Plan<C>,
 }

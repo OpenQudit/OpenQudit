@@ -1,0 +1,16 @@
+[package]
+name = "qudit-core-proc-macros"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "qudit_core_proc_macros"
+path = "src/lib.rs"
+proc-macro = true
+
+[dependencies]
+syn = { version = "2.0", features = ["full"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+faer = "0.21.9"
+faer-traits = "0.21.0"

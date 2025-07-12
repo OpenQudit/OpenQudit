@@ -1,3 +1,6 @@
+//! Implements the tensor struct and associated methods for the Openqudit library.
+//! Support for arbitrary finite dimensions and strides enables optimization.
+
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::ptr::NonNull;
 use crate::memory::{alloc_zeroed_memory, calc_next_stride, Memorable, MemoryBuffer};
