@@ -885,7 +885,7 @@ mod tests {
         println!("{:?}", code);
         let mut qvm: qudit_tensor::QVM<c64> = qudit_tensor::QVM::new(code, DifferentiationLevel::None);
         println!("QVM constructed");
-        let result = qvm.evaluate(&[1.7; 3 * n + (6*(n-1)*n)]);
+        let result = qvm.evaluate(&[1.7; (3*n) + (7*(n-1)*n)]);
         let unitary = result.get_fn_result().unpack_matrix();
         println!("{:?}", unitary);
     }

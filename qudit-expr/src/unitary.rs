@@ -148,6 +148,50 @@ impl TensorExpression {
         }
     }
 
+    /// Splits the tensor dimensions into groups based on generation shape.
+    ///
+    /// TODO: Change return type to `Vec<Vec<usize>>` and handle TensorND.
+    pub fn split_dimensions(&self) -> (Vec<usize>, Vec<usize>, Vec<usize>) {
+        let (batch_dim_total, output_dim_total, input_dim_total) = match self.generation_shape() {
+            qudit_core::TensorShape::Scalar => (0, 0, 0),
+            qudit_core::TensorShape::Vector(a) => (0, 0, a),
+            qudit_core::TensorShape::Matrix(a, b) => (0, a, b),
+            qudit_core::TensorShape::Tensor3D(a, b, c) => (a, b, c),
+            _ => panic!("Dynamic tensor shape unsupport"),
+        };
+
+        let mut batch_dims = vec![];
+        let mut output_dims = vec![];
+        let mut input_dims = vec![];
+
+        let mut batch_dim_acm = 1;
+        let mut output_dim_acm = 1;
+        let mut input_dim_acm = 1;
+
+        let dims = &self.dimensions;
+        let mut id_counter = 0;
+
+        while batch_dim_acm < batch_dim_total {
+            batch_dims.push(dims[id_counter]);
+            batch_dim_acm *= dims[id_counter];
+            id_counter += 1;
+        }
+
+        while output_dim_acm < output_dim_total {
+            output_dims.push(dims[id_counter]);
+            output_dim_acm *= dims[id_counter];
+            id_counter += 1;
+        }
+
+        while input_dim_acm < input_dim_total {
+            input_dims.push(dims[id_counter]);
+            input_dim_acm *= dims[id_counter];
+            id_counter += 1;
+        }
+
+        (batch_dims, output_dims, input_dims)
+    }
+
     pub fn to_unitary_expression(&self) -> UnitaryExpression {
         match self.shape {
             TensorShape::Matrix(nrows, ncols) => {
@@ -495,6 +539,15 @@ impl UnitaryExpression {
                 self.body[top_left_row_idx + i][top_left_col_idx + j] = expr;
             }
         }
+
+        // Update variables: collect all unique variables from self and sub_matrix
+        let mut new_variables: Vec<String> = self.variables.iter().cloned().collect();
+        for var in sub_matrix.variables.iter() {
+            if !new_variables.contains(var) {
+                new_variables.push(var.clone());
+            }
+        }
+        self.variables = new_variables;
     }
 
     pub fn otimes<U: AsRef<UnitaryExpression>>(&self,  other: U) -> Self {

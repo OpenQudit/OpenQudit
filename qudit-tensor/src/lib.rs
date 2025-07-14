@@ -1,6 +1,7 @@
 mod tree;
 mod network;
 mod bytecode;
+mod networknew;
 mod qvm;
 
 pub use network::QuditTensor;
