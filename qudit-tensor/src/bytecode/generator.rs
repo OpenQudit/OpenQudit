@@ -186,6 +186,9 @@ impl BytecodeGenerator {
             ExpressionTree::OuterProduct(node) => {
                 todo!()
             },
+            ExpressionTree::Trace(node) => {
+                todo!()
+            },
             ExpressionTree::Constant(node) => {
                 if self.static_tree_cache.contains_key(tree) {
                     return self.static_tree_cache[tree];

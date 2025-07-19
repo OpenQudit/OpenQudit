@@ -314,6 +314,22 @@ impl QuditTensorNetwork {
                 let indices = self.local_to_network_index_map[*path_element].clone(); // vec<IndexID>
                 let leaf_node = ExpressionTree::leaf(tensor.expression.clone(), tensor.param_indices.clone());
 
+                // Perform partial traces if necessary
+                // find any indices that appear twice in indices and are only connected to this
+                let mut looped_index_map: HashMap<IndexId, Vec<usize>> = HashMap::new();
+                for (local_idx, &network_idx_id) in indices.iter().enumerate() {
+                    let index_edge = &self.indices[network_idx_id];
+                    if index_edge.0.is_output() && index_edge.1.len() == 1 {
+                        looped_index_map.entry(network_idx_id).or_default().push(local_idx);
+                    }
+                }
+
+                // Assert that each looped index vector is exactly length 2 and convert them to pairs
+                let looped_index_pairs: Vec<(usize, usize)> = looped_index_map.into_iter().map(|(index_id, local_indices)| {
+                    assert_eq!(local_indices.len(), 2, "Looped index {:?} did not have exactly two occurrences. It had {}.", index_id, local_indices.len());
+                    (local_indices[0], local_indices[1])
+                }).collect();
+
                 // need to argsort indices such equal elements are consecutive
                 //
                 // This way a tensor with local_to_network map like [5, 6, 5, 0, 1, 2]

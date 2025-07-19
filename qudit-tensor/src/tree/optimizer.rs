@@ -1,3 +1,5 @@
+use crate::tree::TraceNode;
+
 use super::constant::ConstantNode;
 use super::leaf::LeafNode;
 use super::matmul::MatMulNode;
@@ -71,6 +73,10 @@ impl TreeOptimizer {
                 let child = self.merge_transpose_into_leaf(*child);
                 ExpressionTree::Constant(ConstantNode::new(child))
             }
+            ExpressionTree::Trace(TraceNode { child, dimension_pairs, .. }) => {
+                let child = self.merge_transpose_into_leaf(*child);
+                ExpressionTree::Trace(TraceNode::new(child, dimension_pairs))
+            }
         }
     }
 
@@ -87,6 +93,10 @@ impl TreeOptimizer {
                 let left = self.remove_no_op_transposes(*left);
                 let right = self.remove_no_op_transposes(*right);
                 ExpressionTree::OuterProduct(OuterProductNode::new(left, right))
+            }
+            ExpressionTree::Trace(TraceNode { child, dimension_pairs, .. }) => {
+                let child = self.remove_no_op_transposes(*child);
+                ExpressionTree::Trace(TraceNode::new(child, dimension_pairs))
             }
             ExpressionTree::Reshape(ReshapeNode { child, gen_shape }) => {
                 let child = self.remove_no_op_transposes(*child);

@@ -4,6 +4,7 @@ mod expression;
 mod unitary;
 mod codegen;
 mod analysis;
+mod tensor;
 
 use analysis::check_many_equality;
 use complex::ComplexExpression;
@@ -14,7 +15,7 @@ pub use unitary::UnitaryExpression;
 pub use unitary::MatVecExpression;
 pub use unitary::UnitaryExpressionGenerator;
 pub use unitary::TensorExpressionGenerator;
-pub use unitary::TensorExpression;
+pub use tensor::TensorExpression;
 pub use unitary::StateExpression;
 pub use unitary::StateSystemExpression;
 pub use codegen::DifferentiationLevel;

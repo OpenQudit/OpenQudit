@@ -1,4 +1,6 @@
 
+use crate::tree::TraceNode;
+
 use super::constant::ConstantNode;
 // use super::contract::ContractNode;
 use super::fmt::PrintTree;
@@ -29,6 +31,7 @@ pub enum ExpressionTree {
     Reshape(ReshapeNode),
     MatMul(MatMulNode),
     Transpose(TransposeNode),
+    Trace(TraceNode),
     OuterProduct(OuterProductNode),
     Leaf(LeafNode),
 }
@@ -48,6 +51,9 @@ impl ExpressionTree {
             },
             ExpressionTree::Leaf(_) => {},
             ExpressionTree::Transpose(n) => {
+                n.child.traverse_mut(f);
+            },
+            ExpressionTree::Trace(n) => {
                 n.child.traverse_mut(f);
             },
             ExpressionTree::Constant(n) => {
@@ -74,12 +80,17 @@ impl ExpressionTree {
     pub fn reshape(self, shape: TensorShape) -> Self {
         Self::Reshape(ReshapeNode::new(self, shape))
     }
+    
+    pub fn trace(self, pairs: Vec<(usize, usize)>) -> Self {
+        Self::Trace(TraceNode::new(self, pairs))
+    }
 
     pub fn dimensions(&self) -> Vec<usize> {
         match self {
             Self::OuterProduct(s) => s.dimensions(),
             Self::MatMul(s) => s.dimensions(),
             Self::Leaf(s) => s.dimensions(),
+            Self::Trace(s) => s.dimensions(),
             Self::Transpose(s) => s.dimensions(),
             Self::Constant(s) => s.dimensions(),
             Self::Reshape(s) => s.dimensions(),
@@ -91,6 +102,7 @@ impl ExpressionTree {
             Self::OuterProduct(s) => s.generation_shape(),
             Self::MatMul(s) => s.generation_shape(),
             Self::Leaf(s) => s.generation_shape(),
+            Self::Trace(s) => s.generation_shape(),
             Self::Transpose(s) => s.generation_shape(),
             Self::Constant(s) => s.generation_shape(),
             Self::Reshape(s) => s.generation_shape(),
@@ -102,6 +114,7 @@ impl ExpressionTree {
             Self::OuterProduct(s) => s.param_indices(),
             Self::MatMul(s) => s.param_indices(),
             Self::Leaf(s) => s.param_indices(),
+            Self::Trace(s) => s.param_indices(),
             Self::Transpose(s) => s.param_indices(),
             Self::Constant(s) => s.param_indices(),
             Self::Reshape(s) => s.param_indices(),
@@ -175,6 +188,7 @@ impl std::hash::Hash for ExpressionTree {
             Self::OuterProduct(s) => s.hash(state),
             Self::MatMul(s) => s.hash(state),
             Self::Leaf(s) => s.hash(state),
+            Self::Trace(s) => s.hash(state),
             Self::Transpose(s) => s.hash(state),
             Self::Constant(s) => s.hash(state),
             Self::Reshape(s) => s.hash(state),
@@ -190,6 +204,7 @@ impl PrintTree for ExpressionTree {
             Self::OuterProduct(s) => s.write_tree(prefix, fmt),
             Self::MatMul(s) => s.write_tree(prefix, fmt),
             Self::Leaf(s) => s.write_tree(prefix, fmt),
+            Self::Trace(s) => s.write_tree(prefix, fmt),
             Self::Transpose(s) => s.write_tree(prefix, fmt),
             Self::Constant(s) => s.write_tree(prefix, fmt),
             Self::Reshape(s) => s.write_tree(prefix, fmt),
