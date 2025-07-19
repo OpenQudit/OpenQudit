@@ -1,136 +1,296 @@
-use std::collections::{BTreeSet, HashMap};
-
-use qudit_core::{QuditRadices, TensorShape};
-
+use qudit_core::TensorShape;
+use qudit_core::{ParamIndices, QuditRadices};
 use super::path::ContractionPath;
-use crate::{networknew::{contraction::QuditContraction, index::{IndexDirection, IndexId, IndexSize, NetworkIndex, TensorLeg}}, tree::ExpressionTree};
+use super::IndexDirection;
+use super::NetworkIndex;
 
-use super::tensor::QuditTensor;
+use super::QuditTensor;
+use super::Wire;
+use super::IndexSize;
+use super::contraction::QuditContraction;
+use std::collections::BTreeMap;
+use std::collections::BTreeSet;
+use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
-enum Wire {
-    Empty,
-    Connected(usize, usize), // node_id, local_index_id
-    Closed,
-}
+use crate::tree::ExpressionTree;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
-pub enum NetworkIndex {
-    // Open(usize, IndexDirection), // qudit_id for left and right and up_index_id for up
-    Output(usize), // output index id
-    Contracted(usize), // contraction_id 
-    // Batch(usize, IndexDirection), // batch index id
-}
-
-/// A index in the network is either an output index or a contraction index.
-pub struct QuditCircuitTensorNetworkBuilder {
+// Assume: Each index appears in only one pairwise contraction
+// Assume: Optimal Contraction is done with fewer than 64 indices
+//
+// A QuditCircuitNetwork is referenced by many ways:
+// * by *qudit_ids* (0, 1, 2, ...), these are the qudits in the circuit
+// * by *tensor_ids* (0, 1, 2, ...), these are the tensors in the circuit
+// tensor_ids are unique and don't change even if tensors are moved or deleted
+// * by *index_ids*:
+// - indices describe the links on and between tensors, which in turn, describe the
+//   contractions.
+// - Since each tensor is not a static dump of data, and rather associated with an
+//   expression that will generate the data in either a 1D, 2D, or 3D shape, we
+//   remember each tensor's "local" index ids. These describe the tensor from
+//   the tensor generator's perspective. Remembering these allows us to determine
+//   the necessary transformations to apply to the data after generation to perform
+//   the desired network contractions.
+// - The network as a whole has a set of "global" index ids. These ids directly
+//   correspond (1:1) with a tensor-tensor contraction. The contraction data
+//   stored in `intermediate` maps these global ids to their contraction data.
+//   The contraction data captures which tensors are involved and the local ids
+//   for each involved.
+pub struct QuditCircuitNetwork {
     tensors: Vec<QuditTensor>,
-    local_to_network_index_map: Vec<HashMap<IndexId, NetworkIndex>>,
+    unused: BTreeSet<usize>,
+
     radices: QuditRadices,
-
-    /// Pointer to front (left in math/right in circuit diagram) of the network for each qudit.
-    front: Vec<Wire>,
-
-    /// Pointer to rear (right in math/left in circuit diagram) of the network for each qudit.
-    rear: Vec<Wire>,
-    batch_indices: Vec<(String,IndexSize)>,
-    contracted_indices: Vec<QuditContraction>,
+    left: Vec<Wire>,
+    right: Vec<Wire>,
+    // up_index_tensor_map: BTreeMap<String,Vec<usize>>,
+    up_indices: Vec<(String,IndexSize)>,
+    intermediate: Vec<QuditContraction>,
 }
 
-impl QuditCircuitTensorNetworkBuilder {
+impl QuditCircuitNetwork {
     pub fn new(radices: QuditRadices) -> Self {
-        QuditCircuitTensorNetworkBuilder {
+        QuditCircuitNetwork {
             tensors: vec![],
-            local_to_network_index_map: vec![],
-            front: vec![Wire::Empty; radices.len()],
-            rear: vec![Wire::Empty; radices.len()],
-            batch_indices: Vec::new(),
+            unused: BTreeSet::new(),
+            left: vec![Wire::Empty; radices.len()],
+            right: vec![Wire::Empty; radices.len()],
+            // up_index_tensor_map: BTreeMap::new(),
+            up_indices: Vec::new(),
             radices,
-            contracted_indices: vec![],
+            intermediate: vec![],
         }
     }
 
-    pub fn prepend(
-        self,
-        tensor: QuditTensor,
-        input_index_map: Vec<usize>,
-        output_index_map: Vec<usize>,
-        batch_index_map: Vec<String>,
-    ) -> Self {
-        // 1. Check error conditions
-        // 2. collected_contractions <- Go to the front:
-        //      2a. Connect tensor's input indices with front according to input_index_map
-        //      2b. Update rear with tensor's output indices according to output_index_map
-        // 3. Update tensor's local index to global index map
-        // 4. Insert contractions; updating other tensor's local index to global index map
-        todo!()
+    pub fn index_size(&self, index: &NetworkIndex) -> usize {
+        match index {
+            &NetworkIndex::Open(qudit_id, _) => self.radices[qudit_id] as usize,
+            &NetworkIndex::Contracted(contraction_id) => self.intermediate[contraction_id].total_dimension,
+            &NetworkIndex::Shared(batch_id, _) => self.up_indices[batch_id].1,
+        }
     }
 
-    pub fn append(
-        self,
+    /// Prepend a tensor onto the circuit network
+    ///
+    /// # Arguments
+    ///
+    /// * `tensor` - The tensor to prepend
+    ///
+    /// * `right_qudit_map` - An array of qudit ids that maps the tensors right local indices to
+    ///     the circuit qudit ids, such that `right_qudit_map[i] == qudit_id` means that the
+    ///     `tensor.right_indices[i]` will be joined with existing leftmost leg on `qudit_id`.
+    ///
+    /// * `left_qudit_map` - An array of qudit ids that maps the tensors left local indices to
+    ///    the circuit qudit ids, such that `left_qudit_map[i] == qudit_id` means that the
+    ///    `tensor.left_indices[i]` will now be the leftmost leg on `qudit_id`.
+    pub fn prepend(
+        &mut self,
         tensor: QuditTensor,
         left_qudit_map: Vec<usize>,
         right_qudit_map: Vec<usize>,
         batch_index_map: Vec<String>,
-    ) -> Self {
-        todo!()
-    }
+    ) {
+        let left_tensor_indices = tensor.output_indices();
+        let right_tensor_indices = tensor.input_indices();
+        let up_tensor_indices = tensor.up_indices();
 
-    pub fn trace_wire(self, qudit: usize) -> Self {
-        todo!()
-    }
+        if left_tensor_indices.len() != left_qudit_map.len() {
+            panic!("Left tensor indices and left qudit map lengths do not match");
+        }
+        if right_tensor_indices.len() != right_qudit_map.len() {
+            panic!("Right tensor indices and right qudit map lengths do not match");
+        }
+        for (i, qudit_id) in left_qudit_map.iter().enumerate() {
+            if *qudit_id >= self.radices.len() {
+                panic!("Left qudit id {} is out of bounds", qudit_id);
+            }
+            if self.radices[*qudit_id] != tensor.input_radices()[i] {
+                panic!("Left qudit id {} has different radices", qudit_id);
+            }
+        }
+        for (i, qudit_id) in right_qudit_map.iter().enumerate() {
+            if *qudit_id >= self.radices.len() {
+                panic!("Right qudit id {} is out of bounds", qudit_id);
+            }
+            if self.radices[*qudit_id] != tensor.output_radices()[i] {
+                panic!("Right qudit id {} has different radices", qudit_id);
+            }
+        }
+        if batch_index_map.len() != up_tensor_indices.len() {
+            panic!("Batch index map is invalid.");
+        }
+        for (i, batch_index) in batch_index_map.iter().enumerate() {
+            let batch_dim = tensor.up_radices()[i] as usize; 
+            for (up_index, up_dim) in self.up_indices.iter() {
+                if up_index == batch_index && *up_dim != batch_dim {
+                    panic!("Batch dimension of new tensor index does not match existing network index dimension.");
+                }
+            }
+        }
 
-    pub fn trace_all_open_wires(self) -> Self {
-        todo!()
-    }
-}
+        // add this as a new node
+        let tensor_id = self.tensors.len();
+        self.tensors.push(tensor);
 
+        let mut contracting_nodes: HashMap<usize, QuditContraction> = HashMap::new();
+        for (i, qudit_id) in right_qudit_map.iter().enumerate() {
+            let local_index_id = right_tensor_indices[i];
+            // println!("Iterating over right qudit map: i:{} qudit_id:{} local_index_id:{}", i, qudit_id, local_index_id);
+            match self.left[*qudit_id] {
+                Wire::Empty => {
+                    self.right[*qudit_id] = Wire::Connected(tensor_id, local_index_id);
+                },
+                Wire::Connected(right_id, right_local_index_id) => {
+                    // Make a new contraction and update left wire
+                    // This may not be the first time we say this node either
+                    match contracting_nodes.get_mut(&right_id) {
+                        Some(contraction) => {
+                            contraction.left_indices.push(local_index_id);
+                            contraction.right_indices.push(right_local_index_id);
+                            contraction.total_dimension *= self.radices[*qudit_id] as usize;
+                        },
+                        None => {
+                            let new_contraction = QuditContraction {
+                                left_id: tensor_id,
+                                right_id,
+                                left_indices: vec![local_index_id],
+                                right_indices: vec![right_local_index_id],
+                                total_dimension: self.radices[*qudit_id] as usize,
+                            };
+                            contracting_nodes.insert(right_id, new_contraction);
+                        }
+                    }
+                }
+                Wire::Closed => {
+                    panic!("Left qudit {} is closed", qudit_id);
+                }
+            }
+            if left_qudit_map.contains(qudit_id) {
+                // If it's in the right qudit map, we need to open it
+                let left_i = left_qudit_map.iter().position(|&x| x == *qudit_id).unwrap();
+                let outgoing_local_index_id = left_tensor_indices[left_i];
+                self.left[*qudit_id] = Wire::Connected(tensor_id, outgoing_local_index_id);
+            } else {
+                // If it's not in the right qudit map, we need to close it
+                self.left[*qudit_id] = Wire::Closed;
+            }
+        }
 
-pub struct QuditTensorNetwork {
-    tensors: Vec<QuditTensor>,
-    local_to_network_index_map: Vec<Vec<NetworkIndex>>,
-    output_indices: Vec<TensorLeg>,
-    contractions: Vec<QuditContraction>,
-}
+        for (i, qudit_id) in left_qudit_map.iter().enumerate() {
+            if left_qudit_map.contains(&qudit_id) {
+                // Already processed
+                continue;
+            }
+            let local_index_id = left_tensor_indices[i];
+            match self.left[*qudit_id] {
+                Wire::Closed => {
+                    // If it's closed, we need to open it
+                    self.left[*qudit_id] = Wire::Connected(tensor_id, local_index_id);
+                },
+                _ => {
+                    // If it's not closed then error.
+                    panic!("Right qudit {} is closed", qudit_id);
+                }
+            }
+        }
 
-impl QuditTensorNetwork {
-    fn get_num_outputs(&self) -> usize {
-        self.output_indices.len()
-    }
+        for (i, qudit_id) in left_qudit_map.iter().enumerate() {
+            self.tensors[tensor_id].local_to_global_index_map.insert(
+                left_tensor_indices[i],
+                NetworkIndex::Open(*qudit_id, IndexDirection::Output),
+            );
+        }
 
-    fn get_network_indices(&self, tensor_id: usize) -> Vec<NetworkIndex> {
-        self.local_to_network_index_map[tensor_id].iter().collect::<BTreeSet<&NetworkIndex>>().into_iter().copied().collect::<Vec<NetworkIndex>>()
-    }
+        for (i, qudit_id) in right_qudit_map.iter().enumerate() {
+            self.tensors[tensor_id].local_to_global_index_map.insert(
+                right_tensor_indices[i],
+                NetworkIndex::Open(*qudit_id, IndexDirection::Input),
+            );
+        }
+        for (i, &idx_id) in self.tensors[tensor_id].up_indices().iter().enumerate() {
+            let batch_index_name = &batch_index_map[i];
+            let dim = self.tensors[tensor_id].up_radices()[i] as usize;
 
-    /// Flattened ID map: All output ones (0 ... num_outputs-1), All contractions (num_outputs-1...)
-    /// returns pairs of (flattened_id, index_size)
-    fn get_flattened_ids(&self, tensor_id: usize) -> Vec<(IndexId, IndexSize)> {
-        let network_indices = self.get_network_indices(tensor_id);
-        network_indices.iter().map(|idx| match idx {
-            NetworkIndex::Output(idx) => (*idx, self.output_indices[*idx].index_size()),
-            NetworkIndex::Contracted(idx) => (*idx + self.get_num_outputs(), self.contractions[*idx].total_dimension),
-        }).collect()
+            let mut global_up_index_id = None;
+            for (j, (existing_name, _)) in self.up_indices.iter().enumerate() {
+                if existing_name == batch_index_name {
+                    global_up_index_id = Some(j);
+                    break;
+                }
+            }
+
+            let final_idx_id = if let Some(id) = global_up_index_id { 
+                id
+            } else {
+                let new_id = self.up_indices.len();
+                self.up_indices.push((batch_index_name.clone(), dim));
+                new_id
+            };
+
+            self.tensors[tensor_id].local_to_global_index_map.insert(
+                idx_id,
+                NetworkIndex::Shared(final_idx_id, IndexDirection::Up)
+            );
+        }
+
+        // println!("local_to_global_index_map for tensor {}: {:?}", tensor_id, self.tensors[tensor_id].local_to_global_index_map);
+
+        for (_, contraction) in contracting_nodes.drain() {
+            let global_index_id = self.intermediate.len();
+            println!("Contraction {}: {:?}", global_index_id, contraction);
+            // update the left tensor
+            for i in &contraction.left_indices {
+                self.tensors[contraction.left_id].local_to_global_index_map.insert(*i, NetworkIndex::Contracted(global_index_id));
+            }
+            println!("local_to_global_index_map for tensor {}: {:?}", contraction.left_id, self.tensors[contraction.left_id].local_to_global_index_map);
+
+            // update the right tensor
+            for i in &contraction.right_indices {
+                self.tensors[contraction.right_id].local_to_global_index_map.insert(*i, NetworkIndex::Contracted(global_index_id));
+            }
+            println!("local_to_global_index_map for tensor {}: {:?}", contraction.right_id, self.tensors[contraction.right_id].local_to_global_index_map);
+
+            // add contraction to the list of intermediate contractions
+            self.intermediate.push(contraction);
+        }
     }
 
     fn build_trivial_contraction_paths(&self) -> Vec<ContractionPath> {
+        let mut open_index_counter = self.intermediate.len() + self.up_indices.len();
         self.tensors.iter()
             .enumerate()
-            .map(|(tensor_id, tensor)| {
-                let flattened_ids = self.get_flattened_ids(tensor_id);
-                let output_ids = flattened_ids.iter().filter(|&(id, _)| *id < self.get_num_outputs()).map(|&(id, _)| id).collect::<Vec<usize>>();
-                ContractionPath::trivial(tensor_id, &flattened_ids, &output_ids)
-            }).collect()
+            .filter(|(i, _)| !self.unused.contains(&i))
+            .map(|(i, tensor)| {
+                let mut indices = Vec::new();
+                let mut unsummed_indices = Vec::new();
+                for index in tensor.network_indices() {
+                    match index {
+                        NetworkIndex::Open(_qudit_id, _direction) => {
+                            indices.push(open_index_counter);
+                            open_index_counter += 1;
+                        },
+                        NetworkIndex::Contracted(contraction_id) => {
+                            indices.push(contraction_id);
+                        }
+                        NetworkIndex::Shared(up_index, _direction) => {
+                            indices.push(self.intermediate.len() + up_index);
+                            unsummed_indices.push(self.intermediate.len() + up_index);
+                        }
+                    }
+                }
+                println!("Tensor {} indices: {:?}", i, indices);
+                ContractionPath::trivial(i, &indices, &unsummed_indices, tensor.param_indices.to_bitset())
+            })
+            .collect()
     }
 
     /// Reference: https://arxiv.org/pdf/1304.6112
     pub fn optimize_optimal_simple(&self) -> ContractionPath {
         let n = self.tensors.len();
-
         if n == 0 {
             panic!("No tensors in the network");
         }
 
-        // contractions[c] = S[c + 1] = list of optimal contractions for c-length subnetworks
+        // contractions[c] = S[c] = list of optimal contractions for c-length subnetworks
         let mut contractions: Vec<Vec<ContractionPath>> = vec![vec![]; n];
         contractions[0] = self.build_trivial_contraction_paths();
 
@@ -139,8 +299,8 @@ impl QuditTensorNetwork {
 
         for c in 1..n {
             for d in 0..((c+1)/2) {
-                let sd = &contractions[d]; // optimal d + 1 tensor paths
-                let scd = &contractions[c - 1 - d]; // optimal c - d tensor paths
+                let sd = &contractions[d];
+                let scd = &contractions[c - 1 - d];
                 for path_a in sd {
                     for path_b in scd {
                         if path_a.subnetwork & path_b.subnetwork != 0 {
@@ -153,21 +313,22 @@ impl QuditTensorNetwork {
                         let new_subnetwork = path_a.subnetwork | path_b.subnetwork;
                         match best_costs.get(&new_subnetwork) {
                             Some(&best_cost) if best_cost <= cost => {
-                                // Already found a better path
+                                // Found a better path
                                 continue;
                             }
                             _ => {
                                 best_costs.insert(new_subnetwork, cost);
-                                best_contractions.insert(new_subnetwork, path_a.contract(path_b));
                             }
                         }
+
+                        best_contractions.insert(new_subnetwork, path_a.contract(path_b));
                     }
                 }
             }
 
             // Update the contractions for the current size
             best_contractions.drain().for_each(|(subnetwork, path)| {
-                contractions[c].push(path);  // best_contractions has c + 1 length contractions
+                contractions[c].push(path);
             });
             best_costs.clear();
         }
@@ -178,15 +339,8 @@ impl QuditTensorNetwork {
         }).clone()
     }
 
-    pub fn path_to_expression_tree(&self, path: ContractionPath) -> ExpressionTree {
-        struct PartialTree {
-            partial_tree: ExpressionTree,
-            indices: Vec<IndexId>,
-            output_indices: BTreeSet<IndexId>
-        };
-
+    pub fn path_to_expression_tree(&self, path: &ContractionPath) -> ExpressionTree {
         let mut tree_stack: Vec<PartialTree> = Vec::new();
-
         for path_element in path.path.iter() {
             if *path_element == usize::MAX {
                 let right = tree_stack.pop().unwrap();
@@ -280,7 +434,7 @@ impl QuditTensorNetwork {
                 let open_indices = tensor.network_indices();
                 println!("Tensor {}: {:?}", path_element, open_indices);
                 let tree = ExpressionTree::leaf(tensor.expression, tensor.param_indices);
-                tree_stack.push((tree, open_indices));
+                tree_stack.push(PartialTree { tree, open_indices });
             }
         }
         if tree_stack.len() != 1 {
@@ -441,8 +595,9 @@ impl QuditTensorNetwork {
 
         output_tree
     }
+}
 
-    // pub fn path_to_expression_tree(&self, path: ContractionPath) -> ExpressionTree {
-    //     todo!()
-    // }
+struct PartialTree {
+    tree: ExpressionTree,
+    open_indices: Vec<NetworkIndex>,
 }

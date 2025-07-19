@@ -1,150 +1,123 @@
-use std::collections::HashMap;
-
 use qudit_core::ParamIndices;
-use qudit_core::QuditRadices;
+use qudit_core::TensorShape;
 use qudit_expr::TensorExpression;
 
-use super::LocalTensorIndex;
-use super::NetworkIndex;
-use super::IndexDirection;
+use super::index::TensorIndex;
+use super::index::IndexDirection;
 
 #[derive(Debug, Clone)]
 pub struct QuditTensor {
-    pub indices: Vec<LocalTensorIndex>,
-    pub local_to_global_index_map: HashMap<usize, NetworkIndex>,
+    pub indices: Vec<TensorIndex>,
     pub expression: TensorExpression,
     pub param_indices: ParamIndices,
 }
 
 impl QuditTensor {
-    pub fn new(
-        expression: TensorExpression,
-        param_indices: ParamIndices,
-    ) -> Self {
-        let gen_shape = expression.generation_shape();
-        let (right_indices_total, left_indices_total, up_indices_total) = match gen_shape {
-            qudit_core::TensorShape::Scalar => (0, 0, 0),
-            qudit_core::TensorShape::Vector(a) => (a, 0, 0),
-            qudit_core::TensorShape::Matrix(a, b) => (a, b, 0),
-            qudit_core::TensorShape::Tensor3D(a, b, c) => (b, c, a),
-            _ => panic!("Dynamic tensor shape unsupport"),
-        };
-
-        let mut indices = Vec::new();
+    /// Construct a new tensor object from a tensor expression and param indices.
+    pub fn new(expression: TensorExpression, param_indices: ParamIndices) -> Self {
+        let (batch_dims, output_dims, input_dims) = expression.split_dimensions();
         let mut id_counter = 0;
-        let dims = expression.dimensions();
-        let mut up_indices_total_factor = 1;
-
-        while up_indices_total_factor < up_indices_total {
-            indices.push(
-                LocalTensorIndex {
-                    direction: IndexDirection::Up,
-                    index_id: id_counter,
-                    index_size: dims[id_counter] as usize,
-                }
-            );
-            up_indices_total_factor *= dims[id_counter] as usize;
+        let mut indices = vec![];
+        for batch_dim in batch_dims {
+            indices.push(TensorIndex::new(IndexDirection::Batch, id_counter, batch_dim));
             id_counter += 1;
         }
-
-        let mut right_indices_total_factor = 1;
-
-        while right_indices_total_factor < right_indices_total {
-            indices.push(
-                LocalTensorIndex {
-                    direction: IndexDirection::Output,
-                    index_id: id_counter,
-                    index_size: dims[id_counter] as usize,
-                }
-            );
-            right_indices_total_factor *= dims[id_counter] as usize;
+        for output_dim in output_dims {
+            indices.push(TensorIndex::new(IndexDirection::Output, id_counter, output_dim));
             id_counter += 1;
         }
-
-        let mut left_indices_total_factor = 1;
-
-        while left_indices_total_factor < left_indices_total {
-            indices.push(
-                LocalTensorIndex {
-                    direction: IndexDirection::Input,
-                    index_id: id_counter,
-                    index_size: dims[id_counter] as usize,
-                }
-            );
-            left_indices_total_factor *= dims[id_counter] as usize;
+        for input_dim in input_dims {
+            indices.push(TensorIndex::new(IndexDirection::Input, id_counter, input_dim));
             id_counter += 1;
         }
         QuditTensor {
             indices,
-            local_to_global_index_map: HashMap::new(),
             expression,
             param_indices,
         }
     }
 
-    pub fn network_indices(&self) -> Vec<NetworkIndex> {
-        let mut indices = Vec::new();
-        for i in 0..self.indices.len() {
-            if let Some(global_index) = self.local_to_global_index_map.get(&i) {
-                indices.push(global_index.clone());
-            } else {
-                panic!("Index {} not found in local_to_global_index_map", i);
-            }
-        }
-        indices
+    pub fn num_indices(&self) -> usize {
+        self.indices.len()
     }
 
+    /// Returns a vector of index IDs for all batch legs of the tensor.
+    pub fn batch_indices(&self) -> Vec<usize> {
+        self.indices.iter()
+            .filter_map(|index| match index.direction() {
+                IndexDirection::Batch => Some(index.index_id()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// Returns a vector of index IDs for all output legs of the tensor.
     pub fn output_indices(&self) -> Vec<usize> {
         self.indices.iter()
-            .filter_map(|index| match index.direction {
-                IndexDirection::Output => Some(index.index_id),
+            .filter_map(|index| match index.direction() {
+                IndexDirection::Output => Some(index.index_id()),
                 _ => None,
             })
             .collect()
     }
 
-    pub fn output_radices(&self) -> QuditRadices {
-        self.indices.iter()
-            .filter_map(|index| match index.direction {
-                IndexDirection::Output => Some(index.index_size as u8),
-                _ => None,
-            })
-            .collect()
-    }
-
+    /// Returns a vector of index IDs for all input legs of the tensor.
     pub fn input_indices(&self) -> Vec<usize> {
         self.indices.iter()
-            .filter_map(|index| match index.direction {
-                IndexDirection::Input => Some(index.index_id),
+            .filter_map(|index| match index.direction() {
+                IndexDirection::Input => Some(index.index_id()),
                 _ => None,
             })
             .collect()
     }
 
-    pub fn input_radices(&self) -> QuditRadices {
+    /// Returns a vector of sizes for all batch legs of the tensor.
+    pub fn batch_sizes(&self) -> Vec<usize> {
         self.indices.iter()
-            .filter_map(|index| match index.direction {
-                IndexDirection::Input => Some(index.index_size as u8),
+            .filter_map(|index| match index.direction() {
+                IndexDirection::Batch => Some(index.index_size()),
                 _ => None,
             })
             .collect()
     }
 
-    pub fn up_indices(&self) -> Vec<usize> {
+    /// Returns a vector of sizes for all output legs of the tensor.
+    pub fn output_sizes(&self) -> Vec<usize> {
         self.indices.iter()
-            .filter_map(|index| match index.direction {
-                IndexDirection::Up => Some(index.index_id),
+            .filter_map(|index| match index.direction() {
+                IndexDirection::Output => Some(index.index_size()),
                 _ => None,
             })
             .collect()
     }
-    
-    pub fn up_radices(&self) -> QuditRadices {
+
+    /// Returns a vector of sizes for all input legs of the tensor.
+    pub fn input_sizes(&self) -> Vec<usize> {
         self.indices.iter()
-            .filter_map(|index| match index.direction {
-                IndexDirection::Up => Some(index.index_size as u8),
+            .filter_map(|index| match index.direction() {
+                IndexDirection::Input => Some(index.index_size()),
                 _ => None,
             })
             .collect()
+    }
+
+    /// Returns the rank of the tensor.
+    pub fn rank(&self) -> usize {
+        return self.indices.len()
+    }
+
+    /// Returns the shape of the tensor's data as it is generated.
+    pub fn shape(&self) -> TensorShape {
+        self.expression.generation_shape()
+    }
+
+    /// Permutes the axes of the tensor according to the given permutation.
+    pub fn permute(&self, permutation: &[usize]) -> Self {
+        todo!()
+    }
+
+    /// Reshapes the tensor to the given new shape.
+    pub fn reshape(&self, new_shape: &[usize]) -> Self {
+        todo!()
     }
 }

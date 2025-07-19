@@ -7,21 +7,27 @@
 /// by their local index ids. These do not change unless the `TensorExpression`'s
 /// internal symbolic expression changes. Therefore, it is important to track
 /// it's local tensor index ordering, so we can accurately perform contractions
-/// dictated by the network.
+/// dictated by the network. See `[TensorIndex]` for more information.
 ///
 /// 2) Global Tensor Network indices: The entire network will have a list of
-/// indices and each will have its own id. The ordering here is less important,
-/// rather it is important to understand which tensors share ids.
+/// indices and each will have its own id. See `[NetworkIndex]` for more
+/// information.
 pub type IndexId = usize;
 
 /// Represents the size or dimension of an index in a tensor network.
 ///
 /// This type alias is used to specify the number of possible values for an index.
-/// Input and Output indices usually have size equal to radix of the qudit captured
-/// by the leg (2 for qubits, 3 for qutrits, etc); however, during contraction
-/// simplification, many edges can be grouped together to simplify the number
-/// of contractions, leading to a larger index size.
+/// From a quantum circuit perspective, Input and Output indices usually have
+/// size equal to radix of the qudit captured by the leg (2 for qubits, 3 for
+/// qutrits, etc); however, during contraction simplification, many edges can
+/// be grouped together to simplify the number of contractions, leading to a
+/// larger index size.
 pub type IndexSize = usize;
+
+/// Represents a weighted-indexed edge in a tensor network.
+///
+/// This provides the core index information for contraction ordering solvers.
+pub type WeightedIndex = (IndexId, IndexSize);
 
 /// IndexDirection represents a tensor's leg direction from the quantum circuit perspective.
 ///
@@ -52,21 +58,21 @@ pub type IndexSize = usize;
 ///
 /// Batch indices are used for measurements/Kraus operators or for batch executions
 /// of a network.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum IndexDirection {
-    /// Input leg of a tensor, corresponds to columns of an operation. In circuit
-    /// diagrams, these represent the wires going into a gate or bra.
-    Input,
-
-    /// Output leg of a tensor, corresponds to rows of an operation. In circuit
-    /// diagrams, these represent the wires leaving a gate or ket.
-    Output,
-
     /// Batch index of a tensor. These are typically represented in quantum circuits
     /// through interactions with classical systems through measurements and/or
     /// feed-forward operations. Additionally, they can capture batch computations
     /// of a network.
     Batch,
+
+    /// Output leg of a tensor, corresponds to rows of an operation. In circuit
+    /// diagrams, these represent the wires leaving a gate or ket.
+    Output,
+
+    /// Input leg of a tensor, corresponds to columns of an operation. In circuit
+    /// diagrams, these represent the wires going into a gate or bra.
+    Input,
 }
 
 impl std::fmt::Display for IndexDirection {
@@ -79,9 +85,21 @@ impl std::fmt::Display for IndexDirection {
     }
 }
 
-/// Represents a "leg" of a tensor or an edge in a tensor network.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct TensorLeg {
+/// Represents an index of a tensor.
+///
+/// Indices in this format are associated with a direction, and as a result,
+/// an expected output or expected generation (input) shape and ordering.
+/// For example, a `[super::network::QuditTensorNetwork]` will store its output
+/// indices in this format because after evaluation, there will
+/// be an expected shape and ordering. The shape is determined by all the 
+/// indices directions and sizes, and the ordering will be determined by the ids.
+///
+/// # See Also
+///
+/// - `[super::tensor::QuditTensor]` - Tensor object capturing how tensors are generated.
+/// - `[super::network::QuditTensorNetwork]` - Tensor network describing a desired calculation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct TensorIndex {
     /// The direction of the tensor leg. Important for mapping to dimensions
     /// of a TensorExpression's generated data.
     direction: IndexDirection,
@@ -94,8 +112,8 @@ pub struct TensorLeg {
     index_size: IndexSize,
 }
 
-impl TensorLeg {
-    /// Creates a new `TensorLeg` instance.
+impl TensorIndex {
+    /// Creates a new `TensorIndex` instance.
     ///
     /// # Arguments
     ///
@@ -105,17 +123,17 @@ impl TensorLeg {
     ///
     /// # Returns
     ///
-    /// A new `TensorLeg` instance with the specified properties.
+    /// A new `TensorIndex` instance with the specified properties.
     ///
     /// # Examples
     ///
     /// ```
-    /// use qudit_tensor::network::{IndexDirection, TensorLeg};
+    /// use qudit_tensor::network::{IndexDirection, TensorIndex};
     ///
-    /// let leg = TensorLeg::new(IndexDirection::Input, 0, 2);
-    /// assert_eq!(leg.index_id(), 0);
-    /// assert_eq!(leg.index_size(), 2);
-    /// assert_eq!(leg.direction(), IndexDirection::Input);
+    /// let idx = TensorIndex::new(IndexDirection::Input, 0, 2);
+    /// assert_eq!(idx.index_id(), 0);
+    /// assert_eq!(idx.index_size(), 2);
+    /// assert_eq!(idx.direction(), IndexDirection::Input);
     /// ```
     pub fn new(direction: IndexDirection, index_id: IndexId, index_size: IndexSize) -> Self {
         Self {
@@ -130,9 +148,9 @@ impl TensorLeg {
     /// # Examples
     ///
     /// ```
-    /// use qudit_tensor::network::{IndexDirection, TensorLeg};
+    /// use qudit_tensor::network::{IndexDirection, TensorIndex};
     ///
-    /// let leg = TensorLeg::new(IndexDirection::Output, 1, 3);
+    /// let leg = TensorIndex::new(IndexDirection::Output, 1, 3);
     /// assert_eq!(leg.direction(), IndexDirection::Output);
     /// ```
     pub fn direction(&self) -> IndexDirection {
@@ -144,9 +162,9 @@ impl TensorLeg {
     /// # Examples
     ///
     /// ```
-    /// use qudit_tensor::network::{IndexDirection, TensorLeg};
+    /// use qudit_tensor::network::{IndexDirection, TensorIndex};
     ///
-    /// let leg = TensorLeg::new(IndexDirection::Batch, 2, 4);
+    /// let leg = TensorIndex::new(IndexDirection::Batch, 2, 4);
     /// assert_eq!(leg.index_id(), 2);
     /// ```
     pub fn index_id(&self) -> IndexId {
@@ -158,9 +176,9 @@ impl TensorLeg {
     /// # Examples
     ///
     /// ```
-    /// use qudit_tensor::network::{IndexDirection, TensorLeg};
+    /// use qudit_tensor::network::{IndexDirection, TensorIndex};
     ///
-    /// let leg = TensorLeg::new(IndexDirection::Input, 3, 5);
+    /// let leg = TensorIndex::new(IndexDirection::Input, 3, 5);
     /// assert_eq!(leg.index_size(), 5);
     /// ```
     pub fn index_size(&self) -> IndexSize {
@@ -168,12 +186,93 @@ impl TensorLeg {
     }
 }
 
-impl std::fmt::Display for TensorLeg {
+impl std::fmt::Display for TensorIndex {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
             "Leg {}, (size={}, dir={})",
             self.index_id, self.index_size, self.direction,
         )
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub struct ContractionIndex {
+    pub left_id: usize,
+    pub right_id: usize,
+    pub total_dimension: IndexSize,
+}
+
+impl ContractionIndex {
+    pub fn index_size(&self) -> IndexSize {
+        self.total_dimension
+    }
+}
+
+/// Network indices are either a contraction between two tensors
+/// or an open (output) edge of the network.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum NetworkIndex {
+    Output(TensorIndex),
+    Contracted(ContractionIndex),
+}
+
+impl NetworkIndex {
+    pub fn is_output(&self) -> bool {
+        match self {
+            &NetworkIndex::Output(_) => true,
+            &NetworkIndex::Contracted(_) => false,
+        }
+    }
+
+    pub fn is_contracted(&self) -> bool {
+        match self {
+            &NetworkIndex::Output(_) => false,
+            &NetworkIndex::Contracted(_) => true,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_index_direction_ordering() {
+        assert!(IndexDirection::Batch < IndexDirection::Output);
+        assert!(IndexDirection::Output < IndexDirection::Input);
+        assert!(IndexDirection::Batch < IndexDirection::Input);
+
+        assert!(IndexDirection::Input > IndexDirection::Output);
+        assert!(IndexDirection::Output > IndexDirection::Batch);
+        assert!(IndexDirection::Input > IndexDirection::Batch);
+
+        assert_eq!(IndexDirection::Batch, IndexDirection::Batch);
+        assert_ne!(IndexDirection::Batch, IndexDirection::Output);
+    }
+
+    #[test]
+    fn test_tensor_index_ordering() {
+        let ti1 = TensorIndex::new(IndexDirection::Batch, 0, 2);
+        let ti2 = TensorIndex::new(IndexDirection::Batch, 1, 2);
+        let ti3 = TensorIndex::new(IndexDirection::Output, 0, 2);
+        let ti4 = TensorIndex::new(IndexDirection::Output, 1, 2);
+        let ti5 = TensorIndex::new(IndexDirection::Input, 0, 2);
+        let ti6 = TensorIndex::new(IndexDirection::Input, 1, 2);
+
+        // Test sorting by direction first
+        assert!(ti1 < ti3); // Batch < Output
+        assert!(ti3 < ti5); // Output < Input
+        assert!(ti1 < ti5); // Batch < Input
+
+        // Test sorting by index_id second (for same direction)
+        assert!(ti1 < ti2); // Batch, id 0 < Batch, id 1
+        assert!(ti3 < ti4); // Output, id 0 < Output, id 1
+        assert!(ti5 < ti6); // Input, id 0 < Input, id 1
+
+        // Test equality
+        assert_eq!(ti1, TensorIndex::new(IndexDirection::Batch, 0, 2));
+        assert_ne!(ti1, ti3);
+        assert_ne!(ti1, ti2);
     }
 }

@@ -1,21 +1,58 @@
-mod tree;
+use std::collections::{BTreeSet, HashMap};
+
+use crate::tree::ExpressionTree;
+
+
+mod path;
+mod tensor;
+mod contraction;
 mod network;
-mod bytecode;
-mod qvm;
+pub use tensor::QuditTensor;
+pub use network::QuditCircuitNetwork;
 
-pub use network::QuditTensor;
-pub use network::QuditTensorNetwork;
-pub use network::QuditCircuitTensorNetworkBuilder;
-pub use bytecode::Bytecode;
-pub use qvm::QVM;
-pub use qvm::QVMResult;
-pub use qvm::QVMReturnType;
+#[derive(Debug, Clone)]
+pub(crate) enum Wire {
+    Empty,
+    Connected(usize, usize), // node_id, local_index_id
+    Closed,
+}
 
-pub fn compile_network(network: &QuditTensorNetwork) -> Bytecode {
-    let optimal_path = network.solve_for_path();
-    let tree = network.path_to_expression_tree(optimal_path);
-    let tree = crate::tree::TreeOptimizer::new().optimize(tree);
-    crate::bytecode::BytecodeGenerator::new().generate(&tree)
+type QuditId = usize;
+type TensorId = usize;
+type IndexId = usize;
+type IndexSize = usize;
+type SubNetwork = u64;
+type Cost = usize;
+
+/// IndexDirection represents a tensor's leg direction from the quantum circuit perspective
+///
+/// Left corresponds to inputs, right to outputs, and up as parallel dimensions
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum IndexDirection {
+    Input,
+    Output,
+    Up,
+    // Down,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct LocalTensorIndex {
+    direction: IndexDirection,
+    index_id: IndexId,
+    index_size: IndexSize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum NetworkIndex {
+    Open(usize, IndexDirection), // qudit_id for left and right and up_index_id for up
+    Contracted(usize), // contraction_id 
+    Shared(usize, IndexDirection), // batch index id
+}
+
+impl NetworkIndex {
+    pub fn is_shared(&self) -> bool {
+        matches!(self, &NetworkIndex::Shared(..))
+    }
 }
 
 #[cfg(test)]
@@ -55,14 +92,13 @@ mod tests {
             ]
         }");
         
-        let mut network = QuditCircuitTensorNetworkBuilder::new(QuditRadices::new(&vec![2, 2]))
-            .prepend(QuditTensor::new(ZZ.clone(), vec![].into()), vec![0, 1], vec![0, 1], vec!["a".to_string()])
-            .prepend(QuditTensor::new(classically_controlled_u3.clone(), vec![0, 1, 2].into()), vec![0], vec![0], vec!["a".to_string()])
-            .build();
+        let mut network = QuditCircuitNetwork::new(QuditRadices::new(&vec![2, 2]));
+        network.prepend(QuditTensor::new(ZZ.clone(), vec![].into()), vec![0, 1], vec![0, 1], vec!["a".to_string()]);
+        network.prepend(QuditTensor::new(classically_controlled_u3.clone(), vec![0, 1, 2].into()), vec![0], vec![0], vec!["a".to_string()]);
 
-        let optimal_path = network.solve_for_path();
+        let optimal_path = network.optimize_optimal_simple();
         println!("Optimal Path: {:?}", optimal_path.path);
-        let tree = network.path_to_expression_tree(optimal_path);
+        let tree = network.path_to_expression_tree(&optimal_path);
         println!("Expression Tree: {:?}", tree);
         let tree = TreeOptimizer::new().optimize(tree);
         println!("Expression Tree: {:?}", tree);
