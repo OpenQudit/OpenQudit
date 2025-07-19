@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::{codegen::CodeGenerator, module::Module};
 use qudit_core::{TensorShape, ComplexScalar, ParamIndices, QuditSystem};
 
-use crate::{analysis::{simplify_expressions, simplify_matrix_and_matvec}, expression::Expression, unitary::{MatVecExpression, TensorExpression, UnitaryExpression}, DerivedExpression};
+use crate::{analysis::{simplify_expressions, simplify_matrix_and_matvec}, expression::Expression, unitary::{MatVecExpression, UnitaryExpression}, tensor::TensorExpression, DerivedExpression};
 
 
 #[derive(Default, Clone)]

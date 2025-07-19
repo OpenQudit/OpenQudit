@@ -447,6 +447,26 @@ pub fn calc_mat_stride<C>(_nrows: usize, ncols: usize, col_stride: usize) -> usi
     packed_mat_size + remainder
 }
 
+/// Calculates a subtensor's stride, given its size. We ensure the subtensor
+/// is aligned to cachelines.
+/// 
+/// # Arguments
+/// 
+/// * `packed_subtensor_size` - The number of elements in the packed subtensor.
+/// 
+/// # Returns
+/// 
+/// * The subtensor stride, aligned to cachelines.
+/// 
+/// # Example
+/// ```
+/// use qudit_core::memory::calc_next_stride;
+/// use qudit_core::c64;
+///
+/// let stride = calc_next_stride::<c64>(5);
+/// let expected = 8;
+/// assert_eq!(stride, expected);
+/// ```
 pub fn calc_next_stride<C>(packed_subtensor_size: usize) -> usize {
     let unit_size = size_of::<C>();
 
@@ -454,17 +474,20 @@ pub fn calc_next_stride<C>(packed_subtensor_size: usize) -> usize {
         return 0;
     }
 
+    // See similar comment in [calc_col_stride].
     if unit_size > CACHELINE_ALIGN {
-        // See similar comment in [calc_col_stride].
         return packed_subtensor_size;
     }
 
     let units_per_cache_line = CACHELINE_ALIGN / unit_size;
-
     let remainder = units_per_cache_line - (packed_subtensor_size % units_per_cache_line);
+    
+    // The case where the packed subtensor is already aligned to the cacheline
     if remainder == units_per_cache_line {
         return packed_subtensor_size;
     }
+
+    // Adds padding `remainder` to align with the next cacheline.
     packed_subtensor_size + remainder
 }
 

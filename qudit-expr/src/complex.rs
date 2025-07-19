@@ -476,6 +476,54 @@ impl std::ops::Div<&ComplexExpression> for &ComplexExpression {
     }
 }
 
+impl std::ops::AddAssign for ComplexExpression {
+    fn add_assign(&mut self, rhs: Self) {
+        *self = &*self + &rhs;
+    }
+}
+
+impl std::ops::AddAssign<&ComplexExpression> for ComplexExpression {
+    fn add_assign(&mut self, rhs: &Self) {
+        *self = &*self + rhs;
+    }
+}
+
+impl std::ops::SubAssign for ComplexExpression {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = &*self - &rhs;
+    }
+}
+
+impl std::ops::SubAssign<&ComplexExpression> for ComplexExpression {
+    fn sub_assign(&mut self, rhs: &Self) {
+        *self = &*self - rhs;
+    }
+}
+
+impl std::ops::MulAssign for ComplexExpression {
+    fn mul_assign(&mut self, rhs: Self) {
+        *self = &*self * &rhs;
+    }
+}
+
+impl std::ops::MulAssign<&ComplexExpression> for ComplexExpression {
+    fn mul_assign(&mut self, rhs: &Self) {
+        *self = &*self * rhs;
+    }
+}
+
+impl std::ops::DivAssign for ComplexExpression {
+    fn div_assign(&mut self, rhs: Self) {
+        *self = &*self / &rhs;
+    }
+}
+
+impl std::ops::DivAssign<&ComplexExpression> for ComplexExpression {
+    fn div_assign(&mut self, rhs: &Self) {
+        *self = &*self / rhs;
+    }
+}
+
 impl std::fmt::Debug for ComplexExpression {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("ComplexExpression")

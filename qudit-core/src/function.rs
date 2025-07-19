@@ -4,6 +4,8 @@ use bit_set::BitSet;
 
 use crate::RealScalar;
 
+/// A data structure representing indices of parameters (e.g. for a function).
+/// There are optimized methods for consecutive and disjoint parameters.
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum ParamIndices {
     /// The index of the first parameter (consecutive parameters)
@@ -93,6 +95,7 @@ impl ParamIndices {
     /// # Returns
     ///
     /// The number of parameters.
+    /// 
     pub fn num_params(&self) -> usize {
         match self {
             ParamIndices::Joint(_, length) => *length,

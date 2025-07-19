@@ -351,6 +351,7 @@ impl<'ctx, C: ComplexScalar> CodeGenerator<'ctx, C> {
         let entry = self.context.context().append_basic_block(func, "entry");
         self.builder.position_at_end(entry);
         self.fn_value_opt = Some(func);
+        println!("name: {:?}, var_table: {:?}", fn_name, var_table);
         self.build_var_table(var_table);
 
         let output_ptr = self.fn_value_opt.unwrap().get_nth_param(1).unwrap().into_pointer_value();

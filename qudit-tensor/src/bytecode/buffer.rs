@@ -96,14 +96,12 @@ impl SizedTensorBuffer {
     }
 
     pub fn strides(&self) -> Vec<isize> {
-        if self.shape.is_vector() {
-            vec![1isize]
-        } else if self.shape.is_matrix() {
-            vec![self.row_stride as isize, self.col_stride as isize]
-        } else if self.shape.is_tensor3d() {
-            vec![self.mat_stride as isize, self.row_stride as isize, self.col_stride as isize]
-        } else {
-            vec![]
+        match self.shape {
+            TensorShape::Scalar => vec![],
+            TensorShape::Vector(_) => vec![1isize],
+            TensorShape::Matrix(_, _) => vec![self.row_stride as isize, self.col_stride as isize],
+            TensorShape::Tensor3D(_, _, _) => vec![self.mat_stride as isize, self.row_stride as isize, self.col_stride as isize],
+            _ => panic!("Unsupported generation shape"),
         }
     }
 

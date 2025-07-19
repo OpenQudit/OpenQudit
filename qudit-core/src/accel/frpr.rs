@@ -201,16 +201,16 @@ unsafe fn __reshape_kernel_6_impl<E: Copy>(
 unsafe fn __reshape_kernel_2_impl<E: Copy>(
     out: *mut E,
     inp: *const E,
-    (d0, d1): (usize,  usize),
+    (d0, d1): (usize,  usize), 
     (is0, is1): (isize, isize),
     (os0, os1): (isize, isize),
 ) {
     let mut in_offset0 = Wrapping(0isize);
-    let mut out_offset0 = Wrapping(0isize);
+    let mut out_offset0 = Wrapping(0isize); 
 
     for _ in 0..d0 {
         let mut in_offset1 = in_offset0;
-        let mut out_offset1 = out_offset0;
+        let mut out_offset1 = out_offset0; 
 
         for _ in 0..d1 {
             unsafe {
@@ -757,6 +757,7 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
     shape: &[usize],
     perm: &[usize],
 ) -> (Vec<isize>, Vec<isize>, Vec<usize>) {
+    
     let N = in_shape.len();
     assert!(in_strides.len() == N);
     let M = out_shape.len();
@@ -764,6 +765,12 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
     let K = shape.len();
     assert!(perm.len() == K);
     // Input validation
+    println!("in_shape: {:?}", in_shape);
+    println!("in_strides: {:?}", in_strides);
+    println!("out_shape: {:?}", out_shape);
+    println!("out_strides: {:?}", out_strides);
+    println!("shape: {:?}", shape);
+    println!("perm: {:?}", perm);
     
     // Duplicate check: Quadratic check is faster than hashset for most inputs
     for (i, &p) in perm.iter().enumerate() {
@@ -823,17 +830,14 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
         tensor_fused_reshape_permute_reshape_into_prepare_helper(&permuted_shape, &permuted_input_tensor_strides, out_shape);
     }
     assert_eq!(permuted_shape, true_shape_out, "Final input and output tensor shapes don't match!");
-
+  
     // Finds the optimal strides and dimensions for the reshaped and permuted tensor.
     // The output format is `(permuted_input_tensor_strides, tensor_out_strides, permuted_shape)`
     let candidate_outputs1 = {
         // Instead of sorting, leave the strides and shape of the permuted tensor as is.
         let sorted_perm_in_strides = permuted_input_tensor_strides.clone();
-        println!("sorted_perm_in_strides: {:?}", sorted_perm_in_strides);
         let sorted_out_strides = tensor_out_strides.clone();
-        println!("sorted_out_strides: {:?}", sorted_out_strides);
         let sorted_perm_shape = permuted_shape.clone();
-        println!("sorted_perm_shape: {:?}", sorted_perm_shape);
 
         // Starting from the inner-most axis, groups together axes of the permuted tensor
         // that are contiguous with respect to both the input and output tensor's memory layout. 
@@ -860,7 +864,6 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
         let mut opt_perm_in_strides = Vec::new();
         let mut opt_out_strides = Vec::new();
         let mut opt_dims = Vec::new();
-
         for merged_idx_group in merged_indices {
             let min_out_stride = merged_idx_group
                 .iter()
@@ -927,7 +930,6 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
         let mut opt_perm_in_strides = Vec::new();
         let mut opt_out_strides = Vec::new();
         let mut opt_dims = Vec::new();
-
         for merged_idx_group in merged_indices {
             let min_out_stride = merged_idx_group
                 .iter()
@@ -954,9 +956,15 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
     // The output with the least amount of non-contiguous axes is returned.
     if candidate_outputs2.0.len() < candidate_outputs1.0.len() {
         println!("Candidate2");
+        println!("sorted_perm_in_strides: {:?}", candidate_outputs2.0);
+        println!("sorted_out_strides: {:?}", candidate_outputs2.1);
+        println!("sorted_perm_shape: {:?}", candidate_outputs2.2);
         candidate_outputs2
     } else {
         println!("Candidate1");
+        println!("sorted_perm_in_strides: {:?}", candidate_outputs1.0);
+        println!("sorted_out_strides: {:?}", candidate_outputs1.1);
+        println!("sorted_perm_shape: {:?}", candidate_outputs1.2);
         candidate_outputs1
     }
 }
@@ -1049,7 +1057,6 @@ pub fn fused_reshape_permute_reshape_into_prepare(
         if *suffix_prod != 0 {
             break;
         }
-
         dim_accumulator /= *dim as isize;
         *suffix_prod = dim_accumulator;
     }
@@ -1237,6 +1244,7 @@ pub fn fused_reshape_permute_reshape_into_prepare(
 ///
 /// * [`fused_reshape_permute_reshape_into_prepare`] - Prepare optimized parameters
 /// * [`fused_reshape_permute_reshape_into`] - Safe wrapper around this function
+/// 
 pub unsafe fn fused_reshape_permute_reshape_into_impl<E: Copy>(
     inp: *const E,
     out: *mut E,
@@ -1336,6 +1344,7 @@ pub unsafe fn fused_reshape_permute_reshape_into_impl<E: Copy>(
 ///
 /// * [`fused_reshape_permute_reshape_into_prepare`] - Prepare optimized parameters
 /// * [`fused_reshape_permute_reshape_into_impl`] - Low-level implementation
+/// 
 pub fn fused_reshape_permute_reshape_into<E: Copy>(
     inp: MatRef<E>,
     shape: &[usize],
@@ -1353,7 +1362,13 @@ pub fn fused_reshape_permute_reshape_into<E: Copy>(
         perm,
     );
     unsafe {
-        fused_reshape_permute_reshape_into_impl(inp.as_ptr(), out.as_ptr_mut(), &is, &os, &dims);
+        fused_reshape_permute_reshape_into_impl(
+            inp.as_ptr(), 
+            out.as_ptr_mut(), 
+            &is, 
+            &os,
+            &dims
+        );
     }
 }
 
@@ -1421,6 +1436,7 @@ mod tests {
         }
         
         // Merging contiguous axes, although not all axes are contiguous
+        // Non-contiguous test (easy)
         // Reshape 1 is a merge, reshape 2 doesn't do anything.
         {
             let sample3_in_shape = &[2, 3, 20];
@@ -1448,6 +1464,7 @@ mod tests {
         }
 
         // Merging contiguous axes, although not all axes are contiguous
+        // Non-contiguous test (harder)
         // Reshape 1 is a merge, reshape 2 is a split.
         {
             let offset_in_1 = 2;
@@ -1527,7 +1544,7 @@ mod tests {
             );
             assert_eq!(result5, expected5);
         }
-    
+
     }
 
     #[test]

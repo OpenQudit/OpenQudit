@@ -1,3 +1,5 @@
+//! Functions and structs for efficient generalized matrix multiplication (GEMM).
+
 use coe::is_same;
 use nano_gemm::Plan;
 use num_traits::One;
@@ -9,27 +11,86 @@ use crate::matrix::MatMut;
 use crate::matrix::MatRef;
 use crate::ComplexScalar;
 
+/// Stores a plan for a generalized matrix multiplication (GEMM). Based on the dimensions and underlying
+/// field of the matrices, the plan will select the appropriate mili/micro-kernels for performance.
 pub struct MatMulPlan<C: ComplexScalar> {
     plan: Plan<C>,
 }
 
 impl<C: ComplexScalar> MatMulPlan<C> {
+    
+    /// Creates a new GEMM plan for column-major matrices.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `m`: Number of rows in the left-hand side matrix.
+    /// * `n`: Number of columns in the right-hand side matrix.
+    /// * `k`: Number of columns in the left-hand side matrix. 
+    ///     This should equal the number of rows in the right-hand side matrix.
+    /// 
+    /// # Returns
+    /// 
+    /// * A `MatMulPlan` instance.
+    /// 
     pub fn new(m: usize, n: usize, k: usize) -> Self {
         if is_same::<C, c32>() {
             let plan = Plan::new_colmajor_lhs_and_dst_c32(m, n, k);
-            Self { plan: unsafe { std::mem::transmute(plan) } }
+            // Safety: This is safe because C is c32. 
+            Self {plan: unsafe { std::mem::transmute(plan) } }
         } else {
             let plan = Plan::new_colmajor_lhs_and_dst_c64(m, n, k);
-            Self { plan: unsafe { std::mem::transmute(plan) } }
+            Self {plan: unsafe { std::mem::transmute(plan) } }
         }
     }
 
+    /// Executes the milikernel of the plan, for matrix multiplication. (`alpha = 0`, `beta = 1`)
+    /// We do not perform comprehensive checks.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `lhs`: The left-hand side matrix to multiply.
+    /// * `rhs`: The right-hand side matrix to multiply.
+    /// * `out`: The output matrix where the result will be stored.
+    /// 
+    /// # Safety 
+    /// 
+    /// * The matrices must be column-major.
+    /// * The dimensions of `out` must be `lhs.nrows() * rhs.nrows()` by `lhs.ncols() * rhs.ncols()`.
+    /// 
+    /// # Examples
+    /// ```
+    /// use qudit_core::accel::MatMulPlan;
+    /// use qudit_core::matrix::{mat, Mat};
+    /// use qudit_core::c64;
+    /// 
+    /// let mut out = Mat::<c64>::zeros(2, 2);
+    /// 
+    /// let lhs = mat![
+    ///     [c64::new(1.0, 0.0), c64::new(2.0, 0.0)],
+    ///     [c64::new(3.0, 0.0), c64::new(4.0, 0.0)]
+    /// ];
+    /// let rhs = mat![
+    ///     [c64::new(5.0, 0.0), c64::new(6.0, 0.0)],
+    ///     [c64::new(7.0, 0.0), c64::new(8.0, 0.0)]
+    /// ];
+    /// 
+    /// let test_plan = MatMulPlan::new(lhs.nrows(), rhs.ncols(), lhs.ncols());
+    /// test_plan.execute_unchecked(lhs.as_ref(), rhs.as_ref(), out.as_mut());
+    /// 
+    /// let expected = mat![
+    ///     [c64::new(19.0, 0.0), c64::new(22.0, 0.0)],
+    ///     [c64::new(43.0, 0.0), c64::new(50.0, 0.0)]
+    /// ];
+    /// 
+    /// assert_eq!(expected, out);
+    /// ```
+    /// 
     pub fn execute_unchecked(&self, lhs: MatRef<C>, rhs: MatRef<C>, out: MatMut<C>) {
         let m = lhs.nrows();
         let n = rhs.ncols();
         let k = lhs.ncols();
-
         let out_col_stride = out.col_stride();
+
         unsafe {
             self.plan.execute_unchecked(
                 m,
@@ -52,12 +113,54 @@ impl<C: ComplexScalar> MatMulPlan<C> {
         }
     }
 
+    /// Executes the milikernel of the plan, for matrix multiplication followed by addition. 
+    /// (`alpha = 1`, `beta = 1`) We do not perform comprehensive checks.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `lhs`: The left-hand side matrix to add.
+    /// * `rhs`: The right-hand side matrix to add.
+    /// * `out`: The output matrix where the result will be stored.
+    /// 
+    /// # Safety
+    /// 
+    /// * The matrices must be column-major.
+    /// * The dimensions of `out` must be `lhs.nrows() * rhs.nrows()` by `lhs.ncols() * rhs.ncols()`.
+    /// 
+    /// # Examples
+    /// ```
+    /// use qudit_core::accel::MatMulPlan;
+    /// use qudit_core::matrix::{mat, Mat};
+    /// use qudit_core::c64;
+    /// 
+    /// let mut out = Mat::<c64>::ones(2, 2);
+    /// 
+    /// let lhs = mat![
+    ///     [c64::new(1.0, 0.0), c64::new(2.0, 0.0)],
+    ///     [c64::new(3.0, 0.0), c64::new(4.0, 0.0)]
+    /// ];
+    /// let rhs = mat![
+    ///     [c64::new(5.0, 0.0), c64::new(6.0, 0.0)],
+    ///     [c64::new(7.0, 0.0), c64::new(8.0, 0.0)]
+    /// ];
+    /// 
+    /// let test_plan = MatMulPlan::new(lhs.nrows(), rhs.ncols(), lhs.ncols());
+    /// test_plan.execute_add_unchecked(lhs.as_ref(), rhs.as_ref(), out.as_mut());
+    /// 
+    /// let expected = mat![
+    ///     [c64::new(20.0, 0.0), c64::new(23.0, 0.0)],
+    ///     [c64::new(44.0, 0.0), c64::new(51.0, 0.0)]
+    /// ];
+    /// 
+    /// assert_eq!(expected, out);
+    /// ```
+    ///
     pub fn execute_add_unchecked(&self, lhs: MatRef<C>, rhs: MatRef<C>, out: MatMut<C>) {
         let m = lhs.nrows();
         let n = rhs.ncols();
         let k = lhs.ncols();
-
         let out_col_stride = out.col_stride();
+        
         unsafe {
             self.plan.execute_unchecked(
                 m,
@@ -81,19 +184,61 @@ impl<C: ComplexScalar> MatMulPlan<C> {
     }
 }
 
-/// Matrix-matrix multiplication.
+/// Performs matrix-matrix multiplication. (`alpha = 0`, `beta = 1`) 
+/// 
+/// # Arguments
+/// 
+/// * `lhs`: The left-hand side matrix to multiply.
+/// * `rhs`: The right-hand side matrix to multiply.
+/// * `out`: The output matrix where the result will be stored.
+/// 
+/// # Safety
+/// 
+/// * The matrices must be column-major.
+/// * The dimensions of `out` must be `lhs.nrows() * rhs.nrows()` by `lhs.ncols() * rhs.ncols()`.
+///
+/// # Examples
+/// ```
+/// use qudit_core::accel::matmul_unchecked;
+/// use qudit_core::matrix::{mat, Mat};
+/// use qudit_core::c64;
+/// 
+/// let mut out = Mat::<c64>::zeros(2, 2);
+/// 
+/// let lhs = mat![
+///     [c64::new(1.0, 0.0), c64::new(2.0, 0.0)],
+///     [c64::new(3.0, 0.0), c64::new(4.0, 0.0)]
+/// ];
+/// let rhs = mat![
+///     [c64::new(5.0, 0.0), c64::new(6.0, 0.0)],
+///     [c64::new(7.0, 0.0), c64::new(8.0, 0.0)]
+/// ];
+/// 
+/// matmul_unchecked(lhs.as_ref(), rhs.as_ref(), out.as_mut());
+/// 
+/// let expected = mat![
+///     [c64::new(19.0, 0.0), c64::new(22.0, 0.0)],
+///     [c64::new(43.0, 0.0), c64::new(50.0, 0.0)]
+/// ];
+/// 
+/// assert_eq!(expected, out);
+/// ```
+/// 
 #[inline(always)]
 pub fn matmul_unchecked<C: ComplexScalar>(lhs: MatRef<C>, rhs: MatRef<C>, out: MatMut<C>) {
     let m = lhs.nrows();
     let n = rhs.ncols();
     let k = lhs.ncols();
 
+    // After the runtime check of C, we explicitly transmute our inputs.
+    // This allows type-specific optimizations.
     if is_same::<C, c32>() {
         let plan = Plan::new_colmajor_lhs_and_dst_c32(m, n, k);
         let out: MatMut<c32> = unsafe { std::mem::transmute(out) };
         let rhs: MatRef<c32> = unsafe { std::mem::transmute(rhs) };
         let lhs: MatRef<c32> = unsafe { std::mem::transmute(lhs) };
         let out_col_stride = out.col_stride();
+        
         unsafe {
             plan.execute_unchecked(
                 m,
@@ -120,6 +265,7 @@ pub fn matmul_unchecked<C: ComplexScalar>(lhs: MatRef<C>, rhs: MatRef<C>, out: M
         let rhs: MatRef<c64> = unsafe { std::mem::transmute(rhs) };
         let lhs: MatRef<c64> = unsafe { std::mem::transmute(lhs) };
         let out_col_stride = out.col_stride();
+        
         unsafe {
             plan.execute_unchecked(
                 m,
@@ -145,11 +291,9 @@ pub fn matmul_unchecked<C: ComplexScalar>(lhs: MatRef<C>, rhs: MatRef<C>, out: M
 
 #[cfg(test)]
 mod tests {
-    // use crate::matrix::MatMut;
-    // use crate::matrix::MatRef;
     use super::matmul_unchecked;
-    use crate::c32;
-    use crate::matrix::Mat;
+    use crate::{c32, c64};
+    use crate::matrix::{Mat, mat};
     use num_traits::Zero;
 
     #[test]
@@ -185,5 +329,28 @@ mod tests {
                 assert_eq!(out[(i, j)], sum);
             }
         }
+    }
+    
+    #[test]
+    fn matmul_unchecked2() {
+        let mut out = Mat::<c64>::zeros(2, 2);
+
+        let lhs = mat![
+            [c64::new(1.0, 0.0), c64::new(2.0, 0.0)],
+            [c64::new(3.0, 0.0), c64::new(4.0, 0.0)]
+        ];
+        let rhs = mat![
+            [c64::new(5.0, 0.0), c64::new(6.0, 0.0)],
+            [c64::new(7.0, 0.0), c64::new(8.0, 0.0)]
+        ];
+
+        matmul_unchecked(lhs.as_ref(), rhs.as_ref(), out.as_mut());
+
+        let expected = mat![
+            [c64::new(19.0, 0.0), c64::new(22.0, 0.0)],
+            [c64::new(43.0, 0.0), c64::new(50.0, 0.0)]
+        ];
+
+        assert_eq!(out, expected);
     }
 }

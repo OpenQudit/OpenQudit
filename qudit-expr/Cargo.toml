@@ -8,8 +8,8 @@ edition = "2021"
 [dependencies]
 qudit-core = { path = "../qudit-core" }
 num = "*"
-inkwell = { version = "0.5.0", features = ["llvm17-0"] }
-llvm-sys = { version = "170.0.1" }
+inkwell = { version = "0.6.0", features = ["llvm18-1"] }
+llvm-sys = { version = "181.2.0" }
 coe-rs = "*"
 egg = "*"
 ordered-float = "*"

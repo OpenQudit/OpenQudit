@@ -1,3 +1,5 @@
+//! Implements a struct for unitary matrices and associated methods for the Openqudit library.
+
 use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::ops::Deref;

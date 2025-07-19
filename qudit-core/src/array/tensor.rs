@@ -1,6 +1,9 @@
+//! Implements the tensor struct and associated methods for the Openqudit library.
+//! Support for arbitrary finite dimensions and strides enables optimization.
+
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::ptr::NonNull;
-
+use crate::memory::{alloc_zeroed_memory, calc_next_stride, Memorable, MemoryBuffer};
 
 // Helper for flat index calculation
 fn calculate_flat_index<const D: usize>(indices: &[usize; D], strides: &[usize; D]) -> usize {
@@ -23,13 +26,13 @@ fn check_bounds<const D: usize>(indices: &[usize; D], dimensions: &[usize; D]) {
     }
 }
 
-use crate::memory::{alloc_zeroed_memory, calc_next_stride, Memorable, MemoryBuffer};
-
+/// A tensor struct that holds data in an aligned memory buffer.
 pub struct Tensor<C: Memorable, const D: usize> {
+    /// The data buffer containing the tensor elements.
     pub data: MemoryBuffer<C>,
     dimensions: [usize; D],
     strides: [usize; D],
-}
+} 
 
 impl<C: Memorable, const D: usize> Tensor<C, D> {
     /// Helper function to calculate strides based on dimensions.
@@ -199,6 +202,34 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
         }
     }
 
+    /// Creates a new tensor with all elements initialized to zero,
+    /// with specified shape.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `dims` - A slice of `usize` containing the size of each dimension.
+    /// 
+    /// # Returns
+    /// 
+    /// * An new tensor with specified shape, filled with zeros.
+    /// 
+    /// # Panics
+    /// 
+    /// * If the length of `dims` is not equal to the number of
+    ///     dimensions of the tensor.
+    /// 
+    /// # Examples
+    /// ```
+    /// use qudit_core::array::Tensor;
+    /// 
+    /// let test_tensor = Tensor::<f64, 2>::zeros(&[3, 4]);
+    /// 
+    /// for i in 0..3 {
+    ///     for j in 0..4 {
+    ///         assert_eq!(test_tensor.data[(4*i + j) as usize], 0.0);
+    ///     }
+    /// }
+    /// ```
     pub fn zeros(dims: &[usize]) -> Self {
         assert_eq!(dims.len(), D);
 
@@ -219,6 +250,7 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
                 strides: [1; D],
             };
         }
+
         let mut stride_acm = 1;
         let mut strides = [0; D];
         let mut dimensions = [0; D];
@@ -237,6 +269,37 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
         }
     }
 
+    /// Creates a new tensor with all elements initialized to zero,
+    /// with specified shape and strides.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `dims` - A slice of `usize` containing the size of each dimension
+    /// * `strides` - A slice of `usize` containing the stride for each dimension.
+    /// 
+    /// # Returns
+    /// 
+    /// * A new tensor with specified shape and strides, filled with zeros.
+    /// 
+    /// # Panics
+    /// 
+    /// * If the length of `dims` or `strides` is not equal to the number of
+    ///     dimensions of the tensor.
+    /// * If the size of any dimension is zero but the corresponding stride is non-zero.
+    /// * If the size of any dimension is non-zero but the corresponding stride is zero.
+    ///
+    /// # Examples
+    /// ```
+    /// use qudit_core::array::Tensor;
+    /// 
+    /// let test_tensor = Tensor::<f64, 2>::zeros_with_strides(&[3, 4], &[4, 1]);
+    ///
+    /// for i in 0..3 {
+    ///     for j in 0..4 {
+    ///         assert_eq!(test_tensor.at([i, j]), &0.0);
+    ///     }
+    /// }
+    /// ```
     pub fn zeros_with_strides(dims: &[usize], strides: &[usize]) -> Self {
         assert_eq!(dims.len(), D);
         assert_eq!(strides.len(), D);
@@ -357,7 +420,6 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
     }
 }
 
-
 // Helper struct for recursively formatting the tensor data
 // to display it as a multi-dimensional array.
 struct TensorDataDebugHelper<'a, C: Display> {
@@ -418,7 +480,6 @@ impl<'a, C: Display> Debug for TensorDataDebugHelper<'a, C> {
         }
     }
 }
-
 
 impl<C: Display + Debug + Memorable, const D: usize> Debug for Tensor<C, D> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
@@ -484,6 +545,7 @@ impl<'a, C: Display + Debug + Memorable, const D: usize> Debug for TensorRef<'a,
 //     }
 // }
 
+/// A view struct of a tensor. It holds a reference to the underlying data.
 pub struct TensorRef<'a, C: Memorable, const D: usize> {
     data: NonNull<C>,
     dimensions: [usize; D],

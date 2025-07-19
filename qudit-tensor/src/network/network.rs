@@ -1,603 +1,391 @@
-use qudit_core::TensorShape;
-use qudit_core::{ParamIndices, QuditRadices};
-use super::path::ContractionPath;
-use super::IndexDirection;
-use super::NetworkIndex;
+use std::{collections::{BTreeMap, BTreeSet, HashMap}, hash::Hash};
 
-use super::QuditTensor;
-use super::Wire;
-use super::IndexSize;
-use super::contraction::QuditContraction;
-use std::collections::BTreeMap;
-use std::collections::BTreeSet;
-use std::collections::HashMap;
+use qudit_core::{QuditRadices, TensorShape};
 
 use crate::tree::ExpressionTree;
+use super::path::ContractionPath;
+use super::tensor::QuditTensor;
+use super::index::NetworkIndex;
+use super::index::TensorIndex;
+use super::index::ContractionIndex;
+use super::index::WeightedIndex;
+use super::index::IndexDirection;
+use super::index::IndexId;
+use super::index::IndexSize;
+use super::TensorId;
 
-// Assume: Each index appears in only one pairwise contraction
-// Assume: Optimal Contraction is done with fewer than 64 indices
-//
-// A QuditCircuitNetwork is referenced by many ways:
-// * by *qudit_ids* (0, 1, 2, ...), these are the qudits in the circuit
-// * by *tensor_ids* (0, 1, 2, ...), these are the tensors in the circuit
-// tensor_ids are unique and don't change even if tensors are moved or deleted
-// * by *index_ids*:
-// - indices describe the links on and between tensors, which in turn, describe the
-//   contractions.
-// - Since each tensor is not a static dump of data, and rather associated with an
-//   expression that will generate the data in either a 1D, 2D, or 3D shape, we
-//   remember each tensor's "local" index ids. These describe the tensor from
-//   the tensor generator's perspective. Remembering these allows us to determine
-//   the necessary transformations to apply to the data after generation to perform
-//   the desired network contractions.
-// - The network as a whole has a set of "global" index ids. These ids directly
-//   correspond (1:1) with a tensor-tensor contraction. The contraction data
-//   stored in `intermediate` maps these global ids to their contraction data.
-//   The contraction data captures which tensors are involved and the local ids
-//   for each involved.
-pub struct QuditCircuitNetwork {
+pub type NetworkEdge = (NetworkIndex, BTreeSet<TensorId>);
+
+pub struct QuditTensorNetwork {
     tensors: Vec<QuditTensor>,
-    unused: BTreeSet<usize>,
-
-    radices: QuditRadices,
-    left: Vec<Wire>,
-    right: Vec<Wire>,
-    // up_index_tensor_map: BTreeMap<String,Vec<usize>>,
-    up_indices: Vec<(String,IndexSize)>,
-    intermediate: Vec<QuditContraction>,
+    local_to_network_index_map: Vec<Vec<IndexId>>,
+    indices: Vec<NetworkEdge>,
 }
 
-impl QuditCircuitNetwork {
-    pub fn new(radices: QuditRadices) -> Self {
-        QuditCircuitNetwork {
-            tensors: vec![],
-            unused: BTreeSet::new(),
-            left: vec![Wire::Empty; radices.len()],
-            right: vec![Wire::Empty; radices.len()],
-            // up_index_tensor_map: BTreeMap::new(),
-            up_indices: Vec::new(),
-            radices,
-            intermediate: vec![],
+// TODO: handle multiple disjoint (potentially empty) subnetworks
+// TODO: handle partial trace
+impl QuditTensorNetwork {
+    pub fn new(tensors: Vec<QuditTensor>, local_to_network_index_map: Vec<Vec<IndexId>>, indices: Vec<NetworkEdge>) -> Self {
+        for (index, edge) in indices.iter() {
+            if edge.is_empty() {
+                panic!("Index not attached to any tensor detected. Empty indices, must have explicit identity/copy tensors attached before final network construction.");
+            }
+        }
+
+        QuditTensorNetwork {
+            tensors,
+            local_to_network_index_map,
+            indices,
         }
     }
 
-    pub fn index_size(&self, index: &NetworkIndex) -> usize {
-        match index {
-            &NetworkIndex::Open(qudit_id, _) => self.radices[qudit_id] as usize,
-            &NetworkIndex::Contracted(contraction_id) => self.intermediate[contraction_id].total_dimension,
-            &NetworkIndex::Shared(batch_id, _) => self.up_indices[batch_id].1,
+    // fn get_num_outputs(&self) -> usize {
+    //     todo!()
+    // }
+
+    fn num_indices(&self) -> usize {
+        self.indices.len()
+    }
+    
+    fn index_id(&self, idx: &NetworkIndex) -> Option<IndexId> {
+        self.indices.iter().position(|x| &x.0 == idx)
+    }
+
+    fn index_size(&self, idx_id: IndexId) -> Option<IndexSize> {
+        if idx_id >= self.num_indices() {
+            return None
+        }
+
+        // Safety: checked bounds
+        unsafe { Some(self.index_size_unchecked(idx_id)) }
+    }
+
+    unsafe fn index_size_unchecked(&self, idx_id: IndexId) -> IndexSize {
+        match &self.indices[idx_id].0 {
+            NetworkIndex::Output(tidx) => tidx.index_size(),
+            NetworkIndex::Contracted(con) => con.index_size(),
         }
     }
 
-    /// Prepend a tensor onto the circuit network
-    ///
-    /// # Arguments
-    ///
-    /// * `tensor` - The tensor to prepend
-    ///
-    /// * `right_qudit_map` - An array of qudit ids that maps the tensors right local indices to
-    ///     the circuit qudit ids, such that `right_qudit_map[i] == qudit_id` means that the
-    ///     `tensor.right_indices[i]` will be joined with existing leftmost leg on `qudit_id`.
-    ///
-    /// * `left_qudit_map` - An array of qudit ids that maps the tensors left local indices to
-    ///    the circuit qudit ids, such that `left_qudit_map[i] == qudit_id` means that the
-    ///    `tensor.left_indices[i]` will now be the leftmost leg on `qudit_id`.
-    pub fn prepend(
-        &mut self,
-        tensor: QuditTensor,
-        left_qudit_map: Vec<usize>,
-        right_qudit_map: Vec<usize>,
-        batch_index_map: Vec<String>,
-    ) {
-        let left_tensor_indices = tensor.output_indices();
-        let right_tensor_indices = tensor.input_indices();
-        let up_tensor_indices = tensor.up_indices();
+    fn get_output_indices(&self) -> Vec<TensorIndex> {
+        self.indices.iter().filter_map(|x| match &x.0 {
+            NetworkIndex::Output(idx) => Some(idx),
+            NetworkIndex::Contracted(_) => None,
+        }).copied().collect()
+    }
 
-        if left_tensor_indices.len() != left_qudit_map.len() {
-            panic!("Left tensor indices and left qudit map lengths do not match");
-        }
-        if right_tensor_indices.len() != right_qudit_map.len() {
-            panic!("Right tensor indices and right qudit map lengths do not match");
-        }
-        for (i, qudit_id) in left_qudit_map.iter().enumerate() {
-            if *qudit_id >= self.radices.len() {
-                panic!("Left qudit id {} is out of bounds", qudit_id);
-            }
-            if self.radices[*qudit_id] != tensor.input_radices()[i] {
-                panic!("Left qudit id {} has different radices", qudit_id);
-            }
-        }
-        for (i, qudit_id) in right_qudit_map.iter().enumerate() {
-            if *qudit_id >= self.radices.len() {
-                panic!("Right qudit id {} is out of bounds", qudit_id);
-            }
-            if self.radices[*qudit_id] != tensor.output_radices()[i] {
-                panic!("Right qudit id {} has different radices", qudit_id);
-            }
-        }
-        if batch_index_map.len() != up_tensor_indices.len() {
-            panic!("Batch index map is invalid.");
-        }
-        for (i, batch_index) in batch_index_map.iter().enumerate() {
-            let batch_dim = tensor.up_radices()[i] as usize; 
-            for (up_index, up_dim) in self.up_indices.iter() {
-                if up_index == batch_index && *up_dim != batch_dim {
-                    panic!("Batch dimension of new tensor index does not match existing network index dimension.");
-                }
-            }
-        }
-
-        // add this as a new node
-        let tensor_id = self.tensors.len();
-        self.tensors.push(tensor);
-
-        let mut contracting_nodes: HashMap<usize, QuditContraction> = HashMap::new();
-        for (i, qudit_id) in right_qudit_map.iter().enumerate() {
-            let local_index_id = right_tensor_indices[i];
-            // println!("Iterating over right qudit map: i:{} qudit_id:{} local_index_id:{}", i, qudit_id, local_index_id);
-            match self.left[*qudit_id] {
-                Wire::Empty => {
-                    self.right[*qudit_id] = Wire::Connected(tensor_id, local_index_id);
-                },
-                Wire::Connected(right_id, right_local_index_id) => {
-                    // Make a new contraction and update left wire
-                    // This may not be the first time we say this node either
-                    match contracting_nodes.get_mut(&right_id) {
-                        Some(contraction) => {
-                            contraction.left_indices.push(local_index_id);
-                            contraction.right_indices.push(right_local_index_id);
-                            contraction.total_dimension *= self.radices[*qudit_id] as usize;
-                        },
-                        None => {
-                            let new_contraction = QuditContraction {
-                                left_id: tensor_id,
-                                right_id,
-                                left_indices: vec![local_index_id],
-                                right_indices: vec![right_local_index_id],
-                                total_dimension: self.radices[*qudit_id] as usize,
-                            };
-                            contracting_nodes.insert(right_id, new_contraction);
-                        }
+    fn get_output_shape(&self) -> TensorShape {
+        /// Calculate dimension totals for each direction
+        let mut total_batch_dim = None;
+        let mut total_output_dim = None;
+        let mut total_input_dim = None;
+        for idx in self.get_output_indices() {
+            match idx.direction() {
+                IndexDirection::Batch => {
+                    if let Some(value) = total_batch_dim.as_mut() {
+                        *value *= idx.index_size();
+                    } else {
+                        total_batch_dim = Some(idx.index_size());
                     }
                 }
-                Wire::Closed => {
-                    panic!("Left qudit {} is closed", qudit_id);
+                IndexDirection::Output => {
+                    if let Some(value) = total_output_dim.as_mut() {
+                        *value *= idx.index_size();
+                    } else {
+                        total_output_dim = Some(idx.index_size());
+                    }
                 }
-            }
-            if left_qudit_map.contains(qudit_id) {
-                // If it's in the right qudit map, we need to open it
-                let left_i = left_qudit_map.iter().position(|&x| x == *qudit_id).unwrap();
-                let outgoing_local_index_id = left_tensor_indices[left_i];
-                self.left[*qudit_id] = Wire::Connected(tensor_id, outgoing_local_index_id);
-            } else {
-                // If it's not in the right qudit map, we need to close it
-                self.left[*qudit_id] = Wire::Closed;
+                IndexDirection::Input => {
+                    if let Some(value) = total_input_dim.as_mut() {
+                        *value *= idx.index_size();
+                    } else {
+                        total_input_dim = Some(idx.index_size());
+                    }
+                }
             }
         }
 
-        for (i, qudit_id) in left_qudit_map.iter().enumerate() {
-            if left_qudit_map.contains(&qudit_id) {
-                // Already processed
+        match (total_batch_dim, total_output_dim, total_input_dim) {
+            (None, None, None) => TensorShape::Scalar,
+            (Some(nbatches), None, None) => TensorShape::Vector(nbatches),
+            (None, Some(nrows), None) => TensorShape::Matrix(nrows, 1), // Ket
+            (None, None, Some(ncols)) => TensorShape::Vector(ncols), // Bra
+            (Some(nbatches), Some(nrows), None) => TensorShape::Tensor3D(nbatches, nrows, 1),
+            (Some(nbatches), None, Some(ncols)) => TensorShape::Matrix(nbatches, ncols),
+            (None, Some(nrows), Some(ncols)) => TensorShape::Matrix(nrows, ncols),
+            (Some(nmats), Some(nrows), Some(ncols)) => TensorShape::Tensor3D(nmats, nrows, ncols),
+        }
+    }
+
+    fn get_tensor_unique_network_indices(&self, tensor_id: TensorId) -> BTreeSet<NetworkIndex> {
+        self.local_to_network_index_map[tensor_id].iter().map(|&idx_id| self.indices[idx_id].0.clone()).collect()
+    }
+
+    fn get_tensor_unique_flat_indices(&self, tensor_id: TensorId) -> BTreeSet<WeightedIndex> {
+        self.local_to_network_index_map[tensor_id].iter().map(|&idx_id| (idx_id, self.index_size(idx_id).expect("Index id unexpectedly not found"))).collect()
+    }
+
+    fn get_tensor_output_index_ids(&self, tensor_id: TensorId) -> BTreeSet<IndexId> {
+        self.local_to_network_index_map[tensor_id].iter().filter(|&idx_id| self.indices[*idx_id].0.is_output()).copied().collect()
+   }
+
+    // fn convert_network_to_flat_index(&self, idx: &NetworkIndex) -> WeightedIndex {
+    //     match idx {
+    //         NetworkIndex::Output(idx) => (*idx, self.output_indices[*idx].index_size()),
+    //         NetworkIndex::Contracted(idx) => (*idx + self.get_num_outputs(), self.contractions[*idx].total_dimension),
+    //     }
+    // }
+    
+    fn get_neighbors(&self, tensor: TensorId) -> BTreeSet<TensorId> {
+        let mut neighbors = BTreeSet::new();
+        for idx_id in &self.local_to_network_index_map[tensor] {
+            neighbors.extend(self.indices[*idx_id].1.iter());
+        }
+        neighbors
+    }
+    
+    fn get_subnetworks(&self) -> Vec<Vec<TensorId>> {
+        let mut subnetworks: Vec<Vec<TensorId>> = Vec::new();
+        let mut visited = vec![false; self.tensors.len()];
+
+        for current_tensor_id in 0..self.tensors.len() {
+            if visited[current_tensor_id] {
                 continue;
             }
-            let local_index_id = left_tensor_indices[i];
-            match self.left[*qudit_id] {
-                Wire::Closed => {
-                    // If it's closed, we need to open it
-                    self.left[*qudit_id] = Wire::Connected(tensor_id, local_index_id);
-                },
-                _ => {
-                    // If it's not closed then error.
-                    panic!("Right qudit {} is closed", qudit_id);
+
+            let mut current_subnetwork = Vec::new();
+            let mut queue = vec![current_tensor_id];
+
+            while let Some(tensor_id) = queue.pop() {
+                if visited[tensor_id] {
+                    continue
                 }
-            }
-        }
+                visited[tensor_id] = true;
+                current_subnetwork.push(tensor_id);
 
-        for (i, qudit_id) in left_qudit_map.iter().enumerate() {
-            self.tensors[tensor_id].local_to_global_index_map.insert(
-                left_tensor_indices[i],
-                NetworkIndex::Open(*qudit_id, IndexDirection::Output),
-            );
-        }
-
-        for (i, qudit_id) in right_qudit_map.iter().enumerate() {
-            self.tensors[tensor_id].local_to_global_index_map.insert(
-                right_tensor_indices[i],
-                NetworkIndex::Open(*qudit_id, IndexDirection::Input),
-            );
-        }
-        for (i, &idx_id) in self.tensors[tensor_id].up_indices().iter().enumerate() {
-            let batch_index_name = &batch_index_map[i];
-            let dim = self.tensors[tensor_id].up_radices()[i] as usize;
-
-            let mut global_up_index_id = None;
-            for (j, (existing_name, _)) in self.up_indices.iter().enumerate() {
-                if existing_name == batch_index_name {
-                    global_up_index_id = Some(j);
-                    break;
+                for neighbor in self.get_neighbors(tensor_id) {    
+                    if !visited[neighbor] {
+                        queue.push(neighbor);
+                    }
                 }
             }
 
-            let final_idx_id = if let Some(id) = global_up_index_id { 
-                id
+            subnetworks.push(current_subnetwork);
+        }
+        subnetworks
+    }
+
+    pub fn solve_for_path(&self) -> ContractionPath {
+        let mut disjoint_paths = Vec::new();
+
+        for subgraph in self.get_subnetworks() {
+            let input = self.build_trivial_contraction_paths(subgraph);
+            let path = if input.len() < 8 {
+                ContractionPath::solve_optimal_simple(input)
             } else {
-                let new_id = self.up_indices.len();
-                self.up_indices.push((batch_index_name.clone(), dim));
-                new_id
+                ContractionPath::solve_greedy_simple(input)
             };
-
-            self.tensors[tensor_id].local_to_global_index_map.insert(
-                idx_id,
-                NetworkIndex::Shared(final_idx_id, IndexDirection::Up)
-            );
+            disjoint_paths.push(path);
         }
 
-        // println!("local_to_global_index_map for tensor {}: {:?}", tensor_id, self.tensors[tensor_id].local_to_global_index_map);
-
-        for (_, contraction) in contracting_nodes.drain() {
-            let global_index_id = self.intermediate.len();
-            println!("Contraction {}: {:?}", global_index_id, contraction);
-            // update the left tensor
-            for i in &contraction.left_indices {
-                self.tensors[contraction.left_id].local_to_global_index_map.insert(*i, NetworkIndex::Contracted(global_index_id));
-            }
-            println!("local_to_global_index_map for tensor {}: {:?}", contraction.left_id, self.tensors[contraction.left_id].local_to_global_index_map);
-
-            // update the right tensor
-            for i in &contraction.right_indices {
-                self.tensors[contraction.right_id].local_to_global_index_map.insert(*i, NetworkIndex::Contracted(global_index_id));
-            }
-            println!("local_to_global_index_map for tensor {}: {:?}", contraction.right_id, self.tensors[contraction.right_id].local_to_global_index_map);
-
-            // add contraction to the list of intermediate contractions
-            self.intermediate.push(contraction);
-        }
+        ContractionPath::solve_by_size_simple(disjoint_paths)
+        // pick smallest two and contract (TODO: add new operation to TTGT tree method to
+        // determine function. If contracted indices.len() == 0 then just KRON (need batch kron
+        // too)).
     }
 
-    fn build_trivial_contraction_paths(&self) -> Vec<ContractionPath> {
-        let mut open_index_counter = self.intermediate.len() + self.up_indices.len();
-        self.tensors.iter()
-            .enumerate()
-            .filter(|(i, _)| !self.unused.contains(&i))
-            .map(|(i, tensor)| {
-                let mut indices = Vec::new();
-                let mut unsummed_indices = Vec::new();
-                for index in tensor.network_indices() {
-                    match index {
-                        NetworkIndex::Open(_qudit_id, _direction) => {
-                            indices.push(open_index_counter);
-                            open_index_counter += 1;
-                        },
-                        NetworkIndex::Contracted(contraction_id) => {
-                            indices.push(contraction_id);
-                        }
-                        NetworkIndex::Shared(up_index, _direction) => {
-                            indices.push(self.intermediate.len() + up_index);
-                            unsummed_indices.push(self.intermediate.len() + up_index);
-                        }
-                    }
-                }
-                println!("Tensor {} indices: {:?}", i, indices);
-                ContractionPath::trivial(i, &indices, &unsummed_indices, tensor.param_indices.to_bitset())
-            })
-            .collect()
+    fn build_trivial_contraction_paths(&self, subnetwork: Vec<TensorId>) -> Vec<ContractionPath> {
+        subnetwork.iter()
+            .map(|&tensor_id| {
+                let flat_indices = self.get_tensor_unique_flat_indices(tensor_id);
+                let output_indices = self.get_tensor_output_index_ids(tensor_id);
+                ContractionPath::trivial(tensor_id, flat_indices, output_indices)
+            }).collect()
     }
 
-    /// Reference: https://arxiv.org/pdf/1304.6112
-    pub fn optimize_optimal_simple(&self) -> ContractionPath {
-        let n = self.tensors.len();
-        if n == 0 {
-            panic!("No tensors in the network");
-        }
+    pub fn path_to_expression_tree(&self, path: ContractionPath) -> ExpressionTree {
+        struct PartialTree {
+            tree: ExpressionTree,
+            indices: Vec<IndexId>,
+            output_indices: BTreeSet<IndexId>
+        };
 
-        // contractions[c] = S[c] = list of optimal contractions for c-length subnetworks
-        let mut contractions: Vec<Vec<ContractionPath>> = vec![vec![]; n];
-        contractions[0] = self.build_trivial_contraction_paths();
-
-        let mut best_costs = HashMap::new();
-        let mut best_contractions = HashMap::new();
-
-        for c in 1..n {
-            for d in 0..((c+1)/2) {
-                let sd = &contractions[d];
-                let scd = &contractions[c - 1 - d];
-                for path_a in sd {
-                    for path_b in scd {
-                        if path_a.subnetwork & path_b.subnetwork != 0 {
-                            // Non-disjoint subnetworks
-                            continue;
-                        }
-
-                        let cost = ContractionPath::calculate_cost(path_a, path_b);
-
-                        let new_subnetwork = path_a.subnetwork | path_b.subnetwork;
-                        match best_costs.get(&new_subnetwork) {
-                            Some(&best_cost) if best_cost <= cost => {
-                                // Found a better path
-                                continue;
-                            }
-                            _ => {
-                                best_costs.insert(new_subnetwork, cost);
-                            }
-                        }
-
-                        best_contractions.insert(new_subnetwork, path_a.contract(path_b));
-                    }
-                }
-            }
-
-            // Update the contractions for the current size
-            best_contractions.drain().for_each(|(subnetwork, path)| {
-                contractions[c].push(path);
-            });
-            best_costs.clear();
-        }
-
-        // Retrieve and return the best contraction path for the entire network
-        contractions[n - 1].iter().next().unwrap_or_else(|| {
-            panic!("No contraction path found for the entire network");
-        }).clone()
-    }
-
-    pub fn path_to_expression_tree(&self, path: &ContractionPath) -> ExpressionTree {
         let mut tree_stack: Vec<PartialTree> = Vec::new();
+
         for path_element in path.path.iter() {
             if *path_element == usize::MAX {
                 let right = tree_stack.pop().unwrap();
                 let left = tree_stack.pop().unwrap();
-                let shared_indices = left.open_indices
-                    .iter()
-                    .filter(|&i| i.is_shared())
-                    .filter(|i| right.open_indices.contains(i))
-                    .cloned()
-                    .collect::<Vec<_>>();
-                let contraction_indices = left.open_indices
-                    .iter()
-                    .filter(|i| right.open_indices.contains(i))
-                    .filter(|&i| !i.is_shared()) // We don't contract over shared indices
+                
+                // Calculate batch and contracted indices
+                let shared_indices = left.output_indices.intersection(&right.output_indices).copied().collect::<Vec<usize>>();
+                let contraction_indices = left.indices.iter().filter(|&i| right.indices.contains(i))
+                    .filter(|&i| !shared_indices.contains(i)) // We don't contract over shared indices
                     .cloned()
                     .collect::<Vec<_>>();
 
-                let left_goal_index_order = shared_indices
-                    .iter()
-                    .chain(left.open_indices
-                            .iter()
-                            .filter(|i| !contraction_indices.contains(i))
-                            .filter(|i| !shared_indices.contains(i))
-                    ).chain(contraction_indices.iter())
-                    .cloned()
-                    .collect::<Vec<_>>();
-                println!("Left goal index order: {:?}", left_goal_index_order);
+                // Calculate left and right index permutations
+                let left_left_indices = left.indices.iter()
+                    .filter(|i| !contraction_indices.contains(i))
+                    .filter(|i| !shared_indices.contains(i))
+                    .copied()
+                    .collect::<Vec<usize>>();
+
+                let right_right_indices = right.indices.iter()
+                    .filter(|i| !contraction_indices.contains(i))
+                    .filter(|i| !shared_indices.contains(i))
+                    .copied()
+                    .collect::<Vec<usize>>();
+
+                let left_goal_index_order = shared_indices.iter()
+                    .chain(left_left_indices.iter())
+                    .chain(contraction_indices.iter())
+                    .copied()
+                    .collect::<Vec<usize>>();
+
+                let right_goal_index_order = shared_indices.iter()
+                    .chain(contraction_indices.iter())
+                    .chain(right_right_indices.iter())
+                    .copied()
+                    .collect::<Vec<usize>>();
 
                 let left_index_transpose = left_goal_index_order
                     .iter()
-                    .map(|i| left.open_indices.iter().position(|x| x == i).unwrap())
-                    .collect::<Vec<_>>();
-
-                let right_goal_index_order = shared_indices
-                    .iter()
-                    .chain(contraction_indices
-                            .iter()
-                            .chain(right.open_indices
-                                    .iter()
-                                    .filter(|i| !contraction_indices.contains(i))
-                                    .filter(|i| !shared_indices.contains(i))
-                            )
-                    )
-                    .cloned()
-                    .collect::<Vec<_>>();
-                println!("Right goal index order: {:?}", right_goal_index_order);
+                    .map(|i| left.indices.iter().position(|x| x == i).unwrap())
+                    .collect::<Vec<usize>>();
 
                 let right_index_transpose = right_goal_index_order
                     .iter()
-                    .map(|i| right.open_indices.iter().position(|x| x == i).unwrap())
-                    .collect::<Vec<_>>();
+                    .map(|i| right.indices.iter().position(|x| x == i).unwrap())
+                    .collect::<Vec<usize>>();
 
-                let batch_size = shared_indices.iter().map(|i| self.index_size(i)).product::<usize>();
-                let contraction_size = contraction_indices.iter().map(|i| self.index_size(i)).product::<usize>();
-                let left_nrows = left.open_indices
-                            .iter()
-                            .filter(|i| !contraction_indices.contains(i))
-                            .filter(|i| !shared_indices.contains(i))
-                            .map(|i| self.index_size(i))
-                            .product::<usize>();
-                let right_ncols = right.open_indices
-                            .iter()
-                            .filter(|i| !contraction_indices.contains(i))
-                            .filter(|i| !shared_indices.contains(i))
-                            .map(|i| self.index_size(i))
-                            .product::<usize>(); 
-                let left_shape = if batch_size == 1 { TensorShape::Matrix(left_nrows, contraction_size) } else { TensorShape::Tensor3D(batch_size, left_nrows, contraction_size) };
-                let right_shape = if batch_size == 1 { TensorShape::Matrix(contraction_size, right_ncols) } else { TensorShape::Tensor3D(batch_size, contraction_size, right_ncols) };
+                println!("Left goal index order: {:?}", left_goal_index_order);
+                println!("Left index permutation: {:?}", left_index_transpose);
+                println!("Right goal index order: {:?}", right_goal_index_order);
+                println!("Right index permutation: {:?}", right_index_transpose);
 
+                // Calculate intermediate shapes
+                let batch_size = shared_indices.iter().map(|&i| self.index_size(i).expect("Index in path must be part of network.")).product::<usize>();
+                let contraction_size = contraction_indices.iter().map(|&i| self.index_size(i).expect("Index in path must be part of network.")).product::<usize>();
+                let left_nrows = left_left_indices.iter().map(|&i| self.index_size(i).expect("Index in path must be part of network.")).product::<usize>();
+                let right_ncols = right_right_indices.iter().map(|&i| self.index_size(i).expect("Index in path must be part of network.")).product::<usize>();
+
+                let (left_shape, right_shape) = if batch_size == 1 {
+                    (
+                        TensorShape::Matrix(left_nrows, contraction_size),
+                        TensorShape::Matrix(contraction_size, right_ncols)
+                    )
+                } else {
+                    (
+                        TensorShape::Tensor3D(batch_size, left_nrows, contraction_size),
+                        TensorShape::Tensor3D(batch_size, contraction_size, right_ncols)
+                    )
+                };
+                
+                // Perform TTG part of TTGT contraction (Last T is part of fused with next contraction)
                 let left_tree = left.tree.transpose(left_index_transpose, left_shape);
                 let right_tree = right.tree.transpose(right_index_transpose, right_shape);
                 let matmul_tree = left_tree.matmul(right_tree);
+                // TODO: currently outer products are performed as a NMx1 x 1xPQ gemm.
+                // TODO: evaluate performance swift from kron.
 
-                let output_index_order = shared_indices
-                    .iter()
-                    .chain(left_goal_index_order.iter().filter(|i| !shared_indices.contains(i)))
-                    .chain(right_goal_index_order.iter().filter(|i| !shared_indices.contains(i))) 
-                    .filter(|i| !contraction_indices.contains(i))
-                    .cloned()
-                    .collect::<Vec<_>>();
-                println!("Output index order: {:?}", output_index_order);
+                // Calculate result indices
+                let result_indices = shared_indices.iter()
+                    .chain(left_left_indices.iter())
+                    .chain(right_right_indices.iter())
+                    .copied()
+                    .collect();
+
+                let result_output_indices = left.output_indices.iter()
+                    .filter(|&i| !right.output_indices.contains(i)) // union = (B - A) + A
+                    .chain(right.output_indices.iter())
+                    .copied()
+                    .collect();
+
+                println!("Resulting index order: {:?}", result_indices);
 
                 tree_stack.push(PartialTree {
                     tree: matmul_tree,
-                    open_indices: output_index_order,
+                    indices: result_indices,
+                    output_indices: result_output_indices,
                 });
-                println!("");
-
             } else {
                 let tensor = self.tensors[*path_element].clone();
-                let open_indices = tensor.network_indices();
-                println!("Tensor {}: {:?}", path_element, open_indices);
-                let tree = ExpressionTree::leaf(tensor.expression, tensor.param_indices);
-                tree_stack.push(PartialTree { tree, open_indices });
+                let indices = self.local_to_network_index_map[*path_element].clone(); // vec<IndexID>
+                let leaf_node = ExpressionTree::leaf(tensor.expression.clone(), tensor.param_indices.clone());
+
+                // Perform partial traces if necessary
+                // find any indices that appear twice in indices and are only connected to this
+                let mut looped_index_map: HashMap<IndexId, Vec<usize>> = HashMap::new();
+                for (local_idx, &network_idx_id) in indices.iter().enumerate() {
+                    let index_edge = &self.indices[network_idx_id];
+                    if index_edge.0.is_output() && index_edge.1.len() == 1 {
+                        looped_index_map.entry(network_idx_id).or_default().push(local_idx);
+                    }
+                }
+
+                // Assert that each looped index vector is exactly length 2 and convert them to pairs
+                let looped_index_pairs: Vec<(usize, usize)> = looped_index_map.into_iter().map(|(index_id, local_indices)| {
+                    assert_eq!(local_indices.len(), 2, "Looped index {:?} did not have exactly two occurrences. It had {}.", index_id, local_indices.len());
+                    (local_indices[0], local_indices[1])
+                }).collect();
+
+                // need to argsort indices such equal elements are consecutive
+                //
+                // This way a tensor with local_to_network map like [5, 6, 5, 0, 1, 2]
+                // can have the two from its generation shape be treated as one, for
+                // future operations.
+                let argsorted_indices = {
+                    let mut argsorted_indices = (0..indices.len()).collect::<Vec<_>>();
+                    argsorted_indices.sort_by_key(|&i| &indices[i]);
+                    argsorted_indices 
+                };
+
+                let grouped_sorted_indices = {
+                    let mut grouped = Vec::new();
+                    for idx in argsorted_indices.iter().map(|&i| &indices[i]) {
+                        if grouped.last() != Some(idx) {
+                            grouped.push(*idx)
+                        }
+                    }
+                    grouped
+                };
+
+                let tranposed_node = leaf_node.transpose(argsorted_indices, tensor.expression.generation_shape());
+
+                let output_indices = grouped_sorted_indices.iter().filter(|&x| self.indices[*x].0.is_output()).copied().collect();
+
+                tree_stack.push(PartialTree {
+                    tree: tranposed_node,
+                    indices: grouped_sorted_indices,
+                    output_indices,
+                });
             }
         }
         if tree_stack.len() != 1 {
-            panic!("Tree stack should have exactly one element");
+            panic!("Tree stack should have exactly one element.");
         }
-        let partial_tree = tree_stack.pop().unwrap();
-        let open_indices = partial_tree.open_indices;
-        let tree = partial_tree.tree;
 
-        if open_indices.len() == 0 {
+        let PartialTree { tree, indices, output_indices } = tree_stack.pop().unwrap();
+
+        if indices.iter().any(|i| !output_indices.contains(i)) {
+            panic!("Non output indices made it to final network output.");
+        }
+
+        if indices.len() == 0 {
             return tree.reshape(qudit_core::TensorShape::Scalar);
         }
 
-        for i in open_indices.iter() {
-            if let NetworkIndex::Contracted(_id) = i {
-                panic!("Open index is a shared index");
-            }
-        }
-        // argsort the open indices so all up first, then output, then input, ordered by id
-        let mut indices = open_indices.iter().enumerate().collect::<Vec<(usize, &NetworkIndex)>>();
-        indices.sort_by(|a, b| {
-            match (a.1, b.1) {
-                (NetworkIndex::Shared(id_a, dir_a), NetworkIndex::Shared(id_b, dir_b)) => {
-                    if dir_a == dir_b {
-                        id_a.cmp(&id_b)
-                    } else {
-                        if *dir_a == IndexDirection::Up {
-                            std::cmp::Ordering::Less
-                        } else if *dir_b == IndexDirection::Up {
-                            std::cmp::Ordering::Greater
-                        } else if *dir_a == IndexDirection::Output {
-                            std::cmp::Ordering::Less
-                        } else {
-                            std::cmp::Ordering::Greater
-                        }
-                    }
-                },
-                (NetworkIndex::Open(id_a, dir_a), NetworkIndex::Open(id_b, dir_b)) => {
-                    if dir_a == dir_b {
-                        id_a.cmp(&id_b)
-                    } else {
-                        if *dir_a == IndexDirection::Up {
-                            std::cmp::Ordering::Less
-                        } else if *dir_b == IndexDirection::Up {
-                            std::cmp::Ordering::Greater
-                        } else if *dir_a == IndexDirection::Output {
-                            std::cmp::Ordering::Less
-                        } else {
-                            std::cmp::Ordering::Greater
-                        }
-                    }
-                },
-                (NetworkIndex::Shared(_, _), NetworkIndex::Open(_, _)) => std::cmp::Ordering::Less,
-                (NetworkIndex::Open(_, _), NetworkIndex::Shared(_, _)) => std::cmp::Ordering::Greater,
-                _ => panic!("Open index is not a shared index"),
-            }
-        });
-        let mut split_at = 0;
-        for (i, idx) in indices.iter() {
-            if let NetworkIndex::Open(_id, dir) = idx {
-                if *dir == IndexDirection::Output {
-                    split_at += 1;
-                }
-            }
-        }
+        // Perform final Transpose
+        let mut goal_index_order = indices.clone();
+        goal_index_order.sort_by_key(|&x| &self.indices[x]);
+        let output_shape = self.get_output_shape();
 
-        let mut total_output_dim = None;
-        let mut total_input_dim = None;
-        let mut total_z_dim = None;
+        let final_transpose = goal_index_order
+            .iter()
+            .map(|i| indices.iter().position(|x| x == i).unwrap())
+            .collect::<Vec<_>>();
 
-        for (_i, idx) in indices.iter() {
-            if let NetworkIndex::Shared(id, dir) = idx {
-                match *dir {
-                    IndexDirection::Input => {
-                        let r = self.radices[*id] as usize;
-                        if let Some(value) = total_input_dim.as_mut() {
-                            *value *= r;
-                        } else {
-                            total_input_dim = Some(r);
-                        }
-                    }
-                    IndexDirection::Output => {
-                        let r = self.radices[*id] as usize;
-                        if let Some(value) = total_output_dim.as_mut() {
-                            *value *= r;
-                        } else {
-                            total_output_dim = Some(r);
-                        }
-                    }
-                    IndexDirection::Up => {
-                        let r = self.up_indices[*id].1;
-                        if let Some(value) = total_z_dim.as_mut() {
-                            *value *= r;
-                        } else {
-                            total_z_dim = Some(r);
-                        }
-                    }
-                }
-            }
-            if let NetworkIndex::Open(id, dir) = idx {
-                match *dir {
-                    IndexDirection::Input => {
-                        let r = self.radices[*id] as usize;
-                        if let Some(value) = total_input_dim.as_mut() {
-                            *value *= r;
-                        } else {
-                            total_input_dim = Some(r);
-                        }
-                    }
-                    IndexDirection::Output => {
-                        let r = self.radices[*id] as usize;
-                        if let Some(value) = total_output_dim.as_mut() {
-                            *value *= r;
-                        } else {
-                            total_output_dim = Some(r);
-                        }
-                    }
-                    IndexDirection::Up => {
-                        let r = self.up_indices[*id].1;
-                        if let Some(value) = total_z_dim.as_mut() {
-                            *value *= r;
-                        } else {
-                            total_z_dim = Some(r);
-                        }
-                    }
-                }
-            }
-        }
-
-        let transpose_order = indices.into_iter().map(|(i, _)| i).collect::<Vec<usize>>();
-
-        let output_tree = match (total_input_dim, total_output_dim, total_z_dim) {
-            (None, None, None) => {
-                tree.transpose(transpose_order, qudit_core::TensorShape::Scalar)
-            }
-            (Some(b), None, None) => {
-                tree.transpose(transpose_order, qudit_core::TensorShape::Vector(b))
-            }
-            (None, Some(a), None) => {
-                tree.transpose(transpose_order, qudit_core::TensorShape::Vector(a))
-            }
-            (None, None, Some(c)) => {
-                tree.transpose(transpose_order, qudit_core::TensorShape::Vector(c))
-            }
-            (Some(b), Some(a), None) => {
-                tree.transpose(transpose_order, qudit_core::TensorShape::Matrix(a, b))
-            }
-            (Some(b), None, Some(c)) => {
-                tree.transpose(transpose_order, qudit_core::TensorShape::Matrix(b, c))
-            }
-            (None, Some(a), Some(c)) => {
-                tree.transpose(transpose_order, qudit_core::TensorShape::Matrix(a, c))
-            }
-            (Some(b), Some(a), Some(c)) => {
-                tree.transpose(transpose_order, qudit_core::TensorShape::Tensor3D(c, a, b))
-            }
-        };
-
-        output_tree
+        tree.transpose(final_transpose, output_shape) 
     }
-}
-
-struct PartialTree {
-    tree: ExpressionTree,
-    open_indices: Vec<NetworkIndex>,
 }
