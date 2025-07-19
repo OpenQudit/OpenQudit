@@ -6,6 +6,7 @@ use crate::QuditRadices;
 use crate::matrix::Col;
 use crate::ToRadices;
 
+/// Trait for converting vector representations to a column vector.
 pub trait ToColVector<C: ComplexScalar> {
     fn to_col_vector(self) -> Col<C>;
 }

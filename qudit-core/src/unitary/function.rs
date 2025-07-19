@@ -1,3 +1,5 @@
+//! Defines traits for functions that map real parameters to unitary matrices.
+
 use crate::matrix::Mat;
 use crate::matrix::MatMut;
 use crate::matrix::MatVec;
