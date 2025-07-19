@@ -631,6 +631,88 @@ unsafe fn reshape_outer_kernel<E: Copy>(
     }
 }
 
+fn tensor_fused_reshape_permute_reshape_into_prepare_helper(
+    in_shape: &[usize],
+    in_strides: &[isize],
+    shape: &[usize]
+) -> (Vec<isize>, Vec<usize>, Vec<usize>) {
+    // The strides of the reshaped input tensor.
+    let mut tensor_in_strides: Vec<isize> = Vec::new();
+    // The indices correspond to the axes in `tensor_in_strides`. The value corresponds to the axes in `shape`.
+    let mut virtual_axes_map: Vec<usize> = Vec::new();
+    // Due to non-contiguous axes in the input tensor, we may not be able to read the input tensor according to the user's
+    // desired `shape`. We thus work with a `true_shape` that ends up producing the same results as if the input was
+    // actually reshaped to `shape`.
+    let mut true_shape: Vec<usize> = Vec::new();
+    
+    // Dummy variables for the following loop
+    let mut in_shape_index: usize = 0;
+    let mut shape_index: usize = 0;
+    let mut accumulator: usize;
+    let mut true_shape_accumulator: usize;
+
+    // Determines the strides of the reshaped input tensor.
+    // Reshapes via both axes merging and splitting are supported.
+    while (in_shape_index < in_shape.len()) && (shape_index < shape.len()) {
+
+        // Shape matches already
+        if in_shape[in_shape_index] == shape[shape_index] {
+            tensor_in_strides.push(in_strides[in_shape_index]);
+            true_shape.push(shape[shape_index]);
+            virtual_axes_map.push(shape_index);
+            
+            in_shape_index += 1;
+            shape_index += 1;
+        
+        // Splitting axes
+        } else if in_shape[in_shape_index] > shape[shape_index] {
+            accumulator = in_shape[in_shape_index];   
+            while accumulator != 1 {
+                accumulator /= shape[shape_index];
+                
+                tensor_in_strides.push(in_strides[in_shape_index] * (accumulator as isize));
+                true_shape.push(shape[shape_index]);
+                virtual_axes_map.push(shape_index);
+                
+                shape_index += 1;
+            }
+            in_shape_index += 1;
+        
+        // Merging axes (column-wise)
+        // This can handle cases where we have a sequence of axes that are and aren't contiguous or column-major.
+        // Merging the shape (2, 3, 4, 5, 6) where axes (0, 1, 2) are contiguous, (2, 3) are not, (3, 4) are contiguous,
+        // leads to true shape (2*3*4, 5*6).
+        } else {
+            accumulator = shape[shape_index];
+            true_shape_accumulator = 1;
+            while accumulator != 1 {
+                accumulator /= in_shape[in_shape_index];
+                true_shape_accumulator *= in_shape[in_shape_index];
+                
+                // End of merge
+                if accumulator == 1 || 
+                // Non-contiguous axes
+                in_strides[in_shape_index] != in_strides[in_shape_index + 1] * (in_shape[in_shape_index + 1] as isize) ||
+                // Not column-major
+                in_strides[in_shape_index] < in_strides[in_shape_index + 1] {
+                    tensor_in_strides.push(in_strides[in_shape_index]);
+                    true_shape.push(true_shape_accumulator);
+                    virtual_axes_map.push(shape_index);
+
+                    true_shape_accumulator = 1;
+                }
+                in_shape_index += 1;
+            }
+            shape_index += 1;
+        }
+    }
+
+    assert_eq!(tensor_in_strides.len(), virtual_axes_map.len(), "Lengths aren't matching up in the helper function!");
+    assert_eq!(true_shape.len(), virtual_axes_map.len(), "Lengths aren't matching up in the helper function!");
+
+    return (tensor_in_strides, virtual_axes_map, true_shape);
+}
+
 /// Prepare optimized parameters for `fused_reshape_permute_reshape_into_impl`. Specifically,
 /// calculates the optimal strides and shape for a tensor that is reshaped, permuted, and reshaped again.
 /// 
@@ -708,94 +790,47 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
         panic!("output shape is incompatible with tensor shape");
     }
 
-    // Determines the strides of the reshaped input tensor.
-    // Reshapes via both axes merging and splitting are supported.
-    let mut tensor_in_strides = vec![0isize; K];
-    let mut in_shape_index: usize = 0;
-    let mut shape_index: usize = 0;
-    let mut accumulator: usize;
-    while (in_shape_index < N) && (shape_index < K) {
+    // `tensor_in_strides` - The strides of the reshaped input tensor.
+    // `virtual_axes_map_in` - The indices correspond to the axes in `tensor_in_strides`. The value corresponds to the axes in `shape`.
+    // `true_shape_in` - The shape that ends up producing the same results as if the input was actually reshaped to `shape`.
+    let (tensor_in_strides, virtual_axes_map_in, true_shape_in) = 
+    tensor_fused_reshape_permute_reshape_into_prepare_helper(in_shape, in_strides, shape);
 
-        if in_shape[in_shape_index] == shape[shape_index] {
-            tensor_in_strides[shape_index] = in_strides[in_shape_index];
-            in_shape_index += 1;
-            shape_index += 1;
-        } else if in_shape[in_shape_index] > shape[shape_index] {
-            // Splitting axes
-            accumulator = in_shape[in_shape_index];   
-            while accumulator != 1 {
-                accumulator /= shape[shape_index];
-                tensor_in_strides[shape_index] = in_strides[in_shape_index] * (accumulator as isize);
-                shape_index += 1;
+    // Permute input tensor strides and shape
+    let mut permuted_input_tensor_strides: Vec<isize> = Vec::new();
+    let mut permuted_shape: Vec<usize> = Vec::new();
+    let mut index_accumulator: usize = 0;
+    for &p in perm {
+        for index in 0..virtual_axes_map_in.len() {
+            if virtual_axes_map_in[index] == p {
+                index_accumulator = index;
+                break;
             }
-            in_shape_index += 1;
-        } else {
-            // Merging axes
-            accumulator = shape[shape_index];
-            while accumulator != 1 {
-                accumulator /= in_shape[in_shape_index];
-                
-                if accumulator != 1 && 
-                in_strides[in_shape_index] != in_strides[in_shape_index + 1] * (in_shape[in_shape_index + 1] as isize) {
-                    panic!("Can't merge non-contiguous axes")
-                }
-                in_shape_index += 1;
-            }
-            tensor_in_strides[shape_index] = in_strides[in_shape_index - 1];
-            shape_index += 1;
         }
-    }
-
-    // Permute input tensor strides
-    let permuted_input_tensor_strides = perm
-        .iter()
-        .map(|&p| tensor_in_strides[p] as isize)
-        .collect::<Vec<_>>();
-
-    // Permute shape
-    let mut permuted_shape = vec![0usize; K];
-    for (i, dim_index) in perm.iter().enumerate() {
-        permuted_shape[i] = shape[*dim_index];
+        while index_accumulator < virtual_axes_map_in.len() &&
+        virtual_axes_map_in[index_accumulator] == p
+        {
+            permuted_input_tensor_strides.push(tensor_in_strides[index_accumulator]);
+            permuted_shape.push(true_shape_in[index_accumulator]);
+            index_accumulator += 1;
+        }
     }
 
     // Calculates the strides of the permuted tensor with respect to the output tensor's memory layout.
     // Notice that both `tensor_out_strides` and `permuted_input_tensor_strides` are necessary for a fused operation.
-    // Reshapes via both axes merging and splitting are supported.
-    let mut tensor_out_strides = vec![0isize; K];
-    let mut out_shape_index: usize = 0;
-    shape_index = 0;
-    while (out_shape_index < M) && (shape_index < K) {
+    let (tensor_out_strides, _, true_shape_out) = 
+    tensor_fused_reshape_permute_reshape_into_prepare_helper(out_shape, out_strides, &permuted_shape);
 
-        if out_shape[out_shape_index] == permuted_shape[shape_index] {
-            tensor_out_strides[shape_index] = out_strides[out_shape_index];
-            out_shape_index += 1;
-            shape_index += 1;
-        } else if out_shape[out_shape_index] > permuted_shape[shape_index] {
-            // Splitting axes
-            accumulator = out_shape[out_shape_index];   
-            while accumulator != 1 {
-                accumulator /= permuted_shape[shape_index];
-                tensor_out_strides[shape_index] = out_strides[out_shape_index] * (accumulator as isize);
-                shape_index += 1;
-            }
-            out_shape_index += 1;
-        } else {
-            // Merging axes
-            accumulator = permuted_shape[shape_index];
-            while accumulator != 1 {
-                accumulator /= out_shape[out_shape_index];
-
-                if accumulator != 1 && 
-                out_strides[out_shape_index] != out_strides[out_shape_index + 1] * (out_shape[out_shape_index + 1] as isize) {
-                    panic!("Can't merge non-contiguous axes")
-                }
-                out_shape_index += 1;
-            }
-            tensor_out_strides[shape_index] = out_strides[out_shape_index - 1];
-            shape_index += 1;
-        }
+    // There exists the possibility that certain axes fail to merge in reshaping the output tensor to the permuted tensor.
+    // In this case, it is guranteed that both the input and output can agree on a single shape upon re-calculating
+    // the shape and strides of the input. Notice the input only has to split some of its axes (which has no possibility 
+    // of failure) to match the output's shape. 
+    if true_shape_out != permuted_shape {
+        (permuted_input_tensor_strides, _, permuted_shape) = 
+        tensor_fused_reshape_permute_reshape_into_prepare_helper(&permuted_shape, &permuted_input_tensor_strides, out_shape);
     }
-
+    assert_eq!(permuted_shape, true_shape_out, "Final input and output tensor shapes don't match!");
+  
     // Finds the optimal strides and dimensions for the reshaped and permuted tensor.
     // The output format is `(permuted_input_tensor_strides, tensor_out_strides, permuted_shape)`
     let candidate_outputs1 = {
@@ -1400,6 +1435,7 @@ mod tests {
             assert_eq!(result2, expected2);
         }
         
+        // Merging contiguous axes, although not all axes are contiguous
         // Non-contiguous test (easy)
         // Reshape 1 is a merge, reshape 2 doesn't do anything.
         {
@@ -1427,6 +1463,7 @@ mod tests {
             assert_eq!(result3, expected3);
         }
 
+        // Merging contiguous axes, although not all axes are contiguous
         // Non-contiguous test (harder)
         // Reshape 1 is a merge, reshape 2 is a split.
         {
@@ -1473,30 +1510,41 @@ mod tests {
             );
             assert_eq!(result4, expected4);
         }
+    
+        // Reshape 1 - Merges 2 non-contiguous axes, splits 1 axis
+        // Reshape 2 - Logically, does nothing (in reality, needs to split due to the non-contiguous merge)
+        {
+            let offset_in_1 = 1;
 
-    }
+            let sample5_in_shape = [2, 3, 4];
+            let sample5_in_strides = [3*4+ offset_in_1, 4, 1]; // has padding
 
-    #[test]
-    #[should_panic(expected = "Can't merge non-contiguous axes")]
-    fn test_tensor_fused_reshape_permute_reshape_into_prepare2() {
+            let sample5_shape = [6, 2, 2];
+            let sample5_perm = [2, 0, 1];
+            
+            let sample5_out_shape = [2, 6, 2];
+            let sample5_out_strides = [12, 2, 1]; // all contiguous
+            
+            let result5 = tensor_fused_reshape_permute_reshape_into_prepare(
+                &sample5_in_shape,
+                &sample5_in_strides,
+                &sample5_out_shape,
+                &sample5_out_strides,
+                &sample5_shape,
+                &sample5_perm,
+            );
+            // The expected `permute_in_strides` is [1, 3*4+offset_in_1, 4, 1*2].
+            // The expected `permute_out_strides` is [12, 6, 2, 1].
+            // The expected `permute_shape` is [2, 2, 3, 2].
+            // During optimization, axes 2, 3 should be merged.
+            let expected5 = (
+                vec![1, 3*4+offset_in_1, 1*2],
+                vec![12, 6, 1],
+                vec![2, 2, 6],
+            );
+            assert_eq!(result5, expected5);
+        }
 
-        // Reshape 1 is a merge, reshape 2 doesn't do anything.
-        // The input is non-contiguous
-        let in_shape = [2, 3, 4];
-        let in_strides = [, 4+1, 1];
-        let out_shape = [2, 12];
-        let out_strides = [12, 1]; 
-        let shape = [2, 12];
-        let perm = [0, 1];
-
-        tensor_fused_reshape_permute_reshape_into_prepare(
-            &in_shape,
-            &in_strides,
-            &out_shape,
-            &out_strides,
-            &shape,
-            &perm,
-        );
     }
 
     #[test]
