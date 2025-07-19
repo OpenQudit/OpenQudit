@@ -7,7 +7,7 @@ pub type SubNetwork = u64;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct PotentialContraction {
-    cost: usize,
+    cost: isize,
     i: usize,
     j: usize,
     k: usize,
@@ -62,8 +62,8 @@ impl ContractionPath {
         T_a.cost + T_b.cost + total_indices.iter().map(|(_, size)| size).product::<usize>()
     }
 
-    pub fn total_dimension(&self) -> IndexSize {
-        self.indices.iter().map(|x| &x.1).product::<IndexSize>()
+    pub fn total_dimension(&self) -> isize {
+        self.indices.iter().map(|x| x.1 as isize).product::<isize>()
     }
 
     /// Contracts two `ContractionPath`s into a new one.
@@ -250,6 +250,9 @@ impl ContractionPath {
             
             active_paths.remove(&pc.i);
             active_paths.remove(&pc.j);
+            remaining.remove(&pc.i);
+            remaining.remove(&pc.j);
+            remaining.insert(pc.k);
             active_paths.insert(pc.k, pc.result);
             let j = pc.k;
             let path_j = active_paths.get(&pc.k).expect("Just inserted.");

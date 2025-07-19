@@ -173,6 +173,8 @@ impl BytecodeGenerator {
                 let out = self.get_new_buffer(
                     &gen_shape, node.param_indices().num_params(),
                 );
+                println!("FRPR general instruction generated");
+                println!("{:?}", self.buffers[out].shape);
                 self.dynamic_code.push(GeneralizedInstruction::FRPR(
                     child.clone(),
                     node.child.dimensions().into(),

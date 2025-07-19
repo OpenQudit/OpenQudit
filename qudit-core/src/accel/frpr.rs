@@ -451,6 +451,12 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
     let K = shape.len();
     assert!(perm.len() == K);
     // Input validation
+    println!("in_shape: {:?}", in_shape);
+    println!("in_strides: {:?}", in_strides);
+    println!("out_shape: {:?}", out_shape);
+    println!("out_strides: {:?}", out_strides);
+    println!("shape: {:?}", shape);
+    println!("perm: {:?}", perm);
     
     // Duplicate check: Quadratic check is faster than hashset for most inputs
     for (i, &p) in perm.iter().enumerate() {
@@ -539,11 +545,8 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
     // Optimize strides:    
     let candidate_outputs1 = {
         let sorted_perm_in_strides = permuted_input_tensor_strides.clone();
-        println!("sorted_perm_in_strides: {:?}", sorted_perm_in_strides);
         let sorted_out_strides = tensor_out_strides.clone();
-        println!("sorted_out_strides: {:?}", sorted_out_strides);
         let sorted_perm_shape = permuted_shape.clone();
-        println!("sorted_perm_shape: {:?}", sorted_perm_shape);
 
         // 2. Going from right group together consecutive groups in
         // sorted_perm_in_strides
@@ -654,9 +657,15 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
     
     if candidate_outputs2.0.len() < candidate_outputs1.0.len() {
         println!("Candidate2");
+        println!("sorted_perm_in_strides: {:?}", candidate_outputs2.0);
+        println!("sorted_out_strides: {:?}", candidate_outputs2.1);
+        println!("sorted_perm_shape: {:?}", candidate_outputs2.2);
         candidate_outputs2
     } else {
         println!("Candidate1");
+        println!("sorted_perm_in_strides: {:?}", candidate_outputs1.0);
+        println!("sorted_out_strides: {:?}", candidate_outputs1.1);
+        println!("sorted_perm_shape: {:?}", candidate_outputs1.2);
         candidate_outputs1
     }
 }

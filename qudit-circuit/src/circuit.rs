@@ -6,7 +6,7 @@ use qudit_core::{QuditRadices, RealScalar, c64};
 use qudit_gates::Gate;
 use qudit_expr::{TensorExpression, UnitaryExpressionGenerator};
 // use qudit_tensor::{BuilderExpressionInput, ExpressionTree, TreeBuilder, TreeOptimizer};
-use qudit_tensor::{QuditCircuitNetwork, QuditTensor};
+use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
 use crate::exprset::{ExpressionSet, OperationSet};
 use crate::{compact::CompactIntegerVector, cpoint, cycle::QuditCycle, cyclelist::CycleList, instruction::{Instruction, InstructionReference}, iterator::{QuditCircuitBFIterator, QuditCircuitDFIterator, QuditCircuitFastIterator}, location::CircuitLocation, operation::{Operation, OperationReference}, qpoint, CircuitPoint, DitOrBit};
 
@@ -789,17 +789,17 @@ impl<C: ComplexScalar> QuditCircuit<C> {
 //     }
 
     /// Convert the circuit to a symbolic tensor network.
-    pub fn to_tensor_network(&self) -> QuditCircuitNetwork {
-        let mut network = QuditCircuitNetwork::new(self.radices());
+    pub fn to_tensor_network(&self) -> QuditTensorNetwork {
+        let mut network = QuditCircuitTensorNetworkBuilder::new(self.radices());
         for inst_ref in self.iter() {
             let op_ref = inst_ref.op.dereference(self);
             match op_ref {
                 Operation::Gate(gate) => {
-                    network.prepend(QuditTensor::new(gate.gen_expr().to_tensor_expression(), inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), vec![]);
+                    network = network.prepend(QuditTensor::new(gate.gen_expr().to_tensor_expression(), inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), vec![]);
                 }
                 Operation::ProjectiveMeasurement(t, a) => {
                     let clbit_indices = a.iter().map(|clbit| clbit.to_string()).collect();
-                    network.prepend(QuditTensor::new(t.clone(), inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), clbit_indices);
+                    network = network.prepend(QuditTensor::new(t.clone(), inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), clbit_indices);
                 }
                 Operation::TerminatingMeasurement(s, a) => {
                     todo!()
@@ -807,14 +807,14 @@ impl<C: ComplexScalar> QuditCircuit<C> {
                 Operation::ClassicallyControlled(g, a) => {
                     let clbit_indices: Vec<String> = a.iter().map(|clbit| clbit.to_string()).collect();
                     let t = g.gen_expr().to_tensor_expression().stack_with_identity(&[2usize.pow(clbit_indices.len() as u32) - 1], 2usize.pow(clbit_indices.len() as u32));
-                    network.prepend(QuditTensor::new(t.clone(), inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), clbit_indices);
+                    network = network.prepend(QuditTensor::new(t.clone(), inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), clbit_indices);
                 }
                 Operation::Initialization(s) => { todo!() }
                 Operation::Reset => { todo!() }
                 Operation::Barrier => { /* NO-OP */ }
             }
         }
-        network
+        network.build()
     }
 }
 
@@ -879,7 +879,12 @@ mod tests {
     #[test]
     fn build_qsearch_thin_step_circuit_to_tensor_test() {
         const n: usize = 2;
-        let circ = build_qsearch_thin_step_circuit(n);
+
+        let mut circ: QuditCircuit<c64> = QuditCircuit::new(radices![2; n], 0);
+        for i in 0..n {
+            circ.append_gate(Gate::U3(), loc![i], vec![]);
+        }
+
         let network = circ.to_tensor_network();
         let code = qudit_tensor::compile_network(&network);
         println!("{:?}", code);

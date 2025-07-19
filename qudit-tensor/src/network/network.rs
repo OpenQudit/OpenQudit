@@ -157,6 +157,9 @@ impl QuditTensorNetwork {
             let mut queue = vec![current_tensor_id];
 
             while let Some(tensor_id) = queue.pop() {
+                if visited[tensor_id] {
+                    continue
+                }
                 visited[tensor_id] = true;
                 current_subnetwork.push(tensor_id);
 
@@ -177,7 +180,7 @@ impl QuditTensorNetwork {
 
         for subgraph in self.get_subnetworks() {
             let input = self.build_trivial_contraction_paths(subgraph);
-            let path = if input.len() > 8 {
+            let path = if input.len() < 8 {
                 ContractionPath::solve_optimal_simple(input)
             } else {
                 ContractionPath::solve_greedy_simple(input)
@@ -193,8 +196,7 @@ impl QuditTensorNetwork {
 
     fn build_trivial_contraction_paths(&self, subnetwork: Vec<TensorId>) -> Vec<ContractionPath> {
         subnetwork.iter()
-            .enumerate()
-            .map(|(tensor_id, tensor)| {
+            .map(|&tensor_id| {
                 let flat_indices = self.get_tensor_unique_flat_indices(tensor_id);
                 let output_indices = self.get_tensor_output_index_ids(tensor_id);
                 ContractionPath::trivial(tensor_id, flat_indices, output_indices)
