@@ -2,8 +2,8 @@ use qudit_core::ParamIndices;
 use qudit_core::TensorShape;
 use qudit_expr::TensorExpression;
 
-use super::index::TensorIndex;
-use super::index::IndexDirection;
+use qudit_expr::index::TensorIndex;
+use qudit_expr::index::IndexDirection;
 
 #[derive(Debug, Clone)]
 pub struct QuditTensor {

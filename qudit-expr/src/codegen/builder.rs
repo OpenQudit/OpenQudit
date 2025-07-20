@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::{codegen::CodeGenerator, module::Module};
 use qudit_core::{TensorShape, ComplexScalar, ParamIndices, QuditSystem};
 
-use crate::{analysis::{simplify_expressions, simplify_matrix_and_matvec}, expression::Expression, unitary::{MatVecExpression, UnitaryExpression}, tensor::TensorExpression, DerivedExpression};
+use crate::{analysis::{simplify_expressions, simplify_matrix_and_matvec}, expression::Expression, tensor::TensorExpression, unitary::{MatVecExpression, UnitaryExpression}, GenerationShape};
 
 
 #[derive(Default, Clone)]
@@ -11,9 +11,11 @@ struct IdxMapBuilder {
     nrows: Option<usize>,
     ncols: Option<usize>,
     nmats: Option<usize>,
+    ntens: Option<usize>,
     row_stride: Option<usize>,
     col_stride: Option<usize>,
     mat_stride: Option<usize>,
+    ten_stride: Option<usize>,
     dims: Option<Vec<usize>>,
     perm: Option<Vec<usize>>,
 }
@@ -38,6 +40,11 @@ impl IdxMapBuilder {
         self
     }
 
+    pub fn ntens(mut self, ntens: usize) -> Self {
+        self.ntens = Some(ntens);
+        self
+    }
+
     pub fn row_stride(mut self, row_stride: usize) -> Self {
         self.row_stride = Some(row_stride);
         self
@@ -50,6 +57,11 @@ impl IdxMapBuilder {
 
     pub fn mat_stride(mut self, mat_stride: usize) -> Self {
         self.mat_stride = Some(mat_stride);
+        self
+    }
+
+    pub fn ten_stride(mut self, ten_stride: usize) -> Self {
+        self.ten_stride = Some(ten_stride);
         self
     }
 
@@ -154,7 +166,7 @@ struct CompilableUnitBuilder {
     exprs: Option<Vec<Expression>>,
     variables: Option<Vec<String>>,
     indices: Option<ParamIndices>,
-    gen_shape: Option<TensorShape>,
+    gen_shape: Option<GenerationShape>,
 }
 
 impl CompilableUnitBuilder {
@@ -177,12 +189,13 @@ impl CompilableUnitBuilder {
         self
     }
 
+    // TODO: change ParamIndices name to ParamMap
     pub fn indices(mut self, indices: ParamIndices) -> Self {
         self.indices = Some(indices);
         self
     }
 
-    pub fn gen_shape(mut self, gen_shape: TensorShape) -> Self {
+    pub fn gen_shape(mut self, gen_shape: GenerationShape) -> Self {
         self.gen_shape = Some(gen_shape);
         self
     }
@@ -208,14 +221,14 @@ impl CompilableUnitBuilder {
         assert!(gen_shape.num_elements()*2 == exprs.len());
         
         let idx_map = match gen_shape {
-            TensorShape::Scalar => {
+            GenerationShape::Scalar => {
                 IdxMapBuilder::new()
                     .ncols(1)
                     .nrows(0)
                     .nmats(0)
                     .build()
             }
-            TensorShape::Vector(length) => {
+            GenerationShape::Vector(length) => {
                 IdxMapBuilder::new()
                     .ncols(length)
                     .nrows(1)
@@ -223,7 +236,7 @@ impl CompilableUnitBuilder {
                     .row_stride(1)
                     .build()
             }
-            TensorShape::Matrix(nrows, ncols) => {
+            GenerationShape::Matrix(nrows, ncols) => {
                 let col_stride = qudit_core::memory::calc_col_stride::<C>(nrows, ncols);
                 IdxMapBuilder::new()
                     .ncols(ncols)
@@ -233,7 +246,7 @@ impl CompilableUnitBuilder {
                     .col_stride(col_stride)
                     .build()
             }
-            TensorShape::Tensor3D(nmats, nrows, ncols) => {
+            GenerationShape::Tensor3D(nmats, nrows, ncols) => {
                 let col_stride = qudit_core::memory::calc_col_stride::<C>(nrows, ncols);
                 let mat_stride = qudit_core::memory::calc_mat_stride::<C>(nrows, ncols, col_stride);
                 IdxMapBuilder::new()
@@ -245,7 +258,21 @@ impl CompilableUnitBuilder {
                     .mat_stride(mat_stride)
                     .build()
             }
-            _ => panic!("Unsupported dynamic tensor shape."),
+            GenerationShape::Tensor4D(ntens, nmats, nrows, ncols) => {
+                let col_stride = qudit_core::memory::calc_col_stride::<C>(nrows, ncols);
+                let mat_stride = qudit_core::memory::calc_mat_stride::<C>(nrows, ncols, col_stride);
+                let nxt_stride = qudit_core::memory::calc_next_stride::<C>(mat_stride*col_stride*ncols);
+                IdxMapBuilder::new()
+                    .ncols(ncols)
+                    .nrows(nrows)
+                    .nmats(nmats)
+                    .ntens(ntens)
+                    .row_stride(1)
+                    .col_stride(col_stride)
+                    .mat_stride(mat_stride)
+                    .ten_stride(nxt_stride)
+                    .build()
+            }
         };
 
         CompilableUnit { fn_name, exprs, variable_table, expr_idx_to_offset_map: idx_map }
@@ -337,7 +364,8 @@ impl<C: ComplexScalar> ModuleBuilder<C> {
     }
 
     pub fn add_tensor_expression(mut self, expr: TensorExpression) -> Self {
-        let TensorExpression { name, shape, variables, body, dimensions } = expr;
+        let shape = expr.generation_shape();
+        let TensorExpression { name, variables, body, .. } = expr;
         let exprs: Vec<Expression> = body.into_iter().map(|c| vec![c.real, c.imag]).flatten().collect();
         let unit = CompilableUnitBuilder::new()
             .name(&name)
@@ -361,7 +389,7 @@ impl<C: ComplexScalar> ModuleBuilder<C> {
                 .name(&(name.clone() + "_grad"))
                 .exprs(simplified_exprs)
                 .variable_list(variables.clone())
-                .gen_shape(shape.derivative_shape(1 + variables.len()))
+                .gen_shape(shape.gradient_shape(1 + variables.len()))
                 .build::<C>();
             self.exprs.push(unit);
         }
@@ -370,7 +398,8 @@ impl<C: ComplexScalar> ModuleBuilder<C> {
     }
 
     pub fn add_tensor_expression_with_param_indices(mut self, expr: TensorExpression, indices: ParamIndices) -> Self {
-        let TensorExpression { name, shape, variables, body, dimensions } = expr;
+        let shape = expr.generation_shape();
+        let TensorExpression { name, variables, body, .. } = expr;
         let exprs: Vec<Expression> = body.into_iter().map(|c| vec![c.real, c.imag]).flatten().collect();
         let unit = CompilableUnitBuilder::new()
             .name(&name)
@@ -396,7 +425,7 @@ impl<C: ComplexScalar> ModuleBuilder<C> {
                 .exprs(simplified_exprs)
                 .variable_list(variables.clone())
                 .indices(indices)
-                .gen_shape(shape.derivative_shape(1 + variables.len()))
+                .gen_shape(shape.gradient_shape(1 + variables.len()))
                 .build::<C>();
             self.exprs.push(unit);
         }

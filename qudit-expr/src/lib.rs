@@ -5,12 +5,13 @@ mod unitary;
 mod codegen;
 mod analysis;
 mod tensor;
+mod shape;
+pub mod index;
 
 use analysis::check_many_equality;
 use complex::ComplexExpression;
 use expression::Expression;
 use qudit_core::QuditSystem;
-pub use unitary::DerivedExpression;
 pub use unitary::UnitaryExpression;
 pub use unitary::MatVecExpression;
 pub use unitary::UnitaryExpressionGenerator;
@@ -25,6 +26,7 @@ pub use codegen::UtryFunc;
 pub use codegen::UtryGradFunc;
 pub use codegen::CodeGenerator;
 pub use analysis::simplify_matrix_and_matvec;
+pub use shape::GenerationShape;
 
 
 // use analysis::{check_equality, extract_best_sine};

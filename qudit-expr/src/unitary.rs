@@ -18,6 +18,8 @@ use qudit_core::QuditSystem;
 use qudit_core::RealScalar;
 use qudit_core::ToRadices;
 use faer::reborrow::ReborrowMut;
+use crate::index::IndexDirection;
+use crate::index::TensorIndex;
 use crate::tensor::TensorExpression;
 
 use crate::analysis::simplify_expressions;
@@ -29,71 +31,6 @@ use crate::qgl::parse_qobj;
 use crate::qgl::Expression as CiscExpression;
 use crate::DifferentiationLevel;
 use qudit_core::TensorShape;
-
-pub struct DerivedExpression {
-    pub name: String,
-    pub shape: TensorShape,
-    pub variables: Vec<String>,
-    pub body: Vec<Expression>,
-    pub dimensions: Vec<usize>,
-    pub flattened_gradient: Vec<Expression>,
-    pub flattened_hessian: Vec<Expression>,
-}
-
-impl DerivedExpression {
-    pub fn new(expr: TensorExpression, diff_lvl: DifferentiationLevel) -> Self {
-        let TensorExpression { name, shape, variables, body, dimensions } = expr;
-        let exprs: Vec<Expression> = body.into_iter().flat_map(|c| vec![c.real, c.imag]).collect();
-
-        let mut grad_exprs = vec![];
-        if diff_lvl.gradient_capable() {
-            for variable in &variables {
-                for expr in &exprs {
-                    let grad_expr = expr.differentiate(variable);
-                    grad_exprs.push(grad_expr);
-                }
-            }
-        }
-
-        let mut hess_exprs = vec![];
-        if diff_lvl.hessian_capable() {
-            for variable1 in &variables {
-                for variable2 in &variables {
-                    // todo: symsq
-                    for expr in &exprs {
-                        let hess_expr = expr.differentiate(variable1).differentiate(variable2);
-                        hess_exprs.push(hess_expr);
-                    }
-                }
-            }
-        }
-
-        let expr_len = exprs.len();
-        let grad_len = grad_exprs.len();
-
-        let simplified_exprs = simplify_expressions(
-            exprs.into_iter()
-                .chain(grad_exprs)
-                .chain(hess_exprs)
-                .collect()
-        );
-
-        let exprs = simplified_exprs[0..expr_len].to_vec();
-        let grad_exprs = simplified_exprs[expr_len..expr_len + grad_len].to_vec();
-        let hess_exprs = simplified_exprs[expr_len + grad_len..].to_vec();
-
-        DerivedExpression {
-            name,
-            shape,
-            variables,
-            body: exprs,
-            dimensions,
-            flattened_gradient: grad_exprs,
-            flattened_hessian: hess_exprs,
-        }
-    }
-}
-
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct StateExpression {
@@ -424,15 +361,18 @@ impl UnitaryExpression {
     }
 
     pub fn to_tensor_expression(&self) -> TensorExpression {
-        let nrows = self.body.len();
-        let ncols = self.body[0].len();
         let flattened_body = self.body.clone().into_iter().flat_map(|row| row.into_iter()).collect();
+        let indices = self.radices.iter()
+            .map(|&r| (IndexDirection::Output, r))
+            .chain(self.radices.iter().map(|&r| (IndexDirection::Input, r)))
+            .enumerate()
+            .map(|(id, (dir, size))| TensorIndex::new(dir, id, size as usize))
+            .collect();
         TensorExpression {
             name: self.name.clone(),
-            shape: TensorShape::Matrix(nrows, ncols),
             variables: self.variables.clone(),
             body: flattened_body,
-            dimensions: self.radices.concat(&self.radices).iter().map(|&x| x as usize).collect(),
+            indices,
         }
     }
 

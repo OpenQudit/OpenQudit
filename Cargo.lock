@@ -1703,7 +1703,19 @@ dependencies = [
  "num-traits",
  "pprof 0.15.0",
  "proptest",
+ "qudit-core-proc-macros",
  "rand 0.9.1",
+]
+
+[[package]]
+name = "qudit-core-proc-macros"
+version = "0.1.0"
+dependencies = [
+ "faer 0.21.9",
+ "faer-traits 0.21.5",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.104",
 ]
 
 [[package]]

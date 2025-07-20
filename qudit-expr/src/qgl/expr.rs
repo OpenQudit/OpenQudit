@@ -1,5 +1,7 @@
 use qudit_core::TensorShape;
 
+use crate::index::{IndexDirection, TensorIndex};
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     Binary {
@@ -655,85 +657,94 @@ fn get_power_of_two(d: usize) -> Option<usize> {
 }
 
 impl ParsedDefinition {
-    pub fn get_radices(&self) -> Vec<usize> {
+    fn vector_triple_to_tensor_indices(&self, batch: &[usize], output: &[usize], input: &[usize]) -> Vec<TensorIndex> {
+        batch.iter().map(|&r| (IndexDirection::Batch, r))
+            .chain(output.iter().map(|&r| (IndexDirection::Output, r)))
+            .chain(input.iter().map(|&r| (IndexDirection::Input, r)))
+            .enumerate()
+            .map(|(id, (dir, r))| TensorIndex::new(dir, id, r))
+            .collect()
+    }
+
+    pub fn get_tensor_indices(&self) -> Vec<TensorIndex> {
         let shape = self.body.gen_shape();
         match &self.radices {
             Some(radices) => {
                 let prod: usize = radices.iter().product();
                 match shape {
-                    TensorShape::Scalar => vec![],
+                    TensorShape::Scalar => self.vector_triple_to_tensor_indices(&[], &[], &[]),
                     TensorShape::Vector(d) => {
                         assert_eq!(d, prod);
-                        radices.clone()
+                        self.vector_triple_to_tensor_indices(&[], &[], radices)
                     },
                     TensorShape::Matrix(nrows, ncols) => {
                         if nrows == prod && ncols == prod {
-                            radices.iter().chain(radices.iter()).cloned().collect()
+                            self.vector_triple_to_tensor_indices(&[], radices, radices)
                         }
                         else if nrows == prod {
-                            radices.iter().chain([ncols].iter()).cloned().collect()
+                            self.vector_triple_to_tensor_indices(&[], radices, &[ncols])
                         }
                         else if ncols == prod {
-                            [nrows].iter().chain(radices.iter()).cloned().collect()
+                            self.vector_triple_to_tensor_indices(&[], &[nrows], radices)
                         }
                         else {
-                            panic!("Matrix expression parsed with explicit radices, but no dimension matchingwhat is expected from radices.")
+                            panic!("Matrix expression parsed with explicit radices, but no dimension matching what is expected from radices.")
                         }
                     },
                     TensorShape::Tensor3D(nmats, nrows, ncols) => {
                         if nrows == prod && ncols == prod {
-                            [nmats].into_iter().chain(radices.iter().cloned()).chain(radices.iter().cloned()).collect()
+                            self.vector_triple_to_tensor_indices(&[nmats], radices, radices)
                         } else if nrows == prod {
-                            [nmats].into_iter().chain(radices.iter().cloned()).chain([ncols].iter().cloned()).collect()
+                            self.vector_triple_to_tensor_indices(&[nmats], radices, &[ncols])
                         } else if ncols == prod {
-                            [nmats, nrows].into_iter().chain(radices.iter().cloned()).collect()
+                            self.vector_triple_to_tensor_indices(&[nmats], &[nrows], radices)
                         } else {
-                            panic!("Tensor3D expression parsed with explicit radices, but its product does not match nrows or ncols.")
+                            panic!("Tensor3D expression parsed with explicit radices, but its product does not the row or column dimension.")
                         }
                     },
-                    _ => panic!("Dynamic tensor not support.")
+                    _ => panic!("Tensor4D cannot be generated directly from QGL.")
                 }
             }
             None => {
                 match shape {
-                    TensorShape::Scalar => vec![],
+                    TensorShape::Scalar => self.vector_triple_to_tensor_indices(&[], &[], &[]),
                     TensorShape::Vector(d) => {
                         match get_power_of_two(d) {
-                            Some(n) => vec![2; n],
-                            None => vec![d],
+                            Some(n) => self.vector_triple_to_tensor_indices(&[], &[], &vec![2; n]),
+                            None => self.vector_triple_to_tensor_indices(&[], &[], &[d]),
                         }
                     },
                     TensorShape::Matrix(nrows, ncols) => {
                         if nrows == ncols {
                             match get_power_of_two(nrows) {
-                                Some(n) => vec![2; n * 2],
-                                None => vec![nrows, ncols],
+                                Some(n) => self.vector_triple_to_tensor_indices(&[], &vec![2; n], &vec![2; n]),
+                                None => self.vector_triple_to_tensor_indices(&[], &[nrows], &[ncols]),
                             }
                         } else {
                             match (get_power_of_two(nrows), get_power_of_two(ncols)) {
-                                (Some(n), Some(m)) => vec![2; n * m],
-                                (Some(n), None) => vec![2; n].into_iter().chain(vec![ncols].into_iter()).collect(),
-                                (None, Some(m)) => vec![nrows].into_iter().chain(vec![2; m].into_iter()).collect(),
-                                (None, None) => vec![nrows, ncols],
+                                (Some(n), Some(m)) => self.vector_triple_to_tensor_indices(&[], &vec![2; n], &vec![2; m]),
+                                (Some(n), None) => self.vector_triple_to_tensor_indices(&[], &vec![2; n], &[ncols]),
+                                (None, Some(m)) => self.vector_triple_to_tensor_indices(&[], &[nrows], &vec![2; m]),
+                                (None, None) => self.vector_triple_to_tensor_indices(&[], &[nrows], &[ncols]),
                             }
                         }
                     },
                     TensorShape::Tensor3D(nmats, nrows, ncols) => {
                         if nrows == ncols {
                             match get_power_of_two(nrows) {
-                                Some(n) => vec![2; n * 2].into_iter().chain(vec![nmats].into_iter()).collect(),
-                                None => vec![nrows, ncols, nmats],
+                                Some(n) => self.vector_triple_to_tensor_indices(&[nmats], &vec![2; n], &vec![2; n]),
+                                None => self.vector_triple_to_tensor_indices(&[nmats], &[nrows], &[ncols]),
                             }
                         } else {
                             match (get_power_of_two(nrows), get_power_of_two(ncols)) {
-                                (Some(n), Some(m)) => vec![2; n * m].into_iter().chain(vec![nmats].into_iter()).collect(),
-                                (Some(n), None) => vec![2; n].into_iter().chain(vec![ncols, nmats].into_iter()).collect(),
-                                (None, Some(m)) => vec![nrows].into_iter().chain(vec![2; m].into_iter()).chain(vec![nmats].into_iter()).collect(),
-                                (None, None) => vec![nrows, ncols, nmats],
+                                (Some(n), Some(m)) => self.vector_triple_to_tensor_indices(&[nmats], &vec![2; n], &vec![2; m]),
+                                (Some(n), None) => self.vector_triple_to_tensor_indices(&[nmats], &vec![2; n], &[ncols]),
+                                (None, Some(m)) => self.vector_triple_to_tensor_indices(&[nmats], &[nrows], &vec![2; m]),
+                                (None, None) => self.vector_triple_to_tensor_indices(&[nmats], &[nrows], &[ncols]),
                             }
                         }
                     },
-                    _ => panic!("Dynamic tensor shape unsupported"),
+                    _ => panic!("Tensor4D cannot be generated directly from QGL.")
                 }
             }
         }
