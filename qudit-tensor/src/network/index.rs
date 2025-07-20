@@ -1,3 +1,8 @@
+pub use qudit_expr::index::IndexSize;
+pub use qudit_expr::index::IndexId;
+pub use qudit_expr::index::IndexDirection;
+pub use qudit_expr::index::TensorIndex;
+pub use qudit_expr::index::WeightedIndex;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ContractionIndex {

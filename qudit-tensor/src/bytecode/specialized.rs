@@ -1,7 +1,7 @@
 use faer::MatMut;
 use qudit_core::{matrix::{MatVecMut, SymSqMatMatMut}, memory::MemoryBuffer, ComplexScalar};
 
-use super::{instructions::{ConsecutiveParamWriteStruct, DisjointKronStruct, DisjointMatmulStruct, FRPRStruct, OverlappingKronStruct, OverlappingMatMulStruct, ReshapeStruct, SplitParamWriteStruct}, SizedTensorBuffer};
+use super::{instructions::{ConsecutiveParamWriteStruct, DisjointKronStruct, DisjointMatmulStruct, FRPRStruct, OverlappingKronStruct, OverlappingMatMulStruct, SplitParamWriteStruct}, SizedTensorBuffer};
 
 pub enum SpecializedInstruction<C: ComplexScalar> {
     CWrite(ConsecutiveParamWriteStruct<C>),
@@ -11,7 +11,7 @@ pub enum SpecializedInstruction<C: ComplexScalar> {
     DKron(DisjointKronStruct),
     OKron(OverlappingKronStruct),
     FRPR(FRPRStruct),
-    Reshape(ReshapeStruct),
+    // Reshape(ReshapeStruct),
 }
 
 impl<C: ComplexScalar> SpecializedInstruction<C> {
@@ -24,7 +24,7 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
             SpecializedInstruction::DKron(k) => k.out.clone(),
             SpecializedInstruction::OKron(k) => k.out.clone(),
             SpecializedInstruction::FRPR(f) => f.out.clone(),
-            SpecializedInstruction::Reshape(r) => r.out.clone(),
+            // SpecializedInstruction::Reshape(r) => r.out.clone(),
         }
     }
 
@@ -42,7 +42,7 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
             SpecializedInstruction::DKron(k) => k.evaluate::<C>(memory),
             SpecializedInstruction::OKron(k) => k.evaluate::<C>(memory),
             SpecializedInstruction::FRPR(f) => f.evaluate::<C>(memory),
-            SpecializedInstruction::Reshape(r) => r.evaluate::<C>(memory),
+            // SpecializedInstruction::Reshape(r) => r.evaluate::<C>(memory),
         }
     }
 
@@ -73,9 +73,9 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
             SpecializedInstruction::FRPR(f) => {
                 f.evaluate_gradient::<C>(memory)
             },
-            SpecializedInstruction::Reshape(r) => {
-                r.evaluate_gradient::<C>(memory)
-            },
+            // SpecializedInstruction::Reshape(r) => {
+            //     r.evaluate_gradient::<C>(memory)
+            // },
         }
     }
 
@@ -106,9 +106,9 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
             SpecializedInstruction::FRPR(f) => {
                 f.evaluate_hessian::<C>(memory)
             },
-            SpecializedInstruction::Reshape(r) => {
-                r.evaluate_hessian::<C>(memory)
-            },
+            // SpecializedInstruction::Reshape(r) => {
+            //     r.evaluate_hessian::<C>(memory)
+            // },
         }
     }
 }

@@ -10,6 +10,7 @@ use qudit_core::memory::MemoryBuffer;
 use qudit_core::ComplexScalar;
 use qudit_expr::DifferentiationLevel;
 use qudit_core::TensorShape;
+use qudit_expr::GenerationShape;
 use qudit_expr::UnitaryExpression;
 use qudit_core::QuditSystem;
 use qudit_core::HasParams;
@@ -23,38 +24,41 @@ use qudit_core::HasParams;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TensorBuffer {
-    pub shape: TensorShape,
+    pub shape: GenerationShape,
     pub num_params: usize,
 }
 
 impl TensorBuffer {
     pub fn nrows(&self) -> usize {
+        // TODO: should a GenerationShape method
         match self.shape {
-            TensorShape::Scalar => 1,
-            TensorShape::Vector(len) => len,
-            TensorShape::Matrix(a, _) => a,
-            TensorShape::Tensor3D(_, a, _) => a,
-            _ => panic!("Dynamic tensor shape unsupported"),
+            GenerationShape::Scalar => 1,
+            GenerationShape::Vector(len) => len,
+            GenerationShape::Matrix(a, _) => a,
+            GenerationShape::Tensor3D(_, a, _) => a,
+            GenerationShape::Tensor4D(_, _, a, _) => a,
         }
     }
 
     pub fn ncols(&self) -> usize {
+        // TODO: should a GenerationShape method
         match self.shape {
-            TensorShape::Scalar => 1,
-            TensorShape::Vector(_) => 1,
-            TensorShape::Matrix(_, b) => b,
-            TensorShape::Tensor3D(_, _, b) => b,
-            _ => panic!("Dynamic tensor shape unsupported"),
+            GenerationShape::Scalar => 1,
+            GenerationShape::Vector(_) => 1,
+            GenerationShape::Matrix(_, b) => b,
+            GenerationShape::Tensor3D(_, _, b) => b,
+            GenerationShape::Tensor4D(_, _, _, b) => b,
         }
     }
 
     pub fn nmats(&self) -> usize {
+        // TODO: should a GenerationShape method
         match self.shape {
-            TensorShape::Scalar => 1,
-            TensorShape::Vector(_) => 1,
-            TensorShape::Matrix(_, _) => 1,
-            TensorShape::Tensor3D(c, _, _) => c,
-            _ => panic!("Dynamic tensor shape unsupported"),
+            GenerationShape::Scalar => 1,
+            GenerationShape::Vector(_) => 1,
+            GenerationShape::Matrix(_, _) => 1,
+            GenerationShape::Tensor3D(c, _, _) => c,
+            GenerationShape::Tensor4D(_, c, _, _) => c,
         }
     }
 
@@ -67,6 +71,7 @@ impl TensorBuffer {
             row_stride: 1,
             col_stride,
             mat_stride,
+            ten_stride: mat_stride, // TODO:
             num_params: self.num_params,
         }
     }
@@ -75,15 +80,16 @@ impl TensorBuffer {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SizedTensorBuffer {
     pub offset: usize,
-    pub shape: TensorShape,
+    pub shape: GenerationShape,
     pub row_stride: usize,
     pub col_stride: usize,
     pub mat_stride: usize,
+    pub ten_stride: usize,
     pub num_params: usize,
 }
 
 impl SizedTensorBuffer {
-    pub fn shape(&self) -> TensorShape {
+    pub fn shape(&self) -> GenerationShape {
         self.shape.clone()
     }
 
@@ -97,21 +103,22 @@ impl SizedTensorBuffer {
 
     pub fn strides(&self) -> Vec<isize> {
         match self.shape {
-            TensorShape::Scalar => vec![],
-            TensorShape::Vector(_) => vec![1isize],
-            TensorShape::Matrix(_, _) => vec![self.row_stride as isize, self.col_stride as isize],
-            TensorShape::Tensor3D(_, _, _) => vec![self.mat_stride as isize, self.row_stride as isize, self.col_stride as isize],
-            _ => panic!("Unsupported generation shape"),
+            GenerationShape::Scalar => vec![],
+            GenerationShape::Vector(_) => vec![1isize],
+            GenerationShape::Matrix(_, _) => vec![self.row_stride as isize, self.col_stride as isize],
+            GenerationShape::Tensor3D(_, _, _) => vec![self.mat_stride as isize, self.row_stride as isize, self.col_stride as isize],
+            GenerationShape::Tensor4D(_, _, _, _) => vec![self.ten_stride as isize, self.mat_stride as isize, self.row_stride as isize, self.col_stride as isize]
         }
     }
 
     pub fn unit_size(&self) -> usize {
         match self.shape {
-            TensorShape::Scalar => 1,
-            TensorShape::Vector(len) => len,
-            TensorShape::Matrix(_, _) => self.mat_stride,
-            TensorShape::Tensor3D(c, _, _) => self.mat_stride * c,
-            _ => panic!("Dynamic tensor shape unsupported"),
+            GenerationShape::Scalar => 1,
+            GenerationShape::Vector(len) => len,
+            GenerationShape::Matrix(_, _) => self.mat_stride,
+            GenerationShape::Tensor3D(c, _, _) => self.mat_stride * c,
+            GenerationShape::Tensor4D(c, _, _, _) => self.ten_stride * c,
+            
         }
     }
 
@@ -127,30 +134,30 @@ impl SizedTensorBuffer {
 
     pub fn nrows(&self) -> usize {
         match self.shape {
-            TensorShape::Scalar => 1,
-            TensorShape::Vector(len) => len,
-            TensorShape::Matrix(a, _) => a,
-            TensorShape::Tensor3D(_, a, _) => a,
+            GenerationShape::Scalar => 1,
+            GenerationShape::Vector(len) => len,
+            GenerationShape::Matrix(a, _) => a,
+            GenerationShape::Tensor3D(_, a, _) => a,
             _ => panic!("Dynamic tensor shape unsupported"),
         }
     }
 
     pub fn ncols(&self) -> usize {
         match self.shape {
-            TensorShape::Scalar => 1,
-            TensorShape::Vector(_) => 1,
-            TensorShape::Matrix(_, b) => b,
-            TensorShape::Tensor3D(_, _, b) => b,
+            GenerationShape::Scalar => 1,
+            GenerationShape::Vector(_) => 1,
+            GenerationShape::Matrix(_, b) => b,
+            GenerationShape::Tensor3D(_, _, b) => b,
             _ => panic!("Dynamic tensor shape unsupported"),
         }
     }
 
     pub fn nmats(&self) -> usize {
         match self.shape {
-            TensorShape::Scalar => 1,
-            TensorShape::Vector(_) => 1,
-            TensorShape::Matrix(_, _) => 1,
-            TensorShape::Tensor3D(c, _, _) => c,
+            GenerationShape::Scalar => 1,
+            GenerationShape::Vector(_) => 1,
+            GenerationShape::Matrix(_, _) => 1,
+            GenerationShape::Tensor3D(c, _, _) => c,
             _ => panic!("Dynamic tensor shape unsupported"),
         }
     }

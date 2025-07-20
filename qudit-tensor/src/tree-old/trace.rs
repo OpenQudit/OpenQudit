@@ -9,7 +9,6 @@ use qudit_core::QuditRadices;
 use qudit_core::QuditSystem;
 use qudit_core::QuditPermutation;
 use qudit_core::TensorShape;
-use qudit_expr::index::TensorIndex;
 use qudit_expr::GenerationShape;
 
 use super::fmt::PrintTree;
@@ -21,39 +20,62 @@ pub struct TraceNode {
     /// The child node to be permuted.
     pub child: Box<ExpressionTree>,
 
+    /// The permutation to apply to the child node.
     pub dimension_pairs: Vec<(usize, usize)>,
 
-    pub indices: Vec<TensorIndex>,
+    // num_params: usize,
+    //
+    /// The dimension of each of the resulting tensor's indices.
+    pub dimensions: Vec<usize>,
+
+    /// The shape of the tensor after computation.
+    pub generation_shape: GenerationShape,
 }
 
 impl TraceNode {
     pub fn new(child: ExpressionTree, pairs: Vec<(usize, usize)>) -> TraceNode {
-        let child_indices = child.indices();
+        let child_dimensions = child.dimensions();
 
+        let mut new_dimensions = child_dimensions.clone();
         let mut indices_to_remove = Vec::new();
 
         for (idx1, idx2) in &pairs {
-            if *idx1 >= child_indices.len() || *idx2 >= child_indices.len() {
-                panic!("Dimension index out of bounds for trace operation. Child dimensions: {:?}, attempting to trace indices: ({}, {})", child_indices, idx1, idx2);
+            if *idx1 >= child_dimensions.len() || *idx2 >= child_dimensions.len() {
+                panic!("Dimension index out of bounds for trace operation. Child dimensions: {:?}, attempting to trace indices: ({}, {})", child_dimensions, idx1, idx2);
             }
-            if child_indices[*idx1].index_size() != child_indices[*idx2].index_size() {
-                panic!("Dimensions at trace indices must be equal. Found {} at index {} and {} at index {}.", child_indices[*idx1], idx1, child_indices[*idx2], idx2);
+            if child_dimensions[*idx1] != child_dimensions[*idx2] {
+                panic!("Dimensions at trace indices must be equal. Found {} at index {} and {} at index {}.", child_dimensions[*idx1], idx1, child_dimensions[*idx2], idx2);
             }
             indices_to_remove.push(*idx1);
             indices_to_remove.push(*idx2);
         }
 
-        let indices = child_indices.into_iter().enumerate().filter(|(i, idx)| !indices_to_remove.contains(i)).map(|(_, idx)| idx).collect();
+        indices_to_remove.sort_unstable();
+        indices_to_remove.dedup();
+        indices_to_remove.reverse();
+
+        for &idx in &indices_to_remove {
+            new_dimensions.remove(idx);
+        }
+
+        // let generation_shape = GenerationShape::from_dimensions(&new_dimensions); // TODO
+        let generation_shape = GenerationShape::Scalar; // TODO:
 
         TraceNode {
             child: Box::new(child),
             dimension_pairs: pairs,
-            indices,
+            // num_params,
+            dimensions: new_dimensions,
+            generation_shape,
         }
     }
 
-    pub fn indices(&self) -> Vec<TensorIndex> {
-        self.indices.clone()
+    pub fn dimensions(&self) -> Vec<usize> {
+        self.dimensions.clone()
+    }
+
+    pub fn generation_shape(&self) -> GenerationShape {
+        self.generation_shape.clone()
     }
 
     pub fn param_indices(&self) -> ParamIndices {

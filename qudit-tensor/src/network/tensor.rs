@@ -1,5 +1,6 @@
 use qudit_core::ParamIndices;
 use qudit_core::TensorShape;
+use qudit_expr::GenerationShape;
 use qudit_expr::TensorExpression;
 
 use qudit_expr::index::TensorIndex;
@@ -15,23 +16,8 @@ pub struct QuditTensor {
 impl QuditTensor {
     /// Construct a new tensor object from a tensor expression and param indices.
     pub fn new(expression: TensorExpression, param_indices: ParamIndices) -> Self {
-        let (batch_dims, output_dims, input_dims) = expression.split_dimensions();
-        let mut id_counter = 0;
-        let mut indices = vec![];
-        for batch_dim in batch_dims {
-            indices.push(TensorIndex::new(IndexDirection::Batch, id_counter, batch_dim));
-            id_counter += 1;
-        }
-        for output_dim in output_dims {
-            indices.push(TensorIndex::new(IndexDirection::Output, id_counter, output_dim));
-            id_counter += 1;
-        }
-        for input_dim in input_dims {
-            indices.push(TensorIndex::new(IndexDirection::Input, id_counter, input_dim));
-            id_counter += 1;
-        }
         QuditTensor {
-            indices,
+            indices: expression.indices(),
             expression,
             param_indices,
         }
@@ -107,7 +93,7 @@ impl QuditTensor {
     }
 
     /// Returns the shape of the tensor's data as it is generated.
-    pub fn shape(&self) -> TensorShape {
+    pub fn shape(&self) -> GenerationShape {
         self.expression.generation_shape()
     }
 

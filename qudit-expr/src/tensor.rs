@@ -96,23 +96,7 @@ impl TensorExpression {
     }
 
     pub fn generation_shape(&self) -> GenerationShape {
-        let mut dimensions = [1, 1, 1, 1];
-        for index in self.indices.iter() {
-            match index.direction() {
-                IndexDirection::Derivative => dimensions[0] *= index.index_size(),
-                IndexDirection::Batch => dimensions[1] *= index.index_size(),
-                IndexDirection::Output => dimensions[2] *= index.index_size(),
-                IndexDirection::Input => dimensions[3] *= index.index_size(),
-            }
-        }
-
-        match dimensions {
-            [1, 1, 1, 1] => GenerationShape::Scalar,
-            [1, 1, 1, nelems] => GenerationShape::Vector(nelems),
-            [1, 1, nrows, ncols] => GenerationShape::Matrix(nrows, ncols),
-            [1, nmats, nrows, ncols] => GenerationShape::Tensor3D(nmats, nrows, ncols),
-            [ntens, nmats, nrows, ncols] => GenerationShape::Tensor4D(ntens, nmats, nrows, ncols),
-        }
+        self.indices().into()
     }
 
     // TODO: rewrite with Froms and Intos
@@ -248,80 +232,37 @@ impl TensorExpression {
     pub fn reindex(&mut self, new_indices: Vec<TensorIndex>) -> &mut Self {
         assert_eq!(new_indices.iter().map(|idx| idx.index_size()).product::<usize>(), self.body.len(), "Product of new dimensions must match the total number of elements in the tensor body.");
         
-        let mut index_ids: Vec<usize> = new_indices.iter().map(|idx| idx.index_id()).collect();
-        index_ids.sort_unstable();
-        for (i, &id) in index_ids.iter().enumerate() {
-            assert_eq!(i, id, "New indices must have index_ids from 0 to new_indices.len() - 1 without gaps.");
+        // Assert that all indices are lined up correctly (Derv | Batch | Output | Input)
+        let mut last_direction = IndexDirection::Derivative;
+        for index in &new_indices {
+            let current_direction = index.direction();
+            if current_direction < last_direction {
+                panic!("New indices are not ordered correctly. Expected order: Derv, Batch, Output, Input.");
+            }
+            last_direction = current_direction;
         }
 
         self.indices = new_indices;
         self
     }
 
-    /// Really a fused reshape and permutation
-    pub fn permute(&mut self, perm: &[usize], new_generation_shape: GenerationShape) -> &mut Self {
+    // Really a fused reshape and permutation
+    pub fn permute(&mut self, perm: &[usize], redirection: Vec<IndexDirection>) -> &mut Self {
         assert_eq!(perm.len(), self.rank());
 
         // Store original strides and dimensions for body permutation before `self.indices` is modified
         let original_strides = self.tensor_strides();
         let original_dimensions = self.dimensions();
 
-        // 1. Reorder the TensorIndex objects based on `perm`
-        let reordered_indices: Vec<TensorIndex> = perm.iter().map(|&p_idx| self.indices[p_idx].clone()).collect();
-
-        // 2. Re-assign directions to the reordered_indices based on `new_generation_shape`.
-        // This ensures that the tensor's `generation_shape()` method will return the desired `new_generation_shape`
-        // after this permutation.
-        let (target_deriv_size, target_batch_size, target_output_size, target_input_size) = match new_generation_shape {
-            GenerationShape::Scalar => (1, 1, 1, 1),
-            GenerationShape::Vector(nelems) => (1, 1, 1, nelems),
-            GenerationShape::Matrix(nrows, ncols) => (1, 1, nrows, ncols),
-            GenerationShape::Tensor3D(nmats, nrows, ncols) => (1, nmats, nrows, ncols),
-            GenerationShape::Tensor4D(ntens, nmats, nrows, ncols) => (ntens, nmats, nrows, ncols),
-        };
-
-        // Track current product for each conceptual dimension during assignment
-        let mut current_deriv_product = 1;
-        let mut current_batch_product = 1;
-        let mut current_output_product = 1;
-        let mut current_input_product = 1;
-
-        // Assign directions greedily based on the conceptual dimension hierarchy
-        // (Derivative, Batch, Output, Input), filling up each conceptual dimension
-        // with the sizes of the reordered indices.
-        let mut new_indices = Vec::new();
-        for (id, index) in reordered_indices.iter().enumerate() {
-            let index_size = index.index_size();
-            if current_deriv_product * index_size <= target_deriv_size {
-                new_indices.push(TensorIndex::new(IndexDirection::Derivative, id, index_size));
-                current_deriv_product *= index_size;
-            } else if current_batch_product * index_size <= target_batch_size {
-                new_indices.push(TensorIndex::new(IndexDirection::Batch, id, index_size));
-                current_batch_product *= index_size;
-            } else if current_output_product * index_size <= target_output_size {
-                new_indices.push(TensorIndex::new(IndexDirection::Output, id, index_size));
-                current_output_product *= index_size;
-            } else if current_input_product * index_size <= target_input_size {
-                new_indices.push(TensorIndex::new(IndexDirection::Input, id, index_size));
-                current_input_product *= index_size;
-            } else {
-                // This panic indicates an index size is too large to fit into any remaining
-                // conceptual dimension, or the `new_generation_shape` is incompatible
-                // with the existing index sizes and their permutation.
-                panic!("Failed to assign IndexDirection for index with size {} to match new_generation_shape {:?}. Mismatch in dimension sizes or incompatible permutation.",
-                       index_size, new_generation_shape);
-            }
-        }
-
-        // Verify that all target conceptual dimensions have been fully accounted for
-        // by the assigned indices.
-        assert_eq!(current_deriv_product, target_deriv_size, "Derivative dimension product mismatch after re-assigning directions.");
-        assert_eq!(current_batch_product, target_batch_size, "Batch dimension product mismatch after re-assigning directions.");
-        assert_eq!(current_output_product, target_output_size, "Output dimension product mismatch after re-assigning directions.");
-        assert_eq!(current_input_product, target_input_size, "Input dimension product mismatch after re-assigning directions.");
+        //Reorder the TensorIndex objects based on `perm`
+        let reordered_indices: Vec<TensorIndex> = perm.iter()
+            .map(|&p_idx| self.indices[p_idx].index_size())
+            .enumerate()
+            .map(|(id, size)| TensorIndex::new(redirection[id], id, size))
+            .collect();
 
         // Update self.indices with the newly reordered and direction-assigned indices
-        self.indices = new_indices;
+        self.reindex(reordered_indices);
 
         // Get the new strides based on the updated `self.indices`
         let new_strides = self.tensor_strides();

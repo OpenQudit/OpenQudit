@@ -1,3 +1,5 @@
+use crate::index::{IndexDirection, TensorIndex};
+
 /// Represents the shape of a tensor as it will be generated.
 ///
 /// While tensors can conceptually have rank larger than four, even infinite,
@@ -337,3 +339,30 @@ impl GenerationShape {
     }
 }
 
+impl From<Vec<TensorIndex>> for GenerationShape {
+    fn from(indices: Vec<TensorIndex>) -> Self {        
+        GenerationShape::from(indices.as_slice())
+    }
+}
+
+impl From<&[TensorIndex]> for GenerationShape {
+    fn from(indices: &[TensorIndex]) -> Self {        
+        let mut dimensions = [1, 1, 1, 1];
+        for index in indices.iter() {
+            match index.direction() {
+                IndexDirection::Derivative => dimensions[0] *= index.index_size(),
+                IndexDirection::Batch => dimensions[1] *= index.index_size(),
+                IndexDirection::Output => dimensions[2] *= index.index_size(),
+                IndexDirection::Input => dimensions[3] *= index.index_size(),
+            }
+        }
+
+        match dimensions {
+            [1, 1, 1, 1] => GenerationShape::Scalar,
+            [1, 1, 1, nelems] => GenerationShape::Vector(nelems),
+            [1, 1, nrows, ncols] => GenerationShape::Matrix(nrows, ncols),
+            [1, nmats, nrows, ncols] => GenerationShape::Tensor3D(nmats, nrows, ncols),
+            [ntens, nmats, nrows, ncols] => GenerationShape::Tensor4D(ntens, nmats, nrows, ncols),
+        }
+    }
+}

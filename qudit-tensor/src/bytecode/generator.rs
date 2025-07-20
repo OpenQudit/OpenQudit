@@ -4,7 +4,7 @@ use super::buffer::TensorBuffer;
 use super::{Bytecode, GeneralizedInstruction};
 use qudit_core::{HasParams, ParamIndices};
 use crate::tree::{ExpressionTree, LeafNode};
-use qudit_expr::{TensorExpression, UnitaryExpression};
+use qudit_expr::{GenerationShape, TensorExpression, UnitaryExpression};
 use qudit_core::QuditSystem;
 use qudit_core::TensorShape;
 
@@ -31,13 +31,13 @@ impl BytecodeGenerator {
 
     pub fn get_new_buffer(
         &mut self,
-        gen_shape: &TensorShape,
+        gen_shape: &GenerationShape,
         num_params: usize,
     ) -> usize {
         let out = self.buffers.len();
         println!("Making new buffer with shape: {:?}", gen_shape);
         self.buffers.push(TensorBuffer {
-            shape: gen_shape.clone(),
+            shape: *gen_shape,
             num_params,
         });
         out
@@ -93,7 +93,10 @@ impl BytecodeGenerator {
                     self.expression_set.insert(expr.clone(), expression_map);
                     name
                 };
-
+                // if param_map.is_empty() {
+                //     self.constant_code.push(...)
+                //     self.constant_buffers.push(...)
+                // }
                 if param_indices.is_consecutive() {
                     self.dynamic_code.push(GeneralizedInstruction::ConsecutiveParamWrite(
                         fn_name,
@@ -156,16 +159,17 @@ impl BytecodeGenerator {
                 out
             },
             ExpressionTree::Reshape(node) => {
-                let child = self.parse(&node.child);
-                let gen_shape = node.generation_shape();
-                let out = self.get_new_buffer(
-                    &gen_shape, node.param_indices().num_params(),
-                );
-                self.dynamic_code.push(GeneralizedInstruction::Reshape(
-                    child.clone(),
-                    out.clone(),
-                ));
-                out
+                todo!()
+                // let child = self.parse(&node.child);
+                // let gen_shape = node.generation_shape();
+                // let out = self.get_new_buffer(
+                //     &gen_shape, node.param_indices().num_params(),
+                // );
+                // self.dynamic_code.push(GeneralizedInstruction::Reshape(
+                //     child.clone(),
+                //     out.clone(),
+                // ));
+                // out
             },
             ExpressionTree::Transpose(node) => {
                 let child = self.parse(&node.child);

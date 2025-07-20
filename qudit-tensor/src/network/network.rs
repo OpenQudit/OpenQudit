@@ -1,6 +1,7 @@
 use std::{collections::{BTreeMap, BTreeSet, HashMap}, hash::Hash};
 
 use qudit_core::{QuditRadices, TensorShape};
+use qudit_expr::GenerationShape;
 
 use crate::tree::ExpressionTree;
 use super::path::ContractionPath;
@@ -74,13 +75,14 @@ impl QuditTensorNetwork {
         }).copied().collect()
     }
 
-    fn get_output_shape(&self) -> TensorShape {
+    fn get_output_shape(&self) -> GenerationShape {
         /// Calculate dimension totals for each direction
         let mut total_batch_dim = None;
         let mut total_output_dim = None;
         let mut total_input_dim = None;
         for idx in self.get_output_indices() {
             match idx.direction() {
+                IndexDirection::Derivative => panic!("Derivatives should not be explicit in networks."),
                 IndexDirection::Batch => {
                     if let Some(value) = total_batch_dim.as_mut() {
                         *value *= idx.index_size();
@@ -106,14 +108,14 @@ impl QuditTensorNetwork {
         }
 
         match (total_batch_dim, total_output_dim, total_input_dim) {
-            (None, None, None) => TensorShape::Scalar,
-            (Some(nbatches), None, None) => TensorShape::Vector(nbatches),
-            (None, Some(nrows), None) => TensorShape::Matrix(nrows, 1), // Ket
-            (None, None, Some(ncols)) => TensorShape::Vector(ncols), // Bra
-            (Some(nbatches), Some(nrows), None) => TensorShape::Tensor3D(nbatches, nrows, 1),
-            (Some(nbatches), None, Some(ncols)) => TensorShape::Matrix(nbatches, ncols),
-            (None, Some(nrows), Some(ncols)) => TensorShape::Matrix(nrows, ncols),
-            (Some(nmats), Some(nrows), Some(ncols)) => TensorShape::Tensor3D(nmats, nrows, ncols),
+            (None, None, None) => GenerationShape::Scalar,
+            (Some(nbatches), None, None) => GenerationShape::Vector(nbatches),
+            (None, Some(nrows), None) => GenerationShape::Matrix(nrows, 1), // Ket
+            (None, None, Some(ncols)) => GenerationShape::Vector(ncols), // Bra
+            (Some(nbatches), Some(nrows), None) => GenerationShape::Tensor3D(nbatches, nrows, 1),
+            (Some(nbatches), None, Some(ncols)) => GenerationShape::Matrix(nbatches, ncols),
+            (None, Some(nrows), Some(ncols)) => GenerationShape::Matrix(nrows, ncols),
+            (Some(nmats), Some(nrows), Some(ncols)) => GenerationShape::Tensor3D(nmats, nrows, ncols),
         }
     }
 
@@ -219,10 +221,31 @@ impl QuditTensorNetwork {
                 
                 // Calculate batch and contracted indices
                 let shared_indices = left.output_indices.intersection(&right.output_indices).copied().collect::<Vec<usize>>();
+                if shared_indices.len() == left.indices.len() && shared_indices.len() == right.indices.len() {
+                    tree_stack.push(PartialTree {
+                        tree: left.tree.hadamard(right.tree),
+                        indices: left.indices,
+                        output_indices: left.output_indices,
+                    });
+                    continue;
+                }
+
                 let contraction_indices = left.indices.iter().filter(|&i| right.indices.contains(i))
                     .filter(|&i| !shared_indices.contains(i)) // We don't contract over shared indices
                     .cloned()
                     .collect::<Vec<_>>();
+
+                if contraction_indices.is_empty() {
+                    let prod_tree = left.tree.outer(right.tree);
+                    let node_to_network_map: Vec<IndexId> = prod_tree.indices().iter().map(|&idx| idx.index_id()).collect();
+                    let node_output_indices = node_to_network_map.iter().map(|&id| self.indices[id].is_output()).collect();
+                    tree_stack.push(PartialTree {
+                        tree: prod_tree,
+                        indices: node_to_network_map,
+                        output_indices: node_output_indices,
+                    });
+                    continue;
+                }
 
                 // Calculate left and right index permutations
                 let left_left_indices = left.indices.iter()
@@ -272,22 +295,20 @@ impl QuditTensorNetwork {
 
                 let (left_shape, right_shape) = if batch_size == 1 {
                     (
-                        TensorShape::Matrix(left_nrows, contraction_size),
-                        TensorShape::Matrix(contraction_size, right_ncols)
+                        GenerationShape::Matrix(left_nrows, contraction_size),
+                        GenerationShape::Matrix(contraction_size, right_ncols)
                     )
                 } else {
                     (
-                        TensorShape::Tensor3D(batch_size, left_nrows, contraction_size),
-                        TensorShape::Tensor3D(batch_size, contraction_size, right_ncols)
+                        GenerationShape::Tensor3D(batch_size, left_nrows, contraction_size),
+                        GenerationShape::Tensor3D(batch_size, contraction_size, right_ncols)
                     )
                 };
                 
                 // Perform TTG part of TTGT contraction (Last T is part of fused with next contraction)
                 let left_tree = left.tree.transpose(left_index_transpose, left_shape);
                 let right_tree = right.tree.transpose(right_index_transpose, right_shape);
-                let matmul_tree = left_tree.matmul(right_tree);
-                // TODO: currently outer products are performed as a NMx1 x 1xPQ gemm.
-                // TODO: evaluate performance swift from kron.
+                let product_tree = left_tree.matmul(right_tree);
 
                 // Calculate result indices
                 let result_indices = shared_indices.iter()
@@ -305,58 +326,83 @@ impl QuditTensorNetwork {
                 println!("Resulting index order: {:?}", result_indices);
 
                 tree_stack.push(PartialTree {
-                    tree: matmul_tree,
+                    tree: product_tree,
                     indices: result_indices,
                     output_indices: result_output_indices,
                 });
             } else {
                 let tensor = self.tensors[*path_element].clone();
-                let indices = self.local_to_network_index_map[*path_element].clone(); // vec<IndexID>
+                // [5, 1, 5, 0, 1, 2] (5 contracted, 1 traced)
+                let mut network_idx_ids = self.local_to_network_index_map[*path_element].clone();
                 let leaf_node = ExpressionTree::leaf(tensor.expression.clone(), tensor.param_indices.clone());
 
                 // Perform partial traces if necessary
                 // find any indices that appear twice in indices and are only connected to this
                 let mut looped_index_map: HashMap<IndexId, Vec<usize>> = HashMap::new();
-                for (local_idx, &network_idx_id) in indices.iter().enumerate() {
+                for (local_idx, &network_idx_id) in network_idx_ids.iter().enumerate() {
                     let index_edge = &self.indices[network_idx_id];
-                    if index_edge.0.is_output() && index_edge.1.len() == 1 {
+                    if !index_edge.0.is_output() && index_edge.1.len() == 1 {
                         looped_index_map.entry(network_idx_id).or_default().push(local_idx);
                     }
                 }
+                // looped_index_map = {1 : (1, 4)}
 
                 // Assert that each looped index vector is exactly length 2 and convert them to pairs
+                let mut to_remove = Vec::with_capacity(looped_index_map.len() * 2);
                 let looped_index_pairs: Vec<(usize, usize)> = looped_index_map.into_iter().map(|(index_id, local_indices)| {
                     assert_eq!(local_indices.len(), 2, "Looped index {:?} did not have exactly two occurrences. It had {}.", index_id, local_indices.len());
+                    to_remove.extend(local_indices);
                     (local_indices[0], local_indices[1])
                 }).collect();
 
-                // need to argsort indices such equal elements are consecutive
+                to_remove.sort();
+                for traced_local_index in to_remove.iter().rev() {
+                    network_idx_ids.remove(*traced_local_index);
+                }
+                // indices = [5, 5, 0, 2]
+
+                let traced_node = leaf_node.trace(looped_index_pairs);
+                // traced_node(leaf).indices = ((0, output), (2, output), (3, input), (5, input))
+
+                // need to argsort indices such equal elements are consecutive without changing
+                // direction ordering
                 //
                 // This way a tensor with local_to_network map like [5, 6, 5, 0, 1, 2]
                 // can have the two from its generation shape be treated as one, for
                 // future operations.
                 let argsorted_indices = {
-                    let mut argsorted_indices = (0..indices.len()).collect::<Vec<_>>();
-                    argsorted_indices.sort_by_key(|&i| &indices[i]);
+                    let mut argsorted_indices = (0..network_idx_ids.len()).collect::<Vec<_>>();
+                    argsorted_indices.sort_by_key(|&i| (leaf_node.indices()[i].direction(), network_idx_ids[i]));
                     argsorted_indices 
                 };
 
-                let grouped_sorted_indices = {
+                let new_directions = argsorted_indices.iter().map(|id| traced_node.indices()[*id].direction()).collect();
+
+                let tranposed_node = traced_node.transpose(argsorted_indices, new_directions);
+
+                let (new_node_indices, grouped_sorted_indices) = {
                     let mut grouped = Vec::new();
-                    for idx in argsorted_indices.iter().map(|&i| &indices[i]) {
-                        if grouped.last() != Some(idx) {
-                            grouped.push(*idx)
+                    let mut new_node_indices = Vec::new();
+                    let mut dimension_acm = 1;
+                    let mut old_node_indices = tranposed_node.indices();
+                    for (id, idx) in argsorted_indices.iter().enumerate().map(|(id, &i)| (id, network_idx_ids[i])) {
+                        if grouped.last() != Some(&idx) {
+                            grouped.push(idx);
+                            new_node_indices.push(TensorIndex::new(old_node_indices[id].direction(), idx, dimension_acm));
+                            dimension_acm = 1;
+                        } else {
+                            dimension_acm *= old_node_indices[id].index_size();
                         }
                     }
-                    grouped
+                    (new_node_indices, grouped)
                 };
 
-                let tranposed_node = leaf_node.transpose(argsorted_indices, tensor.expression.generation_shape());
+                let final_node = tranposed_node.reindex(new_node_indices);
 
                 let output_indices = grouped_sorted_indices.iter().filter(|&x| self.indices[*x].0.is_output()).copied().collect();
 
                 tree_stack.push(PartialTree {
-                    tree: tranposed_node,
+                    tree: final_node,
                     indices: grouped_sorted_indices,
                     output_indices,
                 });
@@ -373,7 +419,7 @@ impl QuditTensorNetwork {
         }
 
         if indices.len() == 0 {
-            return tree.reshape(qudit_core::TensorShape::Scalar);
+            return tree.reshape(GenerationShape::Scalar);
         }
 
         // Perform final Transpose

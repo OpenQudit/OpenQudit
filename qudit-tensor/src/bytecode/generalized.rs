@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use qudit_core::{ComplexScalar, ParamIndices};
 use qudit_expr::{DifferentiationLevel, Module, ModuleBuilder, TensorExpression};
 
-use super::{instructions::{ConsecutiveParamWriteStruct, DisjointKronStruct, DisjointMatmulStruct, FRPRStruct, OverlappingKronStruct, OverlappingMatMulStruct, ReshapeStruct, SplitParamWriteStruct}, SizedTensorBuffer, SpecializedInstruction};
+use super::{instructions::{ConsecutiveParamWriteStruct, DisjointKronStruct, DisjointMatmulStruct, FRPRStruct, OverlappingKronStruct, OverlappingMatMulStruct, SplitParamWriteStruct}, SizedTensorBuffer, SpecializedInstruction};
 
 #[derive(Clone)]
 pub enum GeneralizedInstruction {
@@ -14,7 +14,7 @@ pub enum GeneralizedInstruction {
     DisjointKron(usize, usize, usize),
     OverlappingKron(usize, usize, usize, Vec<usize>, Vec<usize>),
     FRPR(usize, Vec<usize>, Vec<usize>, usize),
-    Reshape(usize, usize),
+    // Reshape(usize, usize),
 }
 
 impl std::fmt::Debug for GeneralizedInstruction {
@@ -41,9 +41,9 @@ impl std::fmt::Debug for GeneralizedInstruction {
             GeneralizedInstruction::FRPR(a, _, _, d) => {
                 write!(f, "FRPR {:?} {:?}", a, d)
             },
-            GeneralizedInstruction::Reshape(a, b) => {
-                write!(f, "Reshape {:?} {:?}", a, b)
-            },
+            // GeneralizedInstruction::Reshape(a, b) => {
+            //     write!(f, "Reshape {:?} {:?}", a, b)
+            // },
         }
     }
 }
@@ -81,10 +81,10 @@ impl GeneralizedInstruction {
                 *a += offset;
                 *d += offset;
             },
-            GeneralizedInstruction::Reshape(a, b) => {
-                *a += offset;
-                *b += offset;
-            },
+            // GeneralizedInstruction::Reshape(a, b) => {
+            //     *a += offset;
+            //     *b += offset;
+            // },
         }
     }
 
@@ -155,14 +155,14 @@ impl GeneralizedInstruction {
                     *d = *new_index;
                 }
             },
-            GeneralizedInstruction::Reshape(a, b) => {
-                if let Some(new_index) = buffer_map.get(a) {
-                    *a = *new_index;
-                }
-                if let Some(new_index) = buffer_map.get(b) {
-                    *b = *new_index;
-                }
-            },
+            // GeneralizedInstruction::Reshape(a, b) => {
+            //     if let Some(new_index) = buffer_map.get(a) {
+            //         *a = *new_index;
+            //     }
+            //     if let Some(new_index) = buffer_map.get(b) {
+            //         *b = *new_index;
+            //     }
+            // },
         }
     }
 
@@ -255,11 +255,11 @@ impl GeneralizedInstruction {
                     spec_a, shape, perm, spec_b,
                 ))
             },
-            GeneralizedInstruction::Reshape(in_index, out_index) => {
-                let spec_a = buffers[*in_index].clone();
-                let spec_b = buffers[*out_index].clone();
-                SpecializedInstruction::Reshape(ReshapeStruct::new(spec_a, spec_b))
-            },
+            // GeneralizedInstruction::Reshape(in_index, out_index) => {
+            //     let spec_a = buffers[*in_index].clone();
+            //     let spec_b = buffers[*out_index].clone();
+            //     SpecializedInstruction::Reshape(ReshapeStruct::new(spec_a, spec_b))
+            // },
         }
     }
 }

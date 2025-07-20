@@ -2,6 +2,7 @@
 // use bytemuck::Zeroable;
 use faer::reborrow::ReborrowMut;
 use qudit_expr::DifferentiationLevel;
+use qudit_expr::GenerationShape;
 use qudit_expr::Module;
 use qudit_core::TensorShape;
 
@@ -91,16 +92,16 @@ pub struct QVMResult<'a, C: ComplexScalar> {
 impl<'a, C: ComplexScalar> QVMResult<'a, C> {
     pub fn get_fn_result(&self) -> QVMReturnType<'a, C> {
         match self.buffer.shape() {
-            TensorShape::Scalar => {
+            GenerationShape::Scalar => {
                 todo!()
             }
-            TensorShape::Vector(len) => {
+            GenerationShape::Vector(len) => {
                 todo!()
             }
-            TensorShape::Matrix(rows, cols) => {
+            GenerationShape::Matrix(rows, cols) => {
                 QVMReturnType::Matrix(self.buffer.as_matref(self.memory))
             }
-            TensorShape::Tensor3D(mats, rows, cols) => {
+            GenerationShape::Tensor3D(mats, rows, cols) => {
                 println!("mats: {}, rows: {}, cols: {}", mats, rows, cols);
                 QVMReturnType::MatVec(self.buffer.as_matvecref_non_gradient(self.memory))
             }
@@ -110,16 +111,16 @@ impl<'a, C: ComplexScalar> QVMResult<'a, C> {
 
     pub fn get_grad_result(&self) -> QVMReturnType<'a, C> {
         match self.buffer.shape() {
-            TensorShape::Scalar => {
+            GenerationShape::Scalar => {
                 todo!()
             }
-            TensorShape::Vector(_len) => {
+            GenerationShape::Vector(_len) => {
                 todo!()
             }
-            TensorShape::Matrix(_rows, _cols) => {
+            GenerationShape::Matrix(_rows, _cols) => {
                 QVMReturnType::MatVec(self.buffer.as_matvecref(self.memory))
             }
-            TensorShape::Tensor3D(_mats, _rows, _cols) => {
+            GenerationShape::Tensor3D(_mats, _rows, _cols) => {
                 QVMReturnType::Tensor4D(self.buffer.as_tensor4d(self.memory))
                 // // For a tensor (MatVec) function, the gradient would be a higher-order tensor
                 // // This is typically represented as a MatVec where each original matrix's gradient is included.
