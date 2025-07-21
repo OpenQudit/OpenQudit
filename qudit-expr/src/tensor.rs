@@ -386,7 +386,8 @@ impl TensorExpression {
         let new_body_len = out_dims.iter().product::<usize>();
         let mut new_body = vec![ComplexExpression::zero(); new_body_len];
 
-        let in_strides = self.tensor_strides();
+        let mut in_strides = self.tensor_strides();
+        in_strides.insert(0, self.num_elements());
 
         // Calculate output strides for new linear index conversion (row-major)
         let out_strides: Vec<usize> = {

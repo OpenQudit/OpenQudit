@@ -24,7 +24,7 @@ pub struct TransposeNode {
     pub child: Box<ExpressionTree>,
 
     /// The permutation to apply to the child node.
-    perm: Vec<usize>,
+    pub perm: Vec<usize>,
 
     pub indices: Vec<TensorIndex>,
 }
@@ -61,7 +61,7 @@ impl fmt::Debug for TransposeNode {
 
 impl PrintTree for TransposeNode {
     fn write_tree(&self, prefix: &str, fmt: &mut std::fmt::Formatter<'_>) {
-        writeln!(fmt, "{}Transpose({:?}, {:?})", prefix, self.perm, self.indices()).unwrap();
+        writeln!(fmt, "{}Transpose{:?}", prefix, self.perm).unwrap();
         let child_prefix = self.modify_prefix_for_child(prefix, true);
         self.child.write_tree(&child_prefix, fmt);
     }

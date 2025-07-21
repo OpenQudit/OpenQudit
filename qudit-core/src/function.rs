@@ -59,7 +59,7 @@ impl ParamIndices {
     /// # Returns
     ///
     /// `true` if the `ParamIndices` is empty, `false` otherwise.
-    pub fn empty(&self) -> bool {
+    pub fn is_empty(&self) -> bool {
         match self {
             ParamIndices::Joint(_, length) => *length == 0,
             ParamIndices::Disjoint(v) => v.is_empty(),

@@ -1,32 +1,36 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, BTreeSet};
 
 use super::buffer::TensorBuffer;
 use super::{Bytecode, GeneralizedInstruction};
 use qudit_core::{HasParams, ParamIndices};
-use crate::tree::{ExpressionTree, LeafNode};
+use crate::tree::{ExpressionTree, LeafNode, TraceNode, TransposeNode};
 use qudit_expr::{GenerationShape, TensorExpression, UnitaryExpression};
 use qudit_core::QuditSystem;
 use qudit_core::TensorShape;
 
+#[derive(Default)]
 pub struct BytecodeGenerator {
     expression_set: HashMap<TensorExpression, HashMap<Option<ParamIndices>, String>>,
     static_code: Vec<GeneralizedInstruction>,
     dynamic_code: Vec<GeneralizedInstruction>,
     buffers: Vec<TensorBuffer>,
+    static_buffers: BTreeSet<usize>,
     static_tree_cache: HashMap<ExpressionTree, usize>,
     gate_fn_counter: usize,
 }
 
 impl BytecodeGenerator {
     pub fn new() -> Self {
-        Self {
-            expression_set: HashMap::new(),
-            static_code: Vec::new(),
-            dynamic_code: Vec::new(),
-            buffers: Vec::new(),
-            static_tree_cache: HashMap::new(),
-            gate_fn_counter: 0,
-        }
+        Self::default()
+        // Self {
+        //     expression_set: HashMap::new(),
+        //     static_code: Vec::new(),
+        //     dynamic_code: Vec::new(),
+        //     buffers: Vec::new(),
+        //     static_buffers: BTreeSet::new(),
+        //     static_tree_cache: HashMap::new(),
+        //     gate_fn_counter: 0,
+        // }
     }
 
     pub fn get_new_buffer(
@@ -35,7 +39,6 @@ impl BytecodeGenerator {
         num_params: usize,
     ) -> usize {
         let out = self.buffers.len();
-        println!("Making new buffer with shape: {:?}", gen_shape);
         self.buffers.push(TensorBuffer {
             shape: *gen_shape,
             num_params,
@@ -43,7 +46,7 @@ impl BytecodeGenerator {
         out
     }
 
-    pub fn generate(mut self, tree: &ExpressionTree) -> Bytecode {
+    pub fn generate(mut self, tree: ExpressionTree) -> Bytecode {
         self.parse(tree);
 
         Bytecode {
@@ -62,7 +65,7 @@ impl BytecodeGenerator {
         }
     }
 
-    pub fn parse(&mut self, tree: &ExpressionTree) -> usize {
+    pub fn parse(&mut self, tree: ExpressionTree) -> usize {
         match tree {
             ExpressionTree::Leaf(LeafNode { expr, param_indices } ) => {
                 let out = self.get_new_buffer(&expr.generation_shape(), param_indices.num_params());
@@ -75,8 +78,8 @@ impl BytecodeGenerator {
                 } else {
                     Some(param_indices.clone())
                 };
-                let fn_name = if self.expression_set.contains_key(expr) {
-                    let expression_map = self.expression_set.get_mut(expr).unwrap();
+                let fn_name = if self.expression_set.contains_key(&expr) {
+                    let expression_map = self.expression_set.get_mut(&expr).unwrap();
                     if expression_map.contains_key(&param_key) {
                         expression_map.get(&param_key).unwrap().to_owned()
                     } else {
@@ -93,11 +96,11 @@ impl BytecodeGenerator {
                     self.expression_set.insert(expr.clone(), expression_map);
                     name
                 };
-                // if param_map.is_empty() {
-                //     self.constant_code.push(...)
-                //     self.constant_buffers.push(...)
-                // }
-                if param_indices.is_consecutive() {
+
+                if param_indices.is_empty() {
+                    self.static_code.push(GeneralizedInstruction::ConsecutiveParamWrite(fn_name, param_indices.start(), out.clone()));
+                    self.static_buffers.insert(out.clone());
+                } else if param_indices.is_consecutive() {
                     self.dynamic_code.push(GeneralizedInstruction::ConsecutiveParamWrite(
                         fn_name,
                         param_indices.start(),
@@ -114,20 +117,27 @@ impl BytecodeGenerator {
                 out
             },
             ExpressionTree::MatMul(node) => {
-                let left = self.parse(&node.left);
-                let right = self.parse(&node.right);
                 let left_indices = node.left.param_indices();
                 let right_indices = node.right.param_indices();
+                let gen_shape = node.indices().into();
+                let left = self.parse(*node.left);
+                let right = self.parse(*node.right);
                 let overlap = left_indices.intersect(&right_indices);
-                let gen_shape = node.generation_shape();
                 let out = self.get_new_buffer(
                     &gen_shape, left_indices.num_params() + right_indices.num_params() - overlap.num_params(),
                 );
-                if overlap.empty() {
+                if self.static_buffers.contains(&left) && self.static_buffers.contains(&right) {
+                    self.static_code.push(GeneralizedInstruction::DisjointMatmul(
+                        left,
+                        right,
+                        out,
+                    ));
+                    self.static_buffers.insert(out);
+                } else if overlap.is_empty() {
                     self.dynamic_code.push(GeneralizedInstruction::DisjointMatmul(
-                        left.clone(),
-                        right.clone(),
-                        out.clone(),
+                        left,
+                        right,
+                        out,
                     ));
                 } else {
                     let left_shared_indices = left_indices.iter()
@@ -158,63 +168,35 @@ impl BytecodeGenerator {
                 }
                 out
             },
-            ExpressionTree::Reshape(node) => {
-                todo!()
-                // let child = self.parse(&node.child);
-                // let gen_shape = node.generation_shape();
-                // let out = self.get_new_buffer(
-                //     &gen_shape, node.param_indices().num_params(),
-                // );
-                // self.dynamic_code.push(GeneralizedInstruction::Reshape(
-                //     child.clone(),
-                //     out.clone(),
-                // ));
-                // out
-            },
             ExpressionTree::Transpose(node) => {
-                let child = self.parse(&node.child);
-                let gen_shape = node.generation_shape();
                 let out = self.get_new_buffer(
-                    &gen_shape, node.param_indices().num_params(),
+                    &node.indices().into(),
+                    node.param_indices().num_params(),
                 );
-                println!("FRPR general instruction generated");
-                println!("{:?}", self.buffers[out].shape);
-                self.dynamic_code.push(GeneralizedInstruction::FRPR(
-                    child.clone(),
-                    node.child.dimensions().into(),
+                let child_indices = node.child.indices();
+                let child_buffer = self.parse(*node.child);
+                let instruction = GeneralizedInstruction::FRPR(
+                    child_buffer,
+                    child_indices.iter().map(|idx| idx.index_size()).collect(),
                     node.perm.clone(),
-                    out.clone(),
-                ));
+                    out,
+                );
+                if self.static_buffers.contains(&child_buffer) {
+                    self.static_code.push(instruction);
+                    self.static_buffers.insert(out);
+                } else {
+                    self.dynamic_code.push(instruction);
+                }
                 out
             },
-            ExpressionTree::OuterProduct(node) => {
+            ExpressionTree::Trace(TraceNode { child, dimension_pairs, .. }) => {
                 todo!()
             },
-            ExpressionTree::Trace(node) => {
+            ExpressionTree::Outer(node) => {
                 todo!()
             },
-            ExpressionTree::Constant(node) => {
-                if self.static_tree_cache.contains_key(tree) {
-                    return self.static_tree_cache[tree];
-                }
-
-                let code = BytecodeGenerator::new().generate(&node.child);
-
-                let buffer_offset = self.buffers.len();
-                for buffer in code.buffers {
-                    self.buffers.push(buffer);
-                }
-
-                assert!(code.static_code.len() == 0);
-
-                for mut inst in code.dynamic_code {
-                    inst.offset_buffer_indices(buffer_offset);
-                    self.static_code.push(inst);
-                }
-
-                let out = self.buffers.len() - 1;
-                self.static_tree_cache.insert(tree.clone(), out);
-                out
+            ExpressionTree::Hadamard(node) => {
+                todo!()
             },
         }
     }

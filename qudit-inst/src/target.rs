@@ -1,7 +1,7 @@
 use qudit_circuit::QuditCircuit;
 use qudit_core::ComplexScalar;
 use qudit_core::unitary::UnitaryMatrix;
-use qudit_tensor::QVM;
+// use qudit_tensor::QVM;
 
 pub enum InstantiationTarget<C: ComplexScalar> {
     // StateVector

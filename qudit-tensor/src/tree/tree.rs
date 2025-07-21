@@ -13,6 +13,7 @@ use qudit_core::HasParams;
 use qudit_core::ParamIndices;
 use qudit_core::RealScalar;
 use qudit_expr::index::IndexDirection;
+use qudit_expr::index::IndexId;
 use qudit_expr::index::TensorIndex;
 use qudit_expr::GenerationShape;
 use qudit_expr::TensorExpression;
@@ -110,11 +111,20 @@ impl ExpressionTree {
     }
 
     pub fn transpose(self, perm: Vec<usize>, redirection: Vec<IndexDirection>) -> Self {
-        if let ExpressionTree::Leaf(mut n) = self {
+        let is_identity_permutation = perm.iter().enumerate().all(|(i, &p)| i == p);
+        let original_directions: Vec<IndexDirection> = self.indices().iter().map(|idx| idx.direction()).collect();
+        let is_identity_redirection = redirection == original_directions;
+
+        if is_identity_permutation && is_identity_redirection {
+            self
+        } else if let ExpressionTree::Leaf(mut n) = self {
             n.permute(&perm, redirection);
             ExpressionTree::Leaf(n)
+        } else if let ExpressionTree::Transpose(n) = self {
+            let TransposeNode { child, perm, .. } = n;
+            let composed_perm: Vec<usize> = perm.iter().map(|&idx| perm[idx]).collect();
+            Self::Transpose(TransposeNode::new(*child, composed_perm, redirection))
         } else {
-            // if it's already a transpose, can merge TODO
             Self::Transpose(TransposeNode::new(self, perm, redirection))
         }
     }
@@ -128,40 +138,79 @@ impl ExpressionTree {
         }
     }
 
-    // pub fn contract(
-    //     self,
-    //     other: Self,
-    //     left_unsummed_indices: Vec<usize>,
-    //     right_unsummed_indices: Vec<usize>,
-    //     left_contraction_indices: Vec<usize>,
-    //     right_contraction_indices: Vec<usize>,
-    // ) -> Self {
-    //     assert_eq!(left_unsummed_indices.len(), right_unsummed_indices.len());
-    //     assert_eq!(left_contraction_indices.len(), right_contraction_indices.len());
+    pub fn contract(
+        self,
+        right: Self,
+        shared_ids: Vec<IndexId>,
+        contraction_ids: Vec<IndexId>,
+    ) -> Self {
+        let left = self;
+        // TODO: assert all shared ids are in both left and right
+        // TODO: assert all contracted ids are in both left and right
+        // TODO: assert no overlap between shared and contracted
 
-    //     let (left, right) = (self, other);
+        if contraction_ids.is_empty() {
+            if left.rank() == shared_ids.len() && right.rank() == left.rank() {
+                return ExpressionTree::Hadamard(HadamardProductNode::new(left, right));
+            }
+            return ExpressionTree::Outer(OuterProductNode::new(left, right));
+        }
 
-    //     if left_contraction_indices.is_empty() {
-    //         if left.rank() == left_unsummed_indices.len() && right.rank() == left.rank() {
-    //             return ExpressionTree::Hadamard(HadamardProductNode::new(left, right));
-    //         }
-    //         return ExpressionTree::Outer(OuterProductNode::new(left, right));
-    //     }
+        // First find the permutation and redirection for left that makes its tensor
+        // order (shared_ids [Batch], non_contracted [Output], contracted[Input])
+        let left_left_indices = left.indices().iter()
+            .filter(|idx| !shared_ids.contains(&idx.index_id()))
+            .filter(|idx| !contraction_ids.contains(&idx.index_id()))
+            .copied()
+            .collect::<Vec<TensorIndex>>();
 
+        let left_index_transpose = shared_ids.iter().copied()
+            .chain(left_left_indices.iter().map(|idx| idx.index_id()))
+            .chain(contraction_ids.iter().copied())
+            .map(|i| left.indices().iter().position(|x| x.index_id() == i).unwrap())
+            .collect::<Vec<usize>>();
 
+        let left_index_redirection = shared_ids.iter()
+            .map(|_| IndexDirection::Batch)
+            .chain(left_left_indices.iter().map(|_| IndexDirection::Output))
+            .chain(contraction_ids.iter().map(|_| IndexDirection::Input))
+            .collect();
 
-    //     // else TTG
+        let left_transposed_tree = left.transpose(left_index_transpose, left_index_redirection);
 
+        // same for right but (shared_ids, contracted, non_contracted)
+        let right_right_indices = right.indices().iter()
+            .filter(|idx| !shared_ids.contains(&idx.index_id()))
+            .filter(|idx| !contraction_ids.contains(&idx.index_id()))
+            .copied()
+            .collect::<Vec<TensorIndex>>();
 
-    //     todo!()
-    // }
+        let right_index_transpose = shared_ids.iter().copied()
+            .chain(contraction_ids.iter().copied())
+            .chain(right_right_indices.iter().map(|idx| idx.index_id()))
+            .map(|i| right.indices().iter().position(|x| x.index_id() == i).unwrap())
+            .collect::<Vec<usize>>();
+
+        let right_index_redirection = shared_ids.iter()
+            .map(|_| IndexDirection::Batch)
+            .chain(contraction_ids.iter().map(|_| IndexDirection::Output))
+            .chain(right_right_indices.iter().map(|_| IndexDirection::Input))
+            .collect();
+
+        let right_transposed_tree = right.transpose(right_index_transpose, right_index_redirection);
+
+        // Contract
+        left_transposed_tree.matmul(right_transposed_tree)
+    }
 
     pub fn matmul(self, other: Self) -> Self {
         Self::MatMul(MatMulNode::new(self, other))
     }
     
     pub fn trace(self, pairs: Vec<(usize, usize)>) -> Self {
-        if let ExpressionTree::Leaf(mut n) = self {
+        if pairs.is_empty() {
+            self
+        } else if let ExpressionTree::Leaf(mut n) = self {
             n.trace(&pairs);
             ExpressionTree::Leaf(n)
         } else {

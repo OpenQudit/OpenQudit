@@ -1,29 +1,29 @@
 mod tree;
 mod network;
 mod bytecode;
-mod qvm;
+// mod qvm;
 
 pub use network::QuditTensor;
 pub use network::QuditTensorNetwork;
 pub use network::QuditCircuitTensorNetworkBuilder;
 pub use bytecode::Bytecode;
-pub use qvm::QVM;
-pub use qvm::QVMResult;
-pub use qvm::QVMReturnType;
+// pub use qvm::QVM;
+// pub use qvm::QVMResult;
+// pub use qvm::QVMReturnType;
 
-pub fn compile_network(network: &QuditTensorNetwork) -> Bytecode {
+pub fn compile_network(network: QuditTensorNetwork) -> Bytecode {
     let optimal_path = network.solve_for_path();
     let tree = network.path_to_expression_tree(optimal_path);
-    let tree = crate::tree::TreeOptimizer::new().optimize(tree);
-    crate::bytecode::BytecodeGenerator::new().generate(&tree)
+    // let tree = crate::tree::TreeOptimizer::new().optimize(tree);
+    crate::bytecode::BytecodeGenerator::new().generate(tree)
 }
 
 #[cfg(test)]
 mod tests {
     use qudit_expr::DifferentiationLevel;
 
-    use crate::{bytecode::BytecodeGenerator, tree::TreeOptimizer};
-    use crate::qvm::QVM;
+    use crate::bytecode::BytecodeGenerator;
+    // use crate::qvm::QVM;
     use qudit_core::QuditRadices;
     use qudit_expr::TensorExpression;
 
@@ -64,17 +64,17 @@ mod tests {
         println!("Optimal Path: {:?}", optimal_path.path);
         let tree = network.path_to_expression_tree(optimal_path);
         println!("Expression Tree: {:?}", tree);
-        let tree = TreeOptimizer::new().optimize(tree);
-        println!("Expression Tree: {:?}", tree);
-        let code = BytecodeGenerator::new().generate(&tree);
+        // let tree = TreeOptimizer::new().optimize(tree);
+        // println!("Expression Tree: {:?}", tree);
+        let code = BytecodeGenerator::new().generate(tree);
         println!("Bytecode: {:?}", code);
 
-        let mut qvm: QVM<qudit_core::c64> = QVM::new(code, DifferentiationLevel::None);
-        let params = [1.7, 1.7, 1.7];
-        let out_buffer = qvm.evaluate(&params);
-        let out_fn = out_buffer.get_fn_result().unpack_matvec();
-        // let out_grad = out_buffer.get_grad_result().unpack_tensor4d();
-        println!("Output: {:?}", out_fn);
+        // let mut qvm: QVM<qudit_core::c64> = QVM::new(code, DifferentiationLevel::None);
+        // let params = [1.7, 1.7, 1.7];
+        // let out_buffer = qvm.evaluate(&params);
+        // let out_fn = out_buffer.get_fn_result().unpack_matvec();
+        // // let out_grad = out_buffer.get_grad_result().unpack_tensor4d();
+        // println!("Output: {:?}", out_fn);
         // println!("Output grad: {:?}", out_grad);
     }
 
