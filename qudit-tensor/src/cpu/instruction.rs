@@ -125,32 +125,3 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
     }
 }
 
-// impl<C: ComplexScalar> SpecializedInstruction<C, FUNCTION> {
-//     #[inline(always)]
-//     pub unsafe fn evaluate(&self, params: &[C::R], memory: &mut MemoryBuffer<C>) {
-//         match self {
-//             SpecializedInstruction::WriteSS(s) => s.evaluate(params, memory),
-//             SpecializedInstruction::MatMulDS(s) => s.evaluate(memory),
-//         }
-//     }
-// }
-
-// impl<C: ComplexScalar> SpecializedInstruction<C, GRADIENT> {
-//     #[inline(always)]
-//     pub unsafe fn evaluate(&self, params: &[C::R], memory: &mut MemoryBuffer<C>) {
-//         match self {
-//             SpecializedInstruction::WriteSS(s) => s.evaluate(params, memory),
-//             SpecializedInstruction::MatMulDS(s) => s.evaluate(memory),
-//         }
-//     }
-// }
-
-// impl<C: ComplexScalar> SpecializedInstruction<C, HESSIAN> {
-//     #[inline(always)]
-//     pub unsafe fn evaluate(&self, params: &[C::R], memory: &mut MemoryBuffer<C>) {
-//         match self {
-//             SpecializedInstruction::WriteSS(s) => s.evaluate(params, memory),
-//             SpecializedInstruction::MatMulDS(s) => s.evaluate(memory),
-//         }
-//     }
-// }
