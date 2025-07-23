@@ -4,25 +4,51 @@ use qudit_core::array::TensorMut;
 use qudit_core::array::SymSqTensorRef;
 use qudit_core::array::SymSqTensorMut;
 use qudit_core::memory;
+use qudit_core::memory::calc_col_stride;
+use qudit_core::memory::calc_mat_stride;
+use qudit_core::memory::calc_next_stride;
 use qudit_core::{memory::MemoryBuffer, ComplexScalar};
 use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
 use qudit_expr::{DifferentiationLevel, GenerationShape};
 
+use crate::bytecode::TensorBuffer;
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SizedTensorBuffer<C: ComplexScalar> {
     offset: usize,
+    shape: GenerationShape,
     ncols: usize,
     nrows: usize,
     nmats: usize,
     nparams: usize,
-    row_stride: usize,
     col_stride: usize,
+    row_stride: usize,
     mat_stride: usize,
     param_stride: usize,
     _phantom: std::marker::PhantomData<C>,
 }
 
 impl<C: ComplexScalar> SizedTensorBuffer<C> {
+
+    #[inline]
+    pub fn new(offset: usize, buffer: &TensorBuffer) -> Self {
+        let col_stride = calc_col_stride::<C>(buffer.nrows(), buffer.ncols());
+        let mat_stride = calc_mat_stride::<C>(buffer.nrows(), buffer.ncols(), col_stride);
+        let param_stride = calc_next_stride::<C>(mat_stride*buffer.nmats());
+        SizedTensorBuffer {
+            offset,
+            shape: buffer.shape(),
+            ncols: buffer.ncols(),
+            nrows: buffer.nrows(),
+            nmats: buffer.nmats(),
+            nparams: buffer.num_params(),
+            col_stride,
+            row_stride: 1,
+            mat_stride,
+            param_stride,
+            _phantom: std::marker::PhantomData,
+        }
+    }
 
     #[inline(always)]
     pub fn ncols(&self) -> usize {
@@ -42,6 +68,33 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub fn nparams(&self) -> usize {
         self.nparams
+    }
+
+    #[inline(always)]
+    pub fn shape(&self) -> GenerationShape {
+        self.shape
+    }
+
+    #[inline(always)]
+    pub fn strides(&self) -> Vec<usize> {
+        match self.shape() {
+            GenerationShape::Scalar => vec![],
+            GenerationShape::Vector(_) => vec![self.col_stride], // TODO: Should this be 1??
+            GenerationShape::Matrix(_, _) => vec![self.row_stride, self.col_stride],
+            GenerationShape::Tensor3D(_, _, _) => vec![self.mat_stride, self.row_stride, self.col_stride],
+            _ => panic!("Tensor4D should not be constructed explicitly."),
+        }
+    }
+
+    #[inline(always)]
+    pub fn grad_strides(&self) -> Vec<usize> {
+        match self.shape() {
+            GenerationShape::Scalar => vec![self.param_stride],// TODO: Should this be 1??
+            GenerationShape::Vector(_) => vec![self.param_stride, self.col_stride], // TODO: Should this be 1??
+            GenerationShape::Matrix(_, _) => vec![self.param_stride, self.row_stride, self.col_stride],
+            GenerationShape::Tensor3D(_, _, _) => vec![self.param_stride, self.mat_stride, self.row_stride, self.col_stride],
+            _ => panic!("Tensor4D should not be constructed explicitly."),
+        }
     }
 
     #[inline(always)]
@@ -96,7 +149,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         RowRef::from_raw_parts(
             memory.as_ptr().add(self.offset),
             self.ncols,
-            self.col_stride as isize,
+            self.col_stride as isize, // TODO: Should this (and similar others) be 1?
         )
     }
 

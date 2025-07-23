@@ -1,4 +1,5 @@
 use crate::index::{IndexDirection, TensorIndex};
+use std::ops::Add;
 
 /// Represents the shape of a tensor as it will be generated.
 ///
@@ -447,6 +448,31 @@ impl From<&[TensorIndex]> for GenerationShape {
             [1, 1, nrows, ncols] => GenerationShape::Matrix(nrows, ncols),
             [1, nmats, nrows, ncols] => GenerationShape::Tensor3D(nmats, nrows, ncols),
             [ntens, nmats, nrows, ncols] => GenerationShape::Tensor4D(ntens, nmats, nrows, ncols),
+        }
+    }
+}
+
+impl Add for GenerationShape {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self::Output {
+        match (self, other) {
+            // TODO: re-evaluate this...
+            (GenerationShape::Scalar, other_shape) => other_shape,
+            (other_shape, GenerationShape::Scalar) => other_shape,  
+            (GenerationShape::Vector(s_nelems), GenerationShape::Vector(o_nelems)) => {
+                GenerationShape::Vector(s_nelems + o_nelems)
+            },
+            (GenerationShape::Matrix(s_nrows, s_ncols), GenerationShape::Matrix(o_nrows, o_ncols)) => {
+                GenerationShape::Matrix(s_nrows + o_nrows, s_ncols + o_ncols)
+            },
+            (GenerationShape::Tensor3D(s_nmats, s_nrows, s_ncols), GenerationShape::Tensor3D(o_nmats, o_nrows, o_ncols)) => {
+                GenerationShape::Tensor3D(s_nmats + o_nmats, s_nrows + o_nrows, s_ncols + o_ncols)
+            },
+            (GenerationShape::Tensor4D(s_ntens, s_nmats, s_nrows, s_ncols), GenerationShape::Tensor4D(o_ntens, o_nmats, o_nrows, o_ncols)) => {
+                GenerationShape::Tensor4D(s_ntens + o_ntens, s_nmats + o_nmats, s_nrows + o_nrows, s_ncols + o_ncols)
+            },
+            _ => panic!("Cannot add tensors of different fundamental shapes or incompatible ranks."),
         }
     }
 }

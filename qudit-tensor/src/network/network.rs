@@ -210,8 +210,8 @@ impl QuditTensorNetwork {
 
         for path_element in path.path.iter() {
             if *path_element == usize::MAX {
-                let right = tree_stack.pop().unwrap();
                 let left = tree_stack.pop().unwrap();
+                let right = tree_stack.pop().unwrap();
 
                 let left_network_index_ids: Vec<IndexId> = left.indices().iter().map(|&idx| idx.index_id()).collect();
                 let right_network_index_ids: Vec<IndexId> = right.indices().iter().map(|&idx| idx.index_id()).collect();
@@ -328,6 +328,8 @@ impl QuditTensorNetwork {
                 }
             }).collect();
 
+        // println!("Current direction: {:?}", tree.indices().iter().map(|idx| idx.direction()).collect::<Vec<_>>());
+        // println!("Final transpose: {:?} redirection: {:?}", final_transpose, final_redirection);
         tree.transpose(final_transpose, final_redirection) 
     }
 }

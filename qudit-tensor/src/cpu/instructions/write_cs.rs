@@ -1,121 +1,32 @@
 
-use qudit_core::matrix::MatMut;
-use qudit_core::matrix::SymSqMatMatMut;
-use qudit_core::matrix::MatVecMut;
-use qudit_core::ComplexScalar;
-use super::super::buffer::SizedTensorBuffer;
-use qudit_core::memory::MemoryBuffer;
-use qudit_expr::UtryFunc;
-use qudit_expr::UtryGradFunc;
+use qudit_core::{memory::MemoryBuffer, ComplexScalar};
+use qudit_expr::UtryFunc; // TODO: Change name
 
-pub struct ConsecutiveParamWriteStruct<C: ComplexScalar> {
-    pub utry_fn: UtryFunc<C>,
-    pub utry_grad_fn: Option<UtryFunc<C>>,
+use super::super::buffer::SizedTensorBuffer;
+
+
+pub struct ConsecutiveParamSingleWriteStruct<C: ComplexScalar> {
+    write_fn: UtryFunc<C>,
     pub idx: usize,
-    pub buffer: SizedTensorBuffer,
+    buffer: SizedTensorBuffer<C>,
 }
 
-impl<C: ComplexScalar> ConsecutiveParamWriteStruct<C> {
-    pub fn new(utry_fn: UtryFunc<C>, utry_grad_fn: Option<UtryFunc<C>>, idx: usize, buffer: SizedTensorBuffer) -> Self {
-        Self { utry_fn, utry_grad_fn, idx, buffer }
+impl<C: ComplexScalar> ConsecutiveParamSingleWriteStruct<C> {
+    pub fn new(write_fn: UtryFunc<C>, idx: usize, buffer: SizedTensorBuffer<C>) -> Self {
+        Self { write_fn, idx, buffer }
     }
 
     #[inline(always)]
-    pub fn evaluate(
-        &self,
-        params: &[C::R],
-        memory: &mut MemoryBuffer<C>,
-    ) {
-        let gate_params =
-            &params[self.idx..self.idx + self.buffer.num_params];
-        let matmut = self.buffer.as_matmut::<C>(memory);
+    pub fn evaluate(&self, params: &[C::R], memory: &mut MemoryBuffer<C>) {
         unsafe {
-            let matmutptr = matmut.as_ptr_mut() as *mut C::R;
-            (self.utry_fn)(gate_params.as_ptr() as *const C::R, matmutptr);
+            let ptr = self.buffer.as_ptr_mut(memory) as *mut C::R;
+            (self.write_fn)(params.as_ptr().add(self.idx), ptr);
         }
-        println!("After Write: {:?}", matmut);
     }
 
     #[inline(always)]
-    pub fn evaluate_gradient(
-        &self,
-        params: &[C::R],
-        memory: &mut MemoryBuffer<C>,
-    ) {
-        let gate_params =
-            &params[self.idx..self.idx + self.buffer.num_params];
-        // let matmut = self.buffer.as_matmut::<C>(memory);
-        let matgradmut = self.buffer.as_matvecmut_for_write::<C>(memory);
-        unsafe {
-            // let matmutptr = matmut.as_ptr_mut() as *mut C::R;
-            let matgradmutptr = matgradmut.as_mut_ptr().as_ptr() as *mut C::R;
-            self.utry_grad_fn.unwrap()(gate_params.as_ptr() as *const C::R, matgradmutptr);
-        }
-        println!("WRITEOUTPUT: {:?}\n\n", self.buffer.as_matvecref_for_write::<C>(memory));
+    pub fn get_output_buffer(&self) -> &SizedTensorBuffer<C> {
+        &self.buffer
     }
-
-    #[inline(always)]
-    pub fn evaluate_hessian(
-        &self,
-        _params: &[C::R],
-        _memory: &mut MemoryBuffer<C>,
-    ) {
-        todo!()
-        // let gate_params =
-        //     &params[self.idx..self.idx + self.gate.get_num_params];
-        // let mut matmut = self.buffer.as_matmut::<C>(memory);
-        // let mut matgradmut = self.buffer.as_matvecmut::<C>(memory);
-        // let mut mathessmut = self.buffer.as_symsqmatmut::<C>(memory);
-        // self.gate.write_unitary_hessian(
-        //     gate_params,
-        //     &mut matmut,
-        //     &mut matgradmut,
-        //     &mut mathessmut,
-        // );
-    }
-
-    // #[inline(always)]
-    // pub fn evaluate_into(
-    //     &self,
-    //     params: &[C::R],
-    //     _memory: &mut MemoryBuffer<C>,
-    //     out: MatMut<C>,
-    // ) {
-    //     let gate_params =
-    //         &params[self.idx..self.idx + self.buffer.num_params];
-    //     unsafe {
-    //         let outptr = out.as_ptr_mut() as *mut C::R;
-    //         (self.utry_fn)(gate_params.as_ptr() as *const C::R, outptr);
-    //     }
-    // }
-
-    // #[inline(always)]
-    // pub fn evaluate_gradient_into(
-    //     &self,
-    //     params: &[C::R],
-    //     _memory: &mut MemoryBuffer<C>,
-    //     out: MatMut<C>,
-    //     matgradmut: MatVecMut<C>,
-    // ) {
-    //     let gate_params =
-    //         &params[self.idx..self.idx + self.buffer.num_params];
-    //     unsafe {
-    //         let outptr = out.as_ptr_mut() as *mut C::R;
-    //         let matgradmutptr = matgradmut.as_mut_ptr().as_ptr() as *mut C::R;
-    //         self.utry_grad_fn.unwrap()(gate_params.as_ptr() as *const C::R, outptr, matgradmutptr);
-    //     }
-    // }
-
-    // #[inline(always)]
-    // pub fn evaluate_hessian_into(
-    //     &self,
-    //     _params: &[C::R],
-    //     _memory: &mut MemoryBuffer<C>,
-    //     _out: MatMut<C>,
-    //     _matgradmut: MatVecMut<C>,
-    //     _mathessmut: SymSqMatMatMut<C>,
-    // ) {
-    //     todo!()
-    // }
 }
 

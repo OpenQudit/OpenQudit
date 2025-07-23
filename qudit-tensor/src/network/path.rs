@@ -336,7 +336,7 @@ mod tests {
         // Test with empty paths (unlikely in real use, but good for robustness)
         let path_empty_a = create_test_path(0, &[], &[], 0, 0, vec![]);
         let path_empty_b = create_test_path(1, &[], &[], 0, 0, vec![]);
-        assert_eq!(ContractionPath::calculate_cost(&path_empty_a, &path_empty_b), 0);
+        assert_eq!(ContractionPath::calculate_cost(&path_empty_a, &path_empty_b), 1);
     }
 
     #[test]

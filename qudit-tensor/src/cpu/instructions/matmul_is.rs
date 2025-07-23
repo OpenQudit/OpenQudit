@@ -1,20 +1,20 @@
 use qudit_core::matrix::{MatMut, MatRef};
 use qudit_core::array::{TensorRef, TensorMut, SymSqTensorMut, SymSqTensorRef};
-use qudit_core::ComplexScalar;
+use qudit_core::{memory, ComplexScalar};
 use super::super::buffer::SizedTensorBuffer;
 use qudit_expr::DifferentiationLevel;
 use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
 use qudit_core::memory::MemoryBuffer;
 use qudit_core::accel::MatMulPlan;
 
-pub struct IndependentSingleMatmulStruct<C: ComplexScalar, const D: DifferentiationLevel> {
+pub struct IndependentSingleMatmulStruct<C: ComplexScalar> {
     pub left: SizedTensorBuffer<C>,
     pub right: SizedTensorBuffer<C>,
     pub out: SizedTensorBuffer<C>,
     pub plan: MatMulPlan<C>,
 }
 
-impl<C: ComplexScalar, const D: DifferentiationLevel> IndependentSingleMatmulStruct<C, D> {
+impl<C: ComplexScalar> IndependentSingleMatmulStruct<C> {
     pub fn new(
         left: SizedTensorBuffer<C>,
         right: SizedTensorBuffer<C>,
@@ -135,69 +135,41 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> IndependentSingleMatmulStr
     pub fn get_output_buffer(&self) -> &SizedTensorBuffer<C> {
         &self.out
     }
-}
 
-impl<C: ComplexScalar> IndependentSingleMatmulStruct<C, FUNCTION> {
     #[inline(always)]
-    pub unsafe fn evaluate(&self, memory: &mut MemoryBuffer<C>) {
-        let left = self.left.as_matrix_ref(memory);
-        let right = self.right.as_matrix_ref(memory);
-        let out = self.out.as_matrix_mut(memory);
-        self.calculate_unitary(left, right, out);
-    }
-}
-
-impl<C: ComplexScalar> IndependentSingleMatmulStruct<C, GRADIENT> {
-    #[inline(always)]
-    pub unsafe fn evaluate(&self, memory: &mut MemoryBuffer<C>) {
+    pub unsafe fn evaluate<const D: DifferentiationLevel>(&self, memory: &mut MemoryBuffer<C>) {
         let left = self.left.as_matrix_ref(memory);
         let right = self.right.as_matrix_ref(memory);
         let out = self.out.as_matrix_mut(memory);
         self.calculate_unitary(left, right, out);
 
-        let left_grad = self.left.grad_as_tensor3d_ref(memory);
-        let right_grad = self.right.grad_as_tensor3d_ref(memory);
-        let out_grad = self.out.grad_as_tensor3d_mut(memory);
-        self.calculate_gradient(
-            left,
-            left_grad,
-            right,
-            right_grad,
-            out_grad,
-        );
+        if D >= GRADIENT {
+            let left_grad = self.left.grad_as_tensor3d_ref(memory);
+            let right_grad = self.right.grad_as_tensor3d_ref(memory);
+            let out_grad = self.out.grad_as_tensor3d_mut(memory);
+            self.calculate_gradient(
+                left,
+                left_grad,
+                right,
+                right_grad,
+                out_grad,
+            );
+
+            if D >= HESSIAN {
+                let left_hess = self.left.hess_as_symsq_tensor4d_ref(memory);
+                let right_hess = self.right.hess_as_symsq_tensor4d_ref(memory);
+                let out_hess = self.out.hess_as_symsq_tensor4d_mut(memory);
+                self.calculate_hessian(
+                    left,
+                    left_grad,
+                    left_hess,
+                    right,
+                    right_grad,
+                    right_hess,
+                    out_hess,
+                );
+            }
+        }
     }
 }
 
-impl<C: ComplexScalar> IndependentSingleMatmulStruct<C, HESSIAN> {
-    #[inline(always)]
-    pub unsafe fn evaluate(&self, memory: &mut MemoryBuffer<C>) {
-        let left = self.left.as_matrix_ref(memory);
-        let right = self.right.as_matrix_ref(memory);
-        let out = self.out.as_matrix_mut(memory);
-        self.calculate_unitary(left, right, out);
-
-        let left_grad = self.left.grad_as_tensor3d_ref(memory);
-        let right_grad = self.right.grad_as_tensor3d_ref(memory);
-        let out_grad = self.out.grad_as_tensor3d_mut(memory);
-        self.calculate_gradient(
-            left,
-            left_grad,
-            right,
-            right_grad,
-            out_grad,
-        );
-
-        let left_hess = self.left.hess_as_symsq_tensor4d_ref(memory);
-        let right_hess = self.right.hess_as_symsq_tensor4d_ref(memory);
-        let out_hess = self.out.hess_as_symsq_tensor4d_mut(memory);
-        self.calculate_hessian(
-            left,
-            left_grad,
-            left_hess,
-            right,
-            right_grad,
-            right_hess,
-            out_hess,
-        );
-    }
-}

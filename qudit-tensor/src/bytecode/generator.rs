@@ -11,11 +11,10 @@ use qudit_core::TensorShape;
 #[derive(Default)]
 pub struct BytecodeGenerator {
     expression_set: HashMap<TensorExpression, HashMap<Option<ParamIndices>, String>>,
-    static_code: Vec<GeneralizedInstruction>,
+    const_code: Vec<GeneralizedInstruction>,
     dynamic_code: Vec<GeneralizedInstruction>,
     buffers: Vec<TensorBuffer>,
-    static_buffers: BTreeSet<usize>,
-    static_tree_cache: HashMap<ExpressionTree, usize>,
+    const_buffers: BTreeSet<usize>,
     gate_fn_counter: usize,
 }
 
@@ -24,16 +23,9 @@ impl BytecodeGenerator {
         Self::default()
     }
 
-    pub fn get_new_buffer(
-        &mut self,
-        gen_shape: &GenerationShape,
-        num_params: usize,
-    ) -> usize {
+    pub fn new_buffer(&mut self, shape: GenerationShape, nparams: usize) -> usize {
         let out = self.buffers.len();
-        self.buffers.push(TensorBuffer {
-            shape: *gen_shape,
-            num_params,
-        });
+        self.buffers.push(TensorBuffer::new(shape, nparams));
         out
     }
 
@@ -49,7 +41,7 @@ impl BytecodeGenerator {
                     .collect::<Vec<(TensorExpression, Option<ParamIndices>, String)>>()
                 ).flatten()
                 .collect(),
-            static_code: self.static_code,
+            const_code: self.const_code,
             dynamic_code: self.dynamic_code,
             buffers: self.buffers,
             merged_buffers: HashMap::new(),
@@ -59,7 +51,7 @@ impl BytecodeGenerator {
     pub fn parse(&mut self, tree: ExpressionTree) -> usize {
         match tree {
             ExpressionTree::Leaf(LeafNode { expr, param_indices } ) => {
-                let out = self.get_new_buffer(&expr.generation_shape(), param_indices.num_params());
+                let out = self.new_buffer(expr.generation_shape(), param_indices.num_params());
 
                 // if this expression exists in set then
                 //  get name and pass that to instructions
@@ -89,8 +81,8 @@ impl BytecodeGenerator {
                 };
 
                 if param_indices.is_empty() {
-                    self.static_code.push(GeneralizedInstruction::ConsecutiveParamWrite(fn_name, param_indices.start(), out.clone()));
-                    self.static_buffers.insert(out.clone());
+                    self.const_code.push(GeneralizedInstruction::ConsecutiveParamWrite(fn_name, param_indices.start(), out.clone()));
+                    self.const_buffers.insert(out.clone());
                 } else if param_indices.is_consecutive() {
                     self.dynamic_code.push(GeneralizedInstruction::ConsecutiveParamWrite(
                         fn_name,
@@ -114,16 +106,16 @@ impl BytecodeGenerator {
                 let left = self.parse(*node.left);
                 let right = self.parse(*node.right);
                 let overlap = left_indices.intersect(&right_indices);
-                let out = self.get_new_buffer(
-                    &gen_shape, left_indices.num_params() + right_indices.num_params() - overlap.num_params(),
+                let out = self.new_buffer(
+                    gen_shape, left_indices.num_params() + right_indices.num_params() - overlap.num_params(),
                 );
-                if self.static_buffers.contains(&left) && self.static_buffers.contains(&right) {
-                    self.static_code.push(GeneralizedInstruction::DisjointMatmul(
+                if self.const_buffers.contains(&left) && self.const_buffers.contains(&right) {
+                    self.const_code.push(GeneralizedInstruction::DisjointMatmul(
                         left,
                         right,
                         out,
                     ));
-                    self.static_buffers.insert(out);
+                    self.const_buffers.insert(out);
                 } else if overlap.is_empty() {
                     self.dynamic_code.push(GeneralizedInstruction::DisjointMatmul(
                         left,
@@ -160,8 +152,8 @@ impl BytecodeGenerator {
                 out
             },
             ExpressionTree::Transpose(node) => {
-                let out = self.get_new_buffer(
-                    &node.indices().into(),
+                let out = self.new_buffer(
+                    node.indices().into(),
                     node.param_indices().num_params(),
                 );
                 let child_indices = node.child.indices();
@@ -172,9 +164,9 @@ impl BytecodeGenerator {
                     node.perm.clone(),
                     out,
                 );
-                if self.static_buffers.contains(&child_buffer) {
-                    self.static_code.push(instruction);
-                    self.static_buffers.insert(out);
+                if self.const_buffers.contains(&child_buffer) {
+                    self.const_code.push(instruction);
+                    self.const_buffers.insert(out);
                 } else {
                     self.dynamic_code.push(instruction);
                 }
@@ -241,7 +233,7 @@ impl StaticBytecodeOptimizer {
     }
 
     fn replace_buffers(&mut self) {
-        for inst in &mut self.bytecode.static_code {
+        for inst in &mut self.bytecode.const_code {
             inst.replace_buffer_indices(&self.replaced_buffers);
         }
 

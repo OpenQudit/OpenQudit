@@ -1,3 +1,4 @@
+use std::marker::PhantomPinned;
 use std::pin::Pin;
 
 use faer::reborrow::ReborrowMut;
@@ -6,6 +7,7 @@ use qudit_expr::GenerationShape;
 use qudit_expr::Module;
 use qudit_core::TensorShape;
 use qudit_expr::ModuleBuilder;
+use qudit_expr::FUNCTION;
 
 
 use crate::bytecode::Bytecode;
@@ -24,27 +26,33 @@ use qudit_core::memory::alloc_zeroed_memory;
 use qudit_core::ComplexScalar;
 
 pub struct TNVM<C: ComplexScalar, const D: DifferentiationLevel> {
-    const_instructions: Vec<SpecializedInstruction<C, D>>,
-    dynamic_instructions: Vec<SpecializedInstruction<C, D>>,
+    const_instructions: Vec<SpecializedInstruction<C>>,
+    dynamic_instructions: Vec<SpecializedInstruction<C>>,
     #[allow(dead_code)]
     module: Module<C>,
     memory: MemoryBuffer<C>,
+    out_buffer: SizedTensorBuffer<C>,
+    _pin: PhantomPinned,
 }
 
+// impl<C: ComplexScalar, const D: DifferentiationLevel> !std::marker::Unpin for TNVM<C, D> {}
 
 impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
-    pub fn new(program: &Bytecode) -> Pin<Self> {
+    pub fn new(program: &Bytecode) -> Pin<Box<Self>> {
         let mut sized_buffers = Vec::new();
         let mut offset = 0;
         for buffer in &program.buffers {
-            let sized_buffer = buffer.specialize::<C>(offset, diff_lvl);
-            offset += sized_buffer.size(diff_lvl);
+            let sized_buffer = SizedTensorBuffer::new(offset, buffer);
+            offset += sized_buffer.size(D);
             sized_buffers.push(sized_buffer);
         }
         let memory_size = offset;
         // TODO: Explore overlapping buffers to reduce memory usage and increase locality
+        // TODO: Can further optimize FRPR after knowing strides: simple reshapes on continuous
+        // buffers can be skipped with the input and output buffer having the same offset
+        // but different strides.
 
-        let mut builder = ModuleBuilder::new::<D>("tnvm");
+        let mut builder: ModuleBuilder<C, D> = ModuleBuilder::new("tnvm");
 
         for (expr, params, name) in &program.expressions {
             let mut expr_clone = expr.clone();
@@ -59,56 +67,61 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
 
         let mut const_instructions = Vec::new();
         for inst in &program.const_code {
-            const_instructions.push(inst.specialize(&sized_buffers, &module, diff_lvl));
+            const_instructions.push(SpecializedInstruction::new(inst, &sized_buffers, &module, D));
         }
 
         let mut dynamic_instructions = Vec::new();
         for inst in &program.dynamic_code {
-            dynamic_instructions.push(inst.specialize(&sized_buffers, &module, diff_lvl));
+            dynamic_instructions.push(SpecializedInstruction::new(inst, &sized_buffers, &module, D));
         }
 
-        let out = Self {
+        // Get out buffer
+        let out_buffer = if dynamic_instructions.len() != 0 {
+            dynamic_instructions.last()
+                .expect("Just checked length.")
+                .get_output_buffer()
+                .clone()
+        } else if const_instructions.len() != 0 {
+            const_instructions.last()
+                .expect("Just checked length.")
+                .get_output_buffer()
+                .clone()
+        } else {
+            panic!("Cannot build TNVM with zero-length bytecode.");
+        };
+
+        let mut out = Self {
             const_instructions,
             dynamic_instructions,
             module,
             memory: alloc_zeroed_memory::<C>(memory_size),
+            out_buffer,
+            _pin: PhantomPinned,
         };
 
         // Evaluate const code
         for inst in &out.const_instructions {
-            inst.evaluate(&[], &mut out.memory);
+            unsafe { inst.evaluate::<FUNCTION>(&[], &mut out.memory) };
         }
 
-        Pin::new(out)
+        Box::pin(out)
     }
 
-    // TODO: maybe during monomorphization, I can have this return two results for grad, etc to
-    // make it easier to work with?
-    pub fn evaluate(&mut self, args: &[C::R]) -> TNVMResult<C> {
-        for inst in &self.dynamic_instructions {
-            inst.evaluate(args, &mut self.memory);
-        }
-    
-        self.get_output_buffer()
-    }
+    pub fn evaluate<'a>(self: &'a mut Pin<Box<Self>>, args: &[C::R]) -> TNVMResult<'a, C> {
+        // Safety: Self is not moved
+        unsafe {
+            let this = self.as_mut().get_unchecked_mut();
 
-    pub fn get_output_buffer(&self) -> TNVMResult<C> { 
-        let last_instruction = if self.dynamic_instructions.len() == 0 {
-            self.const_instructions.last()
-        } else {
-            self.dynamic_instructions.last()
-        };
-
-        match last_instruction {
-            None => panic!("Seriously..."),
-            Some(inst) => {
-                TNVMResult {
-                    memory: &self.memory,
-                    buffer: inst.get_output_buffer(),
-                }
+            for inst in &this.dynamic_instructions {
+                // Safety: Whole structure of TNVM ensures that the instruction
+                // evaluates only on memory it has access to.
+                inst.evaluate::<D>(args, &mut this.memory);
             }
+       
+            // Safety: Projection of const reference from mutable pin. Caller
+            // cannot move data from this structure.
+            TNVMResult::new(&this.memory, &this.out_buffer)
         }
     }
 }
 
-// TODO: TEST: No params in entire circuit, constant everything

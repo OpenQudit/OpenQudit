@@ -21,11 +21,17 @@ use qudit_core::HasParams;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct TensorBuffer {
-    pub shape: GenerationShape,
-    pub num_params: usize,
+    shape: GenerationShape,
+    num_params: usize,
 }
 
 impl TensorBuffer {
+    pub fn new(shape: GenerationShape, num_params: usize) -> Self {
+        TensorBuffer {
+            shape,
+            num_params,
+        }
+    }
     pub fn ncols(&self) -> usize {
         self.shape.ncols()
     }
@@ -38,20 +44,12 @@ impl TensorBuffer {
         self.shape.nmats()
     }
 
-    // pub fn specialize<C: ComplexScalar>(&self, offset: usize, diff_lvl: DifferentiationLevel) -> SizedTensorBuffer<C> {
-    //     let col_stride = qudit_core::memory::calc_col_stride::<C>(self.nrows(), self.ncols());
-    //     let mat_stride = qudit_core::memory::calc_mat_stride::<C>(self.nrows(), self.ncols(), col_stride);
-    //     SizedTensorBuffer {
-    //         offset,
-    //         shape: self.shape.clone(),
-    //         row_stride: 1,
-    //         col_stride,
-    //         mat_stride,
-    //         ten_stride: mat_stride, // TODO:
-    //         num_params: self.num_params,
-    //         _phantom: PhantomData,
-    //     }
-    // }
-}
+    pub fn num_params(&self) -> usize {
+        self.num_params
+    }
 
+    pub fn shape(&self) -> GenerationShape {
+        self.shape
+    }
+}
 

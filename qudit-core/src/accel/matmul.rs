@@ -85,6 +85,7 @@ impl<C: ComplexScalar> MatMulPlan<C> {
     /// assert_eq!(expected, out);
     /// ```
     /// 
+    #[inline(always)]
     pub fn execute_unchecked(&self, lhs: MatRef<C>, rhs: MatRef<C>, out: MatMut<C>) {
         let m = lhs.nrows();
         let n = rhs.ncols();

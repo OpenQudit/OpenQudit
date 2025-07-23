@@ -176,6 +176,7 @@ impl ExpressionTree {
             .chain(contraction_ids.iter().map(|_| IndexDirection::Input))
             .collect();
 
+        // println!("Left transpose: {:?} redirection: {:?}", left_index_transpose, left_index_redirection);
         let left_transposed_tree = left.transpose(left_index_transpose, left_index_redirection);
 
         // same for right but (shared_ids, contracted, non_contracted)
@@ -197,6 +198,7 @@ impl ExpressionTree {
             .chain(right_right_indices.iter().map(|_| IndexDirection::Input))
             .collect();
 
+        // println!("Right transpose: {:?} redirection: {:?}", right_index_transpose, right_index_redirection);
         let right_transposed_tree = right.transpose(right_index_transpose, right_index_redirection);
 
         // Contract

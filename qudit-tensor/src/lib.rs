@@ -26,6 +26,7 @@ mod tests {
     // use crate::qvm::QVM;
     use qudit_core::QuditRadices;
     use qudit_expr::TensorExpression;
+    use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
 
     use super::*;
 
@@ -67,15 +68,31 @@ mod tests {
         // let tree = TreeOptimizer::new().optimize(tree);
         // println!("Expression Tree: {:?}", tree);
         let code = BytecodeGenerator::new().generate(tree);
-        println!("Bytecode: {:?}", code);
+        println!("Bytecode: \n{:?}", code);
 
-        let mut qvm: QVM<qudit_core::c64> = QVM::new(code, DifferentiationLevel::None);
         let params = [1.7, 1.7, 1.7];
-        let out_buffer = qvm.evaluate(&params);
-        let out_fn = out_buffer.get_fn_result().unpack_matvec();
-        // let out_grad = out_buffer.get_grad_result().unpack_tensor4d();
-        println!("Output: {:?}", out_fn);
-        // println!("Output grad: {:?}", out_grad);
+        let mut tnvm = TNVM::<qudit_core::c64, GRADIENT>::new(&code);
+        let out = tnvm.evaluate(&params);
+        let out_fn = out.get_fn_result().unpack_tensor3d();
+        println!("{:?}", out_fn);
+        let out_fn = out.get_grad_result().unpack_tensor4d();
+        println!("{:?}", out_fn);
+//         // Option 1:
+//         {
+//             let mut tnvm: TNVM<qudit_core::c64, GRADIENT> = TNVM::new(code);
+//             let out_buffer = tnvm.evaluate(&params);
+//             let out_fn = out_buffer.get_fn_result().unpack_matvec(); // This might be unsafe tho?
+//             let out_grad = out_buffer.get_grad_result().unpack_tensor4d();
+//         }
+//         // Option 2:
+//         {
+//             let mut tnvm: TNVM<qudit_core::c64, GRADIENT> = TNVM::new(code);
+//             let (fn_buffer, grad_buffer) = tnvm.evaluate(&params);
+//             let out_fn = fn_buffer.unpack_tensor3d();
+//             let out_grad = grad_buffer.unpack_tensor4d();
+//         }
+//         println!("Output: {:?}", out_fn);
+//         // println!("Output grad: {:?}", out_grad);
     }
 
     // #[test]

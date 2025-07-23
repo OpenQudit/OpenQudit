@@ -1,36 +1,41 @@
 use qudit_core::{memory::MemoryBuffer, ComplexScalar};
+use qudit_expr::GenerationShape;
 use super::buffer::SizedTensorBuffer;
 
 pub enum TNVMReturnType<'a, C: ComplexScalar> {
-    Scalar(C),
-    RowVector(qudit_core::matrix::RowRef<'a, C>),
-    ColVector(qudit_core::matrix::ColRef<'a, C>),
+    Scalar(&'a C),
+    Vector(qudit_core::matrix::RowRef<'a, C>),
     Matrix(qudit_core::matrix::MatRef<'a, C>),
-    MatVec(qudit_core::matrix::MatVecRef<'a, C>),
+    Tensor3D(qudit_core::array::TensorRef<'a, C, 3>),
     Tensor4D(qudit_core::array::TensorRef<'a, C, 4>),
+    SymSqMatrix(qudit_core::array::SymSqTensorRef<'a, C, 2>),
+    SymSqTensor3D(qudit_core::array::SymSqTensorRef<'a, C, 3>),
+    SymSqTensor4D(qudit_core::array::SymSqTensorRef<'a, C, 4>),
+    SymSqTensor5D(qudit_core::array::SymSqTensorRef<'a, C, 5>),
 }
 
 impl<'a, C: ComplexScalar> TNVMReturnType<'a, C> {
-    pub fn unpack_scalar(self) -> C {
+    pub fn unpack_scalar(self) -> &'a C {
         match self {
             TNVMReturnType::Scalar(s) => s,
             _ => panic!("cannot unpack a non-scalar type as a scalar"),
         }
     }
 
-    pub fn unpack_row_vector(self) -> qudit_core::matrix::RowRef<'a, C> {
+    pub fn unpack_vector(self) -> qudit_core::matrix::RowRef<'a, C> {
         match self {
-            TNVMReturnType::RowVector(v) => v,
+            TNVMReturnType::Vector(v) => v,
             _ => panic!("cannot unpack a non-row-vector type as a row-vector"),
         }
     }
 
-    pub fn unpack_col_vector(self) -> qudit_core::matrix::ColRef<'a, C> {
-        match self {
-            TNVMReturnType::ColVector(v) => v,
-            _ => panic!("cannot unpack a non-col-vector type as a col-vector"),
-        }
-    }
+    // TODO: mutate the row into a col
+    // pub fn unpack_col_vector(self) -> qudit_core::matrix::ColRef<'a, C> {
+    //     match self {
+    //         TNVMReturnType::ColVector(v) => v,
+    //         _ => panic!("cannot unpack a non-col-vector type as a col-vector"),
+    //     }
+    // }
 
     pub fn unpack_matrix(self) -> qudit_core::matrix::MatRef<'a, C> {
         match self {
@@ -39,10 +44,10 @@ impl<'a, C: ComplexScalar> TNVMReturnType<'a, C> {
         }
     }
 
-    pub fn unpack_matvec(self) -> qudit_core::matrix::MatVecRef<'a, C> {
+    pub fn unpack_tensor3d(self) -> qudit_core::array::TensorRef<'a, C, 3> {
         match self {
-            TNVMReturnType::MatVec(m) => m,
-            _ => panic!("cannot unpack a non-matvec type as a matvec"),
+            TNVMReturnType::Tensor3D(m) => m,
+            _ => panic!("cannot unpack a non-tensor3d type as a tensor3d"),
         }
     }
 
@@ -52,58 +57,78 @@ impl<'a, C: ComplexScalar> TNVMReturnType<'a, C> {
             _ => panic!("cannot unpack a non-tensor4d type as a tensor4d"),
         }
     }
+
+    // TODO: Decide, do I want unpack_symsq_tensor3D or do I want unpack_tensor3d to
+    // un-symsq it? ... or both, why not?
 }
 
 pub struct TNVMResult<'a, C: ComplexScalar> {
     memory: &'a MemoryBuffer<C>,
-    buffer: SizedTensorBuffer<C>,
+    buffer: &'a SizedTensorBuffer<C>,
 }
 
 impl<'a, C: ComplexScalar> TNVMResult<'a, C> {
-    pub fn get_fn_result(&self) -> TNVMReturnType<'a, C> {
-        todo!()
-        // match self.buffer.shape() {
-        //     GenerationShape::Scalar => {
-        //         todo!()
-        //     }
-        //     GenerationShape::Vector(len) => {
-        //         todo!()
-        //     }
-        //     GenerationShape::Matrix(rows, cols) => {
-        //         TNVMReturnType::Matrix(self.buffer.as_matref(self.memory))
-        //     }
-        //     GenerationShape::Tensor3D(mats, rows, cols) => {
-        //         println!("mats: {}, rows: {}, cols: {}", mats, rows, cols);
-        //         TNVMReturnType::MatVec(self.buffer.as_matvecref_non_gradient(self.memory))
-        //     }
-        //     _ => panic!("Dynamic tensor shape unsupported"),
-        // }
+    pub fn new(memory: &'a MemoryBuffer<C>, buffer: &'a SizedTensorBuffer<C>) -> Self {
+        TNVMResult { memory, buffer }
     }
 
+    pub fn get_fn_result(&self) -> TNVMReturnType<'a, C> {
+        match self.buffer.shape() {
+            // Safety: TNVM told me this output buffer is mine
+            GenerationShape::Scalar => {
+                TNVMReturnType::Scalar(unsafe { self.buffer.as_scalar_ref(self.memory) })
+            }
+            GenerationShape::Vector(_) => {
+                TNVMReturnType::Vector(unsafe { self.buffer.as_vector_ref(self.memory) })
+            }
+            GenerationShape::Matrix(_, _) => {
+                TNVMReturnType::Matrix(unsafe { self.buffer.as_matrix_ref(self.memory) })
+            }
+            GenerationShape::Tensor3D(_, _, _) => {
+                TNVMReturnType::Tensor3D(unsafe { self.buffer.as_tensor3d_ref(self.memory) })
+            }
+            _ => panic!("No Tensor4D should be exposed a function value output."),
+        }
+    }
+
+    // TODO: this needs to be made more safe by gating it behind const DifferentiationLevel generic
+    // impls
     pub fn get_grad_result(&self) -> TNVMReturnType<'a, C> {
-        todo!()
-        // match self.buffer.shape() {
-        //     GenerationShape::Scalar => {
-        //         todo!()
-        //     }
-        //     GenerationShape::Vector(_len) => {
-        //         todo!()
-        //     }
-        //     GenerationShape::Matrix(_rows, _cols) => {
-        //         TNVMReturnType::MatVec(self.buffer.as_matvecref(self.memory))
-        //     }
-        //     GenerationShape::Tensor3D(_mats, _rows, _cols) => {
-        //         TNVMReturnType::Tensor4D(self.buffer.as_tensor4d(self.memory))
-        //         // // For a tensor (MatVec) function, the gradient would be a higher-order tensor
-        //         // // This is typically represented as a MatVec where each original matrix's gradient is included.
-        //         // TNVMReturnType::MatVec(self.buffer.as_matvecref_gradient(self.memory))
-        //     }
-        //     _ => panic!("Dynamic tensor shape unsupported"),
-        // }
+        match self.buffer.shape() {
+            // Safety: TNVM told me this output buffer is mine
+            GenerationShape::Scalar => {
+                TNVMReturnType::Vector(unsafe { self.buffer.grad_as_vector_ref(self.memory) })
+            }
+            GenerationShape::Vector(_) => {
+                TNVMReturnType::Matrix(unsafe { self.buffer.grad_as_matrix_ref(self.memory) })
+            }
+            GenerationShape::Matrix(_, _) => {
+                TNVMReturnType::Tensor3D(unsafe { self.buffer.grad_as_tensor3d_ref(self.memory) })
+            }
+            GenerationShape::Tensor3D(_, _, _) => {
+                TNVMReturnType::Tensor4D(unsafe { self.buffer.grad_as_tensor4d_ref(self.memory) })
+            }
+            _ => panic!("No Tensor4D should be exposed a function value output."),
+        }
     }
 
     pub fn get_hess_result(&self) -> TNVMReturnType<'a, C> {
-        todo!()
+        match self.buffer.shape() {
+            // Safety: TNVM told me this output buffer is mine
+            GenerationShape::Scalar => {
+                TNVMReturnType::SymSqMatrix(unsafe { self.buffer.hess_as_symsq_matrix_ref(self.memory) })
+            }
+            GenerationShape::Vector(_) => {
+                TNVMReturnType::SymSqTensor3D(unsafe { self.buffer.hess_as_symsq_tensor3d_ref(self.memory) })
+            }
+            GenerationShape::Matrix(_, _) => {
+                TNVMReturnType::SymSqTensor4D(unsafe { self.buffer.hess_as_symsq_tensor4d_ref(self.memory) })
+            }
+            GenerationShape::Tensor3D(_, _, _) => {
+                TNVMReturnType::SymSqTensor5D(unsafe { self.buffer.hess_as_symsq_tensor5d_ref(self.memory) })
+            }
+            _ => panic!("No Tensor4D should be exposed a function value output."),
+        }
     }
 }
 
