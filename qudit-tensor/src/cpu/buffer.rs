@@ -81,6 +81,26 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     }
 
     #[inline(always)]
+    pub fn col_stride(&self) -> usize {
+        self.col_stride
+    }
+
+    #[inline(always)]
+    pub fn row_stride(&self) -> usize {
+        self.row_stride
+    }
+
+    #[inline(always)]
+    pub fn mat_stride(&self) -> usize {
+        self.mat_stride
+    }
+
+    #[inline(always)]
+    pub fn param_stride(&self) -> usize {
+        self.param_stride
+    }
+
+    #[inline(always)]
     pub fn strides(&self) -> Vec<usize> {
         match self.shape() {
             GenerationShape::Scalar => vec![],
@@ -244,7 +264,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub unsafe fn grad_as_vector_ref(&self, memory: &MemoryBuffer<C>) -> RowRef<C> {
         RowRef::from_raw_parts(
-            memory.as_ptr().add(self.offset + self.unit_size()),
+            memory.as_ptr().add(self.offset + self.unit_memory_size()),
             self.nparams,
             self.param_stride as isize,
         )
@@ -253,7 +273,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub unsafe fn grad_as_vector_mut(&self, memory: &mut MemoryBuffer<C>) -> RowMut<C> {
         RowMut::from_raw_parts_mut(
-            memory.as_mut_ptr().add(self.offset + self.unit_size()),
+            memory.as_mut_ptr().add(self.offset + self.unit_memory_size()),
             self.nparams,
             self.param_stride as isize,
         )
@@ -262,7 +282,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub unsafe fn grad_as_matrix_ref(&self, memory: &MemoryBuffer<C>) -> MatRef<C> {
         MatRef::from_raw_parts(
-            memory.as_ptr().add(self.offset + self.unit_size()),
+            memory.as_ptr().add(self.offset + self.unit_memory_size()),
             self.nparams,
             self.ncols,
             self.param_stride as isize,
@@ -273,7 +293,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub unsafe fn grad_as_matrix_mut(&self, memory: &mut MemoryBuffer<C>) -> MatMut<C> {
         MatMut::from_raw_parts_mut(
-            memory.as_mut_ptr().add(self.offset + self.unit_size()),
+            memory.as_mut_ptr().add(self.offset + self.unit_memory_size()),
             self.nparams,
             self.ncols,
             self.param_stride as isize,
@@ -284,7 +304,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub unsafe fn grad_as_tensor3d_ref(&self, memory: &MemoryBuffer<C>) -> TensorRef<C, 3> {
         TensorRef::from_raw_parts(
-            memory.as_ptr().add(self.offset + self.unit_size()),
+            memory.as_ptr().add(self.offset + self.unit_memory_size()),
             [self.nparams, self.nrows, self.ncols],
             [self.param_stride, self.row_stride, self.col_stride],
         )
@@ -293,7 +313,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub unsafe fn grad_as_tensor3d_mut(&self, memory: &mut MemoryBuffer<C>) -> TensorMut<C, 3> {
         TensorMut::from_raw_parts(
-            memory.as_mut_ptr().add(self.offset + self.unit_size()),
+            memory.as_mut_ptr().add(self.offset + self.unit_memory_size()),
             [self.nparams, self.nrows, self.ncols],
             [self.param_stride, self.row_stride, self.col_stride],
         )
@@ -302,7 +322,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub unsafe fn grad_as_tensor4d_ref(&self, memory: &MemoryBuffer<C>) -> TensorRef<C, 4> {
         TensorRef::from_raw_parts(
-            memory.as_ptr().add(self.offset + self.unit_size()),
+            memory.as_ptr().add(self.offset + self.unit_memory_size()),
             [self.nparams, self.nmats, self.nrows, self.ncols],
             [self.param_stride, self.mat_stride, self.row_stride, self.col_stride],
         )
@@ -311,7 +331,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub unsafe fn grad_as_tensor4d_mut(&self, memory: &mut MemoryBuffer<C>) -> TensorMut<C, 4> {
         TensorMut::from_raw_parts(
-            memory.as_mut_ptr().add(self.offset + self.unit_size()),
+            memory.as_mut_ptr().add(self.offset + self.unit_memory_size()),
             [self.nparams, self.nmats, self.nrows, self.ncols],
             [self.param_stride, self.mat_stride, self.row_stride, self.col_stride],
         )
@@ -322,7 +342,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub unsafe fn hess_as_symsq_matrix_ref(&self, memory: &MemoryBuffer<C>) -> SymSqTensorRef<C, 2> { 
         SymSqTensorRef::from_raw_parts(
-            memory.as_ptr().add(self.offset + self.unit_size() + self.grad_size()),
+            memory.as_ptr().add(self.offset + self.unit_memory_size() + self.grad_memory_size()),
             [self.nparams, self.nparams],
             [self.nparams*self.param_stride, self.param_stride],
         )
@@ -331,7 +351,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub unsafe fn hess_as_symsq_matrix_mut(&self, memory: &mut MemoryBuffer<C>) -> SymSqTensorMut<C, 2> {
         SymSqTensorMut::from_raw_parts(
-            memory.as_mut_ptr().add(self.offset + self.unit_size() + self.grad_size()),
+            memory.as_mut_ptr().add(self.offset + self.unit_memory_size() + self.grad_memory_size()),
             [self.nparams, self.nparams],
             [self.nparams*self.param_stride, self.param_stride],
         )
@@ -340,7 +360,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub unsafe fn hess_as_symsq_tensor3d_ref(&self, memory: &MemoryBuffer<C>) -> SymSqTensorRef<C, 3> {
         SymSqTensorRef::from_raw_parts(
-            memory.as_ptr().add(self.offset + self.unit_size() + self.grad_size()),
+            memory.as_ptr().add(self.offset + self.unit_memory_size() + self.grad_memory_size()),
             [self.nparams, self.nparams, self.ncols],
             [self.nparams*self.param_stride, self.param_stride, self.col_stride],
         )
@@ -349,7 +369,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub unsafe fn hess_as_symsq_tensor3d_mut(&self, memory: &mut MemoryBuffer<C>) -> SymSqTensorMut<C, 3> {
         SymSqTensorMut::from_raw_parts(
-            memory.as_mut_ptr().add(self.offset + self.unit_size() + self.grad_size()),
+            memory.as_mut_ptr().add(self.offset + self.unit_memory_size() + self.grad_memory_size()),
             [self.nparams, self.nparams, self.ncols],
             [self.nparams*self.param_stride, self.param_stride, self.col_stride],
         )
@@ -358,7 +378,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub unsafe fn hess_as_symsq_tensor4d_ref(&self, memory: &MemoryBuffer<C>) -> SymSqTensorRef<C, 4> {
         SymSqTensorRef::from_raw_parts(
-            memory.as_ptr().add(self.offset + self.unit_size() + self.grad_size()),
+            memory.as_ptr().add(self.offset + self.unit_memory_size() + self.grad_memory_size()),
             [self.nparams, self.nparams, self.nrows, self.ncols],
             [self.nparams*self.param_stride, self.param_stride, self.row_stride, self.col_stride],
         )
@@ -367,7 +387,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub unsafe fn hess_as_symsq_tensor4d_mut(&self, memory: &mut MemoryBuffer<C>) -> SymSqTensorMut<C, 4> {
         SymSqTensorMut::from_raw_parts(
-            memory.as_mut_ptr().add(self.offset + self.unit_size() + self.grad_size()),
+            memory.as_mut_ptr().add(self.offset + self.unit_memory_size() + self.grad_memory_size()),
             [self.nparams, self.nparams, self.nrows, self.ncols],
             [self.nparams*self.param_stride, self.param_stride, self.row_stride, self.col_stride],
         )
@@ -376,7 +396,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub unsafe fn hess_as_symsq_tensor5d_ref(&self, memory: &MemoryBuffer<C>) -> SymSqTensorRef<C, 5> {
         SymSqTensorRef::from_raw_parts(
-            memory.as_ptr().add(self.offset + self.unit_size() + self.grad_size()),
+            memory.as_ptr().add(self.offset + self.unit_memory_size() + self.grad_memory_size()),
             [self.nparams, self.nparams, self.nmats, self.nrows, self.ncols],
             [self.nparams*self.param_stride, self.param_stride, self.mat_stride, self.row_stride, self.col_stride],
         )
@@ -385,7 +405,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub unsafe fn hess_as_symsq_tensor5d_mut(&self, memory: &mut MemoryBuffer<C>) -> SymSqTensorMut<C, 5> {
         SymSqTensorMut::from_raw_parts(
-            memory.as_mut_ptr().add(self.offset + self.unit_size() + self.grad_size()),
+            memory.as_mut_ptr().add(self.offset + self.unit_memory_size() + self.grad_memory_size()),
             [self.nparams, self.nparams, self.nmats, self.nrows, self.ncols],
             [self.nparams*self.param_stride, self.param_stride, self.mat_stride, self.row_stride, self.col_stride],
         )

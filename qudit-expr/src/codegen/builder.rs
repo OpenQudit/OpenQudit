@@ -217,7 +217,7 @@ impl CompilableUnitBuilder {
 
         let gen_shape = self.gen_shape.expect("Gen shape must be set");
 
-        println!("Shape: {:?}, Expr length: {}", gen_shape, exprs.len());
+        // println!("Shape: {:?}, Expr length: {}", gen_shape, exprs.len());
         assert!(gen_shape.num_elements()*2 == exprs.len());
         
         let idx_map = match gen_shape {
@@ -399,8 +399,12 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> ModuleBuilder<C, D> {
                         grad_exprs.push(grad_expr);
                     }
                 }
+                // println!("{:?}", shape);
 
                 let simplified_exprs = simplify_expressions(exprs.into_iter().chain(grad_exprs.into_iter()).collect());
+                // for expr in simplified_exprs.iter() {
+                //     println!("{:?}", expr);
+                // }
                 let unit = CompilableUnitBuilder::new()
                     .name(&name)
                     .exprs(simplified_exprs)
