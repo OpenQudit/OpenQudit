@@ -51,6 +51,11 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     }
 
     #[inline(always)]
+    pub fn offset(&self) -> usize {
+        self.offset
+    }
+
+    #[inline(always)]
     pub fn ncols(&self) -> usize {
         self.ncols
     }
@@ -103,13 +108,45 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     }
 
     #[inline(always)]
+    pub fn unit_memory_size(&self) -> usize {
+        let max_stride = self.strides().iter().fold(1, |a, b| a.max(*b));
+        match self.shape() {
+            GenerationShape::Scalar => 1,
+            GenerationShape::Vector(_) => self.ncols * max_stride,
+            GenerationShape::Matrix(_, _) => self.nrows * max_stride,
+            GenerationShape::Tensor3D(_, _, _) => self.nmats * max_stride,
+            _ => panic!("Tensor4D should not be constructed explicitly."),
+        }
+    }
+
+    #[inline(always)]
     pub fn grad_size(&self) -> usize {
         self.unit_size() * (self.nparams)
     }
 
     #[inline(always)]
+    pub fn grad_memory_size(&self) -> usize {
+        self.unit_memory_size() * (self.nparams)
+    }
+
+    #[inline(always)]
     pub fn hess_size(&self) -> usize {
         self.unit_size() * (self.nparams * (self.nparams + 1) / 2)
+    }
+
+    #[inline(always)]
+    pub fn hess_memory_size(&self) -> usize {
+        self.unit_memory_size() * (self.nparams * (self.nparams + 1) / 2)
+    }
+
+    #[inline(always)]
+    pub fn memory_size(&self, diff_lvl: DifferentiationLevel) -> usize {
+        match diff_lvl {
+            FUNCTION => self.unit_memory_size(),
+            GRADIENT => self.unit_memory_size() + self.grad_memory_size(),
+            HESSIAN => self.unit_memory_size() + self.grad_memory_size() + self.hess_memory_size(),
+            _ => panic!("Invalid differentiation level."),
+        }
     }
 
     #[inline(always)]

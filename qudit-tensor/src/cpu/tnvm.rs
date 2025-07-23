@@ -43,7 +43,7 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
         let mut offset = 0;
         for buffer in &program.buffers {
             let sized_buffer = SizedTensorBuffer::new(offset, buffer);
-            offset += sized_buffer.size(D);
+            offset += sized_buffer.memory_size(D);
             sized_buffers.push(sized_buffer);
         }
         let memory_size = offset;
