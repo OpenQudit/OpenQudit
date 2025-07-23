@@ -337,6 +337,90 @@ impl GenerationShape {
             GenerationShape::Tensor4D(_, _, _, _) => true,
         }
     }
+
+    /// Returns the number of columns for the current shape.
+    ///
+    /// # Returns
+    /// The number of columns.
+    ///
+    /// # Examples
+    /// ```
+    /// use qudit_core::shape::GenerationShape;
+    /// let matrix_shape = GenerationShape::Matrix(2, 3);
+    /// assert_eq!(matrix_shape.ncols(), 3);
+    /// ```
+    pub fn ncols(&self) -> usize {
+        match self {
+            GenerationShape::Scalar => 1,
+            GenerationShape::Vector(ncols) => *ncols,
+            GenerationShape::Matrix(_, ncols) => *ncols,
+            GenerationShape::Tensor3D(_, _, ncols) => *ncols,
+            GenerationShape::Tensor4D(_, _, _, ncols) => *ncols,
+        }
+    }
+
+    /// Returns the number of rows for the current shape.
+    ///
+    /// # Returns
+    /// The number of rows.
+    ///
+    /// # Examples
+    /// ```
+    /// use qudit_core::shape::GenerationShape;
+    /// let matrix_shape = GenerationShape::Matrix(2, 3);
+    /// assert_eq!(matrix_shape.nrows(), 2);
+    /// ```
+    pub fn nrows(&self) -> usize {
+        match self {
+            GenerationShape::Scalar => 1,
+            GenerationShape::Vector(_) => 1,
+            GenerationShape::Matrix(nrows, _) => *nrows,
+            GenerationShape::Tensor3D(_, nrows, _) => *nrows,
+            GenerationShape::Tensor4D(_, _, nrows, _) => *nrows,
+        }
+    }
+
+    /// Returns the number of matrices for the current shape.
+    ///
+    /// # Returns
+    /// The number of matrices.
+    ///
+    /// # Examples
+    /// ```
+    /// use qudit_core::shape::GenerationShape;
+    /// let tensor3d_shape = GenerationShape::Tensor3D(5, 2, 3);
+    /// assert_eq!(tensor3d_shape.nmats(), 5);
+    /// ```
+    pub fn nmats(&self) -> usize {
+        match self {
+            GenerationShape::Scalar => 1,
+            GenerationShape::Vector(_) => 1,
+            GenerationShape::Matrix(_, _) => 1,
+            GenerationShape::Tensor3D(nmats, _, _) => *nmats,
+            GenerationShape::Tensor4D(_, nmats, _, _) => *nmats,
+        }
+    }
+
+    /// Returns the number of tensors (in the first dimension) for the current shape.
+    ///
+    /// # Returns
+    /// The number of tensors.
+    ///
+    /// # Examples
+    /// ```
+    /// use qudit_core::shape::GenerationShape;
+    /// let tensor4d_shape = GenerationShape::Tensor4D(7, 5, 2, 3);
+    /// assert_eq!(tensor4d_shape.ntens(), 7);
+    /// ```
+    pub fn ntens(&self) -> usize {
+        match self {
+            GenerationShape::Scalar => 1,
+            GenerationShape::Vector(_) => 1,
+            GenerationShape::Matrix(_, _) => 1,
+            GenerationShape::Tensor3D(_, _, _) => 1,
+            GenerationShape::Tensor4D(ntens, _, _, _) => *ntens,
+        }
+    }
 }
 
 impl From<Vec<TensorIndex>> for GenerationShape {

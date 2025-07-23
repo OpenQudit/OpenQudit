@@ -1,15 +1,15 @@
 mod tree;
 mod network;
 mod bytecode;
-// mod qvm;
+mod cpu;
 
 pub use network::QuditTensor;
 pub use network::QuditTensorNetwork;
 pub use network::QuditCircuitTensorNetworkBuilder;
 pub use bytecode::Bytecode;
-// pub use qvm::QVM;
-// pub use qvm::QVMResult;
-// pub use qvm::QVMReturnType;
+pub use cpu::TNVM;
+pub use cpu::TNVMResult;
+pub use cpu::TNVMReturnType;
 
 pub fn compile_network(network: QuditTensorNetwork) -> Bytecode {
     let optimal_path = network.solve_for_path();
@@ -69,12 +69,12 @@ mod tests {
         let code = BytecodeGenerator::new().generate(tree);
         println!("Bytecode: {:?}", code);
 
-        // let mut qvm: QVM<qudit_core::c64> = QVM::new(code, DifferentiationLevel::None);
-        // let params = [1.7, 1.7, 1.7];
-        // let out_buffer = qvm.evaluate(&params);
-        // let out_fn = out_buffer.get_fn_result().unpack_matvec();
-        // // let out_grad = out_buffer.get_grad_result().unpack_tensor4d();
-        // println!("Output: {:?}", out_fn);
+        let mut qvm: QVM<qudit_core::c64> = QVM::new(code, DifferentiationLevel::None);
+        let params = [1.7, 1.7, 1.7];
+        let out_buffer = qvm.evaluate(&params);
+        let out_fn = out_buffer.get_fn_result().unpack_matvec();
+        // let out_grad = out_buffer.get_grad_result().unpack_tensor4d();
+        println!("Output: {:?}", out_fn);
         // println!("Output grad: {:?}", out_grad);
     }
 

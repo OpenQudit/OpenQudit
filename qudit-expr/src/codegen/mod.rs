@@ -16,6 +16,7 @@ pub(self) fn process_name_for_gen(name: &str) -> String {
 }
 
 pub use builder::DifferentiationLevel;
+pub use builder::{FUNCTION, GRADIENT, HESSIAN};
 pub use builder::ModuleBuilder;
 pub use module::Module;
 

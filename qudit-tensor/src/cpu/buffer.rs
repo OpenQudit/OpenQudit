@@ -1,0 +1,303 @@
+use faer::{RowMut, RowRef, MatRef, MatMut};
+use qudit_core::array::TensorRef;
+use qudit_core::array::TensorMut;
+use qudit_core::array::SymSqTensorRef;
+use qudit_core::array::SymSqTensorMut;
+use qudit_core::memory;
+use qudit_core::{memory::MemoryBuffer, ComplexScalar};
+use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
+use qudit_expr::{DifferentiationLevel, GenerationShape};
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct SizedTensorBuffer<C: ComplexScalar> {
+    offset: usize,
+    ncols: usize,
+    nrows: usize,
+    nmats: usize,
+    nparams: usize,
+    row_stride: usize,
+    col_stride: usize,
+    mat_stride: usize,
+    param_stride: usize,
+    _phantom: std::marker::PhantomData<C>,
+}
+
+impl<C: ComplexScalar> SizedTensorBuffer<C> {
+
+    #[inline(always)]
+    pub fn ncols(&self) -> usize {
+        self.ncols
+    }
+
+    #[inline(always)]
+    pub fn nrows(&self) -> usize {
+        self.nrows
+    }
+
+    #[inline(always)]
+    pub fn nmats(&self) -> usize {
+        self.nmats
+    }
+
+    #[inline(always)]
+    pub fn nparams(&self) -> usize {
+        self.nparams
+    }
+
+    #[inline(always)]
+    pub fn unit_size(&self) -> usize {
+        self.ncols * self.nrows * self.nmats
+    }
+
+    #[inline(always)]
+    pub fn grad_size(&self) -> usize {
+        self.unit_size() * (self.nparams)
+    }
+
+    #[inline(always)]
+    pub fn hess_size(&self) -> usize {
+        self.unit_size() * (self.nparams * (self.nparams + 1) / 2)
+    }
+
+    #[inline(always)]
+    pub fn size(&self, diff_lvl: DifferentiationLevel) -> usize {
+        match diff_lvl {
+            FUNCTION => self.unit_size(),
+            GRADIENT => self.unit_size() + self.grad_size(),
+            HESSIAN => self.unit_size() + self.grad_size() + self.hess_size(),
+            _ => panic!("Invalid differentiation level."),
+        }
+    }
+
+    #[inline(always)]
+    pub unsafe fn as_ptr(&self, memory: &MemoryBuffer<C>) -> *const C {
+        memory.as_ptr().add(self.offset)
+    }
+
+    #[inline(always)]
+    pub unsafe fn as_ptr_mut(&self, memory: &mut MemoryBuffer<C>) -> *mut C {
+        memory.as_mut_ptr().add(self.offset)
+    }
+
+    // ----- Buffers -----
+   
+    #[inline(always)]
+    pub unsafe fn as_scalar_ref(&self, memory: &MemoryBuffer<C>) -> &C {
+        &*memory.as_ptr().add(self.offset)
+    }
+
+    #[inline(always)]
+    pub unsafe fn as_scalar_mut(&self, memory: &mut MemoryBuffer<C>) -> &mut C {
+        &mut *memory.as_mut_ptr().add(self.offset)
+    }
+
+    #[inline(always)]
+    pub unsafe fn as_vector_ref(&self, memory: &MemoryBuffer<C>) -> RowRef<C> {
+        RowRef::from_raw_parts(
+            memory.as_ptr().add(self.offset),
+            self.ncols,
+            self.col_stride as isize,
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn as_vector_mut(&self, memory: &mut MemoryBuffer<C>) -> RowMut<C> {
+        RowMut::from_raw_parts_mut(
+            memory.as_mut_ptr().add(self.offset),
+            self.ncols,
+            self.col_stride as isize,
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn as_matrix_ref(&self, memory: &MemoryBuffer<C>) -> MatRef<C> {
+        MatRef::from_raw_parts(
+            memory.as_ptr().add(self.offset),
+            self.nrows,
+            self.ncols,
+            self.row_stride as isize,
+            self.col_stride as isize,
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn as_matrix_mut(&self, memory: &mut MemoryBuffer<C>) -> MatMut<C> {
+        MatMut::from_raw_parts_mut(
+            memory.as_mut_ptr().add(self.offset),
+            self.nrows,
+            self.ncols,
+            self.row_stride as isize,
+            self.col_stride as isize,
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn as_tensor3d_ref(&self, memory: &MemoryBuffer<C>) -> TensorRef<C, 3> {
+        TensorRef::from_raw_parts(
+            memory.as_ptr().add(self.offset),
+            [self.nmats, self.nrows, self.ncols],
+            [self.mat_stride, self.row_stride, self.col_stride],
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn as_tensor3d_mut(&self, memory: &mut MemoryBuffer<C>) -> TensorMut<C, 3> {
+        TensorMut::from_raw_parts(
+            memory.as_mut_ptr().add(self.offset),
+            [self.nmats, self.nrows, self.ncols],
+            [self.mat_stride, self.row_stride, self.col_stride],
+        )
+    }
+ 
+    // ----- Gradient -----
+
+    #[inline(always)]
+    pub unsafe fn grad_as_vector_ref(&self, memory: &MemoryBuffer<C>) -> RowRef<C> {
+        RowRef::from_raw_parts(
+            memory.as_ptr().add(self.offset + self.unit_size()),
+            self.nparams,
+            self.param_stride as isize,
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn grad_as_vector_mut(&self, memory: &mut MemoryBuffer<C>) -> RowMut<C> {
+        RowMut::from_raw_parts_mut(
+            memory.as_mut_ptr().add(self.offset + self.unit_size()),
+            self.nparams,
+            self.param_stride as isize,
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn grad_as_matrix_ref(&self, memory: &MemoryBuffer<C>) -> MatRef<C> {
+        MatRef::from_raw_parts(
+            memory.as_ptr().add(self.offset + self.unit_size()),
+            self.nparams,
+            self.ncols,
+            self.param_stride as isize,
+            self.col_stride as isize,
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn grad_as_matrix_mut(&self, memory: &mut MemoryBuffer<C>) -> MatMut<C> {
+        MatMut::from_raw_parts_mut(
+            memory.as_mut_ptr().add(self.offset + self.unit_size()),
+            self.nparams,
+            self.ncols,
+            self.param_stride as isize,
+            self.col_stride as isize,
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn grad_as_tensor3d_ref(&self, memory: &MemoryBuffer<C>) -> TensorRef<C, 3> {
+        TensorRef::from_raw_parts(
+            memory.as_ptr().add(self.offset + self.unit_size()),
+            [self.nparams, self.nrows, self.ncols],
+            [self.param_stride, self.row_stride, self.col_stride],
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn grad_as_tensor3d_mut(&self, memory: &mut MemoryBuffer<C>) -> TensorMut<C, 3> {
+        TensorMut::from_raw_parts(
+            memory.as_mut_ptr().add(self.offset + self.unit_size()),
+            [self.nparams, self.nrows, self.ncols],
+            [self.param_stride, self.row_stride, self.col_stride],
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn grad_as_tensor4d_ref(&self, memory: &MemoryBuffer<C>) -> TensorRef<C, 4> {
+        TensorRef::from_raw_parts(
+            memory.as_ptr().add(self.offset + self.unit_size()),
+            [self.nparams, self.nmats, self.nrows, self.ncols],
+            [self.param_stride, self.mat_stride, self.row_stride, self.col_stride],
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn grad_as_tensor4d_mut(&self, memory: &mut MemoryBuffer<C>) -> TensorMut<C, 4> {
+        TensorMut::from_raw_parts(
+            memory.as_mut_ptr().add(self.offset + self.unit_size()),
+            [self.nparams, self.nmats, self.nrows, self.ncols],
+            [self.param_stride, self.mat_stride, self.row_stride, self.col_stride],
+        )
+    }
+
+    // ----- Hessian -----
+
+    #[inline(always)]
+    pub unsafe fn hess_as_symsq_matrix_ref(&self, memory: &MemoryBuffer<C>) -> SymSqTensorRef<C, 2> { 
+        SymSqTensorRef::from_raw_parts(
+            memory.as_ptr().add(self.offset + self.unit_size() + self.grad_size()),
+            [self.nparams, self.nparams],
+            [self.nparams*self.param_stride, self.param_stride],
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn hess_as_symsq_matrix_mut(&self, memory: &mut MemoryBuffer<C>) -> SymSqTensorMut<C, 2> {
+        SymSqTensorMut::from_raw_parts(
+            memory.as_mut_ptr().add(self.offset + self.unit_size() + self.grad_size()),
+            [self.nparams, self.nparams],
+            [self.nparams*self.param_stride, self.param_stride],
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn hess_as_symsq_tensor3d_ref(&self, memory: &MemoryBuffer<C>) -> SymSqTensorRef<C, 3> {
+        SymSqTensorRef::from_raw_parts(
+            memory.as_ptr().add(self.offset + self.unit_size() + self.grad_size()),
+            [self.nparams, self.nparams, self.ncols],
+            [self.nparams*self.param_stride, self.param_stride, self.col_stride],
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn hess_as_symsq_tensor3d_mut(&self, memory: &mut MemoryBuffer<C>) -> SymSqTensorMut<C, 3> {
+        SymSqTensorMut::from_raw_parts(
+            memory.as_mut_ptr().add(self.offset + self.unit_size() + self.grad_size()),
+            [self.nparams, self.nparams, self.ncols],
+            [self.nparams*self.param_stride, self.param_stride, self.col_stride],
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn hess_as_symsq_tensor4d_ref(&self, memory: &MemoryBuffer<C>) -> SymSqTensorRef<C, 4> {
+        SymSqTensorRef::from_raw_parts(
+            memory.as_ptr().add(self.offset + self.unit_size() + self.grad_size()),
+            [self.nparams, self.nparams, self.nrows, self.ncols],
+            [self.nparams*self.param_stride, self.param_stride, self.row_stride, self.col_stride],
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn hess_as_symsq_tensor4d_mut(&self, memory: &mut MemoryBuffer<C>) -> SymSqTensorMut<C, 4> {
+        SymSqTensorMut::from_raw_parts(
+            memory.as_mut_ptr().add(self.offset + self.unit_size() + self.grad_size()),
+            [self.nparams, self.nparams, self.nrows, self.ncols],
+            [self.nparams*self.param_stride, self.param_stride, self.row_stride, self.col_stride],
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn hess_as_symsq_tensor5d_ref(&self, memory: &MemoryBuffer<C>) -> SymSqTensorRef<C, 5> {
+        SymSqTensorRef::from_raw_parts(
+            memory.as_ptr().add(self.offset + self.unit_size() + self.grad_size()),
+            [self.nparams, self.nparams, self.nmats, self.nrows, self.ncols],
+            [self.nparams*self.param_stride, self.param_stride, self.mat_stride, self.row_stride, self.col_stride],
+        )
+    }
+
+    #[inline(always)]
+    pub unsafe fn hess_as_symsq_tensor5d_mut(&self, memory: &mut MemoryBuffer<C>) -> SymSqTensorMut<C, 5> {
+        SymSqTensorMut::from_raw_parts(
+            memory.as_mut_ptr().add(self.offset + self.unit_size() + self.grad_size()),
+            [self.nparams, self.nparams, self.nmats, self.nrows, self.ncols],
+            [self.nparams*self.param_stride, self.param_stride, self.mat_stride, self.row_stride, self.col_stride],
+        )
+    }
+}

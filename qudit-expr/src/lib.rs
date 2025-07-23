@@ -20,6 +20,7 @@ pub use tensor::TensorExpression;
 pub use unitary::StateExpression;
 pub use unitary::StateSystemExpression;
 pub use codegen::DifferentiationLevel;
+pub use codegen::{FUNCTION, GRADIENT, HESSIAN};
 pub use codegen::ModuleBuilder;
 pub use codegen::Module;
 pub use codegen::UtryFunc;

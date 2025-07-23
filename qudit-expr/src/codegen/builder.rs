@@ -279,30 +279,35 @@ impl CompilableUnitBuilder {
     }
 }
 
-#[derive(Debug, PartialEq, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
-pub enum DifferentiationLevel {
-    None,
-    Gradient,
-    Hessian,
-}
+// #[derive(Debug, PartialEq, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
+// pub enum DifferentiationLevel {
+//     None,
+//     Gradient,
+//     Hessian,
+// }
 
-impl DifferentiationLevel {
-    pub fn gradient_capable(&self) -> bool {
-        match self {
-            DifferentiationLevel::None => false,
-            DifferentiationLevel::Gradient => true,
-            DifferentiationLevel::Hessian => true,
-        }
-    }
+pub type DifferentiationLevel = u8;
+pub const FUNCTION: DifferentiationLevel = 0;
+pub const GRADIENT: DifferentiationLevel = 1;
+pub const HESSIAN: DifferentiationLevel = 2;
 
-    pub fn hessian_capable(&self) -> bool {
-        match self {
-            DifferentiationLevel::None => false,
-            DifferentiationLevel::Gradient => false,
-            DifferentiationLevel::Hessian => true,
-        }
-    }
-}
+// impl DifferentiationLevel {
+//     pub fn gradient_capable(&self) -> bool {
+//         match self {
+//             DifferentiationLevel::None => false,
+//             DifferentiationLevel::Gradient => true,
+//             DifferentiationLevel::Hessian => true,
+//         }
+//     }
+
+//     pub fn hessian_capable(&self) -> bool {
+//         match self {
+//             DifferentiationLevel::None => false,
+//             DifferentiationLevel::Gradient => false,
+//             DifferentiationLevel::Hessian => true,
+//         }
+//     }
+// }
 
 pub struct ModuleBuilder<C: ComplexScalar> {
     name: String,
@@ -344,7 +349,7 @@ impl<C: ComplexScalar> ModuleBuilder<C> {
         let compilable_unit = CompilableUnit::new_with_matrix_out_buffer(&name, exprs.clone(), variables.clone(), nrows, ncols, col_stride);
         self.exprs.push(compilable_unit);
 
-        if !self.diff_lvl.gradient_capable() {
+        if self.diff_lvl == FUNCTION {
             return self;
         }
 
@@ -375,7 +380,7 @@ impl<C: ComplexScalar> ModuleBuilder<C> {
             .build::<C>();
         self.exprs.push(unit);
 
-        if self.diff_lvl.gradient_capable() {
+        if self.diff_lvl >= GRADIENT {
             let mut grad_exprs = vec![];
             for variable in &variables {
                 for expr in &exprs {
@@ -410,7 +415,7 @@ impl<C: ComplexScalar> ModuleBuilder<C> {
             .build::<C>();
         self.exprs.push(unit);
 
-        if self.diff_lvl.gradient_capable() {
+        if self.diff_lvl >= GRADIENT {
             let mut grad_exprs = vec![];
             for variable in &variables {
                 for expr in &exprs {

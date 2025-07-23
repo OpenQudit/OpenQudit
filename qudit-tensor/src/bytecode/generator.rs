@@ -22,15 +22,6 @@ pub struct BytecodeGenerator {
 impl BytecodeGenerator {
     pub fn new() -> Self {
         Self::default()
-        // Self {
-        //     expression_set: HashMap::new(),
-        //     static_code: Vec::new(),
-        //     dynamic_code: Vec::new(),
-        //     buffers: Vec::new(),
-        //     static_buffers: BTreeSet::new(),
-        //     static_tree_cache: HashMap::new(),
-        //     gate_fn_counter: 0,
-        // }
     }
 
     pub fn get_new_buffer(
