@@ -8,18 +8,14 @@ use std::collections::HashMap;
 use qudit_core::{ComplexScalar, ParamIndices};
 use qudit_expr::{DifferentiationLevel, Module, ModuleBuilder, TensorExpression, UnitaryExpression};
 
-use super::{
-    GeneralizedInstruction, TensorBuffer
-    // SpecializedInstruction,
-};
+use super::{BytecodeInstruction, TensorBuffer};
 
 #[derive(Clone)]
 pub struct Bytecode {
     pub expressions: Vec<(TensorExpression, Option<ParamIndices>, String)>,
-    pub const_code: Vec<GeneralizedInstruction>,
-    pub dynamic_code: Vec<GeneralizedInstruction>,
+    pub const_code: Vec<BytecodeInstruction>,
+    pub dynamic_code: Vec<BytecodeInstruction>,
     pub buffers: Vec<TensorBuffer>,
-    pub merged_buffers: HashMap<usize, usize>,
 }
 
 impl Bytecode {

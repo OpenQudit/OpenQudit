@@ -3,7 +3,7 @@ use qudit_core::{matrix::{MatVecMut, SymSqMatMatMut}, memory::MemoryBuffer, Comp
 use qudit_expr::{DifferentiationLevel, Module};
 use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
 
-use crate::{bytecode::GeneralizedInstruction, cpu::instructions::{ConsecutiveParamSingleWriteStruct, FRPRStruct, IndependentBatchMatmulStruct}};
+use crate::{bytecode::BytecodeInstruction, cpu::instructions::{ConsecutiveParamSingleWriteStruct, FRPRStruct, IndependentBatchMatmulStruct}};
 
 use super::buffer::SizedTensorBuffer;
 use super::instructions::IndependentSingleMatmulStruct;
@@ -17,17 +17,17 @@ pub enum SpecializedInstruction<C: ComplexScalar> {
     MatMulIS(IndependentSingleMatmulStruct<C>),
 }
 
-// TODO: rename generalizedinstruction to bytecodeinstruction and specialized to tnvminstruction
+// TODO: rename specialized to tnvminstruction
 
 impl<C: ComplexScalar> SpecializedInstruction<C> {
     pub fn new(
-        inst: &GeneralizedInstruction,
+        inst: &BytecodeInstruction,
         buffers: &Vec<SizedTensorBuffer<C>>,
         module: &Module<C>,
         D: DifferentiationLevel,
     ) -> Self {
         match inst {
-            GeneralizedInstruction::ConsecutiveParamWrite(name, param_start_index, buffer_index) => {
+            BytecodeInstruction::ConsecutiveParamWrite(name, param_start_index, buffer_index) => {
                 let write_fn = unsafe { module.get_function_raw(&name) };
                 SpecializedInstruction::WriteCS(ConsecutiveParamSingleWriteStruct::new(
                     write_fn,
@@ -35,14 +35,14 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
                     buffers[*buffer_index].clone(),
                 ))
             },
-            GeneralizedInstruction::SplitParamWrite(name, param_indices, index) => {
+            BytecodeInstruction::SplitParamWrite(name, param_indices, index) => {
                 let write_fn = unsafe { module.get_function_raw(&name) };
                 SpecializedInstruction::WriteSS(SplitParamSingleWriteStruct::new(
                     write_fn,
                     buffers[*index].clone(),
                 ))
             },
-            GeneralizedInstruction::DisjointMatmul(a, b, c) => {
+            BytecodeInstruction::IndependentMatmul(a, b, c) => {
                 let spec_a = buffers[*a].clone();
                 let spec_b = buffers[*b].clone();
                 let spec_c = buffers[*c].clone();
@@ -60,7 +60,7 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
                     ))
                 }
             },
-            // GeneralizedInstruction::OverlappingMatmul(a, b, c, a_shared_indices, b_shared_indices) => {
+            // BytecodeInstruction::OverlappingMatmul(a, b, c, a_shared_indices, b_shared_indices) => {
             //     todo!()
             //     // let spec_a = buffers[*a].clone();
             //     // let spec_b = buffers[*b].clone();
@@ -69,7 +69,7 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
             //     //     spec_a, spec_b, spec_c, a_shared_indices.clone(), b_shared_indices.clone(),
             //     // ))
             // },
-            // GeneralizedInstruction::DisjointKron(a, b, c) => {
+            // BytecodeInstruction::DisjointKron(a, b, c) => {
             //     todo!()
             //     // let spec_a = buffers[*a].clone();
             //     // let spec_b = buffers[*b].clone();
@@ -78,7 +78,7 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
             //     //     spec_a, spec_b, spec_c,
             //     // ))
             // },
-            // GeneralizedInstruction::OverlappingKron(a, b, c, a_shared_indices, b_shared_indices) => {
+            // BytecodeInstruction::OverlappingKron(a, b, c, a_shared_indices, b_shared_indices) => {
             //     todo!()
             //     // let spec_a = buffers[*a].clone();
             //     // let spec_b = buffers[*b].clone();
@@ -87,7 +87,7 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
             //     //     spec_a, spec_b, spec_c, a_shared_indices.clone(), b_shared_indices.clone(),
             //     // ))
             // },
-            GeneralizedInstruction::FRPR(in_index, shape, perm, out_index) => {
+            BytecodeInstruction::FRPR(in_index, shape, perm, out_index) => {
                 let spec_a = buffers[*in_index].clone();
                 let spec_b = buffers[*out_index].clone();
                 SpecializedInstruction::FRPR(FRPRStruct::new(

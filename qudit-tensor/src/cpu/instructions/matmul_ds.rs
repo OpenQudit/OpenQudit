@@ -1,23 +1,29 @@
-pub struct OverlappingMatMulStruct<C: ComplexScalar> {
-    pub left: SizedTensorBuffer,
-    pub right: SizedTensorBuffer,
-    pub out: SizedTensorBuffer,
+use qudit_core::matrix::{MatMut, MatRef};
+use qudit_core::array::{TensorRef, TensorMut, SymSqTensorMut, SymSqTensorRef};
+use qudit_core::{memory, ComplexScalar};
+use super::super::buffer::SizedTensorBuffer;
+use qudit_expr::DifferentiationLevel;
+use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
+use qudit_core::memory::MemoryBuffer;
+use qudit_core::accel::MatMulPlan;
+
+pub struct DependentSingleMatmulStruct<C: ComplexScalar> {
+    pub left: SizedTensorBuffer<C>,
+    pub right: SizedTensorBuffer<C>,
+    pub out: SizedTensorBuffer<C>,
     pub left_shared_params: Vec<usize>,
     pub right_shared_params: Vec<usize>,
     pub plan: MatMulPlan<C>,
 }
 
-impl<C: ComplexScalar> OverlappingMatMulStruct<C> {
+impl<C: ComplexScalar> DependentSingleMatmulStruct<C> {
     pub fn new(
-        left: SizedTensorBuffer,
-        right: SizedTensorBuffer,
-        out: SizedTensorBuffer,
+        left: SizedTensorBuffer<C>,
+        right: SizedTensorBuffer<C>,
+        out: SizedTensorBuffer<C>,
         left_shared_params: Vec<usize>,
         right_shared_params: Vec<usize>,
     ) -> Self {
-        assert!(left.is_matrix() || left.is_tensor3d());
-        assert!(right.is_matrix() || left.is_tensor3d());
-        assert!(out.is_matrix() || left.is_tensor3d());
         let plan = MatMulPlan::new(left.nrows(), right.ncols(), left.ncols());
         Self {
             left,
@@ -30,12 +36,7 @@ impl<C: ComplexScalar> OverlappingMatMulStruct<C> {
     }
     
     #[inline(always)]
-    fn calculate_unitary(
-        &self,
-        left: MatRef<C>,
-        right: MatRef<C>,
-        out: MatMut<C>,
-    ) {
+    fn calculate_unitary(&self, left: MatRef<C>, right: MatRef<C>, out: MatMut<C>) {
         self.plan.execute_unchecked(
             left,
             right,
@@ -44,23 +45,23 @@ impl<C: ComplexScalar> OverlappingMatMulStruct<C> {
     }
 
     #[inline(always)]
-    fn calculate_gradient(
+    unsafe fn calculate_gradient(
         &self,
         left_utry: MatRef<C>,
-        left_grad: MatVecRef<C>,
+        left_grad: TensorRef<C, 3>,
         right_utry: MatRef<C>,
-        right_grad: MatVecRef<C>,
-        mut out: MatVecMut<C>,
+        right_grad: TensorRef<C, 3>,
+        mut out: TensorMut<C, 3>,
     ) {
         let mut grad_idx = 0;
 
-        for i in 0..self.left.num_params {
+        for i in 0..self.left.nparams() {
             if self.left_shared_params.contains(&i) {
                 continue;
             }
 
-            let left_gradref = left_grad.mat_ref(i);
-            let out_gradmut = out.mat_mut(grad_idx);
+            let left_gradref = left_grad.subtensor_ref_unchecked(i);
+            let out_gradmut = out.subtensor_mut_unchecked(grad_idx);
 
             self.plan.execute_unchecked(
                 left_gradref,

@@ -69,8 +69,8 @@ mod tests {
         // println!("Expression Tree: {:?}", tree);
         let code = BytecodeGenerator::new().generate(tree);
         println!("Bytecode: \n{:?}", code);
-        let Bytecode { expressions, const_code, dynamic_code, buffers, merged_buffers } = code;
-        let code = Bytecode { expressions, const_code, dynamic_code: dynamic_code[..1].to_vec(), buffers, merged_buffers };
+        // let Bytecode { expressions, const_code, dynamic_code, buffers } = code;
+        // let code = Bytecode { expressions, const_code, dynamic_code: dynamic_code[..1].to_vec(), buffers };
 
         let params = [1.7, 1.7, 1.7];
         let mut tnvm = TNVM::<qudit_core::c64, GRADIENT>::new(&code);

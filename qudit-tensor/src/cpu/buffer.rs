@@ -24,7 +24,7 @@ pub struct SizedTensorBuffer<C: ComplexScalar> {
     col_stride: usize,
     row_stride: usize,
     mat_stride: usize,
-    param_stride: usize,
+    param_stride: usize, // TODO: param_stride needs to always be unit_memory_size
     _phantom: std::marker::PhantomData<C>,
 }
 

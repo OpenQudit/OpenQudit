@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet, BTreeSet};
 
 use super::buffer::TensorBuffer;
-use super::{Bytecode, GeneralizedInstruction};
+use super::{Bytecode, BytecodeInstruction};
 use qudit_core::{HasParams, ParamIndices};
 use crate::tree::{ExpressionTree, LeafNode, TraceNode, TransposeNode};
 use qudit_expr::{GenerationShape, TensorExpression, UnitaryExpression};
@@ -11,8 +11,8 @@ use qudit_core::TensorShape;
 #[derive(Default)]
 pub struct BytecodeGenerator {
     expression_set: HashMap<TensorExpression, HashMap<Option<ParamIndices>, String>>,
-    const_code: Vec<GeneralizedInstruction>,
-    dynamic_code: Vec<GeneralizedInstruction>,
+    const_code: Vec<BytecodeInstruction>,
+    dynamic_code: Vec<BytecodeInstruction>,
     buffers: Vec<TensorBuffer>,
     const_buffers: BTreeSet<usize>,
     gate_fn_counter: usize,
@@ -33,7 +33,6 @@ impl BytecodeGenerator {
         self.parse(tree);
 
         Bytecode {
-            // expression_set: self.expression_set.into_iter().collect(),
             expressions: self.expression_set
                 .into_iter()
                 .map(|(e, v)| v.into_iter()
@@ -44,7 +43,6 @@ impl BytecodeGenerator {
             const_code: self.const_code,
             dynamic_code: self.dynamic_code,
             buffers: self.buffers,
-            merged_buffers: HashMap::new(),
         }
     }
 
@@ -81,16 +79,16 @@ impl BytecodeGenerator {
                 };
 
                 if param_indices.is_empty() {
-                    self.const_code.push(GeneralizedInstruction::ConsecutiveParamWrite(fn_name, param_indices.start(), out.clone()));
+                    self.const_code.push(BytecodeInstruction::ConsecutiveParamWrite(fn_name, param_indices.start(), out.clone()));
                     self.const_buffers.insert(out.clone());
                 } else if param_indices.is_consecutive() {
-                    self.dynamic_code.push(GeneralizedInstruction::ConsecutiveParamWrite(
+                    self.dynamic_code.push(BytecodeInstruction::ConsecutiveParamWrite(
                         fn_name,
                         param_indices.start(),
                         out.clone(),
                     ));
                 } else {
-                    self.dynamic_code.push(GeneralizedInstruction::SplitParamWrite(
+                    self.dynamic_code.push(BytecodeInstruction::SplitParamWrite(
                         fn_name,
                         param_indices.clone(),
                         out.clone(),
@@ -110,14 +108,14 @@ impl BytecodeGenerator {
                     gen_shape, left_indices.num_params() + right_indices.num_params() - overlap.num_params(),
                 );
                 if self.const_buffers.contains(&left) && self.const_buffers.contains(&right) {
-                    self.const_code.push(GeneralizedInstruction::DisjointMatmul(
+                    self.const_code.push(BytecodeInstruction::IndependentMatmul(
                         left,
                         right,
                         out,
                     ));
                     self.const_buffers.insert(out);
                 } else if overlap.is_empty() {
-                    self.dynamic_code.push(GeneralizedInstruction::DisjointMatmul(
+                    self.dynamic_code.push(BytecodeInstruction::IndependentMatmul(
                         left,
                         right,
                         out,
@@ -141,7 +139,7 @@ impl BytecodeGenerator {
                                 None
                             }
                         }).collect::<Vec<_>>();
-                    self.dynamic_code.push(GeneralizedInstruction::OverlappingMatmul(
+                    self.dynamic_code.push(BytecodeInstruction::DependentMatmul(
                         left.clone(),
                         right.clone(),
                         out.clone(),
@@ -152,93 +150,154 @@ impl BytecodeGenerator {
                 out
             },
             ExpressionTree::Transpose(node) => {
-                let out = self.new_buffer(
-                    node.indices().into(),
-                    node.param_indices().num_params(),
-                );
+                let num_params = node.param_indices().num_params();
                 let child_indices = node.child.indices();
-                let child_buffer = self.parse(*node.child);
-                let instruction = GeneralizedInstruction::FRPR(
+                let TransposeNode { child, perm, indices } = node;
+                let child_buffer = self.parse(*child);
+                let out_buffer = self.new_buffer(
+                    indices.into(),
+                    num_params,
+                );
+                let instruction = BytecodeInstruction::FRPR(
                     child_buffer,
                     child_indices.iter().map(|idx| idx.index_size()).collect(),
-                    node.perm.clone(),
-                    out,
+                    perm,
+                    out_buffer,
                 );
                 if self.const_buffers.contains(&child_buffer) {
                     self.const_code.push(instruction);
-                    self.const_buffers.insert(out);
+                    self.const_buffers.insert(out_buffer);
                 } else {
                     self.dynamic_code.push(instruction);
                 }
-                out
+               out_buffer 
             },
-            ExpressionTree::Trace(TraceNode { child, dimension_pairs, .. }) => {
-                todo!()
+            ExpressionTree::Trace(node) => {
+                let num_params = node.param_indices().num_params();
+                let TraceNode { child, dimension_pairs, indices } = node;
+                let child_buffer = self.parse(*child);
+                let out_buffer = self.new_buffer(
+                    indices.into(),
+                    num_params,
+                );
+                let instruction = BytecodeInstruction::Trace(
+                    child_buffer,
+                    dimension_pairs,
+                    out_buffer,
+                );
+                if self.const_buffers.contains(&child_buffer) {
+                    self.const_code.push(instruction);
+                    self.const_buffers.insert(out_buffer);
+                } else {
+                    self.dynamic_code.push(instruction);
+                }
+                out_buffer
             },
             ExpressionTree::Outer(node) => {
-                todo!()
+                let left_indices = node.left.param_indices();
+                let right_indices = node.right.param_indices();
+                let gen_shape = node.indices().into();
+                let left = self.parse(*node.left);
+                let right = self.parse(*node.right);
+                let overlap = left_indices.intersect(&right_indices);
+                let out = self.new_buffer(
+                    gen_shape, left_indices.num_params() + right_indices.num_params() - overlap.num_params(),
+                );
+                if self.const_buffers.contains(&left) && self.const_buffers.contains(&right) {
+                    self.const_code.push(BytecodeInstruction::IndependentKron(
+                        left,
+                        right,
+                        out,
+                    ));
+                    self.const_buffers.insert(out);
+                } else if overlap.is_empty() {
+                    self.dynamic_code.push(BytecodeInstruction::IndependentKron(
+                        left,
+                        right,
+                        out,
+                    ));
+                } else {
+                    let left_shared_indices = left_indices.iter()
+                        .enumerate()
+                        .filter_map(|(i, x)| {
+                            if overlap.contains(x) {
+                                Some(i)
+                            } else {
+                                None
+                            }
+                        }).collect::<Vec<_>>();
+                    let right_shared_indices = right_indices.iter()
+                        .enumerate()
+                        .filter_map(|(i, x)| {
+                            if overlap.contains(x) {
+                                Some(i)
+                            } else {
+                                None
+                            }
+                        }).collect::<Vec<_>>();
+                    self.dynamic_code.push(BytecodeInstruction::DependentKron(
+                        left.clone(),
+                        right.clone(),
+                        out.clone(),
+                        left_shared_indices,
+                        right_shared_indices,
+                    ));
+                }
+                out
             },
             ExpressionTree::Hadamard(node) => {
-                todo!()
+                let left_indices = node.left.param_indices();
+                let right_indices = node.right.param_indices();
+                let gen_shape = node.indices().into();
+                let left = self.parse(*node.left);
+                let right = self.parse(*node.right);
+                let overlap = left_indices.intersect(&right_indices);
+                let out = self.new_buffer(
+                    gen_shape, left_indices.num_params() + right_indices.num_params() - overlap.num_params(),
+                );
+                if self.const_buffers.contains(&left) && self.const_buffers.contains(&right) {
+                    self.const_code.push(BytecodeInstruction::IndependentHadamard(
+                        left,
+                        right,
+                        out,
+                    ));
+                    self.const_buffers.insert(out);
+                } else if overlap.is_empty() {
+                    self.dynamic_code.push(BytecodeInstruction::IndependentHadamard(
+                        left,
+                        right,
+                        out,
+                    ));
+                } else {
+                    let left_shared_indices = left_indices.iter()
+                        .enumerate()
+                        .filter_map(|(i, x)| {
+                            if overlap.contains(x) {
+                                Some(i)
+                            } else {
+                                None
+                            }
+                        }).collect::<Vec<_>>();
+                    let right_shared_indices = right_indices.iter()
+                        .enumerate()
+                        .filter_map(|(i, x)| {
+                            if overlap.contains(x) {
+                                Some(i)
+                            } else {
+                                None
+                            }
+                        }).collect::<Vec<_>>();
+                    self.dynamic_code.push(BytecodeInstruction::DependentHadamard(
+                        left.clone(),
+                        right.clone(),
+                        out.clone(),
+                        left_shared_indices,
+                        right_shared_indices,
+                    ));
+                }
+                out
             },
         }
     }
 }
 
-pub struct StaticBytecodeOptimizer {
-    bytecode: Bytecode,
-    #[allow(dead_code)]
-    gate_cache: HashMap<UnitaryExpression, usize>,
-    replaced_buffers: HashMap<usize, usize>,
-}
-
-impl StaticBytecodeOptimizer {
-    pub fn new(bytecode: Bytecode) -> Self {
-        Self {
-            bytecode,
-            gate_cache: HashMap::new(),
-            replaced_buffers: HashMap::new(),
-        }
-    }
-
-    pub fn optimize(mut self) -> Bytecode {
-        self.deduplicate_gate_gen();
-        self.replace_buffers();
-        self.bytecode
-    }
-
-    fn deduplicate_gate_gen(&mut self) {
-        // TODO: This requires unitaryexpression equality, but not sure if it adds value
-        // let mut out = Vec::new();
-        // for inst in &self.bytecode.static_code {
-        //     if let GeneralizedInstruction::Write(gate, param_offset, buffer) =
-        //         inst
-        //     {
-        //         if let Some(index) = self.gate_cache.get(gate) {
-        //             self.replaced_buffers.insert(*buffer, *index);
-        //         } else {
-        //             self.gate_cache.insert(gate.clone(), buffer.clone());
-        //             out.push(GeneralizedInstruction::Write(
-        //                 gate.clone(),
-        //                 *param_offset,
-        //                 *buffer,
-        //             ));
-        //         }
-        //     } else {
-        //         out.push(inst.clone());
-        //     }
-        // }
-
-        // self.bytecode.static_code = out;
-    }
-
-    fn replace_buffers(&mut self) {
-        for inst in &mut self.bytecode.const_code {
-            inst.replace_buffer_indices(&self.replaced_buffers);
-        }
-
-        for inst in &mut self.bytecode.dynamic_code {
-            inst.replace_buffer_indices(&self.replaced_buffers);
-        }
-    }
-}

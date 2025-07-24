@@ -1,6 +1,8 @@
+use std::collections::BTreeMap;
+
 use qudit_core::matrix::{MatMut, MatRef};
 use qudit_core::array::{TensorRef, TensorMut, SymSqTensorMut, SymSqTensorRef};
-use qudit_core::{memory, ComplexScalar};
+use qudit_core::{memory, ComplexScalar, ParamIndices};
 use super::super::buffer::SizedTensorBuffer;
 use qudit_expr::DifferentiationLevel;
 use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
@@ -19,7 +21,21 @@ impl<C: ComplexScalar> IndependentSingleMatmulStruct<C> {
         left: SizedTensorBuffer<C>,
         right: SizedTensorBuffer<C>,
         out: SizedTensorBuffer<C>,
+        left_param_map: ParamIndices,
+        right_param_map: ParamIndices,
     ) -> Self {
+        let mut offset_map = BTreeMap::new();
+        for (i, param) in left_param_map.iter().enumerate() {
+            offset_map.insert(param, (left.offset() + left.unit_memory_size()*(i+1), right.offset(), false, 0, 0));
+        }
+        for (i, param) in right_param_map.iter().enumerate() {
+            offset_map.entry(param).and_modify(|offs| {offs.2 = true; offs.3 = left.offset(); offs.4 = right.offset() + right.unit_memory_size()*(i+1)}).or_insert((left.offset(), right.offset() + right.unit_memory_size()*(i+1), false, 0, 0));
+        }
+        let mut vec = offset_map.into_iter().collect::<Vec<_>>();
+        vec.sort();
+        let grad_offset_map = vec.into_iter().enumerate().map(|(i, (_, (l_off, r_off, prod, l2_off, r2_off)))| (l_off, r_off, out.offset() + out.unit_memory_size()*(i+1), prod, l2_off, r2_off)).collect::<Vec<_>>();
+
+            // for (l_off, r_off, o_off, l2_off, r2_off, prod) in self.offset_map() {
         let plan = MatMulPlan::new(left.nrows(), right.ncols(), left.ncols());
         Self { left, right, out, plan }
     }
@@ -144,6 +160,20 @@ impl<C: ComplexScalar> IndependentSingleMatmulStruct<C> {
         self.calculate_unitary(left, right, out);
 
         if D >= GRADIENT {
+
+            // for (l_off, r_off, o_off, l2_off, r2_off, prod) in self.offset_map() {
+            //     let left = memory.as_ptr().add(l_off);
+            //     let right = memory.as_ptr().add(r_off);
+            //     let out = memory.as_ptr().add(o_off);
+            //     self.plan.execute_unchecked(left, right, out);
+
+            //     if prod {    
+            //         let left = memory.as_ptr().add(l2_off);
+            //         let right = memory.as_ptr().add(r2_off);
+            //         self.plan.execute_add_unchecked(left, right, out);
+            //     }
+            // }
+
             let left_grad = self.left.grad_as_tensor3d_ref(memory);
             let right_grad = self.right.grad_as_tensor3d_ref(memory);
             let out_grad = self.out.grad_as_tensor3d_mut(memory);

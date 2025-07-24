@@ -1,10 +1,9 @@
 mod buffer;
 mod bytecode;
-mod generalized;
+mod instruction;
 mod generator;
 
 pub use buffer::TensorBuffer;
 pub use bytecode::Bytecode;
-pub use generalized::GeneralizedInstruction;
+pub use instruction::BytecodeInstruction;
 pub use generator::BytecodeGenerator;
-pub use generator::StaticBytecodeOptimizer;
