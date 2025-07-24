@@ -14,6 +14,9 @@ use crate::ComplexScalar;
 /// Stores a plan for a generalized matrix multiplication (GEMM). Based on the dimensions and underlying
 /// field of the matrices, the plan will select the appropriate mili/micro-kernels for performance.
 pub struct MatMulPlan<C: ComplexScalar> {
+    m: usize,
+    n: usize,
+    k: usize,
     plan: Plan<C>,
 }
 
@@ -36,10 +39,10 @@ impl<C: ComplexScalar> MatMulPlan<C> {
         if is_same::<C, c32>() {
             let plan = Plan::new_colmajor_lhs_and_dst_c32(m, n, k);
             // Safety: This is safe because C is c32. 
-            Self {plan: unsafe { std::mem::transmute(plan) } }
+            Self { m, n, k, plan: unsafe { std::mem::transmute(plan) } }
         } else {
             let plan = Plan::new_colmajor_lhs_and_dst_c64(m, n, k);
-            Self {plan: unsafe { std::mem::transmute(plan) } }
+            Self { m, n, k, plan: unsafe { std::mem::transmute(plan) } }
         }
     }
 
@@ -114,6 +117,39 @@ impl<C: ComplexScalar> MatMulPlan<C> {
         }
     }
 
+    #[inline(always)]
+    pub unsafe fn execute_raw_unchecked(
+        &self,
+        lhs: *const C,
+        rhs: *const C,
+        out: *mut C,
+        dst_rs: isize,
+        dst_cs: isize,
+        lhs_rs: isize,
+        lhs_cs: isize,
+        rhs_rs: isize,
+        rhs_cs: isize,
+    ) {
+        self.plan.execute_unchecked(
+            self.m,
+            self.n,
+            self.k,
+            out,
+            dst_rs,
+            dst_cs,
+            lhs,
+            lhs_rs,
+            lhs_cs,
+            rhs,
+            rhs_rs,
+            rhs_cs,
+            C::zero(),
+            C::one(),
+            false,
+            false,
+        );
+    }
+
     /// Executes the milikernel of the plan, for matrix multiplication followed by addition. 
     /// (`alpha = 1`, `beta = 1`) We do not perform comprehensive checks.
     /// 
@@ -182,6 +218,39 @@ impl<C: ComplexScalar> MatMulPlan<C> {
                 false,
             );
         }
+    }
+
+    #[inline(always)]
+    pub unsafe fn execute_add_raw_unchecked(
+        &self,
+        lhs: *const C,
+        rhs: *const C,
+        out: *mut C,
+        dst_rs: isize,
+        dst_cs: isize,
+        lhs_rs: isize,
+        lhs_cs: isize,
+        rhs_rs: isize,
+        rhs_cs: isize,
+    ) {
+        self.plan.execute_unchecked(
+            self.m,
+            self.n,
+            self.k,
+            out,
+            dst_rs,
+            dst_cs,
+            lhs,
+            lhs_rs,
+            lhs_cs,
+            rhs,
+            rhs_rs,
+            rhs_cs,
+            C::one(),
+            C::one(),
+            false,
+            false,
+        );
     }
 }
 

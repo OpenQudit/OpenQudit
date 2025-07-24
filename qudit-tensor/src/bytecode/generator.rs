@@ -105,47 +105,21 @@ impl BytecodeGenerator {
                 let right = self.parse(*node.right);
                 let overlap = left_indices.intersect(&right_indices);
                 let out = self.new_buffer(
-                    gen_shape, left_indices.num_params() + right_indices.num_params() - overlap.num_params(),
+                    gen_shape,
+                    left_indices.num_params() + right_indices.num_params() - overlap.num_params(),
+                );
+                let instruction = BytecodeInstruction::Matmul(
+                    left,
+                    right,
+                    out,
+                    left_indices,
+                    right_indices,
                 );
                 if self.const_buffers.contains(&left) && self.const_buffers.contains(&right) {
-                    self.const_code.push(BytecodeInstruction::IndependentMatmul(
-                        left,
-                        right,
-                        out,
-                    ));
+                    self.const_code.push(instruction);
                     self.const_buffers.insert(out);
-                } else if overlap.is_empty() {
-                    self.dynamic_code.push(BytecodeInstruction::IndependentMatmul(
-                        left,
-                        right,
-                        out,
-                    ));
                 } else {
-                    let left_shared_indices = left_indices.iter()
-                        .enumerate()
-                        .filter_map(|(i, x)| {
-                            if overlap.contains(x) {
-                                Some(i)
-                            } else {
-                                None
-                            }
-                        }).collect::<Vec<_>>();
-                    let right_shared_indices = right_indices.iter()
-                        .enumerate()
-                        .filter_map(|(i, x)| {
-                            if overlap.contains(x) {
-                                Some(i)
-                            } else {
-                                None
-                            }
-                        }).collect::<Vec<_>>();
-                    self.dynamic_code.push(BytecodeInstruction::DependentMatmul(
-                        left.clone(),
-                        right.clone(),
-                        out.clone(),
-                        left_shared_indices,
-                        right_shared_indices,
-                    ));
+                    self.dynamic_code.push(instruction);
                 }
                 out
             },
@@ -201,47 +175,21 @@ impl BytecodeGenerator {
                 let right = self.parse(*node.right);
                 let overlap = left_indices.intersect(&right_indices);
                 let out = self.new_buffer(
-                    gen_shape, left_indices.num_params() + right_indices.num_params() - overlap.num_params(),
+                    gen_shape,
+                    left_indices.num_params() + right_indices.num_params() - overlap.num_params(),
+                );
+                let instruction = BytecodeInstruction::Kron(
+                    left,
+                    right,
+                    out,
+                    left_indices,
+                    right_indices,
                 );
                 if self.const_buffers.contains(&left) && self.const_buffers.contains(&right) {
-                    self.const_code.push(BytecodeInstruction::IndependentKron(
-                        left,
-                        right,
-                        out,
-                    ));
+                    self.const_code.push(instruction);
                     self.const_buffers.insert(out);
-                } else if overlap.is_empty() {
-                    self.dynamic_code.push(BytecodeInstruction::IndependentKron(
-                        left,
-                        right,
-                        out,
-                    ));
                 } else {
-                    let left_shared_indices = left_indices.iter()
-                        .enumerate()
-                        .filter_map(|(i, x)| {
-                            if overlap.contains(x) {
-                                Some(i)
-                            } else {
-                                None
-                            }
-                        }).collect::<Vec<_>>();
-                    let right_shared_indices = right_indices.iter()
-                        .enumerate()
-                        .filter_map(|(i, x)| {
-                            if overlap.contains(x) {
-                                Some(i)
-                            } else {
-                                None
-                            }
-                        }).collect::<Vec<_>>();
-                    self.dynamic_code.push(BytecodeInstruction::DependentKron(
-                        left.clone(),
-                        right.clone(),
-                        out.clone(),
-                        left_shared_indices,
-                        right_shared_indices,
-                    ));
+                    self.dynamic_code.push(instruction);
                 }
                 out
             },
@@ -253,47 +201,21 @@ impl BytecodeGenerator {
                 let right = self.parse(*node.right);
                 let overlap = left_indices.intersect(&right_indices);
                 let out = self.new_buffer(
-                    gen_shape, left_indices.num_params() + right_indices.num_params() - overlap.num_params(),
+                    gen_shape,
+                    left_indices.num_params() + right_indices.num_params() - overlap.num_params(),
+                );
+                let instruction = BytecodeInstruction::Hadamard(
+                    left,
+                    right,
+                    out,
+                    left_indices,
+                    right_indices,
                 );
                 if self.const_buffers.contains(&left) && self.const_buffers.contains(&right) {
-                    self.const_code.push(BytecodeInstruction::IndependentHadamard(
-                        left,
-                        right,
-                        out,
-                    ));
+                    self.const_code.push(instruction);
                     self.const_buffers.insert(out);
-                } else if overlap.is_empty() {
-                    self.dynamic_code.push(BytecodeInstruction::IndependentHadamard(
-                        left,
-                        right,
-                        out,
-                    ));
                 } else {
-                    let left_shared_indices = left_indices.iter()
-                        .enumerate()
-                        .filter_map(|(i, x)| {
-                            if overlap.contains(x) {
-                                Some(i)
-                            } else {
-                                None
-                            }
-                        }).collect::<Vec<_>>();
-                    let right_shared_indices = right_indices.iter()
-                        .enumerate()
-                        .filter_map(|(i, x)| {
-                            if overlap.contains(x) {
-                                Some(i)
-                            } else {
-                                None
-                            }
-                        }).collect::<Vec<_>>();
-                    self.dynamic_code.push(BytecodeInstruction::DependentHadamard(
-                        left.clone(),
-                        right.clone(),
-                        out.clone(),
-                        left_shared_indices,
-                        right_shared_indices,
-                    ));
+                    self.dynamic_code.push(instruction);
                 }
                 out
             },

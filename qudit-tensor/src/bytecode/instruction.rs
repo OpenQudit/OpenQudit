@@ -6,12 +6,9 @@ use qudit_core::{ComplexScalar, ParamIndices};
 pub enum BytecodeInstruction {
     ConsecutiveParamWrite(String, usize, usize),
     SplitParamWrite(String, ParamIndices, usize),
-    IndependentMatmul(usize, usize, usize),
-    DependentMatmul(usize, usize, usize, Vec<usize>, Vec<usize>),
-    IndependentKron(usize, usize, usize),
-    DependentKron(usize, usize, usize, Vec<usize>, Vec<usize>),
-    IndependentHadamard(usize, usize, usize),
-    DependentHadamard(usize, usize, usize, Vec<usize>, Vec<usize>),
+    Matmul(usize, usize, usize, ParamIndices, ParamIndices),
+    Kron(usize, usize, usize, ParamIndices, ParamIndices),
+    Hadamard(usize, usize, usize, ParamIndices, ParamIndices),
     FRPR(usize, Vec<usize>, Vec<usize>, usize),
     Trace(usize, Vec<(usize, usize)>, usize),
 }
@@ -25,23 +22,14 @@ impl std::fmt::Debug for BytecodeInstruction {
             BytecodeInstruction::SplitParamWrite(name, _, index) => {
                 write!(f, "S-Write {} {:?}", name, index)
             },
-            BytecodeInstruction::IndependentMatmul(a, b, c) => {
-                write!(f, "D-Matmul {:?} {:?} {:?}", a, b, c)
+            BytecodeInstruction::Matmul(a, b, c, _, _) => {
+                write!(f, "Matmul {:?} {:?} {:?}", a, b, c)
             },
-            BytecodeInstruction::DependentMatmul(a, b, c, _, _) => {
-                write!(f, "O-Matmul {:?} {:?} {:?}", a, b, c)
+            BytecodeInstruction::Kron(a, b, c, _, _) => {
+                write!(f, "Kron {:?} {:?} {:?}", a, b, c)
             },
-            BytecodeInstruction::IndependentKron(a, b, c) => {
-                write!(f, "D-Kron {:?} {:?} {:?}", a, b, c)
-            },
-            BytecodeInstruction::DependentKron(a, b, c, _, _) => {
-                write!(f, "O-Kron {:?} {:?} {:?}", a, b, c)
-            },
-            BytecodeInstruction::IndependentHadamard(a, b, c) => {
-                write!(f, "D-Kron {:?} {:?} {:?}", a, b, c)
-            },
-            BytecodeInstruction::DependentHadamard(a, b, c, _, _) => {
-                write!(f, "O-Kron {:?} {:?} {:?}", a, b, c)
+            BytecodeInstruction::Hadamard(a, b, c, _, _) => {
+                write!(f, "Kron {:?} {:?} {:?}", a, b, c)
             },
             BytecodeInstruction::FRPR(a, _, _, d) => {
                 write!(f, "FRPR {:?} {:?}", a, d)
@@ -62,32 +50,17 @@ impl BytecodeInstruction {
             BytecodeInstruction::SplitParamWrite(_, _, index) => {
                 *index += offset;
             },
-            BytecodeInstruction::DependentMatmul(a, b, c, _, _) => {
+            BytecodeInstruction::Matmul(a, b, c, _, _) => {
                 *a += offset;
                 *b += offset;
                 *c += offset;
             },
-            BytecodeInstruction::IndependentMatmul(a, b, c) => {
+            BytecodeInstruction::Kron(a, b, c, _, _) => {
                 *a += offset;
                 *b += offset;
                 *c += offset;
             },
-            BytecodeInstruction::DependentKron(a, b, c, _, _) => {
-                *a += offset;
-                *b += offset;
-                *c += offset;
-            },
-            BytecodeInstruction::IndependentKron(a, b, c) => {
-                *a += offset;
-                *b += offset;
-                *c += offset;
-            },
-            BytecodeInstruction::DependentHadamard(a, b, c, _, _) => {
-                *a += offset;
-                *b += offset;
-                *c += offset;
-            },
-            BytecodeInstruction::IndependentHadamard(a, b, c) => {
+            BytecodeInstruction::Hadamard(a, b, c, _, _) => {
                 *a += offset;
                 *b += offset;
                 *c += offset;
@@ -118,7 +91,7 @@ impl BytecodeInstruction {
                     *index = *new_index;
                 }
             },
-            BytecodeInstruction::IndependentMatmul(a, b, c) => {
+            BytecodeInstruction::Matmul(a, b, c, _, _) => {
                 if let Some(new_index) = buffer_map.get(a) {
                     *a = *new_index;
                 }
@@ -129,7 +102,7 @@ impl BytecodeInstruction {
                     *c = *new_index;
                 }
             },
-            BytecodeInstruction::DependentMatmul(a, b, c, _, _) => {
+            BytecodeInstruction::Kron(a, b, c, _, _) => {
                 if let Some(new_index) = buffer_map.get(a) {
                     *a = *new_index;
                 }
@@ -140,40 +113,7 @@ impl BytecodeInstruction {
                     *c = *new_index;
                 }
             },
-            BytecodeInstruction::IndependentKron(a, b, c) => {
-                if let Some(new_index) = buffer_map.get(a) {
-                    *a = *new_index;
-                }
-                if let Some(new_index) = buffer_map.get(b) {
-                    *b = *new_index;
-                }
-                if let Some(new_index) = buffer_map.get(c) {
-                    *c = *new_index;
-                }
-            },
-            BytecodeInstruction::DependentKron(a, b, c, _, _) => {
-                if let Some(new_index) = buffer_map.get(a) {
-                    *a = *new_index;
-                }
-                if let Some(new_index) = buffer_map.get(b) {
-                    *b = *new_index;
-                }
-                if let Some(new_index) = buffer_map.get(c) {
-                    *c = *new_index;
-                }
-            },
-            BytecodeInstruction::IndependentHadamard(a, b, c) => {
-                if let Some(new_index) = buffer_map.get(a) {
-                    *a = *new_index;
-                }
-                if let Some(new_index) = buffer_map.get(b) {
-                    *b = *new_index;
-                }
-                if let Some(new_index) = buffer_map.get(c) {
-                    *c = *new_index;
-                }
-            },
-            BytecodeInstruction::DependentHadamard(a, b, c, _, _) => {
+            BytecodeInstruction::Hadamard(a, b, c, _, _) => {
                 if let Some(new_index) = buffer_map.get(a) {
                     *a = *new_index;
                 }

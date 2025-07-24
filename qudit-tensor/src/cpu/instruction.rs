@@ -3,18 +3,18 @@ use qudit_core::{matrix::{MatVecMut, SymSqMatMatMut}, memory::MemoryBuffer, Comp
 use qudit_expr::{DifferentiationLevel, Module};
 use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
 
-use crate::{bytecode::BytecodeInstruction, cpu::instructions::{ConsecutiveParamSingleWriteStruct, FRPRStruct, IndependentBatchMatmulStruct}};
+use crate::{bytecode::BytecodeInstruction, cpu::instructions::{ConsecutiveParamSingleWriteStruct, FRPRStruct}};
 
 use super::buffer::SizedTensorBuffer;
-use super::instructions::IndependentSingleMatmulStruct;
+use super::instructions::MatmulStruct;
 use super::instructions::SplitParamSingleWriteStruct;
 
 pub enum SpecializedInstruction<C: ComplexScalar> {
     FRPR(FRPRStruct<C>),
     WriteCS(ConsecutiveParamSingleWriteStruct<C>),
     WriteSS(SplitParamSingleWriteStruct<C>),
-    MatMulIB(IndependentBatchMatmulStruct<C>),
-    MatMulIS(IndependentSingleMatmulStruct<C>),
+    MatMulB(MatmulStruct<C>),
+    MatMulS(MatmulStruct<C>),
 }
 
 // TODO: rename specialized to tnvminstruction
@@ -42,21 +42,25 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
                     buffers[*index].clone(),
                 ))
             },
-            BytecodeInstruction::IndependentMatmul(a, b, c) => {
+            BytecodeInstruction::Matmul(a, b, c, p1, p2) => {
                 let spec_a = buffers[*a].clone();
                 let spec_b = buffers[*b].clone();
                 let spec_c = buffers[*c].clone();
                 if spec_c.shape().is_matrix() {
-                    SpecializedInstruction::MatMulIS(IndependentSingleMatmulStruct::new(
+                    SpecializedInstruction::MatMulS(MatmulStruct::new(
                         spec_a,
                         spec_b,
                         spec_c,
+                        p1.clone(),
+                        p2.clone(),
                     ))
                 } else {
-                    SpecializedInstruction::MatMulIB(IndependentBatchMatmulStruct::new(
+                    SpecializedInstruction::MatMulB(MatmulStruct::new(
                         spec_a,
                         spec_b,
                         spec_c,
+                        p1.clone(),
+                        p2.clone(),
                     ))
                 }
             },
@@ -108,8 +112,8 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
             SpecializedInstruction::FRPR(s) => s.get_output_buffer(),
             SpecializedInstruction::WriteSS(s) => s.get_output_buffer(),
             SpecializedInstruction::WriteCS(s) => s.get_output_buffer(),
-            SpecializedInstruction::MatMulIB(s) => s.get_output_buffer(),
-            SpecializedInstruction::MatMulIS(s) => s.get_output_buffer(),
+            SpecializedInstruction::MatMulB(s) => s.get_output_buffer(),
+            SpecializedInstruction::MatMulS(s) => s.get_output_buffer(),
         }
     }
 
@@ -119,8 +123,8 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
             SpecializedInstruction::FRPR(s) => s.evaluate(memory),
             SpecializedInstruction::WriteSS(s) => s.evaluate(params, memory),
             SpecializedInstruction::WriteCS(s) => s.evaluate(params, memory),
-            SpecializedInstruction::MatMulIB(s) => s.evaluate::<D>(memory),
-            SpecializedInstruction::MatMulIS(s) => s.evaluate::<D>(memory),
+            SpecializedInstruction::MatMulB(s) => s.batched_evaluate::<D>(memory),
+            SpecializedInstruction::MatMulS(s) => s.evaluate::<D>(memory),
         }
     }
 }
