@@ -10,10 +10,12 @@ use qudit_core::memory::MemoryBuffer;
 use qudit_core::accel::MatMulPlan;
 
 pub struct IndependentSingleMatmulStruct<C: ComplexScalar> {
-    pub left: SizedTensorBuffer<C>,
-    pub right: SizedTensorBuffer<C>,
-    pub out: SizedTensorBuffer<C>,
-    pub plan: MatMulPlan<C>,
+    left: SizedTensorBuffer<C>,
+    right: SizedTensorBuffer<C>,
+    out: SizedTensorBuffer<C>,
+    // left_offset, r_offset, out_off, dependent_variable, l2_off, r2_off
+    grad_offset_map: Vec<(usize, usize, usize, bool, usize, usize)>,
+    plan: MatMulPlan<C>,
 }
 
 impl<C: ComplexScalar> IndependentSingleMatmulStruct<C> {
@@ -29,15 +31,56 @@ impl<C: ComplexScalar> IndependentSingleMatmulStruct<C> {
             offset_map.insert(param, (left.offset() + left.unit_memory_size()*(i+1), right.offset(), false, 0, 0));
         }
         for (i, param) in right_param_map.iter().enumerate() {
-            offset_map.entry(param).and_modify(|offs| {offs.2 = true; offs.3 = left.offset(); offs.4 = right.offset() + right.unit_memory_size()*(i+1)}).or_insert((left.offset(), right.offset() + right.unit_memory_size()*(i+1), false, 0, 0));
+            offset_map.entry(param).and_modify(|offs| {offs.2 = true; offs.3 = left.offset(); offs.4 = right.offset() + right.unit_memory_size()*(i+1);}).or_insert((left.offset(), right.offset() + right.unit_memory_size()*(i+1), false, 0, 0));
         }
         let mut vec = offset_map.into_iter().collect::<Vec<_>>();
         vec.sort();
         let grad_offset_map = vec.into_iter().enumerate().map(|(i, (_, (l_off, r_off, prod, l2_off, r2_off)))| (l_off, r_off, out.offset() + out.unit_memory_size()*(i+1), prod, l2_off, r2_off)).collect::<Vec<_>>();
 
+        let mut offset_map = BTreeMap::new();
+        for (i, param_i) in left_param_map.iter().enumerate() {
+            for (j, param_j) in left_param_map.iter().enumerate() {
+                if param_i > param_j {
+                    continue
+                }
+                let k = if i <= j { j * (j + 1) / 2 + i } else { i * (i + 1) / 2 + j };
+                offset_map.insert((param_i, param_j), (left.offset() + left.grad_memory_size() + left.unit_memory_size()*(k+1), right.offset(), false, 0, 0, left.offset() + left.unit_memory_size()*(i+1), 0, left.offset() + left.unit_memory_size()*(j+1), 0));
+            }
+        }
+
+        for (i, param_i) in right_param_map.iter().enumerate() {
+            for (j, param_j) in right_param_map.iter().enumerate() {
+                if param_i > param_j {
+                    continue
+                }
+                let k = if i <= j { j * (j + 1) / 2 + i } else { i * (i + 1) / 2 + j };
+                offset_map.entry((param_i, param_j))
+                    .and_modify(|offs| {
+                        offs.2 = true;
+                        offs.3 = left.offset();
+                        offs.4 = right.offset() + right.grad_memory_size() + right.unit_memory_size()*(k+1);
+                        offs.6 = right.offset() + left.unit_memory_size()*(j*1);
+                        offs.8 = right.offset() + left.unit_memory_size()*(i*1);
+                    }).or_insert((left.offset(), right.offset() + left.grad_memory_size() + left.unit_memory_size()*(k+1), false, 0, 0, 0, right.offset() + right.unit_memory_size()*(j+1), 0, right.offset() + right.unit_memory_size()*(i+1)));
+            }
+        }
+        for (i, param_i) in left_param_map.iter().enumerate() {
+            for (j, param_j) in right_param_map.iter().enumerate() {
+                offset_map.entry((param_i, param_j))
+                    // DOUBLE CHECK after sleep:
+                    // if offset_map already contians this then param_i in right and param_j in left
+                    // since its shared, I don't do anything here and just skip
+                    // This spot is for partial of A(x)*B(y) w.r.t (x,y) so A'(x)B'(x)
+                    // TODO: also after sleep double check all the indices (left.offset() is used
+                    // everywhere where right.offset() should be)
+                    .or_insert((left.offset() + left.unit_memory_size()*(i+1), right.offset() + right.unit_memory_size()*(j+1), false, 0, 0, 0, 0, 0, 0));
+            }
+        }
+
+
             // for (l_off, r_off, o_off, l2_off, r2_off, prod) in self.offset_map() {
         let plan = MatMulPlan::new(left.nrows(), right.ncols(), left.ncols());
-        Self { left, right, out, plan }
+        Self { left, right, out, grad_offset_map, plan }
     }
 
     #[inline(always)]
@@ -154,50 +197,43 @@ impl<C: ComplexScalar> IndependentSingleMatmulStruct<C> {
 
     #[inline(always)]
     pub unsafe fn evaluate<const D: DifferentiationLevel>(&self, memory: &mut MemoryBuffer<C>) {
-        let left = self.left.as_matrix_ref(memory);
-        let right = self.right.as_matrix_ref(memory);
-        let out = self.out.as_matrix_mut(memory);
-        self.calculate_unitary(left, right, out);
+        let left = memory.as_ptr();
+        let right = memory.as_ptr();
+        let out = memory.as_ptr();
+        self.plan.execute_unchecked(left, right, out);
 
         if D >= GRADIENT {
+            for (l_off, r_off, o_off, prod, l2_off, r2_off) in self.grad_offset_map() {
+                let left = memory.as_ptr().add(l_off);
+                let right = memory.as_ptr().add(r_off);
+                let out = memory.as_ptr().add(o_off);
+                self.plan.execute_unchecked(left, right, out);
 
-            // for (l_off, r_off, o_off, l2_off, r2_off, prod) in self.offset_map() {
-            //     let left = memory.as_ptr().add(l_off);
-            //     let right = memory.as_ptr().add(r_off);
-            //     let out = memory.as_ptr().add(o_off);
-            //     self.plan.execute_unchecked(left, right, out);
+                if prod {    
+                    let left = memory.as_ptr().add(l2_off);
+                    let right = memory.as_ptr().add(r2_off);
+                    self.plan.execute_add_unchecked(left, right, out);
+                }
+            }
+        }
 
-            //     if prod {    
-            //         let left = memory.as_ptr().add(l2_off);
-            //         let right = memory.as_ptr().add(r2_off);
-            //         self.plan.execute_add_unchecked(left, right, out);
-            //     }
-            // }
+        if D >= HESSIAN {
+            for (l_off, r_off, o_off, prod, l2_off, r2_off, l3_off, r3_off) in self.hess_offset_map() {
+                let left = memory.as_ptr().add(l_off);
+                let right = memory.as_ptr().add(r_off);
+                let out = memory.as_ptr().add(o_off);
+                self.plan.execute_unchecked(left, right, out);
 
-            let left_grad = self.left.grad_as_tensor3d_ref(memory);
-            let right_grad = self.right.grad_as_tensor3d_ref(memory);
-            let out_grad = self.out.grad_as_tensor3d_mut(memory);
-            self.calculate_gradient(
-                left,
-                left_grad,
-                right,
-                right_grad,
-                out_grad,
-            );
+                if prod {    
+                    let left = memory.as_ptr().add(l2_off);
+                    let right = memory.as_ptr().add(r2_off);
+                    self.plan.execute_add_unchecked(left, right, out);
 
-            if D >= HESSIAN {
-                let left_hess = self.left.hess_as_symsq_tensor4d_ref(memory);
-                let right_hess = self.right.hess_as_symsq_tensor4d_ref(memory);
-                let out_hess = self.out.hess_as_symsq_tensor4d_mut(memory);
-                self.calculate_hessian(
-                    left,
-                    left_grad,
-                    left_hess,
-                    right,
-                    right_grad,
-                    right_hess,
-                    out_hess,
-                );
+                    let left = memory.as_ptr().add(l3_off);
+                    let right = memory.as_ptr().add(r3_off);
+                    self.plan.execute_add_unchecked(left, right, out, alpha = 2); // Cannot do
+                    // alpha = 2, must do two matmuls for xy case (alpha=2 only works in xx case)
+                }
             }
         }
     }
