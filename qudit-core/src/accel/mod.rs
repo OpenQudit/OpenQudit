@@ -78,6 +78,10 @@ pub use kron::kron_add;
 pub use kron::kron_kernel_raw;
 pub use kron::kron_kernel_add_raw;
 
+mod hadamard;
+pub use hadamard::hadamard_kernel_raw;
+pub use hadamard::hadamard_kernel_add_raw;
+
 mod frpr;
 pub use frpr::fused_reshape_permute_reshape_into;
 pub use frpr::fused_reshape_permute_reshape_into_impl;

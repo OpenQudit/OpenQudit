@@ -1,13 +1,16 @@
 mod frpr;
+mod hadamard;
 mod kron;
 mod matmul;
-
+mod trace;
 mod write_cs;
 mod write_ss;
 
 pub use frpr::FRPRStruct;
+pub use hadamard::HadamardStruct;
 pub use kron::KronStruct;
 pub use matmul::MatmulStruct;
+pub use trace::TraceStruct;
 pub use write_cs::ConsecutiveParamSingleWriteStruct;
 pub use write_ss::SplitParamSingleWriteStruct;
 
