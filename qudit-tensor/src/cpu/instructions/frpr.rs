@@ -12,6 +12,7 @@ use super::super::buffer::SizedTensorBuffer;
 pub struct FRPRStruct<C: ComplexScalar> {
     pub len: usize,
     // TODO: Extract 64 to a library level constant (remove magic number)
+    // TODO: Re-evaluate making this an array... need benchmarking...
     pub ins: [isize; 64],
     pub outs: [isize; 64],
     pub dims: [usize; 64],

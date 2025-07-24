@@ -1,5 +1,8 @@
 //! Functions to efficiently perform the Kronecker product and fused Kronecker-add operations.
 
+use std::ops::AddAssign;
+use std::ops::Mul;
+
 use faer::reborrow::ReborrowMut;
 use faer_traits::ComplexField;
 
@@ -7,6 +10,86 @@ use super::cartesian_match;
 use crate::matrix::MatMut;
 use crate::matrix::MatRef;
 use crate::ComplexScalar;
+
+// TODO: Add proper documentation to raw methods and add higher level
+// functions that call them with the cartesian_match for loop unrolling.
+pub unsafe fn kron_kernel_raw<C: Mul<Output = C> + Copy>(
+    dst: *mut C,
+    dst_rs: isize,
+    dst_cs: isize,
+    lhs: *const C,
+    lhs_nrows: usize,
+    lhs_ncols: usize,
+    lhs_rs: isize,
+    lhs_cs: isize,
+    rhs: *const C,
+    rhs_nrows: usize,
+    rhs_ncols: usize,
+    rhs_rs: isize,
+    rhs_cs: isize,
+) {
+    for lhs_j in 0..lhs_ncols {
+        for lhs_i in 0..lhs_nrows {
+            let lhs_val = *lhs.offset(lhs_i as isize * lhs_rs + lhs_j as isize * lhs_cs);
+
+            let dst_major_row = lhs_i * rhs_nrows;
+            let dst_major_col = lhs_j * rhs_ncols;
+
+
+            for rhs_j in 0..rhs_ncols {
+                for rhs_i in 0..rhs_nrows {
+                    let rhs_val = *rhs.offset(rhs_i as isize * rhs_rs + rhs_j as isize * rhs_cs);
+
+                    let dst_row = dst_major_row + rhs_i;
+                    let dst_col = dst_major_col + rhs_j;
+
+                    let dst_offset = dst_row as isize * dst_rs + dst_col as isize * dst_cs;
+                    
+                    *dst.offset(dst_offset) = lhs_val * rhs_val;
+                }
+            }
+        }
+    }
+}
+
+pub unsafe fn kron_kernel_add_raw<C: Mul<Output = C> + Copy + AddAssign>(
+    dst: *mut C,
+    dst_rs: isize,
+    dst_cs: isize,
+    lhs: *const C,
+    lhs_nrows: usize,
+    lhs_ncols: usize,
+    lhs_rs: isize,
+    lhs_cs: isize,
+    rhs: *const C,
+    rhs_nrows: usize,
+    rhs_ncols: usize,
+    rhs_rs: isize,
+    rhs_cs: isize,
+) {
+    for lhs_j in 0..lhs_ncols {
+        for lhs_i in 0..lhs_nrows {
+            let lhs_val = *lhs.offset(lhs_i as isize * lhs_rs + lhs_j as isize * lhs_cs);
+
+            let dst_major_row = lhs_i * rhs_nrows;
+            let dst_major_col = lhs_j * rhs_ncols;
+
+
+            for rhs_j in 0..rhs_ncols {
+                for rhs_i in 0..rhs_nrows {
+                    let rhs_val = *rhs.offset(rhs_i as isize * rhs_rs + rhs_j as isize * rhs_cs);
+
+                    let dst_row = dst_major_row + rhs_i;
+                    let dst_col = dst_major_col + rhs_j;
+
+                    let dst_offset = dst_row as isize * dst_rs + dst_col as isize * dst_cs;
+                    
+                    *dst.offset(dst_offset) += lhs_val * rhs_val;
+                }
+            }
+        }
+    }
+}
 
 /// The inner kernel that performs the Kronecker product of two matrices 
 /// without checking assumptions. 

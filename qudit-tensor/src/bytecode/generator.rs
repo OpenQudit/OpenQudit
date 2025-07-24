@@ -59,6 +59,14 @@ impl BytecodeGenerator {
                 } else {
                     Some(param_indices.clone())
                 };
+                // TODO: Drop the param key nonsense, pass param_map directly and let the TNVM
+                // figure it out; Also if the param_map and gate combo has already been written
+                // too, then just reuse results
+                //  write u3(a, b, c) -> 0
+                //  write u3(a, b, c) -> 1
+                //  kron 0 1 2
+                //
+                //  no need for second write, just make kron: kron 0 0 2
                 let fn_name = if self.expression_set.contains_key(&expr) {
                     let expression_map = self.expression_set.get_mut(&expr).unwrap();
                     if expression_map.contains_key(&param_key) {

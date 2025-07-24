@@ -9,18 +9,18 @@ use super::super::buffer::SizedTensorBuffer;
 use qudit_expr::DifferentiationLevel;
 use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
 use qudit_core::memory::MemoryBuffer;
-use qudit_core::accel::MatMulPlan;
+use qudit_core::accel::kron_kernel_raw;
+use qudit_core::accel::kron_kernel_add_raw;
 
-pub struct MatmulStruct<C: ComplexScalar> {
+pub struct KronStruct<C: ComplexScalar> {
     left: SizedTensorBuffer<C>,
     right: SizedTensorBuffer<C>,
     out: SizedTensorBuffer<C>,
     grad_offset_list: GradOffsetList,
     hess_offset_list: HessOffsetList,
-    plan: MatMulPlan<C>,
 }
 
-impl<C: ComplexScalar> MatmulStruct<C> {
+impl<C: ComplexScalar> KronStruct<C> {
     pub fn new(
         left: SizedTensorBuffer<C>,
         right: SizedTensorBuffer<C>,
@@ -30,8 +30,7 @@ impl<C: ComplexScalar> MatmulStruct<C> {
     ) -> Self {
         let grad_offset_list = cache_grad_offset_list(&left, &right, &out, &left_param_map, &right_param_map);
         let hess_offset_list = cache_hess_offset_list(&left, &right, &out, &left_param_map, &right_param_map);
-        let plan = MatMulPlan::new(left.nrows(), right.ncols(), left.ncols());
-        Self { left, right, out, grad_offset_list, hess_offset_list, plan }
+        Self { left, right, out, grad_offset_list, hess_offset_list }
     }
 
     #[inline(always)]
@@ -40,24 +39,28 @@ impl<C: ComplexScalar> MatmulStruct<C> {
     }
 
     #[inline(always)]
-    unsafe fn matmul(&self, left: *const C, right: *const C, out: *mut C) {
-        self.plan.execute_raw_unchecked(
-            left,
-            right,
+    unsafe fn kron(&self, left: *const C, right: *const C, out: *mut C) {
+        kron_kernel_raw(
             out,
             self.out.row_stride() as isize,
             self.out.col_stride() as isize,
+            left,
+            self.left.nrows(),
+            self.left.ncols(),
             self.left.row_stride() as isize,
             self.left.col_stride() as isize,
+            right,
+            self.right.nrows(),
+            self.right.ncols(),
             self.right.row_stride() as isize,
             self.right.col_stride() as isize,
         );
     }
 
     #[inline(always)]
-    unsafe fn batched_matmul(&self, mut left: *const C, mut right: *const C, mut out: *mut C) {
+    unsafe fn batched_kron(&self, mut left: *const C, mut right: *const C, mut out: *mut C) {
         for _ in 0..self.left.nmats() {
-            self.matmul(left, right, out);
+            self.kron(left, right, out);
             left = left.add(self.left.mat_stride());
             right = right.add(self.right.mat_stride());
             out = out.add(self.out.mat_stride());
@@ -65,24 +68,28 @@ impl<C: ComplexScalar> MatmulStruct<C> {
     }
 
     #[inline(always)]
-    unsafe fn matmul_add(&self, left: *const C, right: *const C, out: *mut C) {
-        self.plan.execute_add_raw_unchecked(
-            left,
-            right,
+    unsafe fn kron_add(&self, left: *const C, right: *const C, out: *mut C) {
+        kron_kernel_add_raw(
             out,
             self.out.row_stride() as isize,
             self.out.col_stride() as isize,
+            left,
+            self.left.nrows(),
+            self.left.ncols(),
             self.left.row_stride() as isize,
             self.left.col_stride() as isize,
+            right,
+            self.right.nrows(),
+            self.right.ncols(),
             self.right.row_stride() as isize,
             self.right.col_stride() as isize,
         );
     }
 
     #[inline(always)]
-    unsafe fn batched_matmul_add(&self, mut left: *const C, mut right: *const C, mut out: *mut C) {
+    unsafe fn batched_kron_add(&self, mut left: *const C, mut right: *const C, mut out: *mut C) {
         for _ in 0..self.left.nmats() {
-            self.matmul_add(left, right, out);
+            self.kron_add(left, right, out);
             left = left.add(self.left.mat_stride());
             right = right.add(self.right.mat_stride());
             out = out.add(self.out.mat_stride());
@@ -94,19 +101,19 @@ impl<C: ComplexScalar> MatmulStruct<C> {
         let left = memory.as_ptr().add(self.left.offset());
         let right = memory.as_ptr().add(self.right.offset());
         let out = memory.as_mut_ptr().add(self.out.offset());
-        self.matmul(left, right, out);
+        self.kron(left, right, out);
 
         if D >= GRADIENT {
             for (l_off, r_off, o_off, prod, l2_off, r2_off) in &self.grad_offset_list {
                 let left = memory.as_ptr().add(*l_off);
                 let right = memory.as_ptr().add(*r_off);
                 let out = memory.as_mut_ptr().add(*o_off);
-                self.matmul(left, right, out);
+                self.kron(left, right, out);
 
                 if *prod {    
                     let left = memory.as_ptr().add(*l2_off);
                     let right = memory.as_ptr().add(*r2_off);
-                    self.matmul_add(left, right, out);
+                    self.kron_add(left, right, out);
                 }
             }
         }
@@ -116,20 +123,20 @@ impl<C: ComplexScalar> MatmulStruct<C> {
                 let left = memory.as_ptr().add(*l_off);
                 let right = memory.as_ptr().add(*r_off);
                 let out = memory.as_mut_ptr().add(*o_off);
-                self.matmul(left, right, out);
+                self.kron(left, right, out);
 
                 if *prod {    
                     let left = memory.as_ptr().add(*l2_off);
                     let right = memory.as_ptr().add(*r2_off);
-                    self.matmul_add(left, right, out);
+                    self.kron_add(left, right, out);
 
                     let left = memory.as_ptr().add(*l3_off);
                     let right = memory.as_ptr().add(*r3_off);
-                    self.matmul_add(left, right, out);
+                    self.kron_add(left, right, out);
 
                     let left = memory.as_ptr().add(*l4_off);
                     let right = memory.as_ptr().add(*r4_off);
-                    self.matmul_add(left, right, out);
+                    self.kron_add(left, right, out);
                 }
             }
         }
@@ -139,19 +146,19 @@ impl<C: ComplexScalar> MatmulStruct<C> {
         let left = memory.as_ptr().add(self.left.offset());
         let right = memory.as_ptr().add(self.right.offset());
         let out = memory.as_mut_ptr().add(self.out.offset());
-        self.batched_matmul(left, right, out);
+        self.batched_kron(left, right, out);
 
         if D >= GRADIENT {
             for (l_off, r_off, o_off, prod, l2_off, r2_off) in &self.grad_offset_list {
                 let left = memory.as_ptr().add(*l_off);
                 let right = memory.as_ptr().add(*r_off);
                 let out = memory.as_mut_ptr().add(*o_off);
-                self.batched_matmul(left, right, out);
+                self.batched_kron(left, right, out);
 
                 if *prod {    
                     let left = memory.as_ptr().add(*l2_off);
                     let right = memory.as_ptr().add(*r2_off);
-                    self.batched_matmul_add(left, right, out);
+                    self.batched_kron_add(left, right, out);
                 }
             }
         }
@@ -161,20 +168,20 @@ impl<C: ComplexScalar> MatmulStruct<C> {
                 let left = memory.as_ptr().add(*l_off);
                 let right = memory.as_ptr().add(*r_off);
                 let out = memory.as_mut_ptr().add(*o_off);
-                self.batched_matmul(left, right, out);
+                self.batched_kron(left, right, out);
 
                 if *prod {    
                     let left = memory.as_ptr().add(*l2_off);
                     let right = memory.as_ptr().add(*r2_off);
-                    self.batched_matmul_add(left, right, out);
+                    self.batched_kron_add(left, right, out);
 
                     let left = memory.as_ptr().add(*l3_off);
                     let right = memory.as_ptr().add(*r3_off);
-                    self.batched_matmul_add(left, right, out);
+                    self.batched_kron_add(left, right, out);
 
                     let left = memory.as_ptr().add(*l4_off);
                     let right = memory.as_ptr().add(*r4_off);
-                    self.batched_matmul_add(left, right, out);
+                    self.batched_kron_add(left, right, out);
                 }
             }
         }

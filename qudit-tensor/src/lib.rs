@@ -57,8 +57,9 @@ mod tests {
         }");
         
         let mut network = QuditCircuitTensorNetworkBuilder::new(QuditRadices::new(&vec![2, 2]))
-            .prepend(QuditTensor::new(ZZ.clone(), vec![].into()), vec![0, 1], vec![0, 1], vec!["a".to_string()])
+            // .prepend(QuditTensor::new(ZZ.clone(), vec![].into()), vec![0, 1], vec![0, 1], vec!["a".to_string()])
             .prepend(QuditTensor::new(classically_controlled_u3.clone(), vec![0, 1, 2].into()), vec![0], vec![0], vec!["a".to_string()])
+            .prepend(QuditTensor::new(classically_controlled_u3.clone(), vec![0, 1, 2].into()), vec![1], vec![1], vec!["a".to_string()])
             .build();
 
         let optimal_path = network.solve_for_path();
