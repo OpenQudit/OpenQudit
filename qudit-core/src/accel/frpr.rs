@@ -357,7 +357,7 @@ fn __reshape_kernel_3<E: Copy>(
         cartesian_match!(
             { __reshape_kernel_3_impl(out, inp, d, is, os) },
             (d0, (d1, (d2, ()))),
-            ((2, 3, 4, _), ((2, 3, 4, _), ((2, 3, 4, _), ())))
+            ((2, 3, 4, 6, 8, _), ((2, 3, 4, 8, _), ((2, 3, 4, 8, _), ())))
         );
     }
 }
@@ -400,7 +400,7 @@ fn __reshape_kernel_2<E: Copy>(
         cartesian_match!(
             { __reshape_kernel_2_impl(out, inp, d, is, os) },
             (d0, (d1, ())),
-            ((2, 3, 4, _), ((2, 3, 4, _), ()))
+            ((2, 3, 4, 6, 8, _), ((2, 3, 4, 8, _), ()))
         );
     }
 }
@@ -444,8 +444,8 @@ fn __reshape_kernel_4<E: Copy>(
             { __reshape_kernel_4_impl(out, inp, d, is, os) },
             (d0, (d1, (d2, (d3, ())))),
             (
-                (2, 3, 4, _),
-                ((2, 3, 4, _), ((2, 3, 4, _), ((2, 3, 4, _), ())))
+                (2, 3, 4, 6, 8, _),
+                ((2, 3, 4, 8, _), ((2, 3, 4, 8, _), ((2, 3, 4, 8, _), ())))
             )
         );
     }
@@ -490,8 +490,8 @@ fn __reshape_kernel_5<E: Copy>(
             { __reshape_kernel_5_impl(out, inp, d, is, os) },
             (d0, (d1, (d2, (d3, (d4, ()))))),
             (
-                (2, 3, 4, _),
-                ((2, 3, 4, _), ((2, 3, 4, _), ((2, 3, 4, _), ((2, 3, 4, _), ()) )))
+                (2, 3, 4, 6, 8, _),
+                ((2, 3, 4, 8, _), ((2, 3, 4, 8, _), ((2, 3, 4, 8, _), ((2, 3, 4, 8, _), ()) )))
             )
         );
     }
@@ -954,19 +954,20 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
     };
     
     // The output with the least amount of non-contiguous axes is returned.
-    if candidate_outputs2.0.len() < candidate_outputs1.0.len() {
+    // Nope: having output contiguous for writes is a net win...
+    // if candidate_outputs2.0.len() < candidate_outputs1.0.len() {
         // println!("Candidate2");
         // println!("sorted_perm_in_strides: {:?}", candidate_outputs2.0);
-        // println!("sorted_out_strides: {:?}", candidate_outputs2.1);
-        // println!("sorted_perm_shape: {:?}", candidate_outputs2.2);
+        // println!("sorted_out_strides:     {:?}", candidate_outputs2.1);
+        // println!("sorted_perm_shape:      {:?}\n", candidate_outputs2.2);
         candidate_outputs2
-    } else {
-        // println!("Candidate1");
-        // println!("sorted_perm_in_strides: {:?}", candidate_outputs1.0);
-        // println!("sorted_out_strides: {:?}", candidate_outputs1.1);
-        // println!("sorted_perm_shape: {:?}", candidate_outputs1.2);
-        candidate_outputs1
-    }
+    // } else {
+    //     // println!("Candidate1");
+    //     println!("sorted_perm_in_strides: {:?}", candidate_outputs1.0);
+    //     println!("sorted_out_strides:     {:?}", candidate_outputs1.1);
+    //     println!("sorted_perm_shape:      {:?}\n", candidate_outputs1.2);
+    //     candidate_outputs1
+    // }
 }
 
 /// Prepare optimized parameters for `fused_reshape_permute_reshape_into_impl`
@@ -1256,18 +1257,18 @@ pub unsafe fn fused_reshape_permute_reshape_into_impl<E: Copy>(
     let ndims = sorted_perm_in_strides.len();
     let mut state = vec![0usize; ndims]; // TODO: Change to stack/heap vec
 
-    if ndims >= 6 {
-        reshape_outer_kernel(
-            6,
-            __reshape_kernel_6,
-            out,
-            inp,
-            &mut state,
-            sorted_perm_in_strides,
-            sorted_out_strides,
-            sorted_perm_shape,
-        );
-    } else if ndims == 5 {
+    // if ndims >= 6 {
+    //     reshape_outer_kernel(
+    //         6,
+    //         __reshape_kernel_6,
+    //         out,
+    //         inp,
+    //         &mut state,
+    //         sorted_perm_in_strides,
+    //         sorted_out_strides,
+    //         sorted_perm_shape,
+    //     );
+    if ndims == 5 {
         reshape_outer_kernel(
             5,
             __reshape_kernel_5,

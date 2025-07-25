@@ -36,3 +36,7 @@ rustdoc-args = [
 [[bench]]
 name = "circuit_struct"
 harness = false
+
+[[bench]]
+name = "tnvm"
+harness = false

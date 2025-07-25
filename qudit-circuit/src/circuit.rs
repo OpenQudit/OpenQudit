@@ -854,15 +854,17 @@ mod tests {
     use qudit_core::unitary::UnitaryFn;
 
     pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
+        let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
         let mut circ = QuditCircuit::new(radices![2; n], 0);
         for i in 0..n {
             circ.append_gate(Gate::U3(), loc![i], vec![]);
         }
         for _ in 0..n {
             for i in 0..(n - 1) {
-                circ.append_gate(Gate::CP(), loc![i, i + 1], vec![]);
-                circ.append_gate(Gate::U3(), loc![i], vec![]);
-                circ.append_gate(Gate::U3(), loc![i + 1], vec![]);
+                circ.append_gate(Gate::Expression(block_expr.clone()), loc![i, i+1], vec![]);
+                // circ.append_gate(Gate::CX(), loc![i, i + 1], vec![]);
+                // circ.append_gate(Gate::U3(), loc![i], vec![]);
+                // circ.append_gate(Gate::U3(), loc![i + 1], vec![]);
             }
         }
         circ
@@ -888,8 +890,17 @@ mod tests {
         // circ.append_gate(Gate::CP(), loc![0, 1], vec![]);
         let circ = build_qsearch_thin_step_circuit(n);
 
+        // let start = std::time::Instant::now();
+        // for _ in 0..1000 {
+        //     let network = circ.to_tensor_network();
+        //     let code = qudit_tensor::compile_network(network);
+        // }
+        // let elapsed = start.elapsed();
+        // println!("Time to construct: {:?}", elapsed / 1000);
+
         let network = circ.to_tensor_network();
         let code = qudit_tensor::compile_network(network);
+
 
         // let Bytecode { expressions, const_code, dynamic_code, buffers } = code;
         // let code = Bytecode { expressions, const_code, dynamic_code: dynamic_code[..3].to_vec(), buffers };

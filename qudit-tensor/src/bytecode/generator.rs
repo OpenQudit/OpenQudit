@@ -3,6 +3,7 @@ use std::collections::{HashMap, HashSet, BTreeSet};
 use super::buffer::TensorBuffer;
 use super::{Bytecode, BytecodeInstruction};
 use qudit_core::{HasParams, ParamIndices};
+use qudit_expr::index::TensorIndex;
 use crate::tree::{ExpressionTree, LeafNode, TraceNode, TransposeNode};
 use qudit_expr::{GenerationShape, TensorExpression, UnitaryExpression};
 use qudit_core::QuditSystem;
@@ -48,7 +49,7 @@ impl BytecodeGenerator {
 
     pub fn parse(&mut self, tree: ExpressionTree) -> usize {
         match tree {
-            ExpressionTree::Leaf(LeafNode { expr, param_indices } ) => {
+            ExpressionTree::Leaf(LeafNode { mut expr, param_indices } ) => {
                 let out = self.new_buffer(expr.generation_shape(), param_indices.num_params());
 
                 // if this expression exists in set then
@@ -67,6 +68,7 @@ impl BytecodeGenerator {
                 //  kron 0 1 2
                 //
                 //  no need for second write, just make kron: kron 0 0 2
+                expr.reindex(expr.indices().into_iter().enumerate().map(|(i, idx)| TensorIndex::new(idx.direction(), i, idx.index_size())).collect());
                 let fn_name = if self.expression_set.contains_key(&expr) {
                     let expression_map = self.expression_set.get_mut(&expr).unwrap();
                     if expression_map.contains_key(&param_key) {

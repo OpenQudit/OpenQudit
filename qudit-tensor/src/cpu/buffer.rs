@@ -32,6 +32,11 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
 
     #[inline]
     pub fn new(offset: usize, buffer: &TensorBuffer) -> Self {
+        // let col_stride = 1;
+        // let row_stride = buffer.ncols();
+        // let mat_stride = buffer.ncols() * buffer.nmats();
+        // let param_stride = mat_stride * buffer.nmats();
+        let row_stride = 1;
         let col_stride = calc_col_stride::<C>(buffer.nrows(), buffer.ncols());
         let mat_stride = calc_mat_stride::<C>(buffer.nrows(), buffer.ncols(), col_stride);
         let param_stride = calc_next_stride::<C>(mat_stride*buffer.nmats());
@@ -43,7 +48,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
             nmats: buffer.nmats(),
             nparams: buffer.num_params(),
             col_stride,
-            row_stride: 1,
+            row_stride,
             mat_stride,
             param_stride,
             _phantom: std::marker::PhantomData,

@@ -14,7 +14,7 @@ pub use cpu::TNVMReturnType;
 pub fn compile_network(network: QuditTensorNetwork) -> Bytecode {
     let optimal_path = network.solve_for_path();
 
-    println!("{:?}", optimal_path);
+    // println!("{:?}", optimal_path);
     let tree = network.path_to_expression_tree(optimal_path);
     println!("{:?}", tree);
     crate::bytecode::BytecodeGenerator::new().generate(tree)

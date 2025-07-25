@@ -1,9 +1,12 @@
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap};
 
+use bit_set::BitSet;
+
 use crate::network::index::{IndexId, IndexSize, WeightedIndex};
 
 /// A bitmask representing a set of tensors in a network.
-pub type SubNetwork = u64;
+// pub type SubNetwork = u64;
+pub type SubNetwork = BitSet;
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct PotentialContraction {
@@ -78,7 +81,7 @@ impl ContractionPath {
     /// Returns:
     /// A new `ContractionPath` representing the result of the contraction.
     pub fn contract(&self, other: &Self) -> Self {
-        let subnetwork = self.subnetwork | other.subnetwork;
+        let subnetwork = self.subnetwork.union(&other.subnetwork).collect();
         let output_indices: BTreeSet<IndexId> = self.output_indices.union(&other.output_indices).copied().collect();
         let indices = self.indices.iter().chain(&other.indices).filter(|idx| {
             output_indices.contains(&idx.0) || !self.indices.contains(idx) || !other.indices.contains(idx)
@@ -118,7 +121,9 @@ impl ContractionPath {
     pub fn trivial(idx: IndexId, indices: BTreeSet<WeightedIndex>, output_indices: BTreeSet<IndexId>) -> Self {
         let path = vec![idx];
         let cost = 0;
-        let subnetwork = 1 << idx;
+        // let subnetwork = 1 << idx;
+        let mut subnetwork = BitSet::new();
+        subnetwork.insert(idx);
         ContractionPath {
             cost,
             indices,
@@ -137,7 +142,7 @@ impl ContractionPath {
         let mut contractions: Vec<Vec<ContractionPath>> = vec![vec![]; n];
         contractions[0] = initial_paths;
 
-        let mut best_costs = HashMap::new();
+        let mut best_costs: HashMap<SubNetwork, usize> = HashMap::new();
         let mut best_contractions = HashMap::new();
 
         for c in 1..n {
@@ -146,21 +151,21 @@ impl ContractionPath {
                 let scd = &contractions[c - 1 - d]; // optimal c - d tensor paths
                 for path_a in sd {
                     for path_b in scd {
-                        if path_a.subnetwork & path_b.subnetwork != 0 {
+                        if !path_a.subnetwork.is_disjoint(&path_b.subnetwork) {
                             // Non-disjoint subnetworks
                             continue;
                         }
 
                         let cost = ContractionPath::calculate_cost(path_a, path_b);
 
-                        let new_subnetwork = path_a.subnetwork | path_b.subnetwork;
+                        let new_subnetwork = path_a.subnetwork.union(&path_b.subnetwork).collect();
                         match best_costs.get(&new_subnetwork) {
                             Some(&best_cost) if best_cost <= cost => {
                                 // Already found a better path
                                 continue;
                             }
                             _ => {
-                                best_costs.insert(new_subnetwork, cost);
+                                best_costs.insert(new_subnetwork.clone(), cost);
                                 best_contractions.insert(new_subnetwork, path_a.contract(path_b));
                             }
                         }
@@ -222,7 +227,7 @@ impl ContractionPath {
                 let path_i = &active_paths.get(&i).expect("Just constructed.");
                 let path_j = &active_paths.get(&j).expect("Just constructed.");
                 
-                if path_i.subnetwork & path_j.subnetwork != 0 {
+                if !path_i.subnetwork.is_disjoint(&path_j.subnetwork) {
                     // Non-disjoint subnetworks
                     continue;
                 }
@@ -257,7 +262,7 @@ impl ContractionPath {
             let j = pc.k;
             let path_j = active_paths.get(&pc.k).expect("Just inserted.");
 
-            for (&i, path_i) in active_paths.iter().filter(|(path_id, path_i)| path_i.subnetwork & path_j.subnetwork == 0) {
+            for (&i, path_i) in active_paths.iter().filter(|(path_id, path_i)| path_i.subnetwork.is_disjoint(&path_j.subnetwork)) {
                 let new_path_k = path_i.contract(&path_j);
                 let new_cost = -(new_path_k.total_dimension() - (path_i.total_dimension() + path_j.total_dimension()));
                 let pc = PotentialContraction {
@@ -270,7 +275,6 @@ impl ContractionPath {
                 contractions.push(pc);
             }
         }
-
         assert_eq!(active_paths.len(), 1);
         active_paths.into_iter().next().unwrap().1
     }

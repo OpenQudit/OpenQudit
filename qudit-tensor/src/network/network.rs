@@ -287,23 +287,24 @@ impl QuditTensorNetwork {
                 // println!("New leaf \nperm: {:?} \nnew_directions: {:?}", argsorted_indices, new_directions);
                 let tranposed_node = traced_node.transpose(argsorted_indices.clone(), new_directions);
 
+                // group (redimension) indices together that have the same network id
                 let new_node_indices = {
                     let mut last = None;
                     let mut new_node_indices = Vec::new();
                     let mut dimension_acm = 1;
                     let mut old_node_indices = tranposed_node.indices();
                     for (id, idx) in argsorted_indices.iter().enumerate().map(|(id, &i)| (id, network_idx_ids[i])) {
-                        dimension_acm *= old_node_indices[id].index_size();
-                        if last != Some(idx) {
-                            last = Some(idx);
-                            new_node_indices.push(TensorIndex::new(old_node_indices[id].direction(), idx, dimension_acm));
-                            dimension_acm = 1;
+                        if last == Some(idx) {
+                            let to_group_with_idx: &mut TensorIndex = new_node_indices.last_mut().expect("Just checked for last.");
+                            *to_group_with_idx = TensorIndex::new(to_group_with_idx.direction(), to_group_with_idx.index_id(), to_group_with_idx.index_size() * old_node_indices[id].index_size());
+                        } else {
+                            new_node_indices.push(TensorIndex::new(old_node_indices[id].direction(), idx, old_node_indices[id].index_size()))
                         }
+                        last = Some(idx);
                     }
                     new_node_indices
                 };
                
-                // println!("Reindexing: {:?}\n", new_node_indices);
                 tree_stack.push(tranposed_node.reindex(new_node_indices));
             }
         }
