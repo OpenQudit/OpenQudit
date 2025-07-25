@@ -13,7 +13,7 @@ use qudit_expr::FUNCTION;
 use crate::bytecode::Bytecode;
 use crate::cpu::TNVMResult;
 use super::buffer::SizedTensorBuffer;
-use super::instruction::SpecializedInstruction;
+use super::instruction::TNVMInstruction;
 
 use qudit_core::accel::fused_reshape_permute_reshape_into_impl;
 use qudit_core::matrix::MatVecMut;
@@ -26,16 +26,14 @@ use qudit_core::memory::alloc_zeroed_memory;
 use qudit_core::ComplexScalar;
 
 pub struct TNVM<C: ComplexScalar, const D: DifferentiationLevel> {
-    const_instructions: Vec<SpecializedInstruction<C>>,
-    dynamic_instructions: Vec<SpecializedInstruction<C>>,
+    const_instructions: Vec<TNVMInstruction<C>>,
+    dynamic_instructions: Vec<TNVMInstruction<C>>,
     #[allow(dead_code)]
     module: Module<C>,
     memory: MemoryBuffer<C>,
     out_buffer: SizedTensorBuffer<C>,
     _pin: PhantomPinned,
 }
-
-// impl<C: ComplexScalar, const D: DifferentiationLevel> !std::marker::Unpin for TNVM<C, D> {}
 
 impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
     pub fn new(program: &Bytecode) -> Pin<Box<Self>> {
@@ -47,6 +45,7 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
             sized_buffers.push(sized_buffer);
         }
         let memory_size = offset;
+        println!("ALLOCATING {} bytes for {} units", memory_size * std::mem::size_of::<C>(), memory_size);
         // TODO: Explore overlapping buffers to reduce memory usage and increase locality
         // TODO: Can further optimize FRPR after knowing strides: simple reshapes on continuous
         // buffers can be skipped with the input and output buffer having the same offset
@@ -67,12 +66,12 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
 
         let mut const_instructions = Vec::new();
         for inst in &program.const_code {
-            const_instructions.push(SpecializedInstruction::new(inst, &sized_buffers, &module, D));
+            const_instructions.push(TNVMInstruction::new(inst, &sized_buffers, &module, D));
         }
 
         let mut dynamic_instructions = Vec::new();
         for inst in &program.dynamic_code {
-            dynamic_instructions.push(SpecializedInstruction::new(inst, &sized_buffers, &module, D));
+            dynamic_instructions.push(TNVMInstruction::new(inst, &sized_buffers, &module, D));
         }
 
         // Get out buffer

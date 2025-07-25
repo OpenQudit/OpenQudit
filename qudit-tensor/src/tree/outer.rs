@@ -28,6 +28,8 @@ impl OuterProductNode {
         let right_indices = right.indices();
 
         // assert left and right have the same batch dimensions
+        // println!("left indices: {:?}", left_indices);
+        // println!("right indices: {:?}", right_indices);
         let left_batch_size = left_indices.iter().filter(|idx| idx.direction() == IndexDirection::Batch).map(|idx| idx.index_size()).product::<usize>();
         let right_batch_size = right_indices.iter().filter(|idx| idx.direction() == IndexDirection::Batch).map(|idx| idx.index_size()).product::<usize>();
         assert_eq!(left_batch_size, right_batch_size);
@@ -35,21 +37,15 @@ impl OuterProductNode {
         // new indices = batch (shared) | (left, right)::output | (left, right)::input
         let indices = left_indices.iter()
             .filter(|idx| idx.direction() == IndexDirection::Batch)
-            .map(|idx| (idx.direction(), idx.index_size()))
             .chain(left_indices.iter()
-                .filter(|idx| idx.direction() == IndexDirection::Output)
-                .map(|idx| (idx.direction(), idx.index_size())))
+                .filter(|idx| idx.direction() == IndexDirection::Output))
             .chain(right_indices.iter()
-                .filter(|idx| idx.direction() == IndexDirection::Output)
-                .map(|idx| (idx.direction(), idx.index_size())))
+                .filter(|idx| idx.direction() == IndexDirection::Output))
             .chain(left_indices.iter()
-                .filter(|idx| idx.direction() == IndexDirection::Input)
-                .map(|idx| (idx.direction(), idx.index_size())))
+                .filter(|idx| idx.direction() == IndexDirection::Input))
             .chain(right_indices.iter()
-                .filter(|idx| idx.direction() == IndexDirection::Input)
-                .map(|idx| (idx.direction(), idx.index_size())))
-            .enumerate()
-            .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
+                .filter(|idx| idx.direction() == IndexDirection::Input))
+            .copied()
             .collect();
 
         let param_map = left.param_indices().concat(&right.param_indices());

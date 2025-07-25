@@ -256,9 +256,8 @@ impl TensorExpression {
 
         //Reorder the TensorIndex objects based on `perm`
         let reordered_indices: Vec<TensorIndex> = perm.iter()
-            .map(|&p_idx| self.indices[p_idx].index_size())
             .enumerate()
-            .map(|(id, size)| TensorIndex::new(redirection[id], id, size))
+            .map(|(id, &p_id)| TensorIndex::new(redirection[id], self.indices[p_id].index_id(), self.indices[p_id].index_size()))
             .collect();
 
         // Update self.indices with the newly reordered and direction-assigned indices

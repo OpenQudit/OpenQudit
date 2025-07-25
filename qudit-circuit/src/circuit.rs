@@ -847,6 +847,7 @@ mod tests {
     use qudit_core::radices;
     use qudit_core::QuditRadices;
     use qudit_expr::DifferentiationLevel;
+    use qudit_tensor::Bytecode;
     use crate::loc;
     use crate::CircuitLocation;
     use qudit_core::unitary::UnitaryMatrix;
@@ -878,21 +879,32 @@ mod tests {
 
     #[test]
     fn build_qsearch_thin_step_circuit_to_tensor_test() {
-        const n: usize = 2;
+        const n: usize = 3;
 
-        let mut circ: QuditCircuit<c64> = QuditCircuit::new(radices![2; n], 0);
-        for i in 0..n {
-            circ.append_gate(Gate::U3(), loc![i], vec![]);
-        }
+        // let mut circ: QuditCircuit<c64> = QuditCircuit::new(radices![2; n], 0);
+        // for i in 0..n {
+        //     circ.append_gate(Gate::U3(), loc![i], vec![]);
+        // }
+        // circ.append_gate(Gate::CP(), loc![0, 1], vec![]);
+        let circ = build_qsearch_thin_step_circuit(n);
 
         let network = circ.to_tensor_network();
-        let code = qudit_tensor::compile_network(&network);
+        let code = qudit_tensor::compile_network(network);
+
+        // let Bytecode { expressions, const_code, dynamic_code, buffers } = code;
+        // let code = Bytecode { expressions, const_code, dynamic_code: dynamic_code[..3].to_vec(), buffers };
+
         println!("{:?}", code);
-        let mut qvm: qudit_tensor::QVM<c64> = qudit_tensor::QVM::new(code, DifferentiationLevel::None);
-        println!("QVM constructed");
-        let result = qvm.evaluate(&[1.7; (3*n) + (7*(n-1)*n)]);
-        let unitary = result.get_fn_result().unpack_matrix();
-        println!("{:?}", unitary);
+        use qudit_expr::{FUNCTION, GRADIENT};
+        let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
+        let start = std::time::Instant::now();
+        for _ in 0..1000 {
+            let result = tnvm.evaluate(&[1.7; (3*n) + (7*(n-1)*n)]);
+        }
+        let elapsed = start.elapsed();
+        println!("Time per evaluation: {:?}", elapsed / 1000);
+        // let unitary = result.get_fn_result().unpack_matrix();
+        // println!("{:?}", unitary);
     }
 
     // #[test]

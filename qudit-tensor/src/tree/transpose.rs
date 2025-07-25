@@ -32,7 +32,7 @@ pub struct TransposeNode {
 impl TransposeNode {
     pub fn new(child: ExpressionTree, perm: Vec<usize>, redirection: Vec<IndexDirection>) -> TransposeNode {
         let child_indices = child.indices();
-        let indices: Vec<TensorIndex> = (0..perm.len()).map(|x| TensorIndex::new(redirection[x], x, child_indices[perm[x]].index_size())).collect();
+        let indices: Vec<TensorIndex> = (0..perm.len()).map(|x| TensorIndex::new(redirection[x], child_indices[perm[x]].index_id(), child_indices[perm[x]].index_size())).collect();
 
         TransposeNode {
             child: Box::new(child),

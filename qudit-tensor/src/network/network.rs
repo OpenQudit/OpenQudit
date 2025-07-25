@@ -182,7 +182,7 @@ impl QuditTensorNetwork {
 
         for subgraph in self.get_subnetworks() {
             let input = self.build_trivial_contraction_paths(subgraph);
-            let path = if input.len() < 8 {
+            let path = if input.len() < 12 {
                 ContractionPath::solve_optimal_simple(input)
             } else {
                 ContractionPath::solve_greedy_simple(input)
@@ -215,6 +215,7 @@ impl QuditTensorNetwork {
 
                 let left_network_index_ids: Vec<IndexId> = left.indices().iter().map(|&idx| idx.index_id()).collect();
                 let right_network_index_ids: Vec<IndexId> = right.indices().iter().map(|&idx| idx.index_id()).collect();
+                // println!("New contraction \nleft ids: {:?} \nright ids: {:?}\n", left_network_index_ids, right_network_index_ids);
 
                 let intersection: Vec<IndexId> = left_network_index_ids.iter()
                     .filter(|&id| right_network_index_ids.contains(id))
@@ -224,6 +225,7 @@ impl QuditTensorNetwork {
                 // Shared indices appear in a contraction on both sides, but are not summed over.
                 // These are realized as indices that are output to the network that appear on
                 // in both left and right index sets.
+                // println!("Baby contraction being born with intersection of ids: {:?}", intersection);
                 let shared_ids: Vec<IndexId> = intersection.iter()
                     .filter(|&id| self.indices[*id].0.is_output())
                     .copied()
@@ -282,6 +284,7 @@ impl QuditTensorNetwork {
 
                 let new_directions = argsorted_indices.iter().map(|id| traced_node.indices()[*id].direction()).collect();
 
+                // println!("New leaf \nperm: {:?} \nnew_directions: {:?}", argsorted_indices, new_directions);
                 let tranposed_node = traced_node.transpose(argsorted_indices.clone(), new_directions);
 
                 let new_node_indices = {
@@ -299,7 +302,8 @@ impl QuditTensorNetwork {
                     }
                     new_node_indices
                 };
-
+               
+                // println!("Reindexing: {:?}\n", new_node_indices);
                 tree_stack.push(tranposed_node.reindex(new_node_indices));
             }
         }

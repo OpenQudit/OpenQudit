@@ -229,7 +229,7 @@ impl ContractionPath {
 
                 let path_k = path_i.contract(&path_j);
 
-                let cost = path_k.total_dimension() - path_i.total_dimension() + path_j.total_dimension();
+                let cost = -(path_k.total_dimension() - (path_i.total_dimension() + path_j.total_dimension()));
 
                 let pc = PotentialContraction {
                     i, j, k: counter,
@@ -259,7 +259,7 @@ impl ContractionPath {
 
             for (&i, path_i) in active_paths.iter().filter(|(path_id, path_i)| path_i.subnetwork & path_j.subnetwork == 0) {
                 let new_path_k = path_i.contract(&path_j);
-                let new_cost = new_path_k.total_dimension() - path_i.total_dimension() + path_j.total_dimension();
+                let new_cost = -(new_path_k.total_dimension() - (path_i.total_dimension() + path_j.total_dimension()));
                 let pc = PotentialContraction {
                     i, j, k: counter,
                     result: new_path_k,

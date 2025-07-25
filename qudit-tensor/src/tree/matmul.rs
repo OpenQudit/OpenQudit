@@ -33,16 +33,12 @@ impl MatMulNode {
         // new indices = batch (shared) | left::output | right::input
         let indices = left_indices.iter()
             .filter(|idx| idx.direction() == IndexDirection::Batch)
-            .map(|idx| (idx.direction(), idx.index_size()))
             .chain(left_indices.iter()
-                .filter(|idx| idx.direction() == IndexDirection::Output)
-                .map(|idx| (idx.direction(), idx.index_size())))
+                .filter(|idx| idx.direction() == IndexDirection::Output))
             .chain(right_indices.iter()
-                .filter(|idx| idx.direction() == IndexDirection::Input)
-                .map(|idx| (idx.direction(), idx.index_size())))
-            .enumerate()
-            .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
-            .collect();
+                .filter(|idx| idx.direction() == IndexDirection::Input))
+            .copied()
+            .collect::<Vec<TensorIndex>>();
 
         let param_map = left.param_indices().concat(&right.param_indices());
 

@@ -101,6 +101,17 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     }
 
     #[inline(always)]
+    pub fn dims(&self) -> Vec<usize> {
+        match self.shape() {
+            GenerationShape::Scalar => vec![],
+            GenerationShape::Vector(_) => vec![self.ncols],
+            GenerationShape::Matrix(_, _) => vec![self.nrows, self.ncols],
+            GenerationShape::Tensor3D(_, _, _) => vec![self.nmats, self.nrows, self.ncols],
+            _ => panic!("Tensor4D should not be constructed explicitly."),
+        }
+    }
+
+    #[inline(always)]
     pub fn strides(&self) -> Vec<usize> {
         match self.shape() {
             GenerationShape::Scalar => vec![],
@@ -129,14 +140,10 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
 
     #[inline(always)]
     pub fn unit_memory_size(&self) -> usize {
-        let max_stride = self.strides().iter().fold(1, |a, b| a.max(*b));
-        match self.shape() {
-            GenerationShape::Scalar => 1,
-            GenerationShape::Vector(_) => self.ncols * max_stride,
-            GenerationShape::Matrix(_, _) => self.nrows * max_stride,
-            GenerationShape::Tensor3D(_, _, _) => self.nmats * max_stride,
-            _ => panic!("Tensor4D should not be constructed explicitly."),
-        }
+        let (max_stride, dim) = self.strides().into_iter()
+            .zip(self.dims().into_iter())
+            .fold((1, 1), |a, b| a.max(b));
+        max_stride * dim
     }
 
     #[inline(always)]

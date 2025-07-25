@@ -9,7 +9,7 @@ use super::buffer::SizedTensorBuffer;
 use super::instructions::MatmulStruct;
 use super::instructions::SplitParamSingleWriteStruct;
 
-pub enum SpecializedInstruction<C: ComplexScalar> {
+pub enum TNVMInstruction<C: ComplexScalar> {
     FRPR(FRPRStruct<C>),
     HadamardB(HadamardStruct<C>),
     HadamardS(HadamardStruct<C>),
@@ -22,9 +22,7 @@ pub enum SpecializedInstruction<C: ComplexScalar> {
     WriteSS(SplitParamSingleWriteStruct<C>),
 }
 
-// TODO: rename specialized to tnvminstruction
-
-impl<C: ComplexScalar> SpecializedInstruction<C> {
+impl<C: ComplexScalar> TNVMInstruction<C> {
     pub fn new(
         inst: &BytecodeInstruction,
         buffers: &Vec<SizedTensorBuffer<C>>,
@@ -35,7 +33,7 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
             BytecodeInstruction::FRPR(in_index, shape, perm, out_index) => {
                 let spec_a = buffers[*in_index].clone();
                 let spec_b = buffers[*out_index].clone();
-                SpecializedInstruction::FRPR(FRPRStruct::new(
+                TNVMInstruction::FRPR(FRPRStruct::new(
                     spec_a,
                     shape,
                     perm,
@@ -48,7 +46,7 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
                 let spec_b = buffers[*b].clone();
                 let spec_c = buffers[*c].clone();
                 if spec_c.shape().is_matrix() {
-                    SpecializedInstruction::HadamardS(HadamardStruct::new(
+                    TNVMInstruction::HadamardS(HadamardStruct::new(
                         spec_a,
                         spec_b,
                         spec_c,
@@ -56,7 +54,7 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
                         p2.clone(),
                     ))
                 } else {
-                    SpecializedInstruction::HadamardB(HadamardStruct::new(
+                    TNVMInstruction::HadamardB(HadamardStruct::new(
                         spec_a,
                         spec_b,
                         spec_c,
@@ -70,7 +68,7 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
                 let spec_b = buffers[*b].clone();
                 let spec_c = buffers[*c].clone();
                 if spec_c.shape().is_matrix() {
-                    SpecializedInstruction::KronS(KronStruct::new(
+                    TNVMInstruction::KronS(KronStruct::new(
                         spec_a,
                         spec_b,
                         spec_c,
@@ -78,7 +76,7 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
                         p2.clone(),
                     ))
                 } else {
-                    SpecializedInstruction::KronB(KronStruct::new(
+                    TNVMInstruction::KronB(KronStruct::new(
                         spec_a,
                         spec_b,
                         spec_c,
@@ -92,7 +90,7 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
                 let spec_b = buffers[*b].clone();
                 let spec_c = buffers[*c].clone();
                 if spec_c.shape().is_matrix() {
-                    SpecializedInstruction::MatMulS(MatmulStruct::new(
+                    TNVMInstruction::MatMulS(MatmulStruct::new(
                         spec_a,
                         spec_b,
                         spec_c,
@@ -100,7 +98,7 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
                         p2.clone(),
                     ))
                 } else {
-                    SpecializedInstruction::MatMulB(MatmulStruct::new(
+                    TNVMInstruction::MatMulB(MatmulStruct::new(
                         spec_a,
                         spec_b,
                         spec_c,
@@ -111,7 +109,7 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
             },
             BytecodeInstruction::ConsecutiveParamWrite(name, param_start_index, buffer_index) => {
                 let write_fn = unsafe { module.get_function_raw(&name) };
-                SpecializedInstruction::WriteCS(ConsecutiveParamSingleWriteStruct::new(
+                TNVMInstruction::WriteCS(ConsecutiveParamSingleWriteStruct::new(
                     write_fn,
                     *param_start_index,
                     buffers[*buffer_index].clone(),
@@ -119,7 +117,7 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
             },
             BytecodeInstruction::SplitParamWrite(name, param_indices, index) => {
                 let write_fn = unsafe { module.get_function_raw(&name) };
-                SpecializedInstruction::WriteSS(SplitParamSingleWriteStruct::new(
+                TNVMInstruction::WriteSS(SplitParamSingleWriteStruct::new(
                     write_fn,
                     buffers[*index].clone(),
                 ))
@@ -127,7 +125,7 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
             BytecodeInstruction::Trace(in_index, dimension_pairs, out_index) => {
                 let spec_a = buffers[*in_index].clone();
                 let spec_b = buffers[*out_index].clone();
-                SpecializedInstruction::Trace(TraceStruct::new(
+                TNVMInstruction::Trace(TraceStruct::new(
                     spec_a,
                     dimension_pairs.clone(),
                     spec_b,
@@ -140,32 +138,32 @@ impl<C: ComplexScalar> SpecializedInstruction<C> {
     #[inline(always)]
     pub fn get_output_buffer(&self) -> &SizedTensorBuffer<C> {
         match self {
-            SpecializedInstruction::FRPR(s) => s.get_output_buffer(),
-            SpecializedInstruction::HadamardB(s) => s.get_output_buffer(),
-            SpecializedInstruction::HadamardS(s) => s.get_output_buffer(),
-            SpecializedInstruction::KronB(s) => s.get_output_buffer(),
-            SpecializedInstruction::KronS(s) => s.get_output_buffer(),
-            SpecializedInstruction::MatMulB(s) => s.get_output_buffer(),
-            SpecializedInstruction::MatMulS(s) => s.get_output_buffer(),
-            SpecializedInstruction::Trace(s) => s.get_output_buffer(),
-            SpecializedInstruction::WriteCS(s) => s.get_output_buffer(),
-            SpecializedInstruction::WriteSS(s) => s.get_output_buffer(),
+            TNVMInstruction::FRPR(s) => s.get_output_buffer(),
+            TNVMInstruction::HadamardB(s) => s.get_output_buffer(),
+            TNVMInstruction::HadamardS(s) => s.get_output_buffer(),
+            TNVMInstruction::KronB(s) => s.get_output_buffer(),
+            TNVMInstruction::KronS(s) => s.get_output_buffer(),
+            TNVMInstruction::MatMulB(s) => s.get_output_buffer(),
+            TNVMInstruction::MatMulS(s) => s.get_output_buffer(),
+            TNVMInstruction::Trace(s) => s.get_output_buffer(),
+            TNVMInstruction::WriteCS(s) => s.get_output_buffer(),
+            TNVMInstruction::WriteSS(s) => s.get_output_buffer(),
         }
     }
 
     #[inline(always)]
     pub unsafe fn evaluate<const D: DifferentiationLevel>(&self, params: &[C::R], memory: &mut MemoryBuffer<C>) {
         match self {
-            SpecializedInstruction::FRPR(s) => s.evaluate(memory),
-            SpecializedInstruction::HadamardB(s) => s.batched_evaluate::<D>(memory),
-            SpecializedInstruction::HadamardS(s) => s.evaluate::<D>(memory),
-            SpecializedInstruction::KronB(s) => s.batched_evaluate::<D>(memory),
-            SpecializedInstruction::KronS(s) => s.evaluate::<D>(memory),
-            SpecializedInstruction::MatMulB(s) => s.batched_evaluate::<D>(memory),
-            SpecializedInstruction::MatMulS(s) => s.evaluate::<D>(memory),
-            SpecializedInstruction::Trace(s) => s.evaluate(memory),
-            SpecializedInstruction::WriteCS(s) => s.evaluate(params, memory),
-            SpecializedInstruction::WriteSS(s) => s.evaluate(params, memory),
+            TNVMInstruction::FRPR(s) => s.evaluate(memory),
+            TNVMInstruction::HadamardB(s) => s.batched_evaluate::<D>(memory),
+            TNVMInstruction::HadamardS(s) => s.evaluate::<D>(memory),
+            TNVMInstruction::KronB(s) => s.batched_evaluate::<D>(memory),
+            TNVMInstruction::KronS(s) => s.evaluate::<D>(memory),
+            TNVMInstruction::MatMulB(s) => s.batched_evaluate::<D>(memory),
+            TNVMInstruction::MatMulS(s) => s.evaluate::<D>(memory),
+            TNVMInstruction::Trace(s) => s.evaluate(memory),
+            TNVMInstruction::WriteCS(s) => s.evaluate(params, memory),
+            TNVMInstruction::WriteSS(s) => s.evaluate(params, memory),
         }
     }
 }

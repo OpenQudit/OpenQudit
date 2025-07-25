@@ -29,13 +29,17 @@ impl Bytecode {
 
 impl std::fmt::Debug for Bytecode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, ".const\n")?;
-        for inst in &self.const_code {
-            write!(f, "    {:?}\n", inst)?;
+        if !self.const_code.is_empty() {
+            write!(f, ".const\n")?;
+            for inst in &self.const_code {
+                write!(f, "    {:?}\n", inst)?;
+            }
         }
-        write!(f, "\n.dynamic\n")?;
-        for inst in &self.dynamic_code {
-            write!(f, "    {:?}\n", inst)?;
+        if !self.dynamic_code.is_empty() {
+            write!(f, "\n.dynamic\n")?;
+            for inst in &self.dynamic_code {
+                write!(f, "    {:?}\n", inst)?;
+            }
         }
         Ok(())
     }
