@@ -1754,6 +1754,8 @@ dependencies = [
 name = "qudit-inst"
 version = "0.1.0"
 dependencies = [
+ "faer 0.21.9",
+ "num-complex",
  "qudit-circuit",
  "qudit-core",
  "qudit-expr",

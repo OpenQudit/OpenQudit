@@ -3,6 +3,7 @@ use qudit_core::{ComplexScalar, HasParams, ParamIndices, QuditSystem};
 
 use indexmap::IndexSet;
 use qudit_core::{QuditRadices, RealScalar, c64};
+use qudit_expr::index::{IndexDirection, TensorIndex};
 use qudit_gates::Gate;
 use qudit_expr::{TensorExpression, UnitaryExpressionGenerator};
 // use qudit_tensor::{BuilderExpressionInput, ExpressionTree, TreeBuilder, TreeOptimizer};
@@ -790,6 +791,10 @@ impl<C: ComplexScalar> QuditCircuit<C> {
 
     /// Convert the circuit to a symbolic tensor network.
     pub fn to_tensor_network(&self) -> QuditTensorNetwork {
+        self.as_tensor_network_builder().build()
+    }
+
+    pub fn as_tensor_network_builder(&self) -> QuditCircuitTensorNetworkBuilder {
         let mut network = QuditCircuitTensorNetworkBuilder::new(self.radices());
         for inst_ref in self.iter() {
             let op_ref = inst_ref.op.dereference(self);
@@ -802,11 +807,21 @@ impl<C: ComplexScalar> QuditCircuit<C> {
                     network = network.prepend(QuditTensor::new(t.clone(), inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), clbit_indices);
                 }
                 Operation::TerminatingMeasurement(s, a) => {
-                    todo!()
+                    let clbit_indices: Vec<String> = a.iter().map(|clbit| clbit.to_string()).collect();
+                    let mut t = s.to_tensor_expression();
+                    t.reindex(clbit_indices.iter().map(|_| (IndexDirection::Batch, 2)).chain(t.indices().iter().filter(|idx| idx.direction() != IndexDirection::Batch).map(|idx| (idx.direction(), idx.index_size())))
+                        .enumerate()
+                        .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
+                        .collect());
+                    network = network.prepend(QuditTensor::new(t, inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), vec![], clbit_indices);
                 }
                 Operation::ClassicallyControlled(g, a) => {
                     let clbit_indices: Vec<String> = a.iter().map(|clbit| clbit.to_string()).collect();
-                    let t = g.gen_expr().to_tensor_expression().stack_with_identity(&[2usize.pow(clbit_indices.len() as u32) - 1], 2usize.pow(clbit_indices.len() as u32));
+                    let mut t = g.gen_expr().to_tensor_expression().stack_with_identity(&[2usize.pow(clbit_indices.len() as u32) - 1], 2usize.pow(clbit_indices.len() as u32));
+                    t.reindex(clbit_indices.iter().map(|_| (IndexDirection::Batch, 2)).chain(t.indices().iter().filter(|idx| idx.direction() != IndexDirection::Batch).map(|idx| (idx.direction(), idx.index_size())))
+                        .enumerate()
+                        .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
+                        .collect());
                     network = network.prepend(QuditTensor::new(t.clone(), inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), clbit_indices);
                 }
                 Operation::Initialization(s) => { todo!() }
@@ -814,7 +829,7 @@ impl<C: ComplexScalar> QuditCircuit<C> {
                 Operation::Barrier => { /* NO-OP */ }
             }
         }
-        network.build()
+        network
     }
 }
 
@@ -841,17 +856,20 @@ impl<C: ComplexScalar> HasParams for QuditCircuit<C> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use bit_set::BitSet;
     use faer::reborrow::ReborrowMut;
     use qudit_core::c32;
     use qudit_core::c64;
     use qudit_core::radices;
     use qudit_core::QuditRadices;
     use qudit_expr::DifferentiationLevel;
+    use qudit_expr::StateSystemExpression;
     use qudit_tensor::Bytecode;
     use crate::loc;
     use crate::CircuitLocation;
     use qudit_core::unitary::UnitaryMatrix;
     use qudit_core::unitary::UnitaryFn;
+    use qudit_expr::{FUNCTION, GRADIENT};
 
     pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
         let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
@@ -906,7 +924,6 @@ mod tests {
         // let code = Bytecode { expressions, const_code, dynamic_code: dynamic_code[..3].to_vec(), buffers };
 
         println!("{:?}", code);
-        use qudit_expr::{FUNCTION, GRADIENT};
         let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
         let start = std::time::Instant::now();
         for _ in 0..1000 {
@@ -916,6 +933,86 @@ mod tests {
         println!("Time per evaluation: {:?}", elapsed / 1000);
         // let unitary = result.get_fn_result().unpack_matrix();
         // println!("{:?}", unitary);
+    }
+
+    // #[test]
+    // fn qutrit_test() {
+    //     const n: usize = 3;
+
+    //     let mut circ: QuditCircuit<c64> = QuditCircuit::new(radices![3; n], 0);
+    //     for i in 0..n {
+    //         circ.append_gate(Gate::PGate(3), loc![i], vec![]);
+    //     }
+
+    //     let network = circ.to_tensor_network();
+    //     let code = qudit_tensor::compile_network(network);
+
+    //     println!("{:?}", code);
+    //     let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
+    //     let start = std::time::Instant::now();
+    //     for _ in 0..1000 {
+    //         let result = tnvm.evaluate(&[1.7; (3*n) + (7*(n-1)*n)]);
+    //     }
+    //     let elapsed = start.elapsed();
+    //     println!("Time per evaluation: {:?}", elapsed / 1000);
+    //     // let unitary = result.get_fn_result().unpack_matrix();
+    //     // println!("{:?}", unitary);
+    // }
+
+    #[test]
+    fn dynamic_circuit_test() {
+        let mut circ: QuditCircuit<c32> = QuditCircuit::new(radices![2, 2, 2, 2], 3);
+
+        for i in 0..4 {
+            circ.append_gate(Gate::U3(), loc![i], vec![]);
+        }
+
+        let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
+
+        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), loc![0, 1], vec![]));
+        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), loc![2, 3], vec![]));
+        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), loc![1, 2], vec![]));
+        // circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), loc![3, 4], vec![]));
+
+        // let clbits = BitSet::from_bit_vec(&[0b11]);
+        let mut clbits = BitSet::new();
+        clbits.insert(0);
+        clbits.insert(1);
+        // let two_qubit_basis_measurement = StateSystemExpression::new("ThreeQMeasure() {
+        //     [
+        //         [[ 1, 0, 0, 0, 0, 0, 0, 0 ]],
+        //         [[ 0, 1, 0, 0, 0, 0, 0, 0 ]],
+        //         [[ 0, 0, 1, 0, 0, 0, 0, 0 ]],
+        //         [[ 0, 0, 0, 1, 0, 0, 0, 0 ]],
+        //         [[ 0, 0, 0, 0, 1, 0, 0, 0 ]],
+        //         [[ 0, 0, 0, 0, 0, 1, 0, 0 ]],
+        //         [[ 0, 0, 0, 0, 0, 0, 1, 0 ]],
+        //         [[ 0, 0, 0, 0, 0, 0, 0, 1 ]],
+        //     ]
+        // }");
+        let two_qubit_basis_measurement = StateSystemExpression::new("ThreeQMeasure() {
+            [
+                [[ 1, 0, 0, 0 ]],
+                [[ 0, 1, 0, 0 ]],
+                [[ 0, 0, 1, 0 ]],
+                [[ 0, 0, 0, 1 ]],
+            ]
+        }");
+        circ.append_instruction(Instruction::new(Operation::TerminatingMeasurement(two_qubit_basis_measurement, clbits.clone()), loc![1, 2], vec![]));
+
+        circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits.clone()), loc![0], vec![]));
+        circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits.clone()), loc![3], vec![]));
+        // circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits), loc![0, 3], vec![]));
+
+        let network = circ.to_tensor_network();
+        let code = qudit_tensor::compile_network(network);
+        let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
+        let start = std::time::Instant::now();
+        for _ in 0..1000 {
+            let result = tnvm.evaluate(&[1.7; 36]);
+        }
+        let elapsed = start.elapsed();
+        println!("Time per evaluation: {:?}", elapsed / 1000);
     }
 
     // #[test]

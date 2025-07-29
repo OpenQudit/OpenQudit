@@ -1,10 +1,14 @@
+use qudit_core::unitary::UnitaryMatrix;
+use qudit_core::ComplexScalar;
 use qudit_core::ParamIndices;
 use qudit_core::TensorShape;
+use qudit_expr::index::IndexSize;
 use qudit_expr::GenerationShape;
 use qudit_expr::TensorExpression;
 
 use qudit_expr::index::TensorIndex;
 use qudit_expr::index::IndexDirection;
+use qudit_expr::UnitaryExpression;
 
 #[derive(Debug, Clone)]
 pub struct QuditTensor {
@@ -21,6 +25,10 @@ impl QuditTensor {
             expression,
             param_indices,
         }
+    }
+
+    pub fn identity(radix: IndexSize) -> Self {
+        QuditTensor::new(UnitaryExpression::identity("Identity", [radix]).to_tensor_expression(), [].into())
     }
 
     pub fn num_indices(&self) -> usize {
@@ -105,5 +113,11 @@ impl QuditTensor {
     /// Reshapes the tensor to the given new shape.
     pub fn reshape(&self, new_shape: &[usize]) -> Self {
         todo!()
+    }
+}
+
+impl<C: ComplexScalar> From<UnitaryMatrix<C>> for QuditTensor {
+    fn from(utry: UnitaryMatrix<C>) -> Self {
+        QuditTensor::new(utry.into(), ParamIndices::constant())
     }
 }

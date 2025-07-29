@@ -17,3 +17,8 @@ impl<C: ComplexScalar> Instantiater<C> for QfactorInstantiater {
         todo!()
     }
 }
+
+// TODO: QfactorInstantiater
+// TODO: QfactorSampleInstantiater
+// TODO: QfactorGPUInstantiater
+// TODO: QfactorSampleGPUInstantiater

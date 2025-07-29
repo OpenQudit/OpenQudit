@@ -168,7 +168,7 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
         let radices = radices.to_radices();
         let n = radices.dimension();
         let standard: Mat<C> =
-            Mat::from_fn(n, n, |_, _| C::standard_random() / C::real(2.0).sqrt());
+            Mat::from_fn(n, n, |_, _| C::standard_random() / C::from_real(2.0).sqrt());
         let qr = standard.qr();
         let r = qr.R();
         let mut q = qr.compute_Q();
@@ -297,13 +297,13 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
             acc += *a * b.conj();
         });
         let num = acc.abs();
-        let dem = C::real(self.dimension() as f64);
+        let dem = C::from_real(self.dimension() as f64);
         if num > dem {
             // This shouldn't happen but can due to floating point errors.
             // If it does, we correct it to zero.
-            C::real(0.0)
+            C::from_real(0.0)
         } else {
-            (C::real(1.0) - (num / dem).powi(2i32)).sqrt()
+            (C::from_real(1.0) - (num / dem).powi(2i32)).sqrt()
         }
     }
 

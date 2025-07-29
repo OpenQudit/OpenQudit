@@ -25,6 +25,8 @@ use qudit_core::memory::MemoryBuffer;
 use qudit_core::memory::alloc_zeroed_memory;
 use qudit_core::ComplexScalar;
 
+pub type PinnedTNVM<C, const D: DifferentiationLevel> = Pin<Box<TNVM<C, D>>>;
+
 pub struct TNVM<C: ComplexScalar, const D: DifferentiationLevel> {
     const_instructions: Vec<TNVMInstruction<C>>,
     dynamic_instructions: Vec<TNVMInstruction<C>>,
@@ -106,6 +108,7 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
         Box::pin(out)
     }
 
+    // TODO: consider additionally making this generic over DifferentiationLevel.
     pub fn evaluate<'a>(self: &'a mut Pin<Box<Self>>, args: &[C::R]) -> TNVMResult<'a, C> {
         // Safety: Self is not moved
         unsafe {
@@ -121,6 +124,10 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
             // cannot move data from this structure.
             TNVMResult::new(&this.memory, &this.out_buffer)
         }
+    }
+
+    pub fn num_params(&self) -> usize {
+        self.out_buffer.nparams()
     }
 }
 

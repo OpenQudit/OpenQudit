@@ -11,3 +11,5 @@ qudit-core = { path = "../qudit-core" }
 qudit-expr = { path = "../qudit-expr" }
 qudit-tensor = { path = "../qudit-tensor" }
 qudit-circuit = { path = "../qudit-circuit" }
+num-complex = "*"
+faer = "*"

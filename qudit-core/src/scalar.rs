@@ -35,11 +35,23 @@ pub trait RealScalar:
     + BitWidthConvertible<Width32 = f32, Width64 = f64>
     + 'static
 {
+    /// Complex number type associated with this real number type.
+    type C: ComplexScalar<R = Self>;
+
     /// Create a new real value
     fn new(r: impl BitWidthConvertible<Width32 = f32, Width64 = f64>) -> Self;
 
-    /// Compute the absolute value of the complex number.
-    fn abs(self) -> Self;
+    /// Compute the square of the real number.
+    #[inline(always)]
+    fn square(self) -> Self {
+        Float::powi(self, 2)
+    }
+
+    /// Compute the absolute value of the real number.
+    #[inline(always)]
+    fn abs(self) -> Self {
+        Float::abs(self)
+    }
 
     /// Generate a random scalar from the standard normal distribution.
     fn standard_random() -> Self;
@@ -71,7 +83,7 @@ pub trait ComplexScalar:
     + 'static
 {
     /// Real number type that composes this complex number type.
-    type R: RealScalar;
+    type R: RealScalar<C = Self>;
 
     /// Threshold for comparing two complex numbers.
     const THRESHOLD: Self::R;
@@ -91,8 +103,11 @@ pub trait ComplexScalar:
     /// Compute the cosine of the complex number.
     fn cos(self) -> Self;
 
-    // /// Compute the absolute value of the complex number.
-    // fn abs(self) -> Self::R;
+    // Compute the absolute value of the complex number.
+    // #[inline(always)]
+    // fn abs(self) -> Self::R {
+    //     ComplexFloat::abs(self)
+    // }
 
     /// Raise the complex number to a non-negative integer power.
     fn powu(self, n: u32) -> Self;
@@ -106,24 +121,36 @@ pub trait ComplexScalar:
     /// Compute the inverse of the complex number.
     fn inv(self) -> Self;
 
-    // TODO: re-evaluate names: from_componenets, from_real?
+    /// Return the real component
+    #[inline(always)]
+    fn real(&self) -> Self::R {
+        self.re()
+    }
+
+    /// Return the imaginary component
+    #[inline(always)]
+    fn imag(&self) -> Self::R {
+        self.im()
+    }
+
+    // TODO: re-evaluate names: from_components, from_real? should use From traits?
     /// Construct a complex number from two real numbers.
-    fn complex(re: impl RealScalar, im: impl RealScalar) -> Self;
+    fn from_components(re: impl RealScalar, im: impl RealScalar) -> Self;
 
     /// Convert a real number to the real part of the complex number.
-    fn real(re: impl RealScalar) -> Self::R;
+    fn from_real(re: impl RealScalar) -> Self::R;
 
     /// Generate a random scalar from the standard normal distribution. 
     fn standard_random() -> Self;
 
     /// Construct a complex number from a float number.
     fn from_f32(re: f32) -> Self {
-        Self::complex(re, Self::R::zero())
+        Self::from_components(re, Self::R::zero())
     }
 
     /// Construct a complex number from a integer number.
     fn from_i32(re: i32) -> Self {
-        Self::complex(re as f32, Self::R::zero()) 
+        Self::from_components(re as f32, Self::R::zero()) 
     }
 }
 
@@ -176,12 +203,12 @@ impl ComplexScalar for c32 {
     }
 
     #[inline(always)]
-    fn complex(re: impl RealScalar, im: impl RealScalar) -> Self {
+    fn from_components(re: impl RealScalar, im: impl RealScalar) -> Self {
         c32::new(re.to32(), im.to32())
     }
 
     #[inline(always)]
-    fn real(re: impl RealScalar) -> Self::R {
+    fn from_real(re: impl RealScalar) -> Self::R {
         re.to32()
     }
 
@@ -240,12 +267,12 @@ impl ComplexScalar for c64 {
     }
 
     #[inline(always)]
-    fn complex(re: impl RealScalar, im: impl RealScalar) -> Self {
+    fn from_components(re: impl RealScalar, im: impl RealScalar) -> Self {
         c64::new(re.to64(), im.to64())
     }
 
     #[inline(always)]
-    fn real(re: impl RealScalar) -> Self::R {
+    fn from_real(re: impl RealScalar) -> Self::R {
         re.to64()
     }
 
@@ -256,15 +283,17 @@ impl ComplexScalar for c64 {
 }
 
 impl RealScalar for f32 {
+    type C = c32;
+
     #[inline(always)]
     fn new(r: impl BitWidthConvertible<Width32 = f32, Width64 = f64>) -> Self {
         r.to32()
     }
 
-    #[inline(always)]
-    fn abs(self) -> Self {
-        Float::abs(self)
-    }
+//     #[inline(always)]
+//     fn abs(self) -> Self {
+//         Float::abs(self)
+//     }
 
     #[inline(always)]
     fn standard_random() -> Self {
@@ -283,15 +312,17 @@ impl RealScalar for f32 {
 }
 
 impl RealScalar for f64 {
+    type C = c64;
+
     #[inline(always)]
     fn new(r: impl BitWidthConvertible<Width32 = f32, Width64 = f64>) -> Self {
         r.to64()
     }
 
-    #[inline(always)]
-    fn abs(self) -> Self {
-        Float::abs(self)
-    }
+    // #[inline(always)]
+    // fn abs(self) -> Self {
+    //     Float::abs(self)
+    // }
 
     #[inline(always)]
     fn standard_random() -> Self {

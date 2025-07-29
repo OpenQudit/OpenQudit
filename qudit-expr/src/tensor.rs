@@ -1,4 +1,6 @@
 use itertools::Itertools;
+use qudit_core::unitary::UnitaryMatrix;
+use qudit_core::ComplexScalar;
 use qudit_core::QuditRadices;
 use crate::complex::ComplexExpression;
 use crate::index::IndexSize;
@@ -424,5 +426,11 @@ impl TensorExpression {
             body: new_body,
             indices: new_indices,
         }
+    }
+}
+
+impl<C: ComplexScalar> From<UnitaryMatrix<C>> for TensorExpression {
+    fn from(utry: UnitaryMatrix<C>) -> Self {
+        UnitaryExpression::from(utry).to_tensor_expression()
     }
 }

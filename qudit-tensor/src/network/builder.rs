@@ -2,6 +2,8 @@ use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::BTreeMap;
 
+use qudit_core::unitary::UnitaryMatrix;
+use qudit_core::ComplexScalar;
 use qudit_core::{QuditRadices, TensorShape};
 use qudit_expr::UnitaryExpression;
 use crate::network::network::NetworkEdge;
@@ -75,6 +77,40 @@ impl QuditCircuitTensorNetworkBuilder {
             radices,
             contracted_indices: vec![],
         }
+    }
+
+    /// Output indices stick out from the front of the Circuit Tensor Network.
+    ///
+    /// These correspond to wires exiting a circuit in a normal circuit diagram.
+    pub fn open_output_indices(&self) -> Vec<usize> {
+        self.front.iter()
+            .enumerate()
+            .filter(|(_, wire)| wire.is_active())
+            .map(|(id, _)| id)
+            .collect()
+    }
+
+    /// Input indices stick out from the rear of the Circuit Tensor Network.
+    ///
+    /// These correspond to wires entering a circuit in a normal circuit diagram.
+    pub fn open_input_indices(&self) -> Vec<usize> {
+        self.rear.iter()
+            .enumerate()
+            .filter(|(_, wire)| wire.is_active())
+            .map(|(id, _)| id)
+            .collect()
+    }
+
+    pub fn num_open_output_indices(&self) -> usize {
+        self.front.iter()
+            .filter(|wire| wire.is_active())
+            .count()
+    }
+
+    pub fn num_open_input_indices(&self) -> usize {
+        self.rear.iter()
+            .filter(|wire| wire.is_active())
+            .count()
     }
 
     /// Prepend a tensor onto the circuit network.
@@ -247,42 +283,72 @@ impl QuditCircuitTensorNetworkBuilder {
         todo!()
     }
 
-    pub fn trace_wire(self, qudit: usize) -> Self {
-        todo!()
+    pub fn prepend_unitary<C: ComplexScalar>(self, utry: UnitaryMatrix<C>, qudits: Vec<usize>) -> Self {
+        self.prepend(QuditTensor::from(utry), qudits.clone(), qudits, vec![])
     }
 
-    pub fn trace_all_open_wires(self) -> Self {
-        todo!()
+    pub fn trace_wire(mut self, front_qudit: usize, rear_qudit: usize) -> Self {
+        assert_eq!(self.radices[front_qudit], self.radices[rear_qudit]);
+        assert!(self.front[front_qudit].is_active() && self.rear[rear_qudit].is_active());
+
+        if self.front[front_qudit].is_empty() {
+            let identity = QuditTensor::identity(self.radices[front_qudit].into());
+            self = self.prepend(identity, [front_qudit].into(), [front_qudit].into(), vec![]);
+        }
+
+        if self.rear[rear_qudit].is_empty() {
+            let identity = QuditTensor::identity(self.radices[rear_qudit].into());
+            self = self.prepend(identity, [rear_qudit].into(), [rear_qudit].into(), vec![]);
+        }
+
+        match (&self.front[front_qudit], &self.rear[rear_qudit]) {
+            (Wire::Connected(tid_f, local_id_f), Wire::Connected(tid_r, local_id_r)) => {
+                debug_assert_eq!(self.local_to_network_index_map[*tid_f][*local_id_f], NetworkBuilderIndex::Front(front_qudit));
+                debug_assert_eq!(self.local_to_network_index_map[*tid_r][*local_id_r], NetworkBuilderIndex::Rear(rear_qudit));
+
+                // Find an existing contraction between tid_f and tid_r or create new one
+                let contraction_id = {
+                    let mut contraction_id = None;
+                    for net_index in &self.local_to_network_index_map[*tid_f] {
+                        if let NetworkBuilderIndex::Contraction(cid) = net_index {
+                            let contraction = &self.contracted_indices[*cid];
+                            if contraction.left_id == *tid_r || contraction.right_id == *tid_r {
+                                contraction_id = Some(*cid);
+                                break;
+                            }
+                        }
+                    }
+                    contraction_id.unwrap_or_else(|| {
+                        let cid = self.contracted_indices.len();
+                        self.contracted_indices.push(ContractionIndex {
+                            left_id: *tid_f,
+                            right_id: *tid_r,
+                            total_dimension: self.radices[front_qudit] as IndexSize,
+                        });
+                        cid
+                    })
+                };
+
+                self.local_to_network_index_map[*tid_f][*local_id_f] = NetworkBuilderIndex::Contraction(contraction_id);
+                self.local_to_network_index_map[*tid_r][*local_id_r] = NetworkBuilderIndex::Contraction(contraction_id);
+             },
+            _ => panic!("Cannot connect a closed wire to another wire.")
+        }
+
+        self.front[front_qudit] = Wire::Closed;
+        self.rear[rear_qudit] = Wire::Closed;
+        self
+    }
+
+    pub fn trace_all_open_wires(mut self) -> Self {
+        assert_eq!(self.num_open_input_indices(), self.num_open_output_indices());
+        for (f, r) in self.open_output_indices().into_iter().zip(self.open_input_indices().into_iter()) {
+            self = self.trace_wire(f, r);
+        }
+        self
     }
 
     pub fn build(self) -> QuditTensorNetwork {
-        // pub struct QuditTensorNetwork {
-        //     tensors: Vec<QuditTensor>,
-        //     local_to_network_index_map: Vec<Vec<IndexId>>,
-        //     indices: Vec<NetworkIndex>,
-        // }
-        //
-        
-        
-        // tensors: Vec<QuditTensor>,
-        // local_to_network_index_map: Vec<Vec<NetworkBuilderIndex>>,
-        // radices: QuditRadices,
-
-        // /// Pointer to front (left in math/right in circuit diagram) of the network for each qudit.
-        // front: Vec<Wire>,
-
-        // /// Pointer to rear (right in math/left in circuit diagram) of the network for each qudit.
-        // rear: Vec<Wire>,
-        // batch_indices: HashMap<String, IndexSize>,
-        // contracted_indices: Vec<ContractionIndex>,
-        //
-        
-        // plan:
-        // tensors -> tensors easy
-        // build indices, while also building networkbuilderindex to indices map
-        // loop over local_to_network_index_map using the map previosly built
-        //
-
         let QuditCircuitTensorNetworkBuilder {
             mut tensors,
             mut local_to_network_index_map,
@@ -315,7 +381,7 @@ impl QuditCircuitTensorNetworkBuilder {
         for (qudit_id, wire) in front.into_iter().enumerate() {
             if wire.is_empty() {
                 // Cannot have empty indices in network, so we need to explicitly add identity.
-                let identity = QuditTensor::new(UnitaryExpression::identity("Identity", [self.radices[qudit_id]]).to_tensor_expression(), [].into());
+                let identity = QuditTensor::identity(self.radices[qudit_id].into());
                 let tensor_id = tensors.len();
                 tensors.push(identity);
                 local_to_network_index_map.push(vec![NetworkBuilderIndex::Front(qudit_id), NetworkBuilderIndex::Rear(qudit_id)]);

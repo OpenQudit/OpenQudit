@@ -58,6 +58,34 @@ impl<'a, C: ComplexScalar> TNVMReturnType<'a, C> {
         }
     }
 
+    pub fn unpack_symsq_matrix(self) -> qudit_core::array::SymSqTensorRef<'a, C, 2> {
+        match self {
+            TNVMReturnType::SymSqMatrix(t) => t,
+            _ => panic!("cannot unpack a non-symsq-matrix type as a symsq-matrix"),
+        }
+    }
+
+    pub fn unpack_symsq_tensor3d(self) -> qudit_core::array::SymSqTensorRef<'a, C, 3> {
+        match self {
+            TNVMReturnType::SymSqTensor3D(t) => t,
+            _ => panic!("cannot unpack a non-symsq-tensor3d type as a symsq-tensor3d"),
+        }
+    }
+
+    pub fn unpack_symsq_tensor4d(self) -> qudit_core::array::SymSqTensorRef<'a, C, 4> {
+        match self {
+            TNVMReturnType::SymSqTensor4D(t) => t,
+            _ => panic!("cannot unpack a non-symsq-tensor4d type as a symsq-tensor4d"),
+        }
+    }
+
+    pub fn unpack_symsq_tensor5d(self) -> qudit_core::array::SymSqTensorRef<'a, C, 5> {
+        match self {
+            TNVMReturnType::SymSqTensor5D(t) => t,
+            _ => panic!("cannot unpack a non-symsq-tensor5d type as a symsq-tensor5d"),
+        }
+    }
+
     // TODO: Decide, do I want unpack_symsq_tensor3D or do I want unpack_tensor3d to
     // un-symsq it? ... or both, why not?
 }

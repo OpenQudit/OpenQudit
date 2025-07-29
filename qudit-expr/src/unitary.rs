@@ -663,6 +663,24 @@ impl StateSystemExpression {
         mat
     }
 
+    pub fn to_tensor_expression(&self) -> TensorExpression {
+        let flattened_body = self.body.clone().into_iter().flat_map(|row| row.into_iter()).collect();
+        // TODO: Ket vs Bra?!
+        let indices = [self.body.len()].into_iter()
+            .map(|r| (IndexDirection::Batch, r))
+            .chain(self.radices.iter()
+                .map(|&r| (IndexDirection::Input, r as usize)))
+            .enumerate()
+            .map(|(id, (dir, size))| TensorIndex::new(dir, id, size as usize))
+            .collect();
+        TensorExpression {
+            name: self.name.clone(),
+            variables: self.variables.clone(),
+            body: flattened_body,
+            indices,
+        }
+    }
+
     pub fn name(&self) -> String {
         self.name.clone()
     }
@@ -896,5 +914,23 @@ mod tests {
 
 //         println!("{:?}", out_utry);
 //         println!("{:?}", out_grad);
+    }
+}
+
+impl<C: ComplexScalar> From<UnitaryMatrix<C>> for UnitaryExpression {
+    fn from(utry: UnitaryMatrix<C>) -> Self {
+        let mut body = vec![Vec::with_capacity(utry.ncols()); utry.nrows()];
+        for col in utry.col_iter() {
+            for (row_id, elem) in col.iter().enumerate() {
+                body[row_id].push(ComplexExpression::from(*elem));
+            }
+        }
+
+        UnitaryExpression {
+            name: "Constant".into(),
+            radices: utry.radices(),
+            variables: vec![],
+            body,
+        }
     }
 }

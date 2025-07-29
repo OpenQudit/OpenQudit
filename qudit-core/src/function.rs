@@ -44,12 +44,9 @@ impl ParamIndices {
 
     /// Creates a `ParamIndices` representing a constant value (no parameters).
     ///
-    /// This function returns a `ParamIndices::Disjoint` with an empty vector,
-    /// indicating that there are no parameters associated with this value.
-    ///
     /// # Returns
     ///
-    /// A `ParamIndices` representing a constant value.
+    /// A `ParamIndices` representing an empty set of parameter indices.
     pub fn constant() -> ParamIndices {
         ParamIndices::Disjoint(vec![])
     } 

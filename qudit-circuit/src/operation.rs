@@ -119,6 +119,8 @@ impl HasParams for Operation {
     fn num_params(&self) -> usize {
         match self {
             Operation::Gate(gate) => gate.num_params(),
+            Operation::TerminatingMeasurement(s, _) => s.variables.len(),
+            Operation::ClassicallyControlled(s, _) => s.num_params(),
             _ => todo!()
             // Operation::Subcircuit(subcircuit) => subcircuit.num_params(),
             // Operation::Control(_) => 0,

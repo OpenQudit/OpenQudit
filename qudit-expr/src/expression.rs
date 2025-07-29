@@ -865,3 +865,9 @@ impl AsRef<Expression> for Expression {
     }
 }
 
+
+impl<R: RealScalar> From<R> for Expression {
+    fn from(value: R) -> Self {
+        Expression::from_float(value.to64())
+    }
+}

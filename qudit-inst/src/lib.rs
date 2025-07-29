@@ -1,16 +1,13 @@
-
-use qudit_core::ComplexScalar;
-use qudit_circuit::QuditCircuit;
-
+mod instantiater;
+mod numerical;
+mod qfactor;
 mod result;
 mod target;
-mod instantiater;
-mod qfactor;
-mod numerical;
 
+pub use instantiater::DataMap;
+pub use instantiater::Instantiater;
 pub use result::InstantiationResult;
 pub use target::InstantiationTarget;
-pub use instantiater::Instantiater;
 
 // Open Questions:
 //

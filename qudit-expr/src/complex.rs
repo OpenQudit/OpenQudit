@@ -258,7 +258,7 @@ impl ComplexExpression {
     }
 
     pub fn eval<C: ComplexScalar>(&self, args: &HashMap<&str, C::R>) -> C {
-        C::complex(self.real.eval(args), self.imag.eval(args))
+        C::from_components(self.real.eval(args), self.imag.eval(args))
     }
 
     pub fn map_var_names(&self, var_map: &HashMap<String, String>) -> Self {
@@ -532,3 +532,13 @@ impl std::fmt::Debug for ComplexExpression {
             .finish()
     }
 }
+
+impl<C: ComplexScalar> From<C> for ComplexExpression {
+    fn from(value: C) -> Self {
+        ComplexExpression {
+            real: value.real().into(),
+            imag: value.imag().into(),
+        }
+    }
+}
+

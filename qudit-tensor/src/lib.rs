@@ -8,6 +8,7 @@ pub use network::QuditTensorNetwork;
 pub use network::QuditCircuitTensorNetworkBuilder;
 pub use bytecode::Bytecode;
 pub use cpu::TNVM;
+pub use cpu::PinnedTNVM;
 pub use cpu::TNVMResult;
 pub use cpu::TNVMReturnType;
 
