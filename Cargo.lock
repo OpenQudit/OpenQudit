@@ -1703,19 +1703,8 @@ dependencies = [
  "num-traits",
  "pprof 0.15.0",
  "proptest",
- "qudit-core-proc-macros",
+ "qudit-macro",
  "rand 0.9.1",
-]
-
-[[package]]
-name = "qudit-core-proc-macros"
-version = "0.1.0"
-dependencies = [
- "faer 0.21.9",
- "faer-traits 0.21.5",
- "proc-macro2",
- "quote",
- "syn 2.0.104",
 ]
 
 [[package]]
@@ -1758,6 +1747,19 @@ dependencies = [
  "qudit-core",
  "qudit-expr",
  "qudit-tensor",
+]
+
+[[package]]
+name = "qudit-macro"
+version = "0.1.0"
+dependencies = [
+ "coe-rs",
+ "faer 0.22.6",
+ "faer-traits 0.22.1",
+ "num-complex",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.104",
 ]
 
 [[package]]

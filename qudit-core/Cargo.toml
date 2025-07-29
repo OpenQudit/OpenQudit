@@ -14,7 +14,7 @@ num = "0.4.3"
 nano-gemm = "0.1.2"
 coe-rs = "0.1.2"
 bit-set = "*"
-qudit-core-proc-macros = {path = "./qudit-core-proc-macros"}
+qudit-macro = {path = "../qudit-macro"}
 
 [dev-dependencies]
 proptest = "1.2"

@@ -1,181 +1,293 @@
-use proc_macro2::{TokenStream, TokenTree, Delimiter, Span};
+use proc_macro::TokenStream;
+use proc_macro2::{TokenStream as TokenStream2, TokenTree, Delimiter, Span, Spacing, Punct, Group};
 use syn::{Result, Error};
-use syn::parse::{Parse, ParseStream};
 use quote::quote;
+use faer_traits::ComplexField;
+use num_complex::ComplexFloat;
+// use coe::is_same;
 
-// ###########################################################################################################
+trait RealNumber {
+    
+}
 
-#[derive(PartialEq, Debug, Clone)]
+trait ComplexNumber: ComplexField + ComplexFloat {
+    type Real: RealNumber;
+}
+
+impl RealNumber for f64 {
+
+}
+
+impl RealNumber for f32 {
+    
+}
+
+impl ComplexNumber for faer::c64 {
+    type Real = f64;
+}
+
+impl ComplexNumber for faer::c32 {
+    type Real = f32;
+}
+
+#[derive(Debug, Clone)]
 enum TensorTokens {
     OpenBracket,
     ClosedBracket,
     
-    OpenParenthesis,
-    ClosedParenthesis,
+    //OpenParenthesis,
+    //ClosedParenthesis,
     
     Comma,
-    J,
+    //J,
 
-    Plus,
-    Minus,
+    // Plus,
+    // Minus,
+    // Multiply,
+    // Divide,
 
-    Number(f64),
-
-    // Digit(u8),
-    // Decimal
+    Number(Vec<TokenTree>),
 }
 
-#[derive(PartialEq, Debug, Clone)]
-struct ComplexElement {
-    real: f64,
-    imag: f64,
-}
-
-// struct ComplexTensor {
-//     data: Vec<ComplexElement>,
-//     shape: Vec<i32>,
-//     strides: Vec<isize>
-// }
-
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Debug, Clone)]
 enum RecursiveTensor {
-    Scalar(ComplexElement),
+    Scalar(Vec<TokenTree>),
     SubTensor(Vec<RecursiveTensor>)
 }
 
-// ###########################################################################################################
+//`4j` -> `4.0 * j`
+// `f(x)j` -> `f(x) * j`
+fn j_processing32(input: TokenStream2) -> TokenStream2 {
+    let tokens: Vec<TokenTree> = input.into_iter().collect();
+    let mut new_stream = Vec::<TokenTree>::new();
+    let mut stream_accumulator: Vec<TokenTree> ;
 
-fn tensor_lexer(token_stream: TokenStream) -> Result<Vec<TensorTokens>> {
-    let mut processed_tokens = Vec::new();
-    let mut token_iterator = token_stream.into_iter();
-    let mut string_accumulator: String;
+    let mut token: &TokenTree;
+    let mut lit_str: String;
+    let mut pass: bool;
+    for index in 0..tokens.len() {
+        stream_accumulator = Vec::<TokenTree>::new();
+        pass = false;
+        token = &tokens[index];
 
-    while let Some(token) = token_iterator.next() {
-        match token {
-            
+        // Replaces `j` with faer::c64::new(0.0, 1.0).
+        match &token {
+
             TokenTree::Literal(literal) => {
-                string_accumulator = literal.to_string();
-                if let Some(literal_without_j) = string_accumulator.strip_suffix('j') {
-                    match literal_without_j.parse() {
-                        Ok(float) => processed_tokens.push(TensorTokens::Number(float)),
-                        Err(_) => return Err(Error::new(literal.span(), "Literal is not a number"))
+                lit_str = literal.to_string();
+                if let Some(num_part) = lit_str.strip_suffix('j') {
+                    if let Ok(number_val) = num_part.parse::<f32>() {
+                        stream_accumulator.extend(quote!{#number_val * faer::c32::new(0.0, 1.0)});
+                        pass = true;
+                    } else {
+                        panic!("Not a valid number")
                     }
-                    processed_tokens.push(TensorTokens::J);
-                } else {
-                    match string_accumulator.parse() {
-                        Ok(float) => processed_tokens.push(TensorTokens::Number(float)),
-                        Err(_) => return Err(Error::new(literal.span(), "Literal is not a number"))
+                } else if let Some(num_part) = lit_str.strip_prefix('j') {
+                    if let Ok(number_val) = num_part.parse::<f32>() {
+                        stream_accumulator.extend(quote!{#number_val * faer::c32::new(0.0, 1.0)});
+                        pass = true;
+                    } else {
+                        panic!("Not a valid number")
                     }
-                }
+                } 
             }
 
-            TokenTree::Ident(identifier) => match identifier.to_string().as_str() {
-                "j" => processed_tokens.push(TensorTokens::J),
-                _ => return Err(Error::new(identifier.span(), "Identifier is not j"))
+            TokenTree::Ident(identifier) => {
+                if identifier.to_string().as_str() == "j" {
+                    stream_accumulator.extend(quote!{faer::c32::new(0.0, 1.0)});
+                    pass = true;
+                } 
+            }
+
+            TokenTree::Group(group) => {
+                let processed_inner_stream = j_processing32(group.stream());
+                let new_group = Group::new(group.delimiter(), processed_inner_stream);
+                new_stream.push(TokenTree::Group(new_group));
+                continue;
+            }
+
+            _ => ()
+        }
+
+        if !pass {
+            new_stream.push(token.clone());
+            continue;
+        }
+
+        // Makes implicit multiplication explicit
+        pass = false;
+        if index > 0 {
+            if let TokenTree::Punct(punct) = &tokens[index - 1] {
+                match punct.as_char() {
+                    ']' | ',' | '+' | '-' | '*' | '/' => pass = true,
+                    _ => ()
+                }
+            }
+            if !pass {
+                new_stream.push(TokenTree::Punct(Punct::new('*', Spacing::Alone)));
+            }
+        }
+        
+        new_stream.extend(stream_accumulator);
+        
+        pass = false;
+        if index < tokens.len() - 1 {
+            if let TokenTree::Punct(punct) = &tokens[index + 1] {
+                match punct.as_char() {
+                    ']' | ',' | '+' | '-' | '*' | '/' => pass = true,
+                    _ => ()
+                }
+            }
+            if !pass {
+                new_stream.push(TokenTree::Punct(Punct::new('*', Spacing::Alone)));
+            }
+        }
+        
+    }
+    return TokenStream2::from_iter(new_stream);
+}
+
+//`4j` -> `4.0 * j`
+// `f(x)j` -> `f(x) * j`
+fn j_processing64(input: TokenStream2) -> TokenStream2 {
+    let tokens: Vec<TokenTree> = input.into_iter().collect();
+    let mut new_stream = Vec::<TokenTree>::new();
+    let mut stream_accumulator: Vec<TokenTree> ;
+
+    let mut token: &TokenTree;
+    let mut lit_str: String;
+    let mut pass: bool;
+    for index in 0..tokens.len() {
+        stream_accumulator = Vec::<TokenTree>::new();
+        pass = false;
+        token = &tokens[index];
+
+        // Replaces `j` with faer::c64::new(0.0, 1.0).
+        match &token {
+
+            TokenTree::Literal(literal) => {
+                lit_str = literal.to_string();
+                if let Some(num_part) = lit_str.strip_suffix('j') {
+                    if let Ok(number_val) = num_part.parse::<f64>() {
+                        stream_accumulator.extend(quote!{#number_val * faer::c64::new(0.0, 1.0)});
+                        pass = true;
+                    } else {
+                        panic!("Not a valid number")
+                    }
+                } else if let Some(num_part) = lit_str.strip_prefix('j') {
+                    if let Ok(number_val) = num_part.parse::<f64>() {
+                        stream_accumulator.extend(quote!{#number_val * faer::c64::new(0.0, 1.0)});
+                        pass = true;
+                    } else {
+                        panic!("Not a valid number")
+                    }
+                } 
+            }
+
+            TokenTree::Ident(identifier) => {
+                if identifier.to_string().as_str() == "j" {
+                    stream_accumulator.extend(quote!{faer::c64::new(0.0, 1.0)});
+                    pass = true;
+                } 
+            }
+
+            TokenTree::Group(group) => {
+                let processed_inner_stream = j_processing64(group.stream());
+                let new_group = Group::new(group.delimiter(), processed_inner_stream);
+                new_stream.push(TokenTree::Group(new_group));
+                continue;
+            }
+
+            _ => ()
+        }
+
+        if !pass {
+            new_stream.push(token.clone());
+            continue;
+        }
+
+        // Makes implicit multiplication explicit
+        pass = false;
+        if index > 0 {
+            if let TokenTree::Punct(punct) = &tokens[index - 1] {
+                match punct.as_char() {
+                    ']' | ',' | '+' | '-' | '*' | '/' => pass = true,
+                    _ => ()
+                }
+            }
+            if !pass {
+                new_stream.push(TokenTree::Punct(Punct::new('*', Spacing::Alone)));
+            }
+        }
+        
+        new_stream.extend(stream_accumulator);
+        
+        pass = false;
+        if index < tokens.len() - 1 {
+            if let TokenTree::Punct(punct) = &tokens[index + 1] {
+                match punct.as_char() {
+                    ']' | ',' | '+' | '-' | '*' | '/' => pass = true,
+                    _ => ()
+                }
+            }
+            if !pass {
+                new_stream.push(TokenTree::Punct(Punct::new('*', Spacing::Alone)));
+            }
+        }
+        
+    }
+    return TokenStream2::from_iter(new_stream);
+}
+
+fn tensor_lexer(token_stream: TokenStream2) -> Result<Vec<TensorTokens>> {
+    let mut processed_tokens = Vec::new();
+    let mut token_iterator = token_stream.into_iter();
+
+    let mut number_token_accumulator = Vec::new();
+
+    while let Some(token) = token_iterator.next() {
+        match &token {
+            
+            TokenTree::Literal(_literal) => {
+                number_token_accumulator.push(token);
+            }
+
+            TokenTree::Ident(_identifier) => {
+                number_token_accumulator.push(token);
             }
 
             TokenTree::Punct(punctuation) => match punctuation.as_char() {
-                '+' => processed_tokens.push(TensorTokens::Plus),
-                '-' => processed_tokens.push(TensorTokens::Minus),
-                ',' => processed_tokens.push(TensorTokens::Comma),
-                _ => return Err(Error::new(punctuation.span(), "Unexpected punctuation"))
+                ',' => {
+                    if !number_token_accumulator.is_empty() {
+                        processed_tokens.push(TensorTokens::Number(number_token_accumulator));
+                        number_token_accumulator = Vec::new();
+                    }
+                    
+                    processed_tokens.push(TensorTokens::Comma)
+                },
+                _ => number_token_accumulator.push(token)
             }
 
             TokenTree::Group(group) => match group.delimiter() {
-                
                 Delimiter::Bracket => {
+                    if !number_token_accumulator.is_empty() {
+                        processed_tokens.push(TensorTokens::Number(number_token_accumulator));
+                        number_token_accumulator = Vec::new();
+                    }
+
                     processed_tokens.push(TensorTokens::OpenBracket);
                     processed_tokens.extend(tensor_lexer(group.stream())?);
                     processed_tokens.push(TensorTokens::ClosedBracket);
                 },
-                
-                Delimiter::Parenthesis => {
-                    processed_tokens.push(TensorTokens::OpenParenthesis);
-                    processed_tokens.extend(tensor_lexer(group.stream())?);
-                    processed_tokens.push(TensorTokens::ClosedParenthesis);
-                }, 
-                
-                _ => return Err(Error::new(group.span(), "Unexpected brackets"))
+                _ => number_token_accumulator.push(token)
             }
 
         }
+    }
+    if !number_token_accumulator.is_empty() {
+        processed_tokens.push(TensorTokens::Number(number_token_accumulator));
     }
     return Ok(processed_tokens);
-}
-
-fn complex_number_parser(tokens: Vec<TensorTokens>) -> Result<(ComplexElement, usize)> {
-    let mut real = 0.0;
-    let mut imag = 0.0;
-    let mut sign = 1.0;
-    let mut delta_index = 0;
-
-    loop {
-
-        // The token might start with a sign
-        match tokens.get(delta_index) {
-            Some(TensorTokens::Plus) => {
-                sign = 1.0;
-                delta_index += 1;
-            }
-            
-            Some(TensorTokens::Minus) => {
-                sign = -1.0;
-                delta_index += 1;
-            }
-
-            _ => {}
-        }
-
-        match tokens.get(delta_index) {
-            Some(TensorTokens::Number(val)) => {
-                // Checks if the number is imaginary
-                if let Some(TensorTokens::J) = tokens.get(delta_index + 1) {
-                    imag += sign * val;
-                    delta_index += 2;
-                } else {
-                    real += sign * val;
-                    delta_index += 1;
-                }
-            }
-            // Edge case: `± j` = `± 1.0 j`.
-            Some(TensorTokens::J) => {
-                imag += sign * 1.0;
-                delta_index += 1;
-            }
-
-            _ => return Err(Error::new(Span::call_site(), "Expected a number or j",))
-        }
-
-        // Continue parsing if we see an operator.
-        match tokens.get(delta_index) {
-            Some(TensorTokens::Plus) => {
-                sign = 1.0;
-                delta_index += 1;
-            }
-            Some(TensorTokens::Minus) => {
-                sign = -1.0;
-                delta_index += 1;
-            }
-            _ => break,
-        }
-
-    }
-
-    return Ok((ComplexElement{real, imag}, delta_index));
-}
-
-impl Parse for ComplexElement {
-    fn parse(input: ParseStream) -> Result<Self> {
-        let token_stream = input.parse::<TokenStream>()?;
-        let tokens = tensor_lexer(token_stream)?;
-        let (element, tokens_consumed) = complex_number_parser(tokens.clone())?;
-
-        if tokens_consumed < tokens.len() {
-            return Err(Error::new(Span::call_site(), "Not a valid complex number"));
-        }
-        
-        Ok(element)
-    }
 }
 
 fn tensor_parser(tokens: &[TensorTokens]) -> Result<(RecursiveTensor, usize)> {
@@ -192,7 +304,7 @@ fn tensor_parser(tokens: &[TensorTokens]) -> Result<(RecursiveTensor, usize)> {
                 return Err(Error::new(Span::call_site(), "Missing closing bracket"));
             }
 
-            if tokens.get(index) == Some(&TensorTokens::ClosedBracket) {
+            if let Some(TensorTokens::ClosedBracket) = tokens.get(index) {
                 index += 1;
                 return Ok((RecursiveTensor::SubTensor(children), index));
             }
@@ -205,17 +317,22 @@ fn tensor_parser(tokens: &[TensorTokens]) -> Result<(RecursiveTensor, usize)> {
                 index += 1;
             }
         }
+    } else if let Some(TensorTokens::Number(token_tree_vec)) = tokens.get(index) {
+            return Ok((RecursiveTensor::Scalar(token_tree_vec.clone()), 1));
     } else {
-        let (scalar, delta_index) = complex_number_parser(tokens.to_vec())?;
-        return Ok((RecursiveTensor::Scalar(scalar), delta_index));
+        return Err(Error::new(Span::call_site(), "Not a valid tensor"));
     }
+        
 }
 
-// Helps us fit data into ComplexTensor. Returns elements of the RecursiveTensor and its shape.
-fn flatten_tensor_data(input: &RecursiveTensor) -> (Vec<ComplexElement>, Vec<usize>) {
+// Returns elements of the RecursiveTensor (in vector form) and its shape.
+fn flatten_tensor_data(input: &RecursiveTensor) -> (Vec<TokenStream2>, Vec<usize>) {
     match input {
 
-        RecursiveTensor::Scalar(s) => (vec![s.clone()], vec![]),
+        RecursiveTensor::Scalar(token_vec) => {
+            let stream = TokenStream2::from_iter(token_vec.clone());
+            (vec![stream.clone()], vec![])
+        }
 
         RecursiveTensor::SubTensor(subtensors) => {
 
@@ -237,9 +354,11 @@ fn flatten_tensor_data(input: &RecursiveTensor) -> (Vec<ComplexElement>, Vec<usi
 }
 
 #[proc_macro]
-pub fn complex_tensor(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
+pub fn complex_tensor64(input: TokenStream) -> TokenStream {
 
-    let tokens = match tensor_lexer(input.into()) {
+    let input_processed = j_processing64(input.into());
+
+    let tokens = match tensor_lexer(input_processed) {
         Ok(inner_val) => inner_val,
         Err(error) => return error.to_compile_error().into(),
     };
@@ -250,18 +369,38 @@ pub fn complex_tensor(input: proc_macro::TokenStream) -> proc_macro::TokenStream
     };
 
     let (flat_data, shape) = flatten_tensor_data(&recursive_tensor);
-
-    let quoted_data = flat_data.iter().map(|c| {
-        let real = c.real;
-        let imag = c.imag;
-        quote!{faer::c64::new(#real, #imag)}
-    });
     
     let quoted_shape = quote!{[#(#shape),*]};
 
     let d = shape.len();
     quote!{{
-            let data_vec: Vec<faer::c64> = vec![#(#quoted_data),*];
+            let data_vec: Vec<faer::c64> = vec![#(#flat_data),*];
             Tensor::<faer::c64, #d>::from_slice(&data_vec, #quoted_shape)
+    }}.into()
+}
+
+#[proc_macro]
+pub fn complex_tensor32(input: TokenStream) -> TokenStream {
+
+    let input_processed = j_processing32(input.into());
+
+    let tokens = match tensor_lexer(input_processed) {
+        Ok(inner_val) => inner_val,
+        Err(error) => return error.to_compile_error().into(),
+    };
+
+    let (recursive_tensor, _) = match tensor_parser(&tokens) {
+        Ok(inner_val) => inner_val,
+        Err(error) => return error.to_compile_error().into(),
+    };
+
+    let (flat_data, shape) = flatten_tensor_data(&recursive_tensor);
+    
+    let quoted_shape = quote!{[#(#shape),*]};
+
+    let d = shape.len();
+    quote!{{
+            let data_vec: Vec<faer::c32> = vec![#(#flat_data),*];
+            Tensor::<faer::c32, #d>::from_slice(&data_vec, #quoted_shape)
     }}.into()
 }

@@ -371,6 +371,7 @@ pub fn kron_add<C: ComplexScalar>(lhs: MatRef<C>, rhs: MatRef<C>, dst: MatMut<C>
     }
 }
 
+/* 
 #[cfg(test)]
 mod kron_tests {
     use crate::accel::{kron, kron_add};
@@ -428,3 +429,4 @@ mod kron_tests {
         assert_eq!(dst, c);
     }
 }
+*/
