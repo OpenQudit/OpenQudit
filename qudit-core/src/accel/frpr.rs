@@ -1373,7 +1373,6 @@ pub fn fused_reshape_permute_reshape_into<E: Copy>(
     }
 }
 
-/* 
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1749,4 +1748,3 @@ mod tests {
         );
     }
 }
-*/
