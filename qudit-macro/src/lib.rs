@@ -2,51 +2,13 @@ use proc_macro::TokenStream;
 use proc_macro2::{TokenStream as TokenStream2, TokenTree, Delimiter, Span, Spacing, Punct, Group};
 use syn::{Result, Error};
 use quote::quote;
-use faer_traits::ComplexField;
-use num_complex::ComplexFloat;
-// use coe::is_same;
-
-trait RealNumber {
-    
-}
-
-trait ComplexNumber: ComplexField + ComplexFloat {
-    type Real: RealNumber;
-}
-
-impl RealNumber for f64 {
-
-}
-
-impl RealNumber for f32 {
-    
-}
-
-impl ComplexNumber for faer::c64 {
-    type Real = f64;
-}
-
-impl ComplexNumber for faer::c32 {
-    type Real = f32;
-}
 
 #[derive(Debug, Clone)]
 enum TensorTokens {
     OpenBracket,
     ClosedBracket,
-    
-    //OpenParenthesis,
-    //ClosedParenthesis,
-    
     Comma,
-    //J,
-
-    // Plus,
-    // Minus,
-    // Multiply,
-    // Divide,
-
-    Number(Vec<TokenTree>),
+    Number(Vec<TokenTree>)
 }
 
 #[derive(Debug, Clone)]
@@ -55,8 +17,21 @@ enum RecursiveTensor {
     SubTensor(Vec<RecursiveTensor>)
 }
 
-//`4j` -> `4.0 * j`
-// `f(x)j` -> `f(x) * j`
+/// Replaces `j` with `faer::c32::new(0.0, 1.0)` in the input token stream.
+/// Also makes implicit multiplication explicit. (e.g. `4j` becomes `4.0 * j`)
+/// 
+/// # Arguments
+/// 
+/// * `input` - A tokenstream containing the input tokens.
+/// 
+/// # Returns
+/// 
+/// * A tokenstream with the processed tokens.
+/// 
+/// # Panics
+/// 
+/// * If a literal with suffix or prefix `j` is not a valid number.
+/// 
 fn j_processing32(input: TokenStream2) -> TokenStream2 {
     let tokens: Vec<TokenTree> = input.into_iter().collect();
     let mut new_stream = Vec::<TokenTree>::new();
@@ -147,8 +122,21 @@ fn j_processing32(input: TokenStream2) -> TokenStream2 {
     return TokenStream2::from_iter(new_stream);
 }
 
-//`4j` -> `4.0 * j`
-// `f(x)j` -> `f(x) * j`
+/// Replaces `j` with `faer::c64::new(0.0, 1.0)` in the input token stream.
+/// Also makes implicit multiplication explicit. (e.g. `4j` becomes `4.0 * j`)
+/// 
+/// # Arguments
+/// 
+/// * `input` - A tokenstream containing the input tokens.
+/// 
+/// # Returns
+/// 
+/// * A tokenstream with the processed tokens.
+/// 
+/// # Panics
+/// 
+/// * If a literal with suffix or prefix `j` is not a valid number.
+/// 
 fn j_processing64(input: TokenStream2) -> TokenStream2 {
     let tokens: Vec<TokenTree> = input.into_iter().collect();
     let mut new_stream = Vec::<TokenTree>::new();
@@ -239,6 +227,16 @@ fn j_processing64(input: TokenStream2) -> TokenStream2 {
     return TokenStream2::from_iter(new_stream);
 }
 
+/// Categorizes the tokens in the input token stream to aid in parsing.
+/// 
+/// # Arguments
+/// 
+/// * `token_stream` - A tokenstream containing the input tokens.
+/// 
+/// # Returns
+/// 
+/// * A tokenstream with the processed tokens.
+/// 
 fn tensor_lexer(token_stream: TokenStream2) -> Result<Vec<TensorTokens>> {
     let mut processed_tokens = Vec::new();
     let mut token_iterator = token_stream.into_iter();
@@ -290,6 +288,22 @@ fn tensor_lexer(token_stream: TokenStream2) -> Result<Vec<TensorTokens>> {
     return Ok(processed_tokens);
 }
 
+/// Organizes a series of custom tokens into a recursive tensor structure.
+/// 
+/// # Arguments
+/// 
+/// * `tokens` - A slice of `TensorTokens`, expected from `tensor_lexer`.
+/// 
+/// # Returns
+/// 
+/// * A recursive tensor storing the user's tokens.
+/// * The number of tokens consumed from the input slice.
+/// 
+/// # Panics
+/// 
+/// * If there is a missing closing bracket.
+/// * If the tensor does not start with an opening bracket or is not a scalar.
+/// 
 fn tensor_parser(tokens: &[TensorTokens]) -> Result<(RecursiveTensor, usize)> {
     let mut index = 0;
 
@@ -325,7 +339,17 @@ fn tensor_parser(tokens: &[TensorTokens]) -> Result<(RecursiveTensor, usize)> {
         
 }
 
-// Returns elements of the RecursiveTensor (in vector form) and its shape.
+/// Flattens the recursive tensor structure into a single vector of tokens and calculates its shape.
+/// 
+/// # Arguments
+/// 
+/// * `input` - A reference to the recursive tensor structure.
+/// 
+/// # Returns
+/// 
+/// * A vector containing all elements of the input tensor.
+/// * The shape of the input tensor.
+/// 
 fn flatten_tensor_data(input: &RecursiveTensor) -> (Vec<TokenStream2>, Vec<usize>) {
     match input {
 
@@ -353,6 +377,46 @@ fn flatten_tensor_data(input: &RecursiveTensor) -> (Vec<TokenStream2>, Vec<usize
     }
 }
 
+/// Creates a 64-bit complex tensor from nested brackets. Complex numbers
+/// can be created using `j`. (e.g. `4j`, `my_function()j`, or `some_variable * j`)
+/// 
+/// # Arguments
+/// 
+/// * `input` - The user's desired tensor written in simplified language.
+/// 
+/// # Returns
+/// 
+/// * A 64-bit complex tensor implementing the user's data.
+/// 
+/// # Panics
+/// 
+/// * If there is a missing closing bracket.
+/// * If the tensor does not start with an opening bracket or is not a scalar.
+/// * If a literal with suffix or prefix `j` is not a valid number.
+/// 
+/// # Example
+/// ```
+/// use qudit_macro::complex_tensor64;
+/// use qudit_core::array::Tensor;
+/// use qudit_core::c64;
+/// use std::slice::from_raw_parts;
+/// 
+/// fn arbitrary_func(x: f64, y: f64) -> f64 {
+///     return x * y + 9.0 * x;
+/// }
+/// 
+/// let attempt = complex_tensor64!([
+///    3.0 * arbitrary_func(1.5, 2.0)j + 4.5,
+///   -(2.0j + arbitrary_func(5.5, 3.5))
+/// ]);
+/// let expected_data = vec![c64::new(4.5, 49.5), c64::new(-68.75, -2.0)];
+/// let expected = Tensor::<c64, 1>::from_slice(&expected_data, [2]);
+/// 
+/// assert_eq!(attempt.dims(), expected.dims());
+/// unsafe {
+///    assert_eq!(from_raw_parts(attempt.as_ptr(), 2), from_raw_parts(expected.as_ptr(), 2));
+/// }
+/// ```
 #[proc_macro]
 pub fn complex_tensor64(input: TokenStream) -> TokenStream {
 
@@ -379,6 +443,46 @@ pub fn complex_tensor64(input: TokenStream) -> TokenStream {
     }}.into()
 }
 
+/// Creates a 32-bit complex tensor from nested brackets. Complex numbers
+/// can be created using `j`. (e.g. `4j`, `my_function()j`, or `some_variable * j`)
+/// 
+/// # Arguments
+/// 
+/// * `input` - The user's desired tensor written in simplified language.
+/// 
+/// # Returns
+/// 
+/// * A 32-bit complex tensor implementing the user's data.
+/// 
+/// # Panics
+/// 
+/// * If there is a missing closing bracket.
+/// * If the tensor does not start with an opening bracket or is not a scalar.
+/// * If a literal with suffix or prefix `j` is not a valid number.
+/// 
+/// # Example
+/// ```
+/// use qudit_macro::complex_tensor32;
+/// use qudit_core::array::Tensor;
+/// use qudit_core::c32;
+/// use std::slice::from_raw_parts;
+/// 
+/// fn arbitrary_func(x: f32, y: f32) -> f32 {
+///     return x * y + 9.0 * x;
+/// }
+/// 
+/// let attempt = complex_tensor32!([
+///    3.0 * arbitrary_func(1.5, 2.0)j + 4.5,
+///   -(2.0j + arbitrary_func(5.5, 3.5))
+/// ]);
+/// let expected_data = vec![c32::new(4.5, 49.5), c32::new(-68.75, -2.0)];
+/// let expected = Tensor::<c32, 1>::from_slice(&expected_data, [2]);
+/// 
+/// assert_eq!(attempt.dims(), expected.dims());
+/// unsafe {
+///    assert_eq!(from_raw_parts(attempt.as_ptr(), 2), from_raw_parts(expected.as_ptr(), 2));
+/// }
+/// ```
 #[proc_macro]
 pub fn complex_tensor32(input: TokenStream) -> TokenStream {
 
