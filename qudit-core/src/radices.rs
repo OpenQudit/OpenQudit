@@ -355,6 +355,17 @@ impl QuditRadices {
         }
         counts
     }
+
+
+    /// Returns the length of the radices object.
+    pub fn len(&self) -> usize {
+        self.num_qudits()
+    }
+
+    /// Returns true is the system is empty, false otherwise.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 impl crate::QuditSystem for QuditRadices {

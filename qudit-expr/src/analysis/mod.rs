@@ -248,21 +248,29 @@ impl<'a> SineExtractor<'a> {
 
 
 struct TrigExprExtractor<'a> {
-    costs: FxHashMap<Id, (f64, TrigLanguage)>,
+    costs: Vec<(f64, TrigLanguage)>,
     egraph: &'a EGraph,
     has_changed: bool,
 }
 
 impl<'a> TrigExprExtractor<'a> {
     pub fn new(egraph: &'a EGraph) -> Self {
-        let costs = FxHashMap::default();
+        // let costs = FxHashMap::default();
+        let mut max_id = 0usize;
+        for class in egraph.classes() {
+            let id = unsafe{std::mem::transmute::<Id, u32>(class.id)} as usize;
+            if id > max_id {
+                max_id = id
+            }
+        }
+        let costs = vec![(-1.0, TrigLanguage::Pi); max_id + 1];
         let mut extractor = TrigExprExtractor { costs, egraph, has_changed: false };
         extractor.calculate_costs();
         extractor
     }
 
     pub fn extract_best(&mut self, eclass: Id) -> RecExpr<TrigLanguage> {
-        let root = self.costs[&self.egraph.find(eclass)].1.clone();
+        let root = self.get_cost(self.egraph.find(eclass)).1.clone();
         let expr = root.build_recexpr(|id| self.extract_best_node(id));
         // TODO: This is creates a greedy search when simplifying many expressions
         // in a row: The expression's that are simplified later are effected greatly
@@ -278,17 +286,17 @@ impl<'a> TrigExprExtractor<'a> {
 
     pub fn extract_best_node(&mut self, eclass: Id) -> TrigLanguage {
         let id = &self.egraph.find(eclass);
-        let (cost, enode) = self.costs.get_mut(id).unwrap();
-        if *cost != 0.0 {
-            *cost = 0.0;
+        let (cost, enode) = self.get_cost(*id).clone();
+        if cost != 0.0 {
+            self.put_cost(*id, (cost, enode.clone()));
             self.has_changed = true;
         }
-        enode.clone()
+        enode
     }
 
     #[allow(dead_code)]
     pub fn find_best_node(&self, eclass: Id) -> &TrigLanguage {
-        &self.costs[&self.egraph.find(eclass)].1
+        &self.get_cost(self.egraph.find(eclass)).1
     }
 
     fn recalculate_costs(&mut self) {
@@ -298,10 +306,10 @@ impl<'a> TrigExprExtractor<'a> {
 
             for class in self.egraph.classes() {
                 let pass = self.make_repass(class); 
-                let old = self.costs.get_mut(&class.id).unwrap();
+                let old = self.get_cost(class.id);
                 match (old, pass) {
-                    (old, new) if new < old.0 => {
-                        old.0 = new;
+                    (old, new) if old.0 < 0.0 || new < old.0 => {
+                        self.put_cost(class.id, (new, old.1.clone()));
                         did_something = true;
                     }
                     _ => {}
@@ -317,14 +325,15 @@ impl<'a> TrigExprExtractor<'a> {
 
             for class in self.egraph.classes() {
                 let pass = self.make_pass(class); 
-                match (self.costs.get(&class.id), pass) {
-                    (None, Some(new)) => {
-                        self.costs.insert(class.id, new);
-                        did_something = true;
-                    }
-                    (Some(old), Some(new)) if new.0 < old.0 => {
-                        self.costs.insert(class.id, new);
-                        did_something = true;
+                match (self.get_cost(class.id), pass) {
+                    (old, Some(new)) => {
+                        if old.0 < 0.0 {
+                            self.put_cost(class.id, new);
+                            did_something = true;
+                        } else if new.0 > 0.0 && new.0 < old.0 {
+                            self.put_cost(class.id, new);
+                            did_something = true;
+                        }
                     }
                     _ => {}
                 }
@@ -332,7 +341,7 @@ impl<'a> TrigExprExtractor<'a> {
         }
 
         for class in self.egraph.classes() {
-            if !self.costs.contains_key(&class.id) {
+            if self.get_cost(class.id).0 < 0.0 {
                 println!("failed to calculate cost for {:?}", class);
             }
         }
@@ -360,7 +369,7 @@ impl<'a> TrigExprExtractor<'a> {
 
     fn node_total_cost(&mut self, enode: &TrigLanguage) -> Option<f64> {
         let eg = &self.egraph;
-        let has_cost = |id| self.costs.contains_key(&eg.find(id));
+        let has_cost = |id| self.get_cost(eg.find(id)).0 >= 0.0;
         if enode.all(has_cost) {
             Some(self.node_cost(enode))
         } else {
@@ -378,7 +387,17 @@ impl<'a> TrigExprExtractor<'a> {
             TrigLanguage::Pow(_) => 100.0,
             _ => 0.0,
         };
-        enode.fold(op_cost, |acc, id| acc + self.costs[&id].0)
+        enode.fold(op_cost, |acc, id| acc + self.get_cost(id).0)
+    }
+
+    #[inline(always)]
+    fn get_cost(&self, id: Id) -> &(f64, TrigLanguage) {
+        &self.costs[unsafe{std::mem::transmute::<Id, u32>(id)} as usize]
+    }
+
+    #[inline(always)]
+    fn put_cost(&mut self, id: Id, cost: (f64, TrigLanguage)) {
+        self.costs[unsafe{std::mem::transmute::<Id, u32>(id)} as usize] = cost;
     }
 }
 

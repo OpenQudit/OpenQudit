@@ -4,7 +4,7 @@ use std::fmt;
 use crate::location::CircuitLocation;
 use crate::instruction::InstructionReference;
 
-use super::point::DitOrBit;
+use super::point::CircuitDitId;
 
 pub const INVALID_INDEX: usize = usize::MAX;
 
@@ -13,7 +13,7 @@ pub(super) struct QuditCycle {
     pub insts: Vec<InstructionReference>,
     pub qudit_map: BTreeMap<usize, usize>, // QuditIndex -> OperationIndex
     pub clbit_map: BTreeMap<usize, usize>, // ClbitIndex -> OperationIndex
-    pub dag_ptrs: BTreeMap<DitOrBit, (usize, usize)>,
+    pub dag_ptrs: BTreeMap<CircuitDitId, (usize, usize)>,
     pub free: Vec<usize>,              // OperationIndex
     pub logical_index: usize,
 }
@@ -45,16 +45,16 @@ impl QuditCycle {
     }
 
     #[inline]
-    fn get_physical_index(&self, dit_or_bit: DitOrBit) -> Option<usize> {
-        match dit_or_bit {
-            DitOrBit::Qudit(qudit_index) => self.qudit_map.get(&qudit_index).copied(),
-            DitOrBit::Clbit(clbit_index) => self.clbit_map.get(&clbit_index).copied(),
+    fn get_physical_index(&self, dit_id: CircuitDitId) -> Option<usize> {
+        match dit_id {
+            CircuitDitId::Quantum(index) => self.qudit_map.get(&index).copied(),
+            CircuitDitId::Classical(index) => self.clbit_map.get(&index).copied(),
         }
     }
 
     #[allow(dead_code)]
-    pub fn get(&self, dit_or_bit: DitOrBit) -> Option<&InstructionReference> {
-        let physical_index = self.get_physical_index(dit_or_bit);
+    pub fn get(&self, dit_id: CircuitDitId) -> Option<&InstructionReference> {
+        let physical_index = self.get_physical_index(dit_id);
 
         match physical_index {
             Some(i) => Some(&self.insts[i]),
@@ -63,8 +63,8 @@ impl QuditCycle {
     }
 
     #[allow(dead_code)]
-    pub fn get_mut(&mut self, dit_or_bit: DitOrBit) -> Option<&InstructionReference> {
-        let physical_index = self.get_physical_index(dit_or_bit);
+    pub fn get_mut(&mut self, dit_id: CircuitDitId) -> Option<&InstructionReference> {
+        let physical_index = self.get_physical_index(dit_id);
 
         match physical_index {
             Some(i) => Some(&mut self.insts[i]),
@@ -94,7 +94,7 @@ impl QuditCycle {
 
         for clbit_index in inst
             .location
-            .clbits()
+            .dits()
             .iter()
         {
             debug_assert!(self.clbit_map.get(&clbit_index).is_none());
@@ -104,21 +104,23 @@ impl QuditCycle {
         physical_index
     }
 
-    pub fn remove(&mut self, dit_or_bit: DitOrBit) -> Option<InstructionReference> {
-        let physical_index = self.get_physical_index(dit_or_bit);
+    pub fn remove(&mut self, dit_id: CircuitDitId) -> Option<InstructionReference> {
+        let physical_index = self.get_physical_index(dit_id);
 
         let physical_index = match physical_index {
             Some(i) => i,
-            // None => panic!("Operation not found at {} in cycle {}", dit_or_bit, self.logical_index),
+            // None => panic!("Operation not found at {} in cycle {}", dit_id, self.logical_index),
             None => return None,
         };
 
         let location = &self.insts[physical_index].location;
         for qudit_index in location.qudits().iter() {
             self.qudit_map.remove(&qudit_index);
+            self.dag_ptrs.remove(&CircuitDitId::Quantum(qudit_index));
         }
-        for clbit_index in location.clbits().iter() {
-            self.clbit_map.remove(&clbit_index);
+        for dit_index in location.dits().iter() {
+            self.clbit_map.remove(&dit_index);
+            self.dag_ptrs.remove(&CircuitDitId::Classical(dit_index));
         }
 
         self.free.push(physical_index);
@@ -126,8 +128,8 @@ impl QuditCycle {
         // capacity set to 0
     }
 
-    pub fn get_location(&self, dit_or_bit: DitOrBit) -> Option<&CircuitLocation> {
-        let physical_index = self.get_physical_index(dit_or_bit);
+    pub fn get_location(&self, dit_id: CircuitDitId) -> Option<&CircuitLocation> {
+        let physical_index = self.get_physical_index(dit_id);
 
         match physical_index {
             Some(i) => Some(&self.insts[i].location),
@@ -136,7 +138,7 @@ impl QuditCycle {
     }
 
     pub fn set_qnext(&mut self, qudit_index: usize, next_cycle: usize) {
-        let key = DitOrBit::Qudit(qudit_index);
+        let key = CircuitDitId::Quantum(qudit_index);
         match self.dag_ptrs.get_mut(&key) {
             Some(ptr) => {
                 ptr.1 = next_cycle;
@@ -148,7 +150,7 @@ impl QuditCycle {
     }
 
     pub fn reset_qnext(&mut self, qudit_index: usize) {
-        let key = DitOrBit::Qudit(qudit_index);
+        let key = CircuitDitId::Quantum(qudit_index);
         match self.dag_ptrs.get_mut(&key) {
             Some(ptr) => {
                 ptr.1 = INVALID_INDEX;
@@ -158,7 +160,7 @@ impl QuditCycle {
     }
 
     pub fn get_qnext(&self, qudit_index: usize) -> Option<usize> {
-        let key = DitOrBit::Qudit(qudit_index);
+        let key = CircuitDitId::Quantum(qudit_index);
         match self.dag_ptrs.get(&key) {
             Some(ptr) => {
                 if ptr.1 == INVALID_INDEX {
@@ -174,7 +176,7 @@ impl QuditCycle {
     }
 
     pub fn set_cnext(&mut self, clbit_index: usize, next_cycle: usize) {
-        let key = DitOrBit::Clbit(clbit_index);
+        let key = CircuitDitId::Classical(clbit_index);
         match self.dag_ptrs.get_mut(&key) {
             Some(ptr) => {
                 ptr.1 = next_cycle;
@@ -186,7 +188,7 @@ impl QuditCycle {
     }
 
     pub fn reset_cnext(&mut self, clbit_index: usize) {
-        let key = DitOrBit::Clbit(clbit_index);
+        let key = CircuitDitId::Classical(clbit_index);
         match self.dag_ptrs.get_mut(&key) {
             Some(ptr) => {
                 ptr.1 = INVALID_INDEX;
@@ -196,7 +198,7 @@ impl QuditCycle {
     }
 
     pub fn get_cnext(&self, clbit_index: usize) -> Option<usize> {
-        let key = DitOrBit::Clbit(clbit_index);
+        let key = CircuitDitId::Classical(clbit_index);
         match self.dag_ptrs.get(&key) {
             Some(ptr) => {
                 if ptr.1 == INVALID_INDEX {
@@ -212,7 +214,7 @@ impl QuditCycle {
     }
 
     pub fn set_qprev(&mut self, qudit_index: usize, prev_cycle: usize) {
-        let key = DitOrBit::Qudit(qudit_index);
+        let key = CircuitDitId::Quantum(qudit_index);
         match self.dag_ptrs.get_mut(&key) {
             Some(ptr) => {
                 ptr.0 = prev_cycle;
@@ -224,7 +226,7 @@ impl QuditCycle {
     }
 
     pub fn reset_qprev(&mut self, qudit_index: usize) {
-        let key = DitOrBit::Qudit(qudit_index);
+        let key = CircuitDitId::Quantum(qudit_index);
         match self.dag_ptrs.get_mut(&key) {
             Some(ptr) => {
                 ptr.0 = INVALID_INDEX;
@@ -234,7 +236,7 @@ impl QuditCycle {
     }
 
     pub fn get_qprev(&self, qudit_index: usize) -> Option<usize> {
-        let key = DitOrBit::Qudit(qudit_index);
+        let key = CircuitDitId::Quantum(qudit_index);
         match self.dag_ptrs.get(&key) {
             Some(ptr) => {
                 if ptr.0 == INVALID_INDEX {
@@ -250,7 +252,7 @@ impl QuditCycle {
     }
 
     pub fn set_cprev(&mut self, clbit_index: usize, prev_cycle: usize) {
-        let key = DitOrBit::Clbit(clbit_index);
+        let key = CircuitDitId::Classical(clbit_index);
         match self.dag_ptrs.get_mut(&key) {
             Some(ptr) => {
                 ptr.0 = prev_cycle;
@@ -262,7 +264,7 @@ impl QuditCycle {
     }
 
     pub fn reset_cprev(&mut self, clbit_index: usize) {
-        let key = DitOrBit::Clbit(clbit_index);
+        let key = CircuitDitId::Classical(clbit_index);
         match self.dag_ptrs.get_mut(&key) {
             Some(ptr) => {
                 ptr.0 = INVALID_INDEX;
@@ -272,7 +274,7 @@ impl QuditCycle {
     }
 
     pub fn get_cprev(&self, clbit_index: usize) -> Option<usize> {
-        let key = DitOrBit::Clbit(clbit_index);
+        let key = CircuitDitId::Classical(clbit_index);
         match self.dag_ptrs.get(&key) {
             Some(ptr) => {
                 if ptr.0 == INVALID_INDEX {

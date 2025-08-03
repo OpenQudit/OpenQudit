@@ -47,7 +47,7 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
             sized_buffers.push(sized_buffer);
         }
         let memory_size = offset;
-        println!("ALLOCATING {} bytes for {} units", memory_size * std::mem::size_of::<C>(), memory_size);
+        // println!("ALLOCATING {} bytes for {} units", memory_size * std::mem::size_of::<C>(), memory_size);
         // TODO: Explore overlapping buffers to reduce memory usage and increase locality
         // TODO: Can further optimize FRPR after knowing strides: simple reshapes on continuous
         // buffers can be skipped with the input and output buffer having the same offset
@@ -64,6 +64,7 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
                     builder = builder.add_tensor_expression_with_param_indices(expr_clone, params.clone())
             };
         }
+
         let module = builder.build();
 
         let mut const_instructions = Vec::new();
@@ -108,8 +109,11 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
         Box::pin(out)
     }
 
-    // TODO: consider additionally making this generic over DifferentiationLevel.
-    pub fn evaluate<'a>(self: &'a mut Pin<Box<Self>>, args: &[C::R]) -> TNVMResult<'a, C> {
+    pub fn evaluate<'a, const E: DifferentiationLevel>(self: &'a mut Pin<Box<Self>>, args: &[C::R]) -> TNVMResult<'a, C> {
+        if E > D {
+            panic!("Unsafe TNVM evaluation.");
+        }
+
         // Safety: Self is not moved
         unsafe {
             let this = self.as_mut().get_unchecked_mut();
@@ -117,7 +121,7 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
             for inst in &this.dynamic_instructions {
                 // Safety: Whole structure of TNVM ensures that the instruction
                 // evaluates only on memory it has access to.
-                inst.evaluate::<D>(args, &mut this.memory);
+                inst.evaluate::<E>(args, &mut this.memory);
             }
        
             // Safety: Projection of const reference from mutable pin. Caller
@@ -128,6 +132,10 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
 
     pub fn num_params(&self) -> usize {
         self.out_buffer.nparams()
+    }
+
+    pub fn out_shape(&self) -> GenerationShape {
+        self.out_buffer.shape()
     }
 }
 

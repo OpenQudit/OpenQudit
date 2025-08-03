@@ -10,7 +10,7 @@ use crate::instruction::InstructionReference;
 
 use super::operation::Operation;
 use super::point::CircuitPoint;
-use super::point::DitOrBit;
+use super::point::CircuitDitId;
 use super::QuditCircuit;
 
 // TODO: implement size_hints

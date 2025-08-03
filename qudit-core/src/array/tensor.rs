@@ -498,6 +498,21 @@ impl<'a, C: Memorable, const D: usize> TensorRef<'a, C, D> {
         let flat_idx = calculate_flat_index(indices, &self.strides);
         self.as_ptr().add(flat_idx)
     }
+
+    /// Creates an owned `Tensor` by copying the data from this `TensorRef`.
+    pub fn to_owned(self) -> Tensor<C, D> {
+        let mut max_element = [0; D];
+        for (i, d) in self.dims.iter().enumerate() {
+            max_element[i] = d - 1;
+        }
+        let max_flat_index = calculate_flat_index(&max_element, &self.strides);
+        // Safety: Memory is nonnull and shared throughout max_flat_index.
+        // Slice is copied from and dropped immediately.
+        unsafe {
+            let slice = std::slice::from_raw_parts(self.data.as_ptr(), max_flat_index + 1);
+            Tensor::from_slice_with_strides(slice, self.dims, self.strides)
+        }
+    }
 }
 
 impl<'a, C: Memorable, const D: usize> std::ops::Index<[usize; D]> for TensorRef<'a, C, D> {

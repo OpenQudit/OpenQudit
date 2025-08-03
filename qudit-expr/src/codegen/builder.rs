@@ -399,12 +399,8 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> ModuleBuilder<C, D> {
                         grad_exprs.push(grad_expr);
                     }
                 }
-                // println!("{:?}", shape);
 
                 let simplified_exprs = simplify_expressions(exprs.into_iter().chain(grad_exprs.into_iter()).collect());
-                // for expr in simplified_exprs.iter() {
-                //     println!("{:?}", expr);
-                // }
                 let unit = CompilableUnitBuilder::new()
                     .name(&name)
                     .exprs(simplified_exprs)

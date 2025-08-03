@@ -1,18 +1,20 @@
 #![warn(missing_docs)]
 
 //! The qudit-circuit package contains the main circuit data structures for the OpenQudit library.
-mod point;
+mod circuit;
+mod compact;
 mod cycle;
 mod cyclelist;
-mod operation;
-mod location;
-mod compact;
-mod circuit;
+mod exprset;
 mod instruction;
 mod iterator;
-mod exprset;
+mod location;
+mod operation;
+mod param;
+mod point;
 
-pub use point::DitOrBit;
-pub use point::CircuitPoint;
-pub use location::CircuitLocation;
 pub use circuit::QuditCircuit;
+pub use location::CircuitLocation;
+pub use param::ParamEntry;
+pub use point::CircuitDitId;
+pub use point::CircuitPoint;

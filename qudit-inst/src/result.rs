@@ -16,3 +16,20 @@ pub struct InstantiationResult<C: ComplexScalar> {
     /// Optional Message
     message: Option<String>,
 }
+
+impl<C: ComplexScalar> InstantiationResult<C> {
+    /// Creates a new `InstantiationResult`.
+    pub fn new(
+        params: Option<Vec<C::R>>,
+        fun: Option<C::R>,
+        status: usize,
+        message: Option<String>,
+    ) -> Self {
+        Self {
+            params,
+            fun,
+            status,
+            message,
+        }
+    }
+}

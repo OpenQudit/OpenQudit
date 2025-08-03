@@ -4,28 +4,29 @@ use crate::compact::CompactIntegerVector;
 
 /// A CircuitLocation describes where an instruction is spatial executed.
 ///
-/// In other words, it describes which circuit qudits and clbits an instruction
-/// acts on. It also describes the order of the qudits and clbits, i.e., the
-/// desired permutation of the gate by the order of the qudits.
+/// In other words, it describes a register of circuit qudits and classical
+/// dits. This is commonly used to indicate "where" an instruction acts.
+/// The location object respects the order of the qudits and dits, i.e.,
+/// the desired permutation of the gate by the order of the qudits.
 ///
-/// Consider a four-qubit circuit, the location with qubits = [0, 2], and
-/// clbits = [] describes the application of a two-qudit purely-quantum
-/// instruction to the first and third qudits in the circuit. This location
-/// is not equivalent to the location with qubits = [2, 0], and clbits = [],
-/// as this describes a permutation of the first example.
+/// Consider a four-qubit circuit, the location with qudits = [0, 2], and
+/// dits = [] represents the two-qudit purely-quantum register of the first
+/// and third qudits in the circuit. This location is not equivalent to the
+/// location with qudits = [2, 0], and dits = [], as this describes a
+/// permutation of the first example.
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
 pub struct CircuitLocation {
     /// The described qudits in the circuit.
     qudits: CompactIntegerVector,
 
-    /// The described clbits in the circuit.
-    clbits: CompactIntegerVector,
+    /// The described dits in the circuit.
+    dits: CompactIntegerVector,
 }
 
 impl CircuitLocation {
     /// Returns a purely-quantum CircuitLocation object from the given vector.
     ///
-    /// A purely-quantum location is one that does not contain any clbits.
+    /// A purely-quantum location is one that does not contain any classical dits.
     ///
     /// # Arguments
     ///
@@ -52,11 +53,11 @@ impl CircuitLocation {
     ///
     /// # Arguments
     ///
-    /// * `location` - A vector describing the clbits in a circuit.
+    /// * `location` - A vector describing the classical dits in a circuit.
     ///
     /// # Panics
     ///
-    /// If `location` is not a valid location. This can happen if a clbit
+    /// If `location` is not a valid location. This can happen if a dit
     /// index appears twice in the location.
     ///
     /// # Examples
@@ -69,17 +70,19 @@ impl CircuitLocation {
         CircuitLocation::new(&[], location)
     }
 
+    // TODO: from array of CircuitDitIds
+
     /// Returns a CircuitLocation object from the given vectors.
     ///
     /// # Arguments
     ///
     /// * `qudits` - A vector describing the qudits in a circuit.
     ///
-    /// * `clbits` - A vector describing the clbits in a circuit.
+    /// * `dits` - A vector describing the classical dits in a circuit.
     ///
     /// # Panics
     ///
-    /// If `qudits` or `clbits` are not valid locations. This can happen if a
+    /// If `qudits` or `dits` are not valid locations. This can happen if a
     /// qudit or clbit index appears twice in the location.
     ///
     /// # Examples
@@ -88,12 +91,12 @@ impl CircuitLocation {
     /// use qudit_circuit::CircuitLocation;
     /// let loc = CircuitLocation::new(&vec![3, 0], &vec![1, 2]);
     /// ```
-    pub fn new<S: AsRef<[usize]>, T: AsRef<[usize]>>(qudits: S, clbits: T) -> CircuitLocation {
+    pub fn new<S: AsRef<[usize]>, T: AsRef<[usize]>>(qudits: S, dits: T) -> CircuitLocation {
         let qudits = qudits.as_ref();
-        let clbits = clbits.as_ref();
+        let dits = dits.as_ref();
         // Uniqueness check // TODO: re-evaluate 20 below; maybe surround in
         // debug
-        if qudits.len() < 20 && clbits.len() < 20 {
+        if qudits.len() < 20 && dits.len() < 20 {
             // Performance: Locatins are typically small, so this O(N^2)
             // uniqueness check is faster than the O(N) HashSet check.
             // This speed up is because of a low constant factor and
@@ -107,9 +110,9 @@ impl CircuitLocation {
                 }
             }
 
-            for i in 0..clbits.len() {
-                for j in (i + 1)..clbits.len() {
-                    if clbits[i] == clbits[j] {
+            for i in 0..dits.len() {
+                for j in (i + 1)..dits.len() {
+                    if dits[i] == dits[j] {
                         panic!("Duplicate indices in given circuit location.");
                     }
                 }
@@ -120,14 +123,14 @@ impl CircuitLocation {
                 panic!("Duplicate indices in given circuit location.");
             }
             uniq.clear();
-            if !clbits.iter().all(|x| uniq.insert(x)) {
+            if !dits.iter().all(|x| uniq.insert(x)) {
                 panic!("Duplicate indices in given circuit location.");
             }
         }
 
         CircuitLocation {
             qudits: CompactIntegerVector::from(qudits),
-            clbits: CompactIntegerVector::from(clbits),
+            dits: CompactIntegerVector::from(dits),
         }
     }
 
@@ -144,17 +147,17 @@ impl CircuitLocation {
         &self.qudits
     }
 
-    /// Get the clbits in this location.
+    /// Get the classical dits in this location.
     ///
     /// # Examples
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc = CircuitLocation::new(vec![3, 0], vec![1, 2]);
-    /// assert_eq!(loc.clbits(), &[1, 2]);
+    /// let loc = CircuitLocation::new([3, 0], [1, 2]);
+    /// assert_eq!(loc.dits(), &[1, 2]);
     /// ```
-    pub fn clbits(&self) -> &CompactIntegerVector {
-        &self.clbits
+    pub fn dits(&self) -> &CompactIntegerVector {
+        &self.dits
     }
 
     /// Returns a new location containing all elements in `self` or `other`
@@ -172,16 +175,16 @@ impl CircuitLocation {
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc1 = CircuitLocation::pure(vec![0, 2]);
-    /// let loc2 = CircuitLocation::pure(vec![2, 3]);
-    /// assert_eq!(loc1.union(&loc2), CircuitLocation::pure(vec![0, 2, 3]));
+    /// let loc1 = CircuitLocation::pure([0, 2]);
+    /// let loc2 = CircuitLocation::pure([2, 3]);
+    /// assert_eq!(loc1.union(&loc2), CircuitLocation::pure([0, 2, 3]));
     /// ```
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc1 = CircuitLocation::new(vec![3, 0], vec![1, 2]);
-    /// let loc2 = CircuitLocation::new(vec![2, 3], vec![3, 2]);
-    /// assert_eq!(loc1.union(&loc2), CircuitLocation::new(vec![3, 0, 2], vec![1, 2, 3]));
+    /// let loc1 = CircuitLocation::new([3, 0], [1, 2]);
+    /// let loc2 = CircuitLocation::new([2, 3], [3, 2]);
+    /// assert_eq!(loc1.union(&loc2), CircuitLocation::new([3, 0, 2], [1, 2, 3]));
     /// ```
     pub fn union(&self, other: &CircuitLocation) -> CircuitLocation {
         let mut union_qudits = self.qudits.clone();
@@ -191,16 +194,16 @@ impl CircuitLocation {
             }
         }
 
-        let mut union_clbits = self.clbits.clone();
-        for clbit_index in &other.clbits {
-            if !union_clbits.contains(clbit_index) {
-                union_clbits.push(clbit_index);
+        let mut union_dits = self.dits.clone();
+        for clbit_index in &other.dits {
+            if !union_dits.contains(clbit_index) {
+                union_dits.push(clbit_index);
             }
         }
 
         CircuitLocation {
             qudits: union_qudits,
-            clbits: union_clbits,
+            dits: union_dits,
         }
     }
 
@@ -219,23 +222,23 @@ impl CircuitLocation {
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc1 = CircuitLocation::pure(vec![0, 2]);
-    /// let loc2 = CircuitLocation::pure(vec![2, 3]);
-    /// assert_eq!(loc1.intersect(&loc2), CircuitLocation::pure(vec![2]));
+    /// let loc1 = CircuitLocation::pure([0, 2]);
+    /// let loc2 = CircuitLocation::pure([2, 3]);
+    /// assert_eq!(loc1.intersect(&loc2), CircuitLocation::pure([2]));
     /// ```
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc1 = CircuitLocation::classical(vec![0, 2]);
-    /// let loc2 = CircuitLocation::classical(vec![2, 0]);
-    /// assert_eq!(loc1.intersect(&loc2), CircuitLocation::classical(vec![0, 2]));
+    /// let loc1 = CircuitLocation::classical([0, 2]);
+    /// let loc2 = CircuitLocation::classical([2, 0]);
+    /// assert_eq!(loc1.intersect(&loc2), CircuitLocation::classical([0, 2]));
     /// ```
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc1 = CircuitLocation::new(vec![3, 0], vec![1, 2]);
-    /// let loc2 = CircuitLocation::new(vec![2, 3], vec![3, 2]);
-    /// assert_eq!(loc1.intersect(&loc2), CircuitLocation::new(vec![3], vec![2]));
+    /// let loc1 = CircuitLocation::new([3, 0], [1, 2]);
+    /// let loc2 = CircuitLocation::new([2, 3], [3, 2]);
+    /// assert_eq!(loc1.intersect(&loc2), CircuitLocation::new([3], [2]));
     /// ```
     pub fn intersect(&self, other: &CircuitLocation) -> CircuitLocation {
         let mut inter_qudits = CompactIntegerVector::new();
@@ -245,16 +248,16 @@ impl CircuitLocation {
             }
         }
 
-        let mut inter_clbits = CompactIntegerVector::new();
-        for clbit_index in &self.clbits {
-            if other.clbits.contains(clbit_index) {
-                inter_clbits.push(clbit_index);
+        let mut inter_dits = CompactIntegerVector::new();
+        for clbit_index in &self.dits {
+            if other.dits.contains(clbit_index) {
+                inter_dits.push(clbit_index);
             }
         }
 
         CircuitLocation {
             qudits: inter_qudits,
-            clbits: inter_clbits,
+            dits: inter_dits,
         }
     }
 
@@ -299,16 +302,16 @@ impl CircuitLocation {
             }
         }
 
-        let mut diff_clbits = CompactIntegerVector::new();
-        for clbit_index in &self.clbits {
-            if !other.clbits.contains(clbit_index) {
-                diff_clbits.push(clbit_index);
+        let mut diff_dits = CompactIntegerVector::new();
+        for clbit_index in &self.dits {
+            if !other.dits.contains(clbit_index) {
+                diff_dits.push(clbit_index);
             }
         }
 
         CircuitLocation {
             qudits: diff_qudits,
-            clbits: diff_clbits,
+            dits: diff_dits,
         }
     }
 
@@ -321,17 +324,17 @@ impl CircuitLocation {
     ///
     /// ```rust
     /// use qudit_circuit::CircuitLocation;
-    /// let loc = CircuitLocation::pure(vec![0, 3, 2]);
+    /// let loc = CircuitLocation::pure([0, 3, 2]);
     ///
     /// let all_pairs = loc.get_qudit_pairs();
     ///
-    /// for pair in vec![(0, 2), (0, 3), (2, 3)] {
+    /// for pair in [(0, 2), (0, 3), (2, 3)] {
     ///     assert!(all_pairs.contains(&pair))
     /// }
     /// ```
     pub fn get_qudit_pairs(&self) -> Vec<(usize, usize)> {
-        let mut to_return =
-            Vec::with_capacity(self.qudits.len() * (self.qudits.len() - 1) / 2);
+        let num_pairs = self.qudits.len() * (self.qudits.len() - 1) / 2;
+        let mut to_return = Vec::with_capacity(num_pairs);
         for qudit_index1 in &self.qudits {
             for qudit_index2 in &self.qudits {
                 if qudit_index1 < qudit_index2 {
@@ -348,23 +351,23 @@ impl CircuitLocation {
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc = CircuitLocation::pure(vec![2, 0, 3]);
-    /// assert_eq!(loc.to_sorted(), CircuitLocation::pure(vec![0, 2, 3]));
+    /// let loc = CircuitLocation::pure([2, 0, 3]);
+    /// assert_eq!(loc.to_sorted(), CircuitLocation::pure([0, 2, 3]));
     /// ```
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc = CircuitLocation::new(vec![3, 0], vec![2, 1]);
-    /// assert_eq!(loc.to_sorted(), CircuitLocation::new(vec![0, 3], vec![1, 2]));
+    /// let loc = CircuitLocation::new([3, 0], [2, 1]);
+    /// assert_eq!(loc.to_sorted(), CircuitLocation::new([0, 3], [1, 2]));
     /// ```
     pub fn to_sorted(&self) -> CircuitLocation {
         let mut qudits_sorted = self.qudits.clone();
-        let mut clbits_sorted = self.clbits.clone();
+        let mut dits_sorted = self.dits.clone();
         qudits_sorted.sort();
-        clbits_sorted.sort();
+        dits_sorted.sort();
         CircuitLocation {
             qudits: qudits_sorted,
-            clbits: clbits_sorted,
+            dits: dits_sorted,
         }
     }
 
@@ -374,17 +377,17 @@ impl CircuitLocation {
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc = CircuitLocation::pure(vec![0, 2, 3]);
+    /// let loc = CircuitLocation::pure([0, 2, 3]);
     /// assert!(loc.is_sorted());
     /// ```
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc = CircuitLocation::new(vec![3, 0], vec![2, 1]);
+    /// let loc = CircuitLocation::new([3, 0], [2, 1]);
     /// assert!(!loc.is_sorted());
     /// ```
     pub fn is_sorted(&self) -> bool {
-        self.is_qudit_sorted() && self.is_clbit_sorted()
+        self.is_qudit_sorted() && self.is_dit_sorted()
     }
 
     /// Returns true if the qudits are sorted and have trivial ordering.
@@ -393,13 +396,13 @@ impl CircuitLocation {
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc = CircuitLocation::pure(vec![0, 2, 3]);
+    /// let loc = CircuitLocation::pure([0, 2, 3]);
     /// assert!(loc.is_qudit_sorted());
     /// ```
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc = CircuitLocation::new(vec![0, 3], vec![2, 1]);
+    /// let loc = CircuitLocation::new([0, 3], [2, 1]);
     /// assert!(loc.is_qudit_sorted());
     /// ```
     pub fn is_qudit_sorted(&self) -> bool {
@@ -411,28 +414,28 @@ impl CircuitLocation {
             .all(|i| self.qudits.get(i).unwrap() < self.qudits.get(i + 1).unwrap())
     }
 
-    /// Returns true if the clbits are sorted and have trivial ordering.
+    /// Returns true if the dits are sorted and have trivial ordering.
     ///
     /// # Examples
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc = CircuitLocation::classical(vec![0, 2, 3]);
-    /// assert!(loc.is_clbit_sorted());
+    /// let loc = CircuitLocation::classical([0, 2, 3]);
+    /// assert!(loc.is_dit_sorted());
     /// ```
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc = CircuitLocation::new(vec![0, 3], vec![2, 1]);
-    /// assert!(!loc.is_clbit_sorted());
+    /// let loc = CircuitLocation::new([0, 3], [2, 1]);
+    /// assert!(!loc.is_dit_sorted());
     /// ```
-    pub fn is_clbit_sorted(&self) -> bool {
-        if self.clbits.len() < 2 {
+    pub fn is_dit_sorted(&self) -> bool {
+        if self.dits.len() < 2 {
             return true;
         }
 
-        (0..(self.clbits.len() - 1))
-            .all(|i| self.clbits.get(i).unwrap() < self.clbits.get(i + 1).unwrap())
+        (0..(self.dits.len() - 1))
+            .all(|i| self.dits.get(i).unwrap() < self.dits.get(i + 1).unwrap())
     }
 
     /// Returns true if `qudit_index` is in the location.
@@ -441,7 +444,7 @@ impl CircuitLocation {
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc = CircuitLocation::pure(vec![0, 2, 3]);
+    /// let loc = CircuitLocation::pure([0, 2, 3]);
     /// assert!(loc.contains_qudit(0));
     /// assert!(!loc.contains_qudit(1));
     /// ```
@@ -449,37 +452,37 @@ impl CircuitLocation {
         self.qudits.contains(qudit_index)
     }
 
-    /// Returns true if `clbit_index` is in the location.
+    /// Returns true if `dit_index` is in the location.
     ///
     /// # Examples
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc = CircuitLocation::classical(vec![0, 2, 3]);
-    /// assert!(loc.contains_clbit(0));
-    /// assert!(!loc.contains_clbit(1));
+    /// let loc = CircuitLocation::classical([0, 2, 3]);
+    /// assert!(loc.contains_dit(0));
+    /// assert!(!loc.contains_dit(1));
     /// ```
-    pub fn contains_clbit(&self, clbit_index: usize) -> bool {
-        self.clbits.contains(clbit_index)
+    pub fn contains_dit(&self, dit_index: usize) -> bool {
+        self.dits.contains(dit_index)
     }
 
-    /// Returns the number of qudits and clbits in the location.
+    /// Returns the number of qudits and dits in the location.
     ///
     /// # Examples
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc = CircuitLocation::pure(vec![0, 2, 3]);
+    /// let loc = CircuitLocation::pure([0, 2, 3]);
     /// assert_eq!(loc.len(), 3);
     /// ```
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc = CircuitLocation::new(vec![0, 3], vec![2, 1]);
+    /// let loc = CircuitLocation::new([0, 3], [2, 1]);
     /// assert_eq!(loc.len(), 4);
     /// ```
     pub fn len(&self) -> usize {
-        self.get_num_qudits() + self.get_num_clbits()
+        self.get_num_qudits() + self.get_num_dits()
     }
 
     /// Returns the number of qudits in the location.
@@ -488,24 +491,24 @@ impl CircuitLocation {
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc = CircuitLocation::pure(vec![0, 2, 3]);
+    /// let loc = CircuitLocation::pure([0, 2, 3]);
     /// assert_eq!(loc.get_num_qudits(), 3);
     /// ```
     pub fn get_num_qudits(&self) -> usize {
         self.qudits.len()
     }
 
-    /// Returns the number of clbits in the location.
+    /// Returns the number of dits in the location.
     ///
     /// # Examples
     ///
     /// ```
     /// use qudit_circuit::CircuitLocation;
-    /// let loc = CircuitLocation::classical(vec![0, 2, 3]);
-    /// assert_eq!(loc.get_num_clbits(), 3);
+    /// let loc = CircuitLocation::classical([0, 2, 3]);
+    /// assert_eq!(loc.get_num_dits(), 3);
     /// ```
-    pub fn get_num_clbits(&self) -> usize {
-        self.clbits.len()
+    pub fn get_num_dits(&self) -> usize {
+        self.dits.len()
     }
 
     /// Returns the index of the qudit in the location.
@@ -513,57 +516,143 @@ impl CircuitLocation {
         self.qudits.iter().position(|x| x == index)
     }
 
-    /// Returns the index of the clbit in the location.
-    pub fn get_clbit_index(&self, index: usize) -> Option<usize> {
-        self.clbits.iter().position(|x| x == index)
+    /// Returns the index of the dit in the location.
+    pub fn get_dit_index(&self, index: usize) -> Option<usize> {
+        self.dits.iter().position(|x| x == index)
     }
 
-    /// Returns a new CircuitLocation object with the same qudits and clbits.
-    pub fn to_owned(&mut self) -> CircuitLocation {
+    /// Returns a new CircuitLocation object with the same qudits and dits.
+    pub fn to_owned(&self) -> CircuitLocation {
         let qudits = self.qudits.to_owned();
-        let clbits = self.clbits.to_owned();
-        CircuitLocation { qudits, clbits }
+        let dits = self.dits.to_owned();
+        CircuitLocation { qudits, dits }
     }
 }
 
-/// A macro to create a CircuitLocation object.
-///
-/// This macro is used to create CircuitLocation objects in a more
-/// convenient way. It is used in a similar way to the vec! macro.
-///
-/// # Examples
-///
-/// ```
-/// use qudit_circuit::CircuitLocation;
-/// use qudit_circuit::loc;
-/// let loc = loc![0, 2, 3];
-/// assert_eq!(loc, CircuitLocation::pure(vec![0, 2, 3]));
-/// ```
-///
-/// ```
-/// use qudit_circuit::CircuitLocation;
-/// use qudit_circuit::loc;
-/// let loc = loc![0, 2, 3; 1, 2];
-/// assert_eq!(loc, CircuitLocation::new(vec![0, 2, 3], vec![1, 2]));
-/// ```
-///
-/// ```
-/// use qudit_circuit::CircuitLocation;
-/// use qudit_circuit::loc;
-/// let loc = loc![; 1, 2];
-/// assert_eq!(loc, CircuitLocation::classical(vec![1, 2]));
-/// ```
-#[macro_export]
-macro_rules! loc {
-    ($($x:expr),*;$($y:expr),*) => {
-        CircuitLocation::new(vec![$($x),*], vec![$($y),*])
-    };
-    ($($x:expr),*) => {
-        CircuitLocation::pure(vec![$($x),*])
-    };
-    (;$($x:expr),*) => {
-        CircuitLocation::classical(vec![$($x),*])
-    };
+// /// A macro to create a CircuitLocation object.
+// ///
+// /// This macro is used to create CircuitLocation objects in a more
+// /// convenient way. It is used in a similar way to the vec! macro.
+// ///
+// /// # Examples
+// ///
+// /// ```
+// /// use qudit_circuit::CircuitLocation;
+// /// use qudit_circuit::loc;
+// /// let loc = loc![0, 2, 3];
+// /// assert_eq!(loc, CircuitLocation::pure(vec![0, 2, 3]));
+// /// ```
+// ///
+// /// ```
+// /// use qudit_circuit::CircuitLocation;
+// /// use qudit_circuit::loc;
+// /// let loc = loc![0, 2, 3; 1, 2];
+// /// assert_eq!(loc, CircuitLocation::new(vec![0, 2, 3], vec![1, 2]));
+// /// ```
+// ///
+// /// ```
+// /// use qudit_circuit::CircuitLocation;
+// /// use qudit_circuit::loc;
+// /// let loc = loc![; 1, 2];
+// /// assert_eq!(loc, CircuitLocation::classical(vec![1, 2]));
+// /// ```
+// #[macro_export]
+// macro_rules! loc {
+//     ($($x:expr),*;$($y:expr),*) => {
+//         CircuitLocation::new(vec![$($x),*], vec![$($y),*])
+//     };
+//     ($($x:expr),*) => {
+//         CircuitLocation::pure(vec![$($x),*])
+//     };
+//     (;$($x:expr),*) => {
+//         CircuitLocation::classical(vec![$($x),*])
+//     };
+// }
+
+pub trait ToLocation {
+    fn to_location(self) -> CircuitLocation;
+}
+
+impl ToLocation for CircuitLocation {
+    fn to_location(self) -> CircuitLocation {
+        self
+    }
+}
+
+impl<'a> ToLocation for &'a CircuitLocation {
+    fn to_location(self) -> CircuitLocation {
+        self.clone()
+    }
+}
+
+impl ToLocation for usize
+{
+    fn to_location(self) -> CircuitLocation {
+        CircuitLocation::pure([self])
+    }
+}
+
+impl ToLocation for Vec<usize>
+{
+    fn to_location(self) -> CircuitLocation {
+        CircuitLocation::pure(self)
+    }
+}
+
+impl<'a> ToLocation for &'a [usize]
+{
+    fn to_location(self) -> CircuitLocation {
+        CircuitLocation::pure(self)
+    }
+}
+
+impl<const N: usize> ToLocation for [usize; N]
+{
+    fn to_location(self) -> CircuitLocation {
+        CircuitLocation::pure(self)
+    }
+}
+
+impl<const N: usize> ToLocation for &[usize; N]
+{
+    fn to_location(self) -> CircuitLocation {
+        CircuitLocation::pure(self)
+    }
+}
+
+impl ToLocation for (usize, usize)
+{
+    fn to_location(self) -> CircuitLocation {
+        CircuitLocation::new([self.0], [self.1])
+    }
+}
+
+impl ToLocation for (Vec<usize>, Vec<usize>)
+{
+    fn to_location(self) -> CircuitLocation {
+        CircuitLocation::new(self.0, self.1)
+    }
+}
+
+impl<'a, 'b> ToLocation for (&'a [usize], &'b [usize])
+{
+    fn to_location(self) -> CircuitLocation {
+        CircuitLocation::new(self.0, self.1)
+    }
+}
+
+impl<const N: usize, const M: usize> ToLocation for ([usize; N], [usize; M])
+{
+    fn to_location(self) -> CircuitLocation {
+        CircuitLocation::new(self.0, self.1)
+    }
+}
+
+impl<'a, 'b, const N: usize, const M: usize> ToLocation for (&'a [usize; N], &'b [usize; M])
+{
+    fn to_location(self) -> CircuitLocation {
+        CircuitLocation::new(self.0, self.1)
+    }
 }
 
 // #[cfg(test)]
@@ -588,8 +677,8 @@ macro_rules! loc {
 //             let max_num_qudits = args.3;
 //             let min_clbit = args.4;
 //             let max_clbit = args.5;
-//             let min_num_clbits = args.6;
-//             let max_num_clbits = args.7;
+//             let min_num_dits = args.6;
+//             let max_num_dits = args.7;
 
 //             (
 //                 prop::collection::vec(
@@ -598,11 +687,11 @@ macro_rules! loc {
 //                 ),
 //                 prop::collection::vec(
 //                     min_clbit..=max_clbit,
-//                     min_num_clbits..=max_num_clbits,
+//                     min_num_dits..=max_num_dits,
 //                 ),
 //             )
-//                 .prop_map(|(qudits, clbits)| {
-//                     CircuitLocation::new(qudits, clbits)
+//                 .prop_map(|(qudits, dits)| {
+//                     CircuitLocation::new(qudits, dits)
 //                 })
 //                 .boxed()
 //         }

@@ -17,7 +17,7 @@ pub enum OperationType {
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Operation {
     Gate(Gate),
-    ProjectiveMeasurement(TensorExpression, BitSet),
+    ProjectiveMeasurement(TensorExpression, BitSet), // TODO: Switch to kraus operator/andor POVM
     TerminatingMeasurement(StateSystemExpression, BitSet),
     ClassicallyControlled(Gate, BitSet),
     Initialization(StateExpression),
@@ -54,24 +54,28 @@ impl Operation {
 }
 
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Copy)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Copy, PartialOrd, Ord)]
 pub struct OperationReference(u64);
 
 impl OperationReference {
-    pub fn new<C: ComplexScalar>(circuit: &mut QuditCircuit<C>, op: Operation) -> OperationReference {
-        OperationReference(circuit.expression_set.insert(op))
-        // match op {
-            // Operation::Gate(gate) => {
-            //     let index = circuit.expression_set.insert(gate.gen_expr().to_tensor_expression());
-            //     OperationReference((index as u64) << 2 | 0b00)
-            // },
-            // _ => todo!(),
-            // Operation::Subcircuit(subcircuit) => {
-            //     let index = circuit.subcircuits.insert_full(subcircuit).0;
-            //     OperationReference((index as u64) << 2 | 0b01)
-            // },
-        // }
+    #[inline(always)]
+    pub(super) fn new(id: u64) -> Self {
+        OperationReference(id)
     }
+    // pub fn new<C: ComplexScalar>(circuit: &mut QuditCircuit<C>, op: Operation) -> OperationReference {
+    //     OperationReference(circuit.expression_set.insert(op))
+    //     // match op {
+    //         // Operation::Gate(gate) => {
+    //         //     let index = circuit.expression_set.insert(gate.gen_expr().to_tensor_expression());
+    //         //     OperationReference((index as u64) << 2 | 0b00)
+    //         // },
+    //         // _ => todo!(),
+    //         // Operation::Subcircuit(subcircuit) => {
+    //         //     let index = circuit.subcircuits.insert_full(subcircuit).0;
+    //         //     OperationReference((index as u64) << 2 | 0b01)
+    //         // },
+    //     // }
+    // }
 
     // pub fn op_type(&self) -> OperationType {
     //     match self.0 & 0b11 {
@@ -88,7 +92,7 @@ impl OperationReference {
     }
 
     pub fn dereference<'a, C: ComplexScalar>(&'a self, circuit: &'a QuditCircuit<C>) -> &'a Operation {
-        match circuit.expression_set.get(&self.0) {
+        match circuit.expression_set.get(&self) {
             Some(s) => s,
             None => panic!("Unable to find expression."),
         }

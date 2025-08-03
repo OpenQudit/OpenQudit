@@ -9,6 +9,105 @@ pub use instantiater::Instantiater;
 pub use result::InstantiationResult;
 pub use target::InstantiationTarget;
 
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use qudit_core::radices;
+    use qudit_core::c32;
+    use qudit_core::c64;
+    use qudit_core::unitary::UnitaryMatrix;
+    use qudit_core::QuditRadices;
+    use qudit_circuit::QuditCircuit;
+    use qudit_circuit::CircuitLocation;
+    use qudit_expr::UnitaryExpression;
+    use qudit_gates::Gate;
+    use qudit_tensor::TNVM;
+    use qudit_expr::FUNCTION;
+    use qudit_expr::GRADIENT;
+    use crate::numerical::functions::HSProblem;
+    use crate::numerical::runners::MultiStartRunner;
+    use crate::numerical::minimizers::LM;
+    use crate::numerical::initializers::Zeros;
+    use crate::numerical::initializers::Uniform;
+    use crate::numerical::MinimizingInstantiater;
+    use qudit_core::QuditSystem;
+    use qudit_expr::UnitaryExpressionGenerator;
+
+    pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit<c32> {
+        let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
+        let mut circ = QuditCircuit::pure(vec![2; n]);
+        for i in 0..n {
+            circ.append_uninit_gate(Gate::U3(), [i]);
+        }
+        for _ in 0..2 {
+            for i in 0..(n - 1) {
+                circ.append_uninit_gate(Gate::Expression(block_expr.clone()), [i, i+1]);
+            }
+        }
+        circ
+    }
+
+    struct CSUM {}
+    impl UnitaryExpressionGenerator for CSUM {
+        fn gen_expr(&self) -> qudit_expr::UnitaryExpression {
+            UnitaryExpression::new("CSUM() {
+                [
+                    [ 1, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                    [ 0, 1, 0, 0, 0, 0, 0, 0, 0 ],
+                    [ 0, 0, 1, 0, 0, 0, 0, 0, 0 ],
+                    [ 0, 0, 0, 0, 0, 1, 0, 0, 0 ],
+                    [ 0, 0, 0, 1, 0, 0, 0, 0, 0 ],
+                    [ 0, 0, 0, 0, 1, 0, 0, 0, 0 ],
+                    [ 0, 0, 0, 0, 0, 0, 0, 1, 0 ],
+                    [ 0, 0, 0, 0, 0, 0, 0, 0, 1 ],
+                    [ 0, 0, 0, 0, 0, 0, 1, 0, 0 ],
+                ]
+            }")
+        }
+    }
+
+    pub fn build_qutrit_thin_step_circuit(n: usize) -> QuditCircuit<c32> {
+        let block_expr = Gate::P(3).gen_expr().otimes(Gate::P(3).gen_expr()).dot(CSUM{}.gen_expr());
+        let mut circ = QuditCircuit::pure(vec![3; n]);
+        for i in 0..n {
+            circ.append_uninit_gate(Gate::P(3), [i]);
+        }
+        for _ in 0..2 {
+            for i in 0..(n - 1) {
+                circ.append_uninit_gate(Gate::Expression(block_expr.clone()), [i, i+1]);
+            }
+        }
+        circ
+    }
+
+
+    #[test]
+    fn test_lm_minimization_simple() {
+        // create simple circuit
+        let circ = build_qsearch_thin_step_circuit(4);
+
+        // sample target
+        let network = circ.to_tensor_network();
+        let code = qudit_tensor::compile_network(network);
+        let mut tnvm = qudit_tensor::TNVM::<c32, FUNCTION>::new(&code);
+        let result = tnvm.evaluate::<FUNCTION>(&vec![1.7; circ.num_params()]).get_fn_result().unpack_matrix();
+        let target_utry = UnitaryMatrix::new(circ.radices(), result.to_owned());
+        let target = InstantiationTarget::UnitaryMatrix(target_utry);
+
+        // build instantiater
+        let minimizer = LM::default();
+        // let initializer = Zeros::default();
+        let initializer = Uniform::default();
+        let runner = MultiStartRunner { minimizer, guess_generator: initializer, num_starts: 1 };
+        let instantiater = MinimizingInstantiater::<_, HSProblem<f32>>::new(runner);
+        let data = std::collections::HashMap::new();
+
+        // call instantiater
+        let result = instantiater.instantiate(&circ, &target, &data);
+    }
+}
+
 // Open Questions:
 //
 //  Answered Questions:

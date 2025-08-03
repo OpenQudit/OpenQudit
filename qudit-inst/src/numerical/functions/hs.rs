@@ -1,3 +1,4 @@
+use faer::ColMut;
 use qudit_circuit::QuditCircuit;
 use qudit_core::matrix::MatMut;
 use qudit_core::matrix::Row;
@@ -12,6 +13,8 @@ use qudit_tensor::TNVM;
 use qudit_tensor::PinnedTNVM;
 use crate::numerical::Hessian;
 use crate::numerical::Jacobian;
+use crate::numerical::ProvidesJacobian;
+use crate::numerical::ProvidesResidualFunction;
 use crate::numerical::ResidualFunction;
 use crate::InstantiationTarget;
 use super::super::InstantiationProblem;
@@ -21,6 +24,9 @@ use crate::numerical::function::Gradient;
 use crate::numerical::problem::Problem;
 use crate::numerical::problem::ProvidesCostFunction;
 use crate::numerical::problem::ProvidesGradient;
+use qudit_expr::FUNCTION;
+use qudit_expr::GRADIENT;
+use qudit_expr::HESSIAN;
 use faer::reborrow::ReborrowMut;
 
 pub struct HSProblem<'a, R: RealScalar> {
@@ -67,7 +73,9 @@ impl<'a, R: RealScalar> HSProblem<'a, R> {
         }
 
         let code = compile_network(builder.build());
+        // dbg!(&code);
         TNVM::<R::C, D>::new(&code)
+
     }
 }
 
@@ -91,16 +99,25 @@ impl<'a, R: RealScalar> ProvidesCostFunction<R> for HSProblem<'a, R> {
     type CostFunction = HSFunction<R, 0>;
 
     fn build_cost_function(&self) -> Self::CostFunction {
-        HSFunction { tnvm: self.build_cost().into(), N: R::from64(4.0) } // TODO: N comes from circuit
+        HSFunction { tnvm: self.build_cost(), N: R::from64(4.0) } // TODO: N comes from circuit
     }
 }
 
-// // impl<'a, R: RealScalar> ProvidesGradient<C> for HSProblem<'a, R> {
-// //     type Gradient = QuantumCostFunction;
-// //     fn build_gradient(&self) -> Self::Gradient {
-// //         QuantumCostFunction
-// //     }
-// // }
+impl<'a, R: RealScalar> ProvidesResidualFunction<R> for HSProblem<'a, R> {
+    type ResidualFunction = HSFunction<R, 0>;
+
+    fn build_residual_function(&self) -> Self::ResidualFunction {
+        HSFunction { tnvm: self.build_residual(), N: R::from64(4.0) } 
+    }
+}
+
+impl<'a, R: RealScalar> ProvidesJacobian<R> for HSProblem<'a, R> {
+    type Jacobian = HSFunction<R, GRADIENT>;
+
+    fn build_jacobian(&self) -> Self::Jacobian {
+        HSFunction { tnvm: self.build_residual(), N: R::from64(4.0) }
+    }
+}
 
 pub struct HSFunction<R: RealScalar, const D: DifferentiationLevel> {
     tnvm: PinnedTNVM<R::C, D>,
@@ -109,7 +126,7 @@ pub struct HSFunction<R: RealScalar, const D: DifferentiationLevel> {
 
 impl<R: RealScalar, const D: DifferentiationLevel> Function for HSFunction<R, D> {
     fn num_params(&self) -> usize {
-        todo!()
+        self.tnvm.num_params()
         // self.tnvm.borrow().num_params()
     }
 }
@@ -118,7 +135,7 @@ use num_complex::ComplexFloat;
 
 impl<R: RealScalar, const D: DifferentiationLevel> CostFunction<R> for HSFunction<R, D> {
     fn cost(&mut self, params: &[R]) -> R {
-        let result = self.tnvm.evaluate(params);
+        let result = self.tnvm.evaluate::<FUNCTION>(params);
         let trace = result.get_fn_result().unpack_scalar(); // This isn't a scalar if kraus
         // dimension // TODO: add unpack vector able to handle scalar
         let inner = trace.abs() / self.N;
@@ -136,7 +153,7 @@ impl<R: RealScalar, const D: DifferentiationLevel> Gradient<R> for HSFunction<R,
     }
 
     fn cost_and_gradient_into(&mut self, params: &[R], grad_out: RowMut<R>) -> R { 
-        let result = self.tnvm.evaluate(params);
+        let result = self.tnvm.evaluate::<GRADIENT>(params);
         let grad_trace = result.get_grad_result().unpack_vector();
         let trace = result.get_fn_result().unpack_scalar();
         let trace_re = trace.real();
@@ -158,7 +175,7 @@ impl<R: RealScalar, const D: DifferentiationLevel> Hessian<R> for HSFunction<R, 
     }
 
     fn cost_gradient_and_hessian_into(&mut self, params: &[R], grad_out: RowMut<R>, hess_out: qudit_core::matrix::MatMut<R>) -> R {        
-        let result = self.tnvm.evaluate(params);
+        let result = self.tnvm.evaluate::<HESSIAN>(params);
         let hess_trace = result.get_hess_result().unpack_symsq_matrix();
         let grad_trace = result.get_grad_result().unpack_vector();
         let trace = result.get_fn_result().unpack_scalar();
@@ -178,8 +195,12 @@ impl<R: RealScalar, const D: DifferentiationLevel> Hessian<R> for HSFunction<R, 
 }
 
 impl<R: RealScalar, const D: DifferentiationLevel> ResidualFunction<R> for HSFunction<R, D> {
-    fn residuals_into(&mut self, params: &[R], mut residuals_out: RowMut<R>) {
-        let result = self.tnvm.evaluate(params);
+    fn num_residuals(&self) -> usize {
+        self.tnvm.out_shape().num_elements() * 2
+    }
+
+    fn residuals_into(&mut self, params: &[R], mut residuals_out: ColMut<R>) {
+        let result = self.tnvm.evaluate::<FUNCTION>(params);
         // TODO: be able to tell tnvm to make last buffer contiguous so I can just read out a
         // vector...; even better add an evaluate_into for tnvm :)
         let matrix_out = result.get_fn_result().unpack_matrix();// TODO: not always a matrix...
@@ -187,6 +208,7 @@ impl<R: RealScalar, const D: DifferentiationLevel> ResidualFunction<R> for HSFun
         let mut residual_index = 0;
         for (j, col) in matrix_out.col_iter().enumerate() {
             for (i, elem) in col.iter().enumerate() {
+                // println!("{} {} {} {}", i, j, residual_index, residuals_out.nrows());
                 // SAFETY: because I said so (meaning: no safety at all; TODO: do better :)
                 unsafe {
                     let out = residuals_out.rb_mut().get_mut_unchecked(residual_index);
@@ -202,8 +224,29 @@ impl<R: RealScalar, const D: DifferentiationLevel> ResidualFunction<R> for HSFun
 }
 
 impl<R: RealScalar, const D: DifferentiationLevel> Jacobian<R> for HSFunction<R, D> {
-    fn jacobian_into(&mut self, params: &[R], mut jacobian_out: MatMut<R>) {
-        let result = self.tnvm.evaluate(params);
+    fn residuals_and_jacobian_into(&mut self, params: &[R], mut residuals_out: ColMut<R>, mut jacobian_out: MatMut<R>) {
+        let result = self.tnvm.evaluate::<GRADIENT>(params);
+
+        // TODO: be able to tell tnvm to make last buffer contiguous so I can just read out a
+        // vector...; even better add an evaluate_into for tnvm :)
+        let matrix_out = result.get_fn_result().unpack_matrix();// TODO: not always a matrix...
+        
+        let mut residual_index = 0;
+        for (j, col) in matrix_out.col_iter().enumerate() {
+            for (i, elem) in col.iter().enumerate() {
+                // println!("{} {} {} {}", i, j, residual_index, residuals_out.nrows());
+                // SAFETY: because I said so (meaning: no safety at all; TODO: do better :)
+                unsafe {
+                    let out = residuals_out.rb_mut().get_mut_unchecked(residual_index);
+                    *out = if i == j { elem.real() - R::new(1.0) } else { elem.real() };
+                    residual_index += 1;
+                    let out = residuals_out.rb_mut().get_mut_unchecked(residual_index);
+                    *out = elem.imag();
+                    residual_index += 1;
+                }
+            }
+        }
+
         let grad_out = result.get_grad_result().unpack_tensor3d();
 
         for p in 0..grad_out.dims()[0] {    
@@ -212,6 +255,32 @@ impl<R: RealScalar, const D: DifferentiationLevel> Jacobian<R> for HSFunction<R,
             let mut residual_index = 0;
             for (j, col) in grad_matrix_out.col_iter().enumerate() {
                 for (i, elem) in col.iter().enumerate() {
+                    // println!("{} {} {} {}", i, j, residual_index, jacobian_col_out.nrows());
+                    // SAFETY: because I said so (meaning: no safety at all; TODO: do better :)
+                    unsafe {
+                        let out = jacobian_col_out.rb_mut().get_mut_unchecked(residual_index);
+                        *out = elem.real();
+                        residual_index += 1;
+                        let out = jacobian_col_out.rb_mut().get_mut_unchecked(residual_index);
+                        *out = elem.imag();
+                        residual_index += 1;
+                    }
+                }
+            }
+        }
+    }
+
+    fn jacobian_into(&mut self, params: &[R], mut jacobian_out: MatMut<R>) {
+        let result = self.tnvm.evaluate::<GRADIENT>(params);
+        let grad_out = result.get_grad_result().unpack_tensor3d();
+
+        for p in 0..grad_out.dims()[0] {    
+            let grad_matrix_out = grad_out.subtensor_ref(p);
+            let mut jacobian_col_out = jacobian_out.rb_mut().col_mut(p);
+            let mut residual_index = 0;
+            for (j, col) in grad_matrix_out.col_iter().enumerate() {
+                for (i, elem) in col.iter().enumerate() {
+                    // println!("{} {} {} {}", i, j, residual_index, jacobian_col_out.nrows());
                     // SAFETY: because I said so (meaning: no safety at all; TODO: do better :)
                     unsafe {
                         let out = jacobian_col_out.rb_mut().get_mut_unchecked(residual_index);

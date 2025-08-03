@@ -17,7 +17,7 @@ pub fn compile_network(network: QuditTensorNetwork) -> Bytecode {
 
     // println!("{:?}", optimal_path);
     let tree = network.path_to_expression_tree(optimal_path);
-    println!("{:?}", tree);
+    // println!("{:?}", tree);
     crate::bytecode::BytecodeGenerator::new().generate(tree)
 }
 

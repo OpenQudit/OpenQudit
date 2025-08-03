@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use qudit_core::{ComplexScalar, HasParams, ParamIndices, QuditSystem};
+use qudit_core::{ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, QuditSystem, ToRadices};
 
 use indexmap::IndexSet;
 use qudit_core::{QuditRadices, RealScalar, c64};
@@ -9,7 +9,12 @@ use qudit_expr::{TensorExpression, UnitaryExpressionGenerator};
 // use qudit_tensor::{BuilderExpressionInput, ExpressionTree, TreeBuilder, TreeOptimizer};
 use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
 use crate::exprset::{ExpressionSet, OperationSet};
-use crate::{compact::CompactIntegerVector, cpoint, cycle::QuditCycle, cyclelist::CycleList, instruction::{Instruction, InstructionReference}, iterator::{QuditCircuitBFIterator, QuditCircuitDFIterator, QuditCircuitFastIterator}, location::CircuitLocation, operation::{Operation, OperationReference}, qpoint, CircuitPoint, DitOrBit};
+use crate::location::{self, ToLocation};
+use crate::param::ParamList;
+use crate::point::CircuitDitId;
+use crate::ParamEntry;
+use crate::{compact::CompactIntegerVector, cycle::QuditCycle, cyclelist::CycleList, instruction::{Instruction, InstructionReference}, iterator::{QuditCircuitBFIterator, QuditCircuitDFIterator, QuditCircuitFastIterator}, location::CircuitLocation, operation::{Operation, OperationReference}, CircuitPoint};
+
 
 /// A quantum circuit that can be defined with qudits and classical bits.
 #[derive(Clone)]
@@ -17,11 +22,14 @@ pub struct QuditCircuit<C: ComplexScalar = c64> {
     /// The number of qudits in the circuit.
     num_qudits: usize,
 
-    /// The number of classical bits in the circuit.
-    num_clbits: usize,
+    /// The number of classical dits in the circuit.
+    num_dits: usize,
 
-    /// The QuditRadices object that describes the dimension of the circuit.
-    radices: QuditRadices,
+    /// The QuditRadices object that describes the quantum dimension of the circuit.
+    qudit_radices: QuditRadices,
+
+    /// The QuditRadices object that describes the classical dimension of the circuit.
+    dit_radices: QuditRadices,
 
     /// All instructions in the circuit stored in cycles.
     cycles: CycleList,
@@ -68,35 +76,43 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     ///
     /// # Arguments
     ///
-    /// * `radices` - The QuditRadices object that describes the qudit system.
+    /// * `qudit_radices` - The QuditRadices object that describes the qudit system.
     ///
-    /// * `num_clbits` - The number of classical bits in the circuit.
+    /// * `dit_radices` - The QuditRadices object that describes the classical system. 
+    ///
+    /// # Examples
+    ///
+    /// We can define hybrid quantum-classical circuits:
+    /// ```
+    /// use qudit_core::c64;
+    /// use qudit_circuit::QuditCircuit;
+    ///
+    /// let two_qubit_circuit = QuditCircuit::<c64>::new([2, 2], [2, 2]);
+    /// let two_qutrit_circuit = QuditCircuit::<c64>::new([3, 3], [3, 3]);
+    /// ```
+    pub fn new<T1: ToRadices, T2: ToRadices>(qudit_radices: T1, dit_radices: T2) -> QuditCircuit<C> {
+        QuditCircuit::with_capacity(qudit_radices, dit_radices, 1)
+    }
+
+    /// Creates a new purely-quantum QuditCircuit object.
+    ///
+    /// # Arguments
+    ///
+    /// * `qudit_radices` - The QuditRadices object that describes the qudit system.
     ///
     /// # Examples
     ///
     /// We can define purely quantum kernels without classical bits:
     /// ```
+    /// use qudit_core::c64;
     /// use qudit_circuit::QuditCircuit;
-    /// use qudit_core::{radices, QuditRadices};
     ///
-    /// let two_qubit_circuit = QuditCircuit::new(radices![2, 2], 0);
-    /// let two_qutrit_circuit = QuditCircuit::new(radices![3, 3], 0);
-    /// let hybrid_circuit = QuditCircuit::new(radices![2, 2, 3, 3], 0);
+    /// let two_qubit_circuit = QuditCircuit::<c64>::pure([2, 2]);
+    /// let two_qutrit_circuit = QuditCircuit::<c64>::pure([3, 3]);
+    /// let hybrid_circuit = QuditCircuit::<c64>::pure([2, 2, 3, 3]);
     /// ```
-    ///
-    /// We can also define hybrid quantum-classical circuits:
-    /// ```
-    /// use qudit_circuit::QuditCircuit;
-    /// use qudit_core::{radices, QuditRadices};
-    /// let two_qubit_circuit = QuditCircuit::new(radices![2, 2], 2);
-    /// let two_qutrit_circuit = QuditCircuit::new(radices![3, 3], 4);
-    /// ```
-    ///
-    /// Note in the `two_qutrit_circuit` example, we have four classical bits
-    /// even though we only have two qudits. This is because each qudit has
-    /// three possible values, so we need two bits to store/measure each qudit.
-    pub fn new(radices: QuditRadices, num_clbits: usize) -> QuditCircuit<C> {
-        QuditCircuit::with_capacity(radices, num_clbits, 1)
+    pub fn pure<T: ToRadices>(qudit_radices: T) -> QuditCircuit<C> {
+        QuditCircuit::with_capacity(qudit_radices, QuditRadices::new::<usize>(&[]), 1)
     }
 
     /// Creates a new QuditCircuit object with a given cycle capacity.
@@ -112,27 +128,31 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     /// # Examples
     ///
     /// ```
+    /// use qudit_core::c64;
     /// use qudit_circuit::QuditCircuit;
-    /// use qudit_core::{radices, QuditRadices};
-    /// let two_qubit_circuit = QuditCircuit::with_capacity(radices![2, 2], 2, 10);
+    /// let two_qubit_circuit = QuditCircuit::<c64>::with_capacity([2, 2], [2, 2], 10);
     /// ```
-    pub fn with_capacity(
-        radices: QuditRadices,
-        num_clbits: usize,
+    pub fn with_capacity<T1: ToRadices, T2: ToRadices>(
+        qudit_radices: T1,
+        dit_radices: T2,
         capacity: usize,
     ) -> QuditCircuit<C> {
+        let qudit_radices = qudit_radices.to_radices();
+        let dit_radices = dit_radices.to_radices();
+        let num_qudits = qudit_radices.len();
+        let num_dits = dit_radices.len();
         QuditCircuit {
-            num_qudits: radices.num_qudits(),
-            num_clbits: num_clbits,
+            num_qudits,
+            num_dits,
             cycles: CycleList::with_capacity(capacity),
             op_info: HashMap::new(),
             graph_info: HashMap::new(),
-            qfront: vec![None; radices.num_qudits()],
-            qrear: vec![None; radices.num_qudits()],
-            cfront: vec![None; num_clbits],
-            crear: vec![None; num_clbits],
-            radices: radices,
-            // gates: IndexSet::new(),
+            qfront: vec![None; num_qudits],
+            qrear: vec![None; num_qudits],
+            cfront: vec![None; num_dits],
+            crear: vec![None; num_dits],
+            qudit_radices,
+            dit_radices,
             expression_set: OperationSet::new(),
             // subcircuits: IndexSet::new(),
             params: Vec::new(),
@@ -152,7 +172,7 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     ///
     /// # Performance
     ///
-    /// This method is 0(1).
+    /// This method is O(1).
     pub fn num_params(&self) -> usize {
         self.params.len()
     }
@@ -161,41 +181,32 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     ///
     /// # Performance
     ///
-    /// This method is O(|t|) where `t` is the number of distinct instruction
-    /// types in the circuit.
+    /// This method is O(|t|) where
+    ///     - `t` is the number of distinct instruction types in the circuit.
     pub fn num_operations(&self) -> usize {
         self.op_info.iter().map(|(_, count)| count).sum()
     }
 
     /// A reference to the parameters of the circuit.
-    pub fn params(&self) -> &Vec<C::R> {
+    pub fn params(&self) -> &[C::R] {
         &self.params
     }
 
     /// Increment internal instruction type counter.
     fn inc_op_counter(&mut self, op_type: &OperationReference) {
-        match self.op_info.get_mut(op_type) {
-            Some(count) => *count += 1,
-            None => {
-                self.op_info.insert(*op_type, 1);
-            },
-        }
+        *self.op_info.entry(*op_type).or_insert(0) += 1;
     }
 
     /// Increment internal graph counter.
     fn inc_graph_counter(&mut self, location: &CircuitLocation) {
         for pair in location.get_qudit_pairs() {
-            match self.graph_info.get_mut(&pair) {
-                Some(count) => *count += 1,
-                None => {
-                    self.graph_info.insert(pair, 1);
-                },
-            }
+            *self.graph_info.entry(pair).or_insert(0) += 1;
         }
     }
 
     /// Decrement internal instruction type counter.
     fn dec_inst_counter(&mut self, op_type: &OperationReference) -> bool {
+        // TODO: sort inst and op names
         if !self.op_info.contains_key(op_type) {
             panic!(
                 "Cannot decrement instruction counter for instruction type that does not exist."
@@ -207,6 +218,7 @@ impl<C: ComplexScalar> QuditCircuit<C> {
 
         if *count == 0 {
             self.op_info.remove(op_type);
+            // TODO: self.expression_set.remove(op_type)
             true
         }
         else {
@@ -238,8 +250,8 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     /// Checks if `location` is a valid location in the circuit.
     ///
     /// A location is valid if all qudit indices are less than the
-    /// number of qudits in the circuit and all classical bit indices
-    /// are less than the number of classical bits in the circuit.
+    /// number of qudits in the circuit and all classical dit indices
+    /// are less than the number of classical dits in the circuit.
     ///
     /// # Arguments
     ///
@@ -256,26 +268,26 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     /// # Examples
     ///
     /// ```
+    /// use qudit_core::c64;
     /// use qudit_circuit::QuditCircuit;
-    /// use qudit_circuit::{radices, loc, QuditRadices};
-    /// use qudit_circuit::circuit::location::CircuitLocation;
-    /// let circuit = QuditCircuit::new(radices![2, 2], 2);
-    /// assert!(circuit.is_valid_location(&loc![0, 1]));
-    /// assert!(circuit.is_valid_location(&loc![0, 1; 0, 1]));
-    /// assert!(circuit.is_valid_location(&loc![0; 0]));
-    /// assert!(!circuit.is_valid_location(&loc![0, 1; 0, 2]));
-    /// assert!(!circuit.is_valid_location(&loc![0, 1, 2]));
-    /// assert!(!circuit.is_valid_location(&loc![0, 1; 2]));
+    /// let circuit = QuditCircuit::<c64>::new([2, 2], [2, 2]);
+    /// assert!(circuit.is_valid_location([0, 1]));
+    /// assert!(circuit.is_valid_location(([0, 1], [0, 1])));
+    /// assert!(circuit.is_valid_location((0, 0)));
+    /// assert!(!circuit.is_valid_location(([0, 1], [0, 2])));
+    /// assert!(!circuit.is_valid_location([0, 1, 2]));
+    /// assert!(!circuit.is_valid_location(([0, 1], [2])));
     /// ```
-    pub fn is_valid_location(&self, location: &CircuitLocation) -> bool {
+    pub fn is_valid_location<L: ToLocation>(&self, location: L) -> bool {
+        let location = location.to_location();
         location.qudits().iter().all(|q| q < self.num_qudits)
-            && location.clbits().iter().all(|c| c < self.num_clbits)
+            && location.dits().iter().all(|c| c < self.num_dits())
     }
 
     /// Checks if `point` is a valid point in the circuit.
     ///
     /// A point is valid if its cycle index is in bounds and its
-    /// qudit or classical bit index is in bounds.
+    /// qudit or classical dit index is in bounds.
     ///
     /// # Arguments
     ///
@@ -292,22 +304,24 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     /// # Examples
     ///
     /// ```
-    /// use qudit_circuit::{QuditCircuit, Gate, QuditRadices};
-    /// use qudit_circuit::{radices, loc, point};
-    /// use qudit_circuit::circuit::location::CircuitLocation;
-    /// use qudit_circuit::circuit::point::{CircuitPoint, DitOrBit};
-    /// let mut circuit = QuditCircuit::new(radices![2, 2], 2);
-    /// circuit.append_gate(Gate::Z(2), loc![0], vec![]);
-    /// assert!(circuit.is_valid_point(&point!(0, 0)));
-    /// assert!(!circuit.is_valid_point(&point!(1, 0)));
-    /// assert!(circuit.is_valid_point(&point!(0; 1)));
-    /// assert!(!circuit.is_valid_point(&point!(0; 2)));
+    /// use qudit_core::c64;
+    /// use qudit_gates::Gate;
+    /// use qudit_circuit::QuditCircuit;
+    /// let mut circuit: QuditCircuit<c64> = QuditCircuit::new([2, 2], [2, 2]);
+    /// circuit.append_uninit_gate(Gate::P(2), [0]);
+    /// assert!(circuit.is_valid_point((0, 0)));
+    /// assert!(!circuit.is_valid_point((1, 0)));
+    ///
+    /// // Negative dit indices (like the -1 below) imply classical indices.
+    /// assert!(circuit.is_valid_point((0, -1))); // Cycle 0, Classical dit 1
+    /// assert!(!circuit.is_valid_point((0, -2)));
     /// ```
-    pub fn is_valid_point(&self, point: &CircuitPoint) -> bool {
+    pub fn is_valid_point<P: Into<CircuitPoint>>(&self, point: P) -> bool {
+        let point = point.into();
         point.cycle < self.cycles.len()
-            && match point.dit_or_bit {
-                DitOrBit::Qudit(q) => q < self.num_qudits,
-                DitOrBit::Clbit(c) => c < self.num_clbits,
+            && match point.dit_id {
+                CircuitDitId::Quantum(q) => q < self.num_qudits,
+                CircuitDitId::Classical(c) => c < self.num_dits,
             }
     }
 
@@ -335,19 +349,21 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     /// # Examples
     ///
     /// ```
-    /// use qudit_circuit::{QuditCircuit, Gate};
-    /// use qudit_circuit::{radices, loc, QuditRadices};
-    /// use qudit_circuit::circuit::location::CircuitLocation;
-    /// let mut circuit = QuditCircuit::new(radices![2, 2], 2);
-    /// circuit.append_gate(Gate::Z(2), loc![0], vec![]);
-    /// assert!(circuit.find_available_cycle(&loc![0]).is_none());
-    /// assert_eq!(circuit.find_available_cycle(&loc![1]), Some(0));
+    /// use qudit_core::c64;
+    /// use qudit_gates::Gate;
+    /// use qudit_circuit::QuditCircuit;
+    /// let mut circuit = QuditCircuit::<c64>::new([2, 2], [2, 2]);
+    /// circuit.append_uninit_gate(Gate::P(2), [0]);
+    /// assert!(circuit.find_available_cycle([0]).is_none());
+    /// assert_eq!(circuit.find_available_cycle([1]), Some(0));
     /// ```
-    pub fn find_available_cycle(
-        &self,
-        location: &CircuitLocation,
-    ) -> Option<usize> {
-        if !self.is_valid_location(location) {
+    pub fn find_available_cycle<L: ToLocation>(&self, location: L) -> Option<usize> {
+        let location = location.to_location();
+        if !self.is_valid_location(&location) { // TODO: cleanup ToLocation; a lot of unnecessary
+            // copies/allocations in statements like this; think through Into/From/AsRef maybe?
+            //
+            // TODO: Really, panic over this? This it totally a recoverable error.
+            // Cmon, you know better now. Get some proper error handling going already.
             panic!("Cannot find available cycle for invalid location.");
         }
 
@@ -355,42 +371,31 @@ impl<C: ComplexScalar> QuditCircuit<C> {
             return None;
         }
 
-        let last_occupied_cycle = location
+        let last_occupied_cycle_option = location
             .qudits()
             .iter()
-            .map(|q| match self.qrear[q] {
-                Some(cycle_index) => {
-                    Some(self.cycles.map_physical_to_logical_idx(cycle_index))
-                },
-                None => None,
-            })
-            .chain(location.clbits().iter().map(|c| match self.crear[c] {
-                Some(cycle_index) => {
-                    Some(self.cycles.map_physical_to_logical_idx(cycle_index))
-                },
-                None => None,
-            }))
-            .max()
-            .unwrap();
+            .filter_map(|q| self.qrear[q])
+            .chain(location.dits().iter().filter_map(|c| self.crear[c]))
+            .map(|cycle_index| self.cycles.map_physical_to_logical_idx(cycle_index))
+            .max_by(Ord::cmp);
 
-        if let None = last_occupied_cycle {
-            return Some(0);
-        }
-        let last_occupied_cycle = last_occupied_cycle.unwrap();
-
-        if last_occupied_cycle + 1 < self.cycles.len() {
-            Some(last_occupied_cycle + 1)
-        } else {
-            None
+        match last_occupied_cycle_option {
+            Some(cycle_index) if cycle_index + 1 < self.num_cycles() => {
+                Some(cycle_index + 1)
+            }
+            None => {
+                // Circuit is not empty due to above check,
+                // but no gates on location
+                Some(0)
+            }
+            _ => {
+                None
+            }
         }
     }
 
-    /// Find the first available cycle's physical id, if none exist, append a
-    /// new cycle.
-    fn find_available_or_append_cycle(
-        &mut self,
-        location: &CircuitLocation,
-    ) -> usize {
+    /// Find first or create new available cycle and return its physical index
+    fn find_available_or_append_cycle<L: ToLocation>(&mut self, location: L) -> usize {
         // Location validity implicitly checked in find_available_cycle
         if let Some(cycle_index) = self.find_available_cycle(location) {
             self.cycles.map_logical_to_physical_idx(cycle_index)
@@ -399,109 +404,105 @@ impl<C: ComplexScalar> QuditCircuit<C> {
         }
     }
 
+    // TODO: prepend + insert
+    // TODO: param_indices_mapping
+
     /// Append an instruction to the end of the circuit.
     ///
     /// # Arguments
     ///
     /// * `inst` - The instruction to append.
     pub fn append_instruction(&mut self, inst: Instruction<C::R>) {
-        // check valid operation for radix match, measurement bandwidth etc
         let Instruction { op, location, params } = inst;
+
+        // Build operation reference
+        let op_ref = self.expression_set.insert(op);
+
+        // let param_indices = ParamIndices::Joint(self.params.len(), params.len());
+        // self.params.extend(params);
+
+        self.append(op_ref, location, params.into());
+    }
+
+    fn append(&mut self, op_ref: OperationReference, location: CircuitLocation, params: ParamList<C::R>) {
+        // TODO: check valid operation for radix match, measurement bandwidth etc
+        
+        // TODO: check params is valid: length is equal to op_params, existing exist, etc..
+        let param_map = params.to_param_indices(self.params.len());
+        self.params.extend(params.new_entries_unwrapped());
+        // TODO: have to something about static entries...
+        // TODO: have to do something about gate parameters mapped within same gate
 
         // Find cycle placement (location validity implicitly checked here)
         let cycle_index = self.find_available_or_append_cycle(&location);
-
-        // Build operation reference
-        let op_ref = OperationReference::new(self, op);
 
         // Update counters
         self.inc_op_counter(&op_ref);
         self.inc_graph_counter(&location);
 
-        // Update qudit DAG info
+        // Update quantum DAG info
         for qudit_index in location.qudits() {
             if let Some(rear_cycle_index) = self.qrear[qudit_index] {
-                self.cycles[rear_cycle_index].set_qnext(
-                    qudit_index,
-                    cycle_index,
-                );
-                self.cycles[cycle_index].set_qprev(
-                    qudit_index,
-                    rear_cycle_index,
-                );
+                self.cycles[rear_cycle_index].set_qnext(qudit_index, cycle_index);
+                self.cycles[cycle_index].set_qprev(qudit_index, rear_cycle_index);
             } else {
-                // If qrear is none then no op exists on this qudit from before,
+                // If qrear is none, no instruction exists on this wire
                 // so we update qfront too.
                 self.qfront[qudit_index] = Some(cycle_index);
             }
-            // Update qrear
             self.qrear[qudit_index] = Some(cycle_index);
         }
 
-        // Update clbit DAG info
-        for clbit_index in location.clbits() {
-            if let Some(rear_cycle_index) = self.crear[clbit_index] {
-                self.cycles[rear_cycle_index].set_cnext(
-                    clbit_index,
-                    cycle_index,
-                );
-                self.cycles[cycle_index].set_cprev(
-                    clbit_index,
-                    rear_cycle_index,
-                );
+        // Update classical DAG info
+        for dit_index in location.dits() {
+            if let Some(rear_cycle_index) = self.crear[dit_index] {
+                self.cycles[rear_cycle_index].set_cnext(dit_index, cycle_index);
+                self.cycles[cycle_index].set_cprev(dit_index, rear_cycle_index);
             } else {
-                // If crear is none then no op exists on this clbit from before,
+                // If crear is none, no instruction exists on this wire
                 // so we update cfront too.
-                self.cfront[clbit_index] = Some(cycle_index);
+                self.cfront[dit_index] = Some(cycle_index);
             }
-            // Update crear
-            self.crear[clbit_index] = Some(cycle_index);
+            self.crear[dit_index] = Some(cycle_index);
         }
 
-        // update params
-        // let param_indices = CompactIntegerVector::from_range(self.params.len()..(self.params.len() + params.len()));
-        let param_indices = ParamIndices::Joint(self.params.len(), params.len());
-        self.params.extend(params);
-
         // Build instruction reference
-        let inst_ref = InstructionReference::new(op_ref, location, param_indices);
+        let inst_ref = InstructionReference::new(op_ref, location, param_map);
 
         // Add op to cycle
         self.cycles[cycle_index].push(inst_ref);
     }
 
-    /// Shorthand for appending an instruction
-    pub fn append_gate(
-        &mut self,
-        gate: Gate,
-        location: CircuitLocation,
-        params: Vec<C::R>,
-    ) {
-        self.append_instruction(Instruction::new(Operation::Gate(gate), location, params));
+    /// Shorthand for appending a gate without caring about the gate parameters
+    pub fn append_uninit_gate<L: ToLocation>(&mut self, gate: Gate, location: L) {
+        let params = vec![None; gate.num_params()];
+        let op_ref = self.expression_set.insert(Operation::Gate(gate));
+        self.append(op_ref, location.to_location(), params.into());
+    }
+
+    /// Shorthand for appending a gate with specific parameter entries 
+    pub fn append_gate<L: ToLocation, P: Into<ParamList<C::R>>>(&mut self, gate: Gate, location: L, params: P) {
+        let op_ref = self.expression_set.insert(Operation::Gate(gate));
+        self.append(op_ref, location.to_location(), params.into());
     }
 
     /// Remove the operation at `point` from the circuit.
     pub fn remove(&mut self, point: CircuitPoint) {
-        if !self.is_valid_point(&point) {
+        if !self.is_valid_point(point) {
+            // Don't need to panic here... TODO
             panic!("Cannot remove operation at invalid point.");
         }
 
-        let cycle_index = self.cycles.map_logical_to_physical_idx(point.cycle);
-        let inst = match self.cycles[cycle_index].remove(point.dit_or_bit) {
-            Some(inst) => inst,
-            None => panic!("Operation not found at {} in cycle {}", point.dit_or_bit, point.cycle),
+        let location = match self.cycles[point.cycle].get_location(point.dit_id) {
+            Some(location) => location.clone(),
+            // TODO: Error handling
+            None => panic!("Operation not found at {} in cycle {}", point.dit_id, point.cycle),
         };
-        let location = &inst.location;
 
-        // if cycle is empty; remove it
-        if self.cycles[cycle_index].is_empty() {
-            self.cycles.remove(cycle_index);
-        }
-
-        // Update circuit qudit DAG info
+        // Update circuit quantum DAG info
         for qudit_index in location.qudits() {
-            let qnext = self.cycles[cycle_index].get_qnext(qudit_index);
-            let qprev = self.cycles[cycle_index].get_qprev(qudit_index);
+            let qnext = self.cycles[point.cycle].get_qnext(qudit_index);
+            let qprev = self.cycles[point.cycle].get_qprev(qudit_index);
 
             match (qnext, qprev) {
                 (Some(next_cycle_index), Some(prev_cycle_index)) => {
@@ -524,9 +525,9 @@ impl<C: ComplexScalar> QuditCircuit<C> {
         }
 
         // Update circuit qudit DAG info
-        for clbit_index in location.clbits() {
-            let cnext = self.cycles[cycle_index].get_cnext(clbit_index);
-            let cprev = self.cycles[cycle_index].get_cprev(clbit_index);
+        for clbit_index in location.dits() {
+            let cnext = self.cycles[point.cycle].get_cnext(clbit_index);
+            let cprev = self.cycles[point.cycle].get_cprev(clbit_index);
 
             match (cnext, cprev) {
                 (Some(next_cycle_index), Some(prev_cycle_index)) => {
@@ -548,14 +549,21 @@ impl<C: ComplexScalar> QuditCircuit<C> {
             }
         }
 
-        // Update counters
-        self.dec_graph_counter(location);
-        self.dec_inst_counter(&inst.op);
+        // Remove the instruction from the cycle
+        match self.cycles[point.cycle].remove(point.dit_id) {
+            Some(inst_ref) => {
+                // Update counters
+                self.dec_graph_counter(&inst_ref.location);
+                self.dec_inst_counter(&inst_ref.op);
+            },
+            // TODO: Error handling
+            None => panic!("Operation not found at {} in cycle {}", point.dit_id, point.cycle),
+        }
 
-        // Explicitly do not remove from index sets, as this would require updating
-        // all operation references in the circuit, since the indices shift.
-        // TODO: look into dummy values and memory overhead? With gates probably not
-        // much, but subcircuits could be a problem.
+        // If cycle is empty, remove it
+        if self.cycles[point.cycle].is_empty() {
+            self.cycles.remove(point.cycle);
+        }
     }
 
     // /////////////////////////////////////////////////////////////////
@@ -566,68 +574,69 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     ///
     /// # Returns
     ///
-    /// A mapping from qudit or clbit index to a circuit point of the first
+    /// A mapping from qudit or dit index to a circuit point of the first
     /// operation in the circuit on that qudit or clbit.
     ///
     /// # Performance
     ///
     /// This method is O(|width|) where width includes both the number of
-    /// qudits and number of classical bits in the circuit.
+    /// qudits and number of classical dits in the circuit.
     ///
     /// # Notes
     ///
-    /// The same operation may be pointed to by two different keys in the hash
-    /// map if it is at the front of the circuit at multiple spots. For
-    /// example, if a cnot was at the front of the circuit, then it would be
-    /// pointed to by both the control and target qudit indices.
+    /// The same operation point (value in return map) may be pointed to
+    /// by two different keys in the hash map if it is at the front of
+    /// the circuit at multiple spots. For example, if a cnot was at the
+    /// front of the circuit, then it would be pointed to by both the
+    /// control and target qudit indices.
     ///
     /// # Examples
     ///
     /// ```
-    /// use qudit_circuit::{QuditCircuit, Gate, QuditRadices};
-    /// use qudit_circuit::{radices, loc, point};
-    /// use qudit_circuit::circuit::location::CircuitLocation;
-    /// use qudit_circuit::circuit::point::{CircuitPoint, DitOrBit};
-    /// let mut circuit = QuditCircuit::new(radices![2, 2], 2);
-    /// circuit.append_gate(Gate::Z(2), loc![0], vec![]);
-    /// circuit.append_gate(Gate::H(2), loc![1], vec![]);
+    /// use qudit_core::c64;
+    /// use qudit_gates::Gate;
+    /// use qudit_circuit::QuditCircuit;
+    /// use qudit_circuit::{CircuitDitId, CircuitPoint};
+    /// let mut circuit = QuditCircuit::<c64>::new([2, 2], [2, 2]);
+    /// circuit.append_uninit_gate(Gate::P(2), [0]);
+    /// circuit.append_uninit_gate(Gate::H(2), [1]);
     /// assert_eq!(circuit.front().len(), 2);
-    /// assert_eq!(circuit.front()[&DitOrBit::Qudit(0)], point!(0, 0));
-    /// assert_eq!(circuit.front()[&DitOrBit::Qudit(1)], point!(0, 1));
+    /// assert_eq!(circuit.front()[&CircuitDitId::Quantum(0)], CircuitPoint::new(0, 0));
+    /// assert_eq!(circuit.front()[&CircuitDitId::Quantum(1)], CircuitPoint::new(0, 1));
     /// ```
-    pub fn front(&self) -> HashMap<DitOrBit, CircuitPoint> {
-        self.qfront
-            .iter()
-            .enumerate()
-            .filter(|x| x.1.is_some())
-            .map(|x| (DitOrBit::Qudit(x.0), qpoint!(self.cycles[x.1.unwrap()].logical_index, x.0)))
-            .chain(
-                self.cfront
-                    .iter()
-                    .enumerate()
-                    .filter(|x| x.1.is_some())
-                    .map(|x| (DitOrBit::Clbit(x.0), cpoint!(self.cycles[x.1.unwrap()].logical_index, x.0))),
-            )
-            .collect()
+    pub fn front(&self) -> HashMap<CircuitDitId, CircuitPoint> {
+        let quantum = self.qfront.iter().enumerate()
+            .filter_map(|q| q.1.map(|phy_cidx| {
+                let id = CircuitDitId::quantum(q.0);
+                (id, CircuitPoint::new(self.cycles.map_physical_to_logical_idx(phy_cidx), id))
+            }));
+
+        let classical = self.cfront.iter().enumerate()
+            .filter_map(|c| c.1.map(|phy_cidx| { 
+                let id = CircuitDitId::classical(c.0);
+                (id, CircuitPoint::new(self.cycles.map_physical_to_logical_idx(phy_cidx), id))
+            }));
+
+        quantum.chain(classical).collect()
     }
 
     /// Distill the circuit rear nodes into a hashmap.
     ///
     /// See [`QuditCircuit::front`] for more information.
-    pub fn rear(&self) -> HashMap<DitOrBit, CircuitPoint> {
-        self.qrear
-            .iter()
-            .enumerate()
-            .filter(|x| x.1.is_some())
-            .map(|x| (DitOrBit::Qudit(x.0), qpoint!(self.cycles[x.1.unwrap()].logical_index, x.0)))
-            .chain(
-                self.crear
-                    .iter()
-                    .enumerate()
-                    .filter(|x| x.1.is_some())
-                    .map(|x| (DitOrBit::Clbit(x.0), cpoint!(self.cycles[x.1.unwrap()].logical_index, x.0))),
-            )
-            .collect()
+    pub fn rear(&self) -> HashMap<CircuitDitId, CircuitPoint> {
+        let quantum = self.qrear.iter().enumerate()
+            .filter_map(|q| q.1.map(|phy_cidx| {
+                let id = CircuitDitId::quantum(q.0);
+                (id, CircuitPoint::new(self.cycles.map_physical_to_logical_idx(phy_cidx), id))
+            }));
+
+        let classical = self.crear.iter().enumerate()
+            .filter_map(|c| c.1.map(|phy_cidx| { 
+                let id = CircuitDitId::classical(c.0);
+                (id, CircuitPoint::new(self.cycles.map_physical_to_logical_idx(phy_cidx), id))
+            }));
+
+        quantum.chain(classical).collect()
     }
 
     /// Gather the points of the next operations from the point of an operation.
@@ -645,7 +654,7 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     /// # Performance
     ///
     /// This method is O(|op-width|) where op-width includes both the number of
-    /// qudits and number of classical bits in the operation referred to by
+    /// qudits and number of classical dits in the operation referred to by
     /// `point`.
     ///
     /// # Panics
@@ -663,53 +672,38 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     /// # Examples
     ///
     /// ```
-    /// use qudit_circuit::{QuditCircuit, Gate};
-    /// use qudit_circuit::{radices, loc, point, QuditRadices};
-    /// use qudit_circuit::circuit::location::CircuitLocation;
-    /// use qudit_circuit::circuit::point::{CircuitPoint, DitOrBit};
-    /// let mut circuit = QuditCircuit::new(radices![2, 2], 2);
-    /// circuit.append_gate(Gate::Z(2), loc![0], vec![]);
-    /// circuit.append_gate(Gate::H(2), loc![1], vec![]);
-    /// circuit.append_gate(Gate::Z(2), loc![0], vec![]);
-    /// assert_eq!(circuit.next(point!(0, 0)).len(), 1);
-    /// assert_eq!(circuit.next(point!(0, 0))[&DitOrBit::Qudit(0)], point!(1, 0));
+    /// use qudit_core::c64;
+    /// use qudit_gates::Gate;
+    /// use qudit_circuit::QuditCircuit;
+    /// use qudit_circuit::{CircuitPoint, CircuitDitId};
+    /// let mut circuit: QuditCircuit<c64> = QuditCircuit::new([2, 2], [2, 2]);
+    /// circuit.append_uninit_gate(Gate::P(2), [0]);
+    /// circuit.append_uninit_gate(Gate::H(2), [1]);
+    /// circuit.append_uninit_gate(Gate::P(2), [0]);
+    /// assert_eq!(circuit.next(CircuitPoint::new(0, 0)).len(), 1);
+    /// assert_eq!(circuit.next(CircuitPoint::new(0, 0))[&CircuitDitId::Quantum(0)],
+    /// CircuitPoint::new(1, 0));
     /// ```
-    pub fn next(&self, point: CircuitPoint) -> HashMap<DitOrBit, CircuitPoint> {
-        let physical_cycle_index = self.cycles.map_logical_to_physical_idx(point.cycle);
-        let location = self.cycles[physical_cycle_index].get_location(point.dit_or_bit);
+    pub fn next(&self, point: CircuitPoint) -> HashMap<CircuitDitId, CircuitPoint> {
+        let location = self.cycles[point.cycle].get_location(point.dit_id); // TODO consider
+        // extracting to an inlined function get_location(CircuitPointLike)
 
         match location {
-            Some(location) => {
-                location.qudits()
-                    .iter()
-                    .map(|qudit_index|
-                        match self.cycles[physical_cycle_index].get_qnext(qudit_index) {
-                            Some(next_cycle_index) => {
-                                Some((DitOrBit::Qudit(qudit_index), qpoint!(qudit_index, self.cycles[next_cycle_index].logical_index)))
-                            },
-                            None => {
-                                None
-                            }
-                        }
-                    )
-                    .chain(
-                        location.clbits()
-                            .iter()
-                            .map(|clbit_index|
-                                match self.cycles[physical_cycle_index].get_cnext(clbit_index) {
-                                    Some(next_cycle_index) => {
-                                        Some((DitOrBit::Clbit(clbit_index), cpoint!(clbit_index, self.cycles[next_cycle_index].logical_index)))
-                                    },
-                                    None => {
-                                        None
-                                    }
-                                }
-                            )
-                    )
-                    .filter(|x| x.is_some())
-                    .map(|x| x.unwrap())
-                    .collect()
+            Some(location) => { 
+                let quantum = location.qudits().iter().filter_map(|q_idx|
+                    self.cycles[point.cycle].get_qnext(q_idx).map(|next_cidx| {
+                        let id = CircuitDitId::quantum(q_idx);
+                        (id, CircuitPoint::new(self.cycles.map_physical_to_logical_idx(next_cidx), id))
+                    })
+                );
 
+                let classical = location.dits().iter().filter_map(|c_idx|
+                    self.cycles[point.cycle].get_cnext(c_idx).map(|next_cidx| {
+                        let id = CircuitDitId::classical(c_idx);
+                        (id, CircuitPoint::new(self.cycles.map_physical_to_logical_idx(next_cidx), id))
+                    })
+                );
+                quantum.chain(classical).collect()
             },
             None => HashMap::new(),
         }
@@ -719,42 +713,26 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     /// operation.
     ///
     /// See [`QuditCircuit::next`] for more information.
-    pub fn prev(&self, point: CircuitPoint) -> HashMap<DitOrBit, CircuitPoint> {
-        let physical_cycle_index = self.cycles.map_logical_to_physical_idx(point.cycle);
-        let location = self.cycles[physical_cycle_index].get_location(point.dit_or_bit);
+    pub fn prev(&self, point: CircuitPoint) -> HashMap<CircuitDitId, CircuitPoint> {
+        let location = self.cycles[point.cycle].get_location(point.dit_id); // TODO consider
+        // extracting to an inlined function get_location(CircuitPointLike)
 
         match location {
-            Some(location) => {
-                location.qudits()
-                    .iter()
-                    .map(|qudit_index|
-                        match self.cycles[physical_cycle_index].get_qprev(qudit_index) {
-                            Some(prev_cycle_index) => {
-                                Some((DitOrBit::Qudit(qudit_index), qpoint!(qudit_index, self.cycles[prev_cycle_index].logical_index)))
-                            },
-                            None => {
-                                None
-                            }
-                        }
-                    )
-                    .chain(
-                        location.clbits()
-                            .iter()
-                            .map(|clbit_index|
-                                match self.cycles[physical_cycle_index].get_cprev(clbit_index) {
-                                    Some(prev_cycle_index) => {
-                                        Some((DitOrBit::Clbit(clbit_index), cpoint!(clbit_index, self.cycles[prev_cycle_index].logical_index)))
-                                    },
-                                    None => {
-                                        None
-                                    }
-                                }
-                            )
-                    )
-                    .filter(|x| x.is_some())
-                    .map(|x| x.unwrap())
-                    .collect()
+            Some(location) => { 
+                let quantum = location.qudits().iter().filter_map(|q_idx|
+                    self.cycles[point.cycle].get_qprev(q_idx).map(|prev_cidx| {
+                        let id = CircuitDitId::quantum(q_idx);
+                        (id, CircuitPoint::new(self.cycles.map_physical_to_logical_idx(prev_cidx), id))
+                    })
+                );
 
+                let classical = location.dits().iter().filter_map(|c_idx|
+                    self.cycles[point.cycle].get_cprev(c_idx).map(|prev_cidx| {
+                        let id = CircuitDitId::classical(c_idx);
+                        (id, CircuitPoint::new(self.cycles.map_physical_to_logical_idx(prev_cidx), id))
+                    })
+                );
+                quantum.chain(classical).collect()
             },
             None => HashMap::new(),
         }
@@ -795,7 +773,7 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     }
 
     pub fn as_tensor_network_builder(&self) -> QuditCircuitTensorNetworkBuilder {
-        let mut network = QuditCircuitTensorNetworkBuilder::new(self.radices());
+        let mut network = QuditCircuitTensorNetworkBuilder::new(self.qudit_radices());
         for inst_ref in self.iter() {
             let op_ref = inst_ref.op.dereference(self);
             match op_ref {
@@ -839,11 +817,11 @@ impl<C: ComplexScalar> QuditSystem for QuditCircuit<C> {
     }
 
     fn dimension(&self) -> usize {
-        self.radices.dimension()
+        self.qudit_radices.dimension()
     }
 
     fn radices(&self) -> QuditRadices {
-        self.radices.clone()
+        self.qudit_radices.clone()
     }
 }
 
@@ -852,6 +830,18 @@ impl<C: ComplexScalar> HasParams for QuditCircuit<C> {
         self.params.len()
     }
 }
+
+impl<C: ComplexScalar> ClassicalSystem for QuditCircuit<C> {
+    fn radices(&self) -> qudit_core::QuditRadices {
+        self.dit_radices.clone()
+    }
+
+    fn num_dits(&self) -> usize {
+        self.num_dits
+    }
+}
+
+impl<C: ComplexScalar> HybridSystem for QuditCircuit<C> {}
 
 #[cfg(test)]
 mod tests {
@@ -865,7 +855,6 @@ mod tests {
     use qudit_expr::DifferentiationLevel;
     use qudit_expr::StateSystemExpression;
     use qudit_tensor::Bytecode;
-    use crate::loc;
     use crate::CircuitLocation;
     use qudit_core::unitary::UnitaryMatrix;
     use qudit_core::unitary::UnitaryFn;
@@ -873,13 +862,13 @@ mod tests {
 
     pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
         let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
-        let mut circ = QuditCircuit::new(radices![2; n], 0);
+        let mut circ = QuditCircuit::pure(vec![2; n]);
         for i in 0..n {
-            circ.append_gate(Gate::U3(), loc![i], vec![]);
+            circ.append_uninit_gate(Gate::U3(), [i]);
         }
         for _ in 0..n {
             for i in 0..(n - 1) {
-                circ.append_gate(Gate::Expression(block_expr.clone()), loc![i, i+1], vec![]);
+                circ.append_uninit_gate(Gate::Expression(block_expr.clone()), [i, i+1]);
                 // circ.append_gate(Gate::CX(), loc![i, i + 1], vec![]);
                 // circ.append_gate(Gate::U3(), loc![i], vec![]);
                 // circ.append_gate(Gate::U3(), loc![i + 1], vec![]);
@@ -927,7 +916,7 @@ mod tests {
         let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
         let start = std::time::Instant::now();
         for _ in 0..1000 {
-            let result = tnvm.evaluate(&[1.7; (3*n) + (7*(n-1)*n)]);
+            let result = tnvm.evaluate::<GRADIENT>(&[1.7; (3*n) + (7*(n-1)*n)]);
         }
         let elapsed = start.elapsed();
         println!("Time per evaluation: {:?}", elapsed / 1000);
@@ -960,18 +949,33 @@ mod tests {
     // }
 
     #[test]
+    fn simple_instantiation_structure_test() {
+        let mut circ: QuditCircuit<c32> = QuditCircuit::new([2], [2, 2, 2]);
+        circ.append_uninit_gate(Gate::U3(), [0]);
+        let mut builder = circ.as_tensor_network_builder();
+        builder = builder.prepend_unitary(UnitaryMatrix::<c32>::identity(radices![2]), vec![0]);
+        let network = builder.build();
+        let code = qudit_tensor::compile_network(network);
+        let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
+        let result = tnvm.evaluate::<GRADIENT>(&[1.7; 3]);
+        let fn_out = result.get_fn_result().unpack_matrix();
+        let grad_out = result.get_grad_result().unpack_tensor3d();
+    }
+
+    #[test]
     fn dynamic_circuit_test() {
-        let mut circ: QuditCircuit<c32> = QuditCircuit::new(radices![2, 2, 2, 2], 3);
+        let mut circ: QuditCircuit<c32> = QuditCircuit::new([2, 2, 2, 2], [2, 2]); // TODO:
+        // allow dit level classical information
 
         for i in 0..4 {
-            circ.append_gate(Gate::U3(), loc![i], vec![]);
+            circ.append_uninit_gate(Gate::U3(), [i]);
         }
 
         let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
 
-        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), loc![0, 1], vec![]));
-        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), loc![2, 3], vec![]));
-        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), loc![1, 2], vec![]));
+        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [0, 1], vec![]));
+        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [2, 3], vec![]));
+        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [1, 2], vec![]));
         // circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), loc![3, 4], vec![]));
 
         // let clbits = BitSet::from_bit_vec(&[0b11]);
@@ -998,10 +1002,10 @@ mod tests {
                 [[ 0, 0, 0, 1 ]],
             ]
         }");
-        circ.append_instruction(Instruction::new(Operation::TerminatingMeasurement(two_qubit_basis_measurement, clbits.clone()), loc![1, 2], vec![]));
+        circ.append_instruction(Instruction::new(Operation::TerminatingMeasurement(two_qubit_basis_measurement, clbits.clone()), [1, 2], vec![]));
 
-        circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits.clone()), loc![0], vec![]));
-        circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits.clone()), loc![3], vec![]));
+        circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits.clone()), [0], vec![]));
+        circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits.clone()), [3], vec![]));
         // circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits), loc![0, 3], vec![]));
 
         let network = circ.to_tensor_network();
@@ -1009,8 +1013,30 @@ mod tests {
         let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
         let start = std::time::Instant::now();
         for _ in 0..1000 {
-            let result = tnvm.evaluate(&[1.7; 36]);
+            let result = tnvm.evaluate::<GRADIENT>(&[1.7; 36]);
         }
+        let elapsed = start.elapsed();
+        println!("Time per evaluation: {:?}", elapsed / 1000);
+    }
+
+    #[test]
+    fn test_param_overlapping_cirucit() {
+        let mut circ: QuditCircuit<c64> = QuditCircuit::pure([2, 2]);
+        circ.append_uninit_gate(Gate::CX(), [0, 1]);
+        circ.append_uninit_gate(Gate::P(2), [1]);
+        circ.append_uninit_gate(Gate::CX(), [0, 1]);
+        circ.append_gate(Gate::P(2), [1], [ParamEntry::Existing(0)]);
+        circ.append_uninit_gate(Gate::CX(), [0, 1]);
+
+        let network = circ.to_tensor_network();
+        let code = qudit_tensor::compile_network(network);
+        let mut tnvm = qudit_tensor::TNVM::<c64, GRADIENT>::new(&code);
+        let start = std::time::Instant::now();
+        for _ in 0..1000 {
+            let result = tnvm.evaluate::<GRADIENT>(&[1.7]);
+        }
+        let result = tnvm.evaluate::<GRADIENT>(&[1.7]);
+        dbg!(result.get_grad_result().unpack_tensor3d());
         let elapsed = start.elapsed();
         println!("Time per evaluation: {:?}", elapsed / 1000);
     }

@@ -14,7 +14,7 @@ coe-rs = "*"
 egg = "*"
 ordered-float = "*"
 itertools = "*"
-faer = "0.21.3"
+faer = "0.22.6"
 
 
 rustc-hash = "*"
@@ -25,7 +25,7 @@ rand = "*"
 [dev-dependencies]
 proptest = "1.2"
 criterion = "0.5"
-pprof = { version = "0.13", features = ["flamegraph"] }
+pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
 
 [[bench]]
 name = "cnotu3u3"

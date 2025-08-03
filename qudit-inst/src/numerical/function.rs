@@ -1,6 +1,6 @@
 //! This module defines traits for cost functions, gradients, Hessians, residual functions, and Jacobians.
 
-use qudit_core::{matrix::{Mat, MatMut, MatRef, Row, RowMut, RowRef}, RealScalar};
+use qudit_core::{matrix::{Mat, MatMut, MatRef, Row, RowMut, RowRef, Col, ColRef, ColMut}, RealScalar};
 
 pub trait Function {
     fn num_params(&self) -> usize;
@@ -52,25 +52,27 @@ pub trait Hessian<R: RealScalar>: Gradient<R> {
 
 /// A trait for residual functions.
 pub trait ResidualFunction<R: RealScalar>: Function {
-    fn allocate_residual(&self) -> Row<R> {
-        Row::zeros(self.num_params())
+    fn num_residuals(&self) -> usize;
+
+    fn allocate_residual(&self) -> Col<R> {
+        Col::zeros(self.num_residuals())
     }
 
     /// Calculates the residuals for the given parameters.
-    fn residuals_into(&mut self, params: &[R], residuals_out: RowMut<R>);
+    fn residuals_into(&mut self, params: &[R], residuals_out: ColMut<R>);
 }
 
 /// A trait for Jacobians.
 pub trait Jacobian<R: RealScalar>: ResidualFunction<R> {
     fn allocate_jacobian(&self) -> Mat<R> {
-        Mat::zeros(self.num_params(), self.num_params())
+        Mat::zeros(self.num_residuals(), self.num_params())
     }
 
     /// Calculates the Jacobian for the given parameters.
     fn jacobian_into(&mut self, params: &[R], jacobian_out: MatMut<R>);
 
     /// Calculates the residuals and Jacobian for the given parameters.
-    fn residuals_and_jacobian_into(&mut self, params: &[R], residuals_out: RowMut<R>, jacobian_out: MatMut<R>) {
+    fn residuals_and_jacobian_into(&mut self, params: &[R], residuals_out: ColMut<R>, jacobian_out: MatMut<R>) {
         self.residuals_into(params, residuals_out);
         self.jacobian_into(params, jacobian_out);
     }

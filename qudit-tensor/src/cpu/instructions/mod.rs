@@ -73,7 +73,7 @@ fn cache_grad_offset_list<C: ComplexScalar>(
     // We loop through all left and right parameters and record the ptrs of
     // matrices that need to be interacted and where they will be stored.
     let mut offset_map = BTreeMap::new();
-    for (i, param) in left_param_map.iter().enumerate() {
+    for (i, param) in left_param_map.sorted().iter().enumerate() {
         offset_map.insert(
             param,
             (
@@ -86,7 +86,7 @@ fn cache_grad_offset_list<C: ComplexScalar>(
         );
     }
 
-    for (i, param) in right_param_map.iter().enumerate() {
+    for (i, param) in right_param_map.sorted().iter().enumerate() {
         offset_map.entry(param).and_modify(|offs| {
             // This parameter is also in left, need to apply product rule
             offs.2 = true;
@@ -126,8 +126,8 @@ fn cache_hess_offset_list<C: ComplexScalar>(
     right_param_map: &ParamIndices,
 ) -> HessOffsetList {
     let mut offset_map = BTreeMap::new();
-    for (i, param_i) in left_param_map.iter().enumerate() {
-        for (j, param_j) in left_param_map.iter().enumerate() {
+    for (i, param_i) in left_param_map.sorted().iter().enumerate() {
+        for (j, param_j) in left_param_map.sorted().iter().enumerate() {
             // Only upper right triangle of hessian is stored since its a symmetric square
             if param_i > param_j {
                 continue
@@ -151,8 +151,8 @@ fn cache_hess_offset_list<C: ComplexScalar>(
         }
     }
 
-    for (i, param_i) in right_param_map.iter().enumerate() {
-        for (j, param_j) in right_param_map.iter().enumerate() {
+    for (i, param_i) in right_param_map.sorted().iter().enumerate() {
+        for (j, param_j) in right_param_map.sorted().iter().enumerate() {
             if param_i > param_j {
                 continue
             }
@@ -179,8 +179,8 @@ fn cache_hess_offset_list<C: ComplexScalar>(
     // Hessian also includes double partials, where the first is taken with respect to a
     // parameter in left and the second in right. This is realized as a single partial of
     // left multiplied by a single partial of right.
-    for (i, param_i) in left_param_map.iter().enumerate() {
-        for (j, param_j) in right_param_map.iter().enumerate() {
+    for (i, param_i) in left_param_map.sorted().iter().enumerate() {
+        for (j, param_j) in right_param_map.sorted().iter().enumerate() {
             offset_map.entry((param_i, param_j))
                 // If offset_map already contains this then param_i is in right and
                 // param_j is in left. Since its shared, I don't do anything

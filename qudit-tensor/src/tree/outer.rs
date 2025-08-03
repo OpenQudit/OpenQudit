@@ -28,8 +28,6 @@ impl OuterProductNode {
         let right_indices = right.indices();
 
         // assert left and right have the same batch dimensions
-        // println!("left indices: {:?}", left_indices);
-        // println!("right indices: {:?}", right_indices);
         let left_batch_size = left_indices.iter().filter(|idx| idx.direction() == IndexDirection::Batch).map(|idx| idx.index_size()).product::<usize>();
         let right_batch_size = right_indices.iter().filter(|idx| idx.direction() == IndexDirection::Batch).map(|idx| idx.index_size()).product::<usize>();
         assert_eq!(left_batch_size, right_batch_size);

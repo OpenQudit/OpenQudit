@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use qudit_expr::TensorExpression;
 
-use crate::operation::Operation;
+use crate::operation::{Operation, OperationReference};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ExpressionSet {
@@ -41,8 +41,8 @@ impl ExpressionSet {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct OperationSet {
-    data: BTreeMap<String, Vec<(Operation, u64)>>,
-    map: BTreeMap<u64, Operation>,
+    data: BTreeMap<String, Vec<(Operation, OperationReference)>>,
+    map: BTreeMap<OperationReference, Operation>,
     idx_counter: u64,
 }
 
@@ -55,7 +55,10 @@ impl OperationSet {
         }
     }
 
-    pub fn insert(&mut self, expr: Operation) -> u64 {
+    pub fn insert(&mut self, expr: Operation) -> OperationReference {
+        // TODO: this name mapping implements label-based identification
+        // replace it, once expression data structures are optimized with
+        // fast equal
         let name = expr.name().to_string();
 
         // Get a mutable reference to the vector associated with the key.
@@ -70,14 +73,14 @@ impl OperationSet {
 
         // If the expression is not found, assign a new index,
         // add it to the vector, and increment the counter.
-        let current_idx = self.idx_counter;
+        let current_idx = OperationReference::new(self.idx_counter);
         exprs_vec.push((expr.clone(), current_idx));
         self.map.insert(current_idx, expr);
         self.idx_counter += 1;
         current_idx
     }
 
-    pub fn get(&self, index: &u64) -> Option<&Operation> {
+    pub fn get(&self, index: &OperationReference) -> Option<&Operation> {
         self.map.get(index)
     }
 }

@@ -595,31 +595,6 @@ dependencies = [
 
 [[package]]
 name = "faer"
-version = "0.21.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ebe9ac2a073e05ca749eeea503fae16a91440b20d2e92b6fc6f6c6919b9964eb"
-dependencies = [
- "bytemuck",
- "dyn-stack",
- "equator 0.4.2",
- "faer-macros",
- "faer-traits 0.21.5",
- "gemm",
- "generativity",
- "libm",
- "nano-gemm",
- "npyz",
- "num-complex",
- "num-traits",
- "pulp",
- "rand 0.8.5",
- "rand_distr",
- "rayon",
- "reborrow",
-]
-
-[[package]]
-name = "faer"
 version = "0.22.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49fce40ad65c366fbc6cd70a99d09d1008f075280bf2455e558e163c82913a9f"
@@ -628,7 +603,7 @@ dependencies = [
  "dyn-stack",
  "equator 0.4.2",
  "faer-macros",
- "faer-traits 0.22.1",
+ "faer-traits",
  "gemm",
  "generativity",
  "libm",
@@ -653,23 +628,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.104",
-]
-
-[[package]]
-name = "faer-traits"
-version = "0.21.5"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1430e111b20872c7eaa82c7ada071bff1c3e3ac09cc6f4df676065fd2d41eb62"
-dependencies = [
- "bytemuck",
- "dyn-stack",
- "faer-macros",
- "generativity",
- "libm",
- "num-complex",
- "num-traits",
- "pulp",
- "reborrow",
 ]
 
 [[package]]
@@ -1408,29 +1366,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "parking_lot"
-version = "0.12.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "70d58bf43669b5795d1576d0641cfb6fbb2057bf629506267a92807158584a13"
-dependencies = [
- "lock_api",
- "parking_lot_core",
-]
-
-[[package]]
-name = "parking_lot_core"
-version = "0.9.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bc838d2a56b5b1a6c25f55575dfc605fabb63bb2365f6c2353ef9159aa69e4a5"
-dependencies = [
- "cfg-if",
- "libc",
- "redox_syscall",
- "smallvec",
- "windows-targets 0.52.6",
-]
-
-[[package]]
 name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1512,27 +1447,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51bae2ac328883f7acdfea3d66a7c35751187f870bc81f94563733a154d7a670"
 dependencies = [
  "plotters-backend",
-]
-
-[[package]]
-name = "pprof"
-version = "0.13.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ef5c97c51bd34c7e742402e216abdeb44d415fbe6ae41d56b114723e953711cb"
-dependencies = [
- "backtrace",
- "cfg-if",
- "findshlibs",
- "inferno",
- "libc",
- "log",
- "nix",
- "once_cell",
- "parking_lot",
- "smallvec",
- "symbolic-demangle",
- "tempfile",
- "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -1674,12 +1588,12 @@ dependencies = [
  "bit-set",
  "bytemuck",
  "criterion",
- "faer 0.21.9",
+ "faer",
  "indexmap",
  "itertools 0.10.5",
  "num-complex",
  "num-traits",
- "pprof 0.15.0",
+ "pprof",
  "proptest",
  "qudit-core",
  "qudit-expr",
@@ -1696,12 +1610,12 @@ dependencies = [
  "bytemuck",
  "coe-rs",
  "criterion",
- "faer 0.22.6",
- "faer-traits 0.22.1",
+ "faer",
+ "faer-traits",
  "nano-gemm",
  "num",
  "num-traits",
- "pprof 0.15.0",
+ "pprof",
  "proptest",
  "qudit-core-proc-macros",
  "rand 0.9.1",
@@ -1711,8 +1625,8 @@ dependencies = [
 name = "qudit-core-proc-macros"
 version = "0.1.0"
 dependencies = [
- "faer 0.21.9",
- "faer-traits 0.21.5",
+ "faer",
+ "faer-traits",
  "proc-macro2",
  "quote",
  "syn 2.0.104",
@@ -1725,14 +1639,14 @@ dependencies = [
  "coe-rs",
  "criterion",
  "egg",
- "faer 0.21.9",
+ "faer",
  "indexmap",
  "inkwell",
  "itertools 0.14.0",
  "llvm-sys",
  "num",
  "ordered-float",
- "pprof 0.13.0",
+ "pprof",
  "proptest",
  "qudit-core",
  "rand 0.9.1",
@@ -1754,12 +1668,15 @@ dependencies = [
 name = "qudit-inst"
 version = "0.1.0"
 dependencies = [
- "faer 0.21.9",
+ "faer",
+ "faer-traits",
  "num-complex",
  "qudit-circuit",
  "qudit-core",
  "qudit-expr",
+ "qudit-gates",
  "qudit-tensor",
+ "rand 0.8.5",
 ]
 
 [[package]]
@@ -1767,7 +1684,7 @@ name = "qudit-tensor"
 version = "0.1.0"
 dependencies = [
  "bit-set",
- "faer 0.22.6",
+ "faer",
  "qudit-core",
  "qudit-expr",
 ]
@@ -1914,15 +1831,6 @@ name = "reborrow"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "03251193000f4bd3b042892be858ee50e8b3719f2b08e5833ac4353724632430"
-
-[[package]]
-name = "redox_syscall"
-version = "0.5.13"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d04b7d0ee6b4a0207a0a7adb104d23ecb0b47d6beae7152d0fa34b692b29fd6"
-dependencies = [
- "bitflags 2.9.1",
-]
 
 [[package]]
 name = "regex"

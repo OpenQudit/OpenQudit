@@ -45,7 +45,7 @@ impl UnitaryExpressionGenerator for XGate {
         for i in 0..self.radix {
             body += "[";
             for j in 0..self.radix {
-                if j + 1 % self.radix == i {
+                if (j + 1) % self.radix == i {
                     body += "1, ";
                 } else {
                     body += "0, ";
@@ -54,7 +54,7 @@ impl UnitaryExpressionGenerator for XGate {
             body += "],";
         }
         body += "]";
-
+        
         UnitaryExpression::new(proto + "{" + &body + "}")
     }
 }

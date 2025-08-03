@@ -12,5 +12,3 @@ pub trait MinimizationAlgorithm<R: RealScalar, P: Problem> {
     fn minimize(&self, objective: &mut Self::Func, x0: &[R]) -> MinimizationResult<R>;
 }
 
-
-

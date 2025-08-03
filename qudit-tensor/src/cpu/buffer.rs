@@ -13,6 +13,7 @@ use qudit_expr::{DifferentiationLevel, GenerationShape};
 
 use crate::bytecode::TensorBuffer;
 
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct SizedTensorBuffer<C: ComplexScalar> {
     offset: usize,
@@ -24,7 +25,7 @@ pub struct SizedTensorBuffer<C: ComplexScalar> {
     col_stride: usize,
     row_stride: usize,
     mat_stride: usize,
-    param_stride: usize, // TODO: param_stride needs to always be unit_memory_size
+    unit_stride: usize,
     _phantom: std::marker::PhantomData<C>,
 }
 
@@ -39,7 +40,13 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         let row_stride = 1;
         let col_stride = calc_col_stride::<C>(buffer.nrows(), buffer.ncols());
         let mat_stride = calc_mat_stride::<C>(buffer.nrows(), buffer.ncols(), col_stride);
-        let param_stride = calc_next_stride::<C>(mat_stride*buffer.nmats());
+        let unit_stride = match buffer.shape() {
+            GenerationShape::Scalar => 1,
+            GenerationShape::Vector(nelems) => calc_next_stride::<C>(nelems),
+            GenerationShape::Matrix(_, _) => mat_stride,
+            GenerationShape::Tensor3D(_, _, _) => calc_next_stride::<C>(mat_stride*buffer.nmats()),
+            _ => panic!("Tensor4D should not be constructed explicitly."),
+        };
         SizedTensorBuffer {
             offset,
             shape: buffer.shape(),
@@ -50,7 +57,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
             col_stride,
             row_stride,
             mat_stride,
-            param_stride,
+            unit_stride,
             _phantom: std::marker::PhantomData,
         }
     }
@@ -101,15 +108,15 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     }
 
     #[inline(always)]
-    pub fn param_stride(&self) -> usize {
-        self.param_stride
+    pub fn unit_stride(&self) -> usize {
+        self.unit_stride
     }
 
     #[inline(always)]
     pub fn dims(&self) -> Vec<usize> {
         match self.shape() {
             GenerationShape::Scalar => vec![],
-            GenerationShape::Vector(_) => vec![self.ncols],
+            GenerationShape::Vector(nelems) => vec![nelems],
             GenerationShape::Matrix(_, _) => vec![self.nrows, self.ncols],
             GenerationShape::Tensor3D(_, _, _) => vec![self.nmats, self.nrows, self.ncols],
             _ => panic!("Tensor4D should not be constructed explicitly."),
@@ -120,7 +127,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     pub fn strides(&self) -> Vec<usize> {
         match self.shape() {
             GenerationShape::Scalar => vec![],
-            GenerationShape::Vector(_) => vec![self.col_stride], // TODO: Should this be 1??
+            GenerationShape::Vector(_) => vec![1],
             GenerationShape::Matrix(_, _) => vec![self.row_stride, self.col_stride],
             GenerationShape::Tensor3D(_, _, _) => vec![self.mat_stride, self.row_stride, self.col_stride],
             _ => panic!("Tensor4D should not be constructed explicitly."),
@@ -130,25 +137,26 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     #[inline(always)]
     pub fn grad_strides(&self) -> Vec<usize> {
         match self.shape() {
-            GenerationShape::Scalar => vec![self.param_stride],// TODO: Should this be 1??
-            GenerationShape::Vector(_) => vec![self.param_stride, self.col_stride], // TODO: Should this be 1??
-            GenerationShape::Matrix(_, _) => vec![self.param_stride, self.row_stride, self.col_stride],
-            GenerationShape::Tensor3D(_, _, _) => vec![self.param_stride, self.mat_stride, self.row_stride, self.col_stride],
+            GenerationShape::Scalar => vec![self.unit_stride],
+            GenerationShape::Vector(_) => vec![self.unit_stride, 1],
+            GenerationShape::Matrix(_, _) => vec![self.unit_stride, self.row_stride, self.col_stride],
+            GenerationShape::Tensor3D(_, _, _) => vec![self.unit_stride, self.mat_stride, self.row_stride, self.col_stride],
             _ => panic!("Tensor4D should not be constructed explicitly."),
         }
     }
 
     #[inline(always)]
     pub fn unit_size(&self) -> usize {
-        self.ncols * self.nrows * self.nmats
+        self.shape.num_elements()
     }
 
     #[inline(always)]
     pub fn unit_memory_size(&self) -> usize {
-        let (max_stride, dim) = self.strides().into_iter()
-            .zip(self.dims().into_iter())
-            .fold((1, 1), |a, b| a.max(b));
-        max_stride * dim
+        self.unit_stride
+        // let (max_stride, dim) = self.strides().into_iter()
+        //     .zip(self.dims().into_iter())
+        //     .fold((1, 1), |a, b| a.max(b));
+        // max_stride * dim
     }
 
     #[inline(always)]
@@ -218,7 +226,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         RowRef::from_raw_parts(
             memory.as_ptr().add(self.offset),
             self.ncols,
-            self.col_stride as isize, // TODO: Should this (and similar others) be 1?
+            1isize,
         )
     }
 
@@ -227,7 +235,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         RowMut::from_raw_parts_mut(
             memory.as_mut_ptr().add(self.offset),
             self.ncols,
-            self.col_stride as isize,
+            1isize,
         )
     }
 
@@ -278,7 +286,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         RowRef::from_raw_parts(
             memory.as_ptr().add(self.offset + self.unit_memory_size()),
             self.nparams,
-            self.param_stride as isize,
+            self.unit_stride as isize,
         )
     }
 
@@ -287,7 +295,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         RowMut::from_raw_parts_mut(
             memory.as_mut_ptr().add(self.offset + self.unit_memory_size()),
             self.nparams,
-            self.param_stride as isize,
+            self.unit_stride as isize,
         )
     }
 
@@ -296,9 +304,9 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         MatRef::from_raw_parts(
             memory.as_ptr().add(self.offset + self.unit_memory_size()),
             self.nparams,
-            self.ncols,
-            self.param_stride as isize,
-            self.col_stride as isize,
+            self.dims()[0], // TODO: remove allocation safely
+            self.unit_stride as isize,
+            1 as isize,
         )
     }
 
@@ -307,9 +315,9 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         MatMut::from_raw_parts_mut(
             memory.as_mut_ptr().add(self.offset + self.unit_memory_size()),
             self.nparams,
-            self.ncols,
-            self.param_stride as isize,
-            self.col_stride as isize,
+            self.dims()[0], // TODO: remove allocation safely
+            self.unit_stride as isize,
+            1 as isize,
         )
     }
 
@@ -318,7 +326,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         TensorRef::from_raw_parts(
             memory.as_ptr().add(self.offset + self.unit_memory_size()),
             [self.nparams, self.nrows, self.ncols],
-            [self.param_stride, self.row_stride, self.col_stride],
+            [self.unit_stride, self.row_stride, self.col_stride],
         )
     }
 
@@ -327,7 +335,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         TensorMut::from_raw_parts(
             memory.as_mut_ptr().add(self.offset + self.unit_memory_size()),
             [self.nparams, self.nrows, self.ncols],
-            [self.param_stride, self.row_stride, self.col_stride],
+            [self.unit_stride, self.row_stride, self.col_stride],
         )
     }
 
@@ -336,7 +344,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         TensorRef::from_raw_parts(
             memory.as_ptr().add(self.offset + self.unit_memory_size()),
             [self.nparams, self.nmats, self.nrows, self.ncols],
-            [self.param_stride, self.mat_stride, self.row_stride, self.col_stride],
+            [self.unit_stride, self.mat_stride, self.row_stride, self.col_stride],
         )
     }
 
@@ -345,7 +353,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         TensorMut::from_raw_parts(
             memory.as_mut_ptr().add(self.offset + self.unit_memory_size()),
             [self.nparams, self.nmats, self.nrows, self.ncols],
-            [self.param_stride, self.mat_stride, self.row_stride, self.col_stride],
+            [self.unit_stride, self.mat_stride, self.row_stride, self.col_stride],
         )
     }
 
@@ -356,7 +364,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         SymSqTensorRef::from_raw_parts(
             memory.as_ptr().add(self.offset + self.unit_memory_size() + self.grad_memory_size()),
             [self.nparams, self.nparams],
-            [self.nparams*self.param_stride, self.param_stride],
+            [self.nparams*self.unit_stride, self.unit_stride],
         )
     }
 
@@ -365,7 +373,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         SymSqTensorMut::from_raw_parts(
             memory.as_mut_ptr().add(self.offset + self.unit_memory_size() + self.grad_memory_size()),
             [self.nparams, self.nparams],
-            [self.nparams*self.param_stride, self.param_stride],
+            [self.nparams*self.unit_stride, self.unit_stride],
         )
     }
 
@@ -374,7 +382,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         SymSqTensorRef::from_raw_parts(
             memory.as_ptr().add(self.offset + self.unit_memory_size() + self.grad_memory_size()),
             [self.nparams, self.nparams, self.ncols],
-            [self.nparams*self.param_stride, self.param_stride, self.col_stride],
+            [self.nparams*self.unit_stride, self.unit_stride, 1],
         )
     }
 
@@ -383,7 +391,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         SymSqTensorMut::from_raw_parts(
             memory.as_mut_ptr().add(self.offset + self.unit_memory_size() + self.grad_memory_size()),
             [self.nparams, self.nparams, self.ncols],
-            [self.nparams*self.param_stride, self.param_stride, self.col_stride],
+            [self.nparams*self.unit_stride, self.unit_stride, 1],
         )
     }
 
@@ -392,7 +400,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         SymSqTensorRef::from_raw_parts(
             memory.as_ptr().add(self.offset + self.unit_memory_size() + self.grad_memory_size()),
             [self.nparams, self.nparams, self.nrows, self.ncols],
-            [self.nparams*self.param_stride, self.param_stride, self.row_stride, self.col_stride],
+            [self.nparams*self.unit_stride, self.unit_stride, self.row_stride, self.col_stride],
         )
     }
 
@@ -401,7 +409,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         SymSqTensorMut::from_raw_parts(
             memory.as_mut_ptr().add(self.offset + self.unit_memory_size() + self.grad_memory_size()),
             [self.nparams, self.nparams, self.nrows, self.ncols],
-            [self.nparams*self.param_stride, self.param_stride, self.row_stride, self.col_stride],
+            [self.nparams*self.unit_stride, self.unit_stride, self.row_stride, self.col_stride],
         )
     }
 
@@ -410,7 +418,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         SymSqTensorRef::from_raw_parts(
             memory.as_ptr().add(self.offset + self.unit_memory_size() + self.grad_memory_size()),
             [self.nparams, self.nparams, self.nmats, self.nrows, self.ncols],
-            [self.nparams*self.param_stride, self.param_stride, self.mat_stride, self.row_stride, self.col_stride],
+            [self.nparams*self.unit_stride, self.unit_stride, self.mat_stride, self.row_stride, self.col_stride],
         )
     }
 
@@ -419,7 +427,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
         SymSqTensorMut::from_raw_parts(
             memory.as_mut_ptr().add(self.offset + self.unit_memory_size() + self.grad_memory_size()),
             [self.nparams, self.nparams, self.nmats, self.nrows, self.ncols],
-            [self.nparams*self.param_stride, self.param_stride, self.mat_stride, self.row_stride, self.col_stride],
+            [self.nparams*self.unit_stride, self.unit_stride, self.mat_stride, self.row_stride, self.col_stride],
         )
     }
 }

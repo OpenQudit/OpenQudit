@@ -235,6 +235,33 @@ impl ParamIndices {
         }
     }
 
+    /// Sorts the indices.
+    ///
+    /// If the `ParamIndices` is `Joint`, this method does nothing.
+    ///
+    /// # Returns
+    ///
+    /// A mutable reference to `self` for chaining.
+    pub fn sort(&mut self) -> &mut Self {
+        match self {
+            ParamIndices::Joint(_, _) => {},
+            ParamIndices::Disjoint(indices) => indices.sort(),
+        }
+        self
+    }
+
+    /// Returns a new `ParamIndices` with the indices sorted.
+    pub fn sorted(&self) -> Self {
+        match self {
+            ParamIndices::Joint(s, l) => ParamIndices::Joint(*s, *l),
+            ParamIndices::Disjoint(indices) => {
+                let mut indices_out = indices.clone();
+                indices_out.sort();
+                ParamIndices::Disjoint(indices_out)
+            }
+        }
+    }
+
     /// Creates an iterator over the parameter indices.
     ///
     /// # Returns

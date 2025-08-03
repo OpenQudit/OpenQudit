@@ -12,5 +12,5 @@ proc-macro = true
 syn = { version = "2.0", features = ["full"] }
 quote = "1.0"
 proc-macro2 = "1.0"
-faer = "0.21.9"
-faer-traits = "0.21.0"
+faer = "0.22.6"
+faer-traits = "0.22.1"

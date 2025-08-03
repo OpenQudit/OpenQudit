@@ -1,12 +1,15 @@
 use qudit_circuit::QuditCircuit;
+use qudit_core::ComplexScalar;
 use qudit_core::RealScalar;
 
+use super::Runner;
+use super::Problem;
 use crate::DataMap;
 use crate::Instantiater;
 use crate::InstantiationResult;
 use crate::InstantiationTarget;
 
-pub trait InstantiationProblem<'a, R: RealScalar> {
+pub trait InstantiationProblem<'a, R: RealScalar>: Problem {
     fn from_instantiation(
         circuit: &'a QuditCircuit<R::C>,
         target: &'a InstantiationTarget<R::C>,
@@ -15,31 +18,35 @@ pub trait InstantiationProblem<'a, R: RealScalar> {
 }
 
 pub struct MinimizingInstantiater<R, P> {
-    pub runner: R,
+    runner: R,
     _phantom: std::marker::PhantomData<P>,
 }
 
-// impl<C, R> Instantiater<C> for MinimizingInstantiater<R, C>
-// where
-//     C: ComplexScalar,
-//     R: for<'b> Runner<C, QuantumProblem<'b, C>, QuantumCostFunction<C, 0>>,
-// {
-//     fn instantiate(
-//         &self,
-//         circuit: &qudit_circuit::QuditCircuit<C>,
-//         target: &InstantiationTarget<C>,
-//         data: &std::collections::HashMap<String, Box<dyn std::any::Any>>,
-//     ) -> InstantiationResult<C> {
-//         let problem = QuantumProblem { circuit, target };
-//         let result = self.runner.run(problem);
-//         // 2. Implement the `CostFunction` (and `Gradient`, etc.) traits for that struct.
-//         // 3. Pass that function object to the runner.
-//         // 4. Convert the `MinimizationResult` to an `InstantiationResult`.
-//         // let func = target.to_function(circuit);
-//         // self.runner.run(func)
-//         todo!()
-//     }
-// }
+impl<R, P> MinimizingInstantiater<R, P> {
+    pub fn new(runner: R) -> Self {
+        Self {
+            runner,
+            _phantom: std::marker::PhantomData::<P>,
+        }
+    }
+}
+
+impl<'a, C, R, P> Instantiater<'a, C> for MinimizingInstantiater<R, P>
+where
+    C: ComplexScalar,
+    P: InstantiationProblem<'a, C::R>,
+    R: Runner<C::R, P>,
+{
+    fn instantiate(
+        &'a self,
+        circuit: &'a qudit_circuit::QuditCircuit<C>,
+        target: &'a InstantiationTarget<C>,
+        data: &'a std::collections::HashMap<String, Box<dyn std::any::Any>>,
+    ) -> InstantiationResult<C> {
+        let problem = P::from_instantiation(circuit, target, data);
+        self.runner.run(problem).to_instantiation()
+    }
+}
 
 // #[cfg(test)]
 // mod tests {

@@ -433,6 +433,13 @@ pub fn calc_mat_stride<C>(_nrows: usize, ncols: usize, col_stride: usize) -> usi
         return 0;
     }
 
+    // TODO: maybe check if all matrices can fit in a single cache line
+    // A U3 of c32 has 4 matrices (one fn, 3 grad) and each one takes
+    // 4 elements (32 bytes). If all packed that could nicely fit into
+    // one 128 byte line or two 64 byte line rather than wasting half
+    // or 3/4 of the space depending on line size. Especially since they
+    // typically used together, performance should be speed up (speculation)
+
     if unit_size > CACHELINE_ALIGN {
         // See similar comment in [calc_col_stride].
         return packed_mat_size;
