@@ -34,7 +34,7 @@ mod tests {
     use qudit_core::QuditSystem;
     use qudit_expr::UnitaryExpressionGenerator;
 
-    pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit<c32> {
+    pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit<c64> {
         let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
         let mut circ = QuditCircuit::pure(vec![2; n]);
         for i in 0..n {
@@ -67,7 +67,7 @@ mod tests {
         }
     }
 
-    pub fn build_qutrit_thin_step_circuit(n: usize) -> QuditCircuit<c32> {
+    pub fn build_qutrit_thin_step_circuit(n: usize) -> QuditCircuit<c64> {
         let block_expr = Gate::P(3).gen_expr().otimes(Gate::P(3).gen_expr()).dot(CSUM{}.gen_expr());
         let mut circ = QuditCircuit::pure(vec![3; n]);
         for i in 0..n {
@@ -81,16 +81,59 @@ mod tests {
         circ
     }
 
+    pub fn build_dynamic_circuit() -> QuditCircuit<c64> {
+        let mut circ: QuditCircuit<c32> = QuditCircuit::new([2, 2, 2, 2], [2, 2]);
+
+        circ.zero_initialize([1, 2]);
+
+        for i in 0..4 {
+            circ.append_uninit_gate(Gate::U3(), [i]);
+        }
+
+        let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
+        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [0, 1], vec![]));
+        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [2, 3], vec![]));
+        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [1, 2], vec![]));
+
+        let two_qubit_basis_measurement = StateSystemExpression::new("TwoQMeasure() {
+            [
+                [[ 1, 0, 0, 0 ]],
+                [[ 0, 1, 0, 0 ]],
+                [[ 0, 0, 1, 0 ]],
+                [[ 0, 0, 0, 1 ]],
+            ]
+        }");
+        circ.append_instruction(Instruction::new(Operation::TerminatingMeasurement(two_qubit_basis_measurement), ([1, 2], [0,1]), vec![]));
+
+        let cs1 = ControlState::from_binary_state([0,0]);
+        circ.uninit_classically_control(Gate::U3(), cs1.clone(), ([0], [0, 1]));
+        circ.uninit_classically_control(Gate::U3(), cs1.clone(), ([3], [0, 1]));
+
+        let cs2 = ControlState::from_binary_state([0,1]);
+        circ.uninit_classically_control(Gate::U3(), cs2.clone(), ([0], [0, 1]));
+        circ.uninit_classically_control(Gate::U3(), cs2.clone(), ([3], [0, 1]));
+
+        let cs3 = ControlState::from_binary_state([1,0]);
+        circ.uninit_classically_control(Gate::U3(), cs3.clone(), ([0], [0, 1]));
+        circ.uninit_classically_control(Gate::U3(), cs3.clone(), ([3], [0, 1]));
+
+        let cs4 = ControlState::from_binary_state([1,1]);
+        circ.uninit_classically_control(Gate::U3(), cs4.clone(), ([0], [0, 1]));
+        circ.uninit_classically_control(Gate::U3(), cs4.clone(), ([3], [0, 1]));
+
+        circ
+    }
+
 
     #[test]
     fn test_lm_minimization_simple() {
         // create simple circuit
-        let circ = build_qsearch_thin_step_circuit(4);
+        let circ = build_qsearch_thin_step_circuit(3);
 
         // sample target
         let network = circ.to_tensor_network();
         let code = qudit_tensor::compile_network(network);
-        let mut tnvm = qudit_tensor::TNVM::<c32, FUNCTION>::new(&code);
+        let mut tnvm = qudit_tensor::TNVM::<c64, GRADIENT>::new(&code);
         let result = tnvm.evaluate::<FUNCTION>(&vec![1.7; circ.num_params()]).get_fn_result().unpack_matrix();
         let target_utry = UnitaryMatrix::new(circ.radices(), result.to_owned());
         let target = InstantiationTarget::UnitaryMatrix(target_utry);
@@ -100,7 +143,7 @@ mod tests {
         // let initializer = Zeros::default();
         let initializer = Uniform::default();
         let runner = MultiStartRunner { minimizer, guess_generator: initializer, num_starts: 1 };
-        let instantiater = MinimizingInstantiater::<_, HSProblem<f32>>::new(runner);
+        let instantiater = MinimizingInstantiater::<_, HSProblem<f64>>::new(runner);
         let data = std::collections::HashMap::new();
 
         // call instantiater

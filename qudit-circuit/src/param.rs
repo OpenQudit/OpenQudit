@@ -7,6 +7,7 @@ pub enum ParamEntry<R: RealScalar> {
     Static(R),
     Dynamic(R),
     Existing(usize),
+    // Named(String),
     // TODO: Parametric
 }
 
@@ -52,6 +53,12 @@ impl<R: RealScalar> ParamList<R> {
     pub fn new(list: Vec<ParamEntry<R>>) -> Self {
         Self {
             list
+        }
+    }
+
+    pub fn empty() -> Self {
+        Self {
+            list: vec![],
         }
     }
 

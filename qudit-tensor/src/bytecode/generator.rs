@@ -31,7 +31,7 @@ impl BytecodeGenerator {
     }
 
     pub fn generate(mut self, tree: ExpressionTree) -> Bytecode {
-        self.parse(tree);
+        let out_buffer = self.parse(tree);
 
         Bytecode {
             expressions: self.expression_set
@@ -44,6 +44,7 @@ impl BytecodeGenerator {
             const_code: self.const_code,
             dynamic_code: self.dynamic_code,
             buffers: self.buffers,
+            out_buffer,
         }
     }
 

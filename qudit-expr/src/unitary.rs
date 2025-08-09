@@ -19,6 +19,7 @@ use qudit_core::RealScalar;
 use qudit_core::ToRadices;
 use faer::reborrow::ReborrowMut;
 use crate::index::IndexDirection;
+use crate::index::IndexSize;
 use crate::index::TensorIndex;
 use crate::tensor::TensorExpression;
 
@@ -56,7 +57,25 @@ impl StateExpression {
     /// A new `StateExpression` instance.
     pub fn new<T: AsRef<str>>(input: T) -> Self {
         TensorExpression::new(input).to_state_expression()
-}
+    }
+
+    pub fn zero<T: ToRadices>(radices: T) -> Self {
+        let radices = radices.to_radices();
+        let mut body = vec![ComplexExpression::zero(); radices.dimension()];
+        body[0] = ComplexExpression::one();
+        Self {
+            name: "Zero".into(),
+            radices,
+            variables: vec![],
+            body,
+        }
+    }
+
+    pub fn to_tensor_expression(self) -> TensorExpression {
+        // TODO: What about distinguishing between bras and kets??!?
+        let indices = self.radices.iter().enumerate().map(|(id, r)| TensorIndex::new(IndexDirection::Output, id, *r as IndexSize)).collect();
+        TensorExpression { name: self.name, variables: self.variables, indices, body: self.body }
+    }
 
     /// Evaluates the state expression with the given arguments and returns a `StateVector`.
     ///

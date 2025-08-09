@@ -41,8 +41,12 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
     pub fn new(program: &Bytecode) -> Pin<Box<Self>> {
         let mut sized_buffers = Vec::new();
         let mut offset = 0;
-        for buffer in &program.buffers {
-            let sized_buffer = SizedTensorBuffer::new(offset, buffer);
+        for (i, buffer) in program.buffers.iter().enumerate() {
+            let sized_buffer = if i == program.out_buffer {
+                SizedTensorBuffer::contiguous(offset, buffer)
+            } else {
+                SizedTensorBuffer::new(offset, buffer)
+            };
             offset += sized_buffer.memory_size(D);
             sized_buffers.push(sized_buffer);
         }
@@ -109,6 +113,8 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
         Box::pin(out)
     }
 
+    // TODO: evaluate_into
+    
     pub fn evaluate<'a, const E: DifferentiationLevel>(self: &'a mut Pin<Box<Self>>, args: &[C::R]) -> TNVMResult<'a, C> {
         if E > D {
             panic!("Unsafe TNVM evaluation.");

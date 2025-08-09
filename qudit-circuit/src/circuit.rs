@@ -3,13 +3,14 @@ use qudit_core::{ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamI
 
 use indexmap::IndexSet;
 use qudit_core::{QuditRadices, RealScalar, c64};
-use qudit_expr::index::{IndexDirection, TensorIndex};
+use qudit_expr::index::{IndexDirection, IndexSize, TensorIndex};
 use qudit_gates::Gate;
-use qudit_expr::{TensorExpression, UnitaryExpressionGenerator};
+use qudit_expr::{StateExpression, TensorExpression, UnitaryExpressionGenerator};
 // use qudit_tensor::{BuilderExpressionInput, ExpressionTree, TreeBuilder, TreeOptimizer};
 use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
 use crate::exprset::{ExpressionSet, OperationSet};
 use crate::location::{self, ToLocation};
+use crate::operation::ControlState;
 use crate::param::ParamList;
 use crate::point::CircuitDitId;
 use crate::ParamEntry;
@@ -473,7 +474,7 @@ impl<C: ComplexScalar> QuditCircuit<C> {
         self.cycles[cycle_index].push(inst_ref);
     }
 
-    /// Shorthand for appending a gate without caring about the gate parameters
+    /// Shorthand for appending aate without caring about the gate parameters
     pub fn append_uninit_gate<L: ToLocation>(&mut self, gate: Gate, location: L) {
         let params = vec![None; gate.num_params()];
         let op_ref = self.expression_set.insert(Operation::Gate(gate));
@@ -484,6 +485,49 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     pub fn append_gate<L: ToLocation, P: Into<ParamList<C::R>>>(&mut self, gate: Gate, location: L, params: P) {
         let op_ref = self.expression_set.insert(Operation::Gate(gate));
         self.append(op_ref, location.to_location(), params.into());
+    }
+
+    pub fn is_qudit_inactive(&self, index: usize) -> bool {
+        self.qfront[index].is_none()
+    }
+    
+    pub fn zero_initialize<L: ToLocation>(&mut self, location: L) {
+        let location = location.to_location();
+        assert_eq!(location.get_num_dits(), 0);
+        let location_radices = location.qudits().iter().map(|q| self.qudit_radices[q]);
+        let state = StateExpression::zero(location_radices);
+        let op = Operation::Initialization(state);
+        let op_ref = self.expression_set.insert(op);
+
+        assert!(location.qudits().iter().all(|q| self.is_qudit_inactive(q)));
+
+        self.append(op_ref, location, ParamList::empty());
+    }
+
+
+    pub fn uninit_classically_control<L: ToLocation>(
+        &mut self, 
+        gate: Gate, 
+        control_state: ControlState,
+        location: L,
+    ) {
+        let params = vec![None; gate.num_params()];
+        self.classically_control(gate, control_state, location, params);
+    }
+
+    pub fn classically_control<L: ToLocation, P: Into<ParamList<C::R>>>(
+        &mut self, 
+        gate: Gate, 
+        control_state: ControlState,
+        location: L,
+        params: P,
+    ) {
+        // check that control-state length matches location
+        let location = location.to_location();
+        assert_eq!(control_state.state.len(), location.get_num_dits());
+        // TODO: Assert control_state radices match location; might be auto done in append
+        let op_ref = self.expression_set.insert(Operation::ClassicallyControlled(gate, control_state));
+        self.append(op_ref, location, params.into());
     }
 
     /// Remove the operation at `point` from the circuit.
@@ -784,25 +828,57 @@ impl<C: ComplexScalar> QuditCircuit<C> {
                     let clbit_indices = a.iter().map(|clbit| clbit.to_string()).collect();
                     network = network.prepend(QuditTensor::new(t.clone(), inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), clbit_indices);
                 }
-                Operation::TerminatingMeasurement(s, a) => {
-                    let clbit_indices: Vec<String> = a.iter().map(|clbit| clbit.to_string()).collect();
+                Operation::TerminatingMeasurement(s) => {
+                    let dit_indices: Vec<String> = inst_ref.location.dits()
+                        .iter()
+                        .map(|id| id.to_string())
+                        .collect();
                     let mut t = s.to_tensor_expression();
-                    t.reindex(clbit_indices.iter().map(|_| (IndexDirection::Batch, 2)).chain(t.indices().iter().filter(|idx| idx.direction() != IndexDirection::Batch).map(|idx| (idx.direction(), idx.index_size())))
+                    let tensor_indices = inst_ref.location.dits()
+                        .iter()
+                        .map(|dit_id| (IndexDirection::Batch, self.dit_radices[dit_id] as IndexSize))
+                        .chain(t.indices().iter()
+                            .filter(|idx| idx.direction() != IndexDirection::Batch)
+                            .map(|idx| (idx.direction(), idx.index_size())))
                         .enumerate()
                         .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
-                        .collect());
-                    network = network.prepend(QuditTensor::new(t, inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), vec![], clbit_indices);
+                        .collect();
+                    t.reindex(tensor_indices);
+                    network = network.prepend(QuditTensor::new(t, inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), vec![], dit_indices);
                 }
-                Operation::ClassicallyControlled(g, a) => {
-                    let clbit_indices: Vec<String> = a.iter().map(|clbit| clbit.to_string()).collect();
-                    let mut t = g.gen_expr().to_tensor_expression().stack_with_identity(&[2usize.pow(clbit_indices.len() as u32) - 1], 2usize.pow(clbit_indices.len() as u32));
-                    t.reindex(clbit_indices.iter().map(|_| (IndexDirection::Batch, 2)).chain(t.indices().iter().filter(|idx| idx.direction() != IndexDirection::Batch).map(|idx| (idx.direction(), idx.index_size())))
+                Operation::ClassicallyControlled(g, s) => {
+                    let dit_indices: Vec<String> = inst_ref.location.dits()
+                        .iter()
+                        .map(|id| id.to_string())
+                        .collect();
+                    let dit_dimension = inst_ref.location.dits()
+                        .iter()
+                        .map(|dit_id| self.dit_radices[dit_id] as usize)
+                        .product();
+                    let mut t = g.gen_expr()
+                        .to_tensor_expression()
+                        .stack_with_identity(&[s.to_measurement_kraus_position()], dit_dimension);
+                    let tensor_indices = inst_ref.location.dits()
+                        .iter()
+                        .map(|dit_id| (IndexDirection::Batch, self.dit_radices[dit_id] as IndexSize))
+                        .chain(t.indices().iter()
+                            .filter(|idx| idx.direction() != IndexDirection::Batch)
+                            .map(|idx| (idx.direction(), idx.index_size())))
                         .enumerate()
                         .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
-                        .collect());
-                    network = network.prepend(QuditTensor::new(t.clone(), inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), clbit_indices);
+                        .collect();
+                    t.reindex(tensor_indices);
+                    network = network.prepend(
+                        QuditTensor::new(t.clone(), inst_ref.param_indices.clone()),
+                        inst_ref.location.qudits().to_vec(),
+                        inst_ref.location.qudits().to_vec(),
+                        dit_indices
+                    );
                 }
-                Operation::Initialization(s) => { todo!() }
+                Operation::Initialization(s) => {
+                    let t = s.clone().to_tensor_expression();
+                    network = network.prepend(QuditTensor::new(t.clone(), inst_ref.param_indices.clone()), vec![], inst_ref.location.qudits().to_vec(), vec![]);
+                }
                 Operation::Reset => { todo!() }
                 Operation::Barrier => { /* NO-OP */ }
             }
@@ -963,9 +1039,60 @@ mod tests {
     }
 
     #[test]
+    fn dynamic_circuit_test2() {
+        let mut circ: QuditCircuit<c32> = QuditCircuit::new([2, 2, 2, 2], [2, 2]);
+
+        circ.zero_initialize([1, 2]);
+
+        for i in 0..4 {
+            circ.append_uninit_gate(Gate::U3(), [i]);
+        }
+
+        let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
+        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [0, 1], vec![]));
+        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [2, 3], vec![]));
+        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [1, 2], vec![]));
+
+        let two_qubit_basis_measurement = StateSystemExpression::new("TwoQMeasure() {
+            [
+                [[ 1, 0, 0, 0 ]],
+                [[ 0, 1, 0, 0 ]],
+                [[ 0, 0, 1, 0 ]],
+                [[ 0, 0, 0, 1 ]],
+            ]
+        }");
+        circ.append_instruction(Instruction::new(Operation::TerminatingMeasurement(two_qubit_basis_measurement), ([1, 2], [0,1]), vec![]));
+
+        let cs1 = ControlState::from_binary_state([0,0]);
+        circ.uninit_classically_control(Gate::U3(), cs1.clone(), ([0], [0, 1]));
+        circ.uninit_classically_control(Gate::U3(), cs1.clone(), ([3], [0, 1]));
+
+        let cs2 = ControlState::from_binary_state([0,1]);
+        circ.uninit_classically_control(Gate::U3(), cs2.clone(), ([0], [0, 1]));
+        circ.uninit_classically_control(Gate::U3(), cs2.clone(), ([3], [0, 1]));
+
+        let cs3 = ControlState::from_binary_state([1,0]);
+        circ.uninit_classically_control(Gate::U3(), cs3.clone(), ([0], [0, 1]));
+        circ.uninit_classically_control(Gate::U3(), cs3.clone(), ([3], [0, 1]));
+
+        let cs4 = ControlState::from_binary_state([1,1]);
+        circ.uninit_classically_control(Gate::U3(), cs4.clone(), ([0], [0, 1]));
+        circ.uninit_classically_control(Gate::U3(), cs4.clone(), ([3], [0, 1]));
+        
+        let network = circ.to_tensor_network();
+        let code = qudit_tensor::compile_network(network);
+        let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
+        let start = std::time::Instant::now();
+        for _ in 0..1000 {
+            let result = tnvm.evaluate::<GRADIENT>(&vec![1.7; circ.num_params()]);
+        }
+        let elapsed = start.elapsed();
+        println!("Time per evaluation: {:?}", elapsed / 1000);
+    }
+
+    #[test]
     fn dynamic_circuit_test() {
-        let mut circ: QuditCircuit<c32> = QuditCircuit::new([2, 2, 2, 2], [2, 2]); // TODO:
-        // allow dit level classical information
+        let mut circ: QuditCircuit<c32> = QuditCircuit::new([2, 2, 2, 2], [2, 2]);
 
         for i in 0..4 {
             circ.append_uninit_gate(Gate::U3(), [i]);
@@ -1002,10 +1129,10 @@ mod tests {
                 [[ 0, 0, 0, 1 ]],
             ]
         }");
-        circ.append_instruction(Instruction::new(Operation::TerminatingMeasurement(two_qubit_basis_measurement, clbits.clone()), [1, 2], vec![]));
+        circ.append_instruction(Instruction::new(Operation::TerminatingMeasurement(two_qubit_basis_measurement), ([1, 2], [0,1]), vec![]));
 
-        circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits.clone()), [0], vec![]));
-        circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits.clone()), [3], vec![]));
+        // circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits.clone()), [0], vec![]));
+        // circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits.clone()), [3], vec![]));
         // circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits), loc![0, 3], vec![]));
 
         let network = circ.to_tensor_network();

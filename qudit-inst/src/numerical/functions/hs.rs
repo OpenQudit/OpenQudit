@@ -196,26 +196,43 @@ impl<R: RealScalar, const D: DifferentiationLevel> Hessian<R> for HSFunction<R, 
 
 impl<R: RealScalar, const D: DifferentiationLevel> ResidualFunction<R> for HSFunction<R, D> {
     fn num_residuals(&self) -> usize {
-        self.tnvm.out_shape().num_elements() * 2
+        (self.tnvm.out_shape().num_elements() - 1) * 2
     }
 
     fn residuals_into(&mut self, params: &[R], mut residuals_out: ColMut<R>) {
         let result = self.tnvm.evaluate::<FUNCTION>(params);
-        // TODO: be able to tell tnvm to make last buffer contiguous so I can just read out a
-        // vector...; even better add an evaluate_into for tnvm :)
-        let matrix_out = result.get_fn_result().unpack_matrix();// TODO: not always a matrix...
-        
+        let kraus_ops = result.get_fn_result2().unpack_tensor3d();
+
         let mut residual_index = 0;
-        for (j, col) in matrix_out.col_iter().enumerate() {
-            for (i, elem) in col.iter().enumerate() {
-                // println!("{} {} {} {}", i, j, residual_index, residuals_out.nrows());
-                // SAFETY: because I said so (meaning: no safety at all; TODO: do better :)
+        for k in 0..kraus_ops.dims()[0] {
+            let mat = kraus_ops.subtensor_ref(k);
+
+            for (j, col) in mat.col_iter().enumerate() {
+                for (i, elem) in col.iter().enumerate() {
+                    if i == j {
+                        continue
+                    }
+                    unsafe {
+                        let out = residuals_out.rb_mut().get_mut_unchecked(residual_index);
+                        *out = elem.real();
+                        residual_index += 1;
+                        let out = residuals_out.rb_mut().get_mut_unchecked(residual_index);
+                        *out = elem.imag();
+                        residual_index += 1;
+                    }
+                }
+            }
+
+            let diag_iter = 0;
+            for diag_iter in 0..(mat.nrows()-1) {
                 unsafe {
+                    let d_i = mat.get_unchecked(diag_iter, diag_iter);
+                    let d_j = mat.get_unchecked(diag_iter + 1, diag_iter + 1);
                     let out = residuals_out.rb_mut().get_mut_unchecked(residual_index);
-                    *out = if i == j { elem.real() - R::new(1.0) } else { elem.real() };
+                    *out = d_j.real() - d_i.real();
                     residual_index += 1;
                     let out = residuals_out.rb_mut().get_mut_unchecked(residual_index);
-                    *out = elem.imag();
+                    *out = d_j.imag() - d_i.imag();
                     residual_index += 1;
                 }
             }
@@ -226,43 +243,78 @@ impl<R: RealScalar, const D: DifferentiationLevel> ResidualFunction<R> for HSFun
 impl<R: RealScalar, const D: DifferentiationLevel> Jacobian<R> for HSFunction<R, D> {
     fn residuals_and_jacobian_into(&mut self, params: &[R], mut residuals_out: ColMut<R>, mut jacobian_out: MatMut<R>) {
         let result = self.tnvm.evaluate::<GRADIENT>(params);
+        let kraus_ops = result.get_fn_result2().unpack_tensor3d();
 
-        // TODO: be able to tell tnvm to make last buffer contiguous so I can just read out a
-        // vector...; even better add an evaluate_into for tnvm :)
-        let matrix_out = result.get_fn_result().unpack_matrix();// TODO: not always a matrix...
-        
         let mut residual_index = 0;
-        for (j, col) in matrix_out.col_iter().enumerate() {
-            for (i, elem) in col.iter().enumerate() {
-                // println!("{} {} {} {}", i, j, residual_index, residuals_out.nrows());
-                // SAFETY: because I said so (meaning: no safety at all; TODO: do better :)
+        for k in 0..kraus_ops.dims()[0] {
+            let mat = kraus_ops.subtensor_ref(k);
+
+            for (j, col) in mat.col_iter().enumerate() {
+                for (i, elem) in col.iter().enumerate() {
+                    if i == j {
+                        continue
+                    }
+                    unsafe {
+                        let out = residuals_out.rb_mut().get_mut_unchecked(residual_index);
+                        *out = elem.real();
+                        residual_index += 1;
+                        let out = residuals_out.rb_mut().get_mut_unchecked(residual_index);
+                        *out = elem.imag();
+                        residual_index += 1;
+                    }
+                }
+            }
+
+            for diag_iter in 0..(mat.nrows()-1) {
                 unsafe {
+                    let d_i = mat.get_unchecked(diag_iter, diag_iter);
+                    let d_j = mat.get_unchecked(diag_iter + 1, diag_iter + 1);
                     let out = residuals_out.rb_mut().get_mut_unchecked(residual_index);
-                    *out = if i == j { elem.real() - R::new(1.0) } else { elem.real() };
+                    *out = d_j.real() - d_i.real();
                     residual_index += 1;
                     let out = residuals_out.rb_mut().get_mut_unchecked(residual_index);
-                    *out = elem.imag();
+                    *out = d_j.imag() - d_i.imag();
                     residual_index += 1;
                 }
             }
         }
 
-        let grad_out = result.get_grad_result().unpack_tensor3d();
+        let grad_out = result.get_grad_result2().unpack_tensor4d();
 
-        for p in 0..grad_out.dims()[0] {    
-            let grad_matrix_out = grad_out.subtensor_ref(p);
+        for p in 0..grad_out.dims()[0] {
+            let partial_kraus_ops = grad_out.subtensor_ref(p);
             let mut jacobian_col_out = jacobian_out.rb_mut().col_mut(p);
             let mut residual_index = 0;
-            for (j, col) in grad_matrix_out.col_iter().enumerate() {
-                for (i, elem) in col.iter().enumerate() {
-                    // println!("{} {} {} {}", i, j, residual_index, jacobian_col_out.nrows());
-                    // SAFETY: because I said so (meaning: no safety at all; TODO: do better :)
+
+            for k in 0..partial_kraus_ops.dims()[0] {
+                let mat = partial_kraus_ops.subtensor_ref(k);
+                // dbg!(&mat);
+
+                for (j, col) in mat.col_iter().enumerate() {
+                    for (i, elem) in col.iter().enumerate() {
+                        if i == j {
+                            continue
+                        }
+                        unsafe {
+                            let out = jacobian_col_out.rb_mut().get_mut_unchecked(residual_index);
+                            *out = elem.real();
+                            residual_index += 1;
+                            let out = jacobian_col_out.rb_mut().get_mut_unchecked(residual_index);
+                            *out = elem.imag();
+                            residual_index += 1;
+                        }
+                    }
+                }
+
+                for diag_iter in 0..(mat.nrows()-1) {
                     unsafe {
+                        let d_i = mat.get_unchecked(diag_iter, diag_iter);
+                        let d_j = mat.get_unchecked(diag_iter + 1, diag_iter + 1);
                         let out = jacobian_col_out.rb_mut().get_mut_unchecked(residual_index);
-                        *out = elem.real();
+                        *out = d_j.real() - d_i.real();
                         residual_index += 1;
                         let out = jacobian_col_out.rb_mut().get_mut_unchecked(residual_index);
-                        *out = elem.imag();
+                        *out = d_j.imag() - d_i.imag();
                         residual_index += 1;
                     }
                 }
@@ -272,22 +324,42 @@ impl<R: RealScalar, const D: DifferentiationLevel> Jacobian<R> for HSFunction<R,
 
     fn jacobian_into(&mut self, params: &[R], mut jacobian_out: MatMut<R>) {
         let result = self.tnvm.evaluate::<GRADIENT>(params);
-        let grad_out = result.get_grad_result().unpack_tensor3d();
+        let grad_out = result.get_grad_result2().unpack_tensor4d();
 
-        for p in 0..grad_out.dims()[0] {    
-            let grad_matrix_out = grad_out.subtensor_ref(p);
+        for p in 0..grad_out.dims()[0] {
+            let partial_kraus_ops = grad_out.subtensor_ref(p);
             let mut jacobian_col_out = jacobian_out.rb_mut().col_mut(p);
             let mut residual_index = 0;
-            for (j, col) in grad_matrix_out.col_iter().enumerate() {
-                for (i, elem) in col.iter().enumerate() {
-                    // println!("{} {} {} {}", i, j, residual_index, jacobian_col_out.nrows());
-                    // SAFETY: because I said so (meaning: no safety at all; TODO: do better :)
+
+            for k in 0..partial_kraus_ops.dims()[0] {
+                let mat = partial_kraus_ops.subtensor_ref(k);
+
+                for (j, col) in mat.col_iter().enumerate() {
+                    for (i, elem) in col.iter().enumerate() {
+                        if i == j {
+                            continue
+                        }
+                        unsafe {
+                            let out = jacobian_col_out.rb_mut().get_mut_unchecked(residual_index);
+                            *out = elem.real();
+                            residual_index += 1;
+                            let out = jacobian_col_out.rb_mut().get_mut_unchecked(residual_index);
+                            *out = elem.imag();
+                            residual_index += 1;
+                        }
+                    }
+                }
+
+                let diag_iter = 0;
+                for diag_iter in 0..(mat.nrows()-1) {
                     unsafe {
+                        let d_i = mat.get_unchecked(diag_iter, diag_iter);
+                        let d_j = mat.get_unchecked(diag_iter + 1, diag_iter + 1);
                         let out = jacobian_col_out.rb_mut().get_mut_unchecked(residual_index);
-                        *out = elem.real();
+                        *out = d_j.real() - d_i.real();
                         residual_index += 1;
                         let out = jacobian_col_out.rb_mut().get_mut_unchecked(residual_index);
-                        *out = elem.imag();
+                        *out = d_j.imag() - d_i.imag();
                         residual_index += 1;
                     }
                 }

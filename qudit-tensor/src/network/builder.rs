@@ -195,6 +195,16 @@ impl QuditCircuitTensorNetworkBuilder {
             );
         }
 
+        let num_qudits_involved = input_index_map.iter().chain(output_index_map.iter()).copied().collect::<BTreeSet<_>>().len();
+        if num_qudits_involved > input_index_map.len() && num_qudits_involved > output_index_map.len() {
+            // Every wire involved needs to do one of three things:
+            //  1. Pass through the tensor
+            //  2. Start at this tensor
+            //  3. End at this tensor
+            // This check among others enforces these constraints
+            panic!("Invalid input and output index map for QuditCircuitTensorNetworkBuilder.");
+        }
+
         // Add Tensor to network
         let tensor_id = self.tensors.len();
         let mut tensor_local_to_network_map = vec![None; tensor.num_indices()];
@@ -242,8 +252,18 @@ impl QuditCircuitTensorNetworkBuilder {
         // Handle Output Indices
         for (tensor_output_idx_id, qudit_id) in output_index_map.iter().enumerate() {
             let local_index_id = output_tensor_indices[tensor_output_idx_id];
-            if self.front[*qudit_id].is_active() && !input_index_map.contains(&qudit_id) {
-                panic!("Cannot map a tensor output qudit over an active edge without connecting or closing it.");
+            // Either needs to start here or pass through
+            if !input_index_map.contains(&*qudit_id) {
+                match self.front[*qudit_id] {
+                    Wire::Empty => {
+                        // Make the start of this wire this tensor by closing rear
+                        self.rear[*qudit_id] = Wire::Closed;
+                    }
+                    Wire::Closed => {}
+                    Wire::Connected(_, _) => {
+                        panic!("Cannot map a tensor output qudit over an active edge without connecting on the input side.");
+                    }
+                }
             }
             tensor_local_to_network_map[local_index_id] = Some(NetworkBuilderIndex::Front(*qudit_id));
             self.front[*qudit_id] = Wire::Connected(tensor_id, local_index_id);

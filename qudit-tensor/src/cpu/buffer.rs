@@ -32,6 +32,27 @@ pub struct SizedTensorBuffer<C: ComplexScalar> {
 impl<C: ComplexScalar> SizedTensorBuffer<C> {
 
     #[inline]
+    pub fn contiguous(offset: usize, buffer: &TensorBuffer) -> Self {
+        let row_stride = 1;
+        let col_stride = buffer.nrows();
+        let mat_stride = col_stride * buffer.ncols();
+        let unit_stride = buffer.shape().num_elements();
+        SizedTensorBuffer {
+            offset,
+            shape: buffer.shape(),
+            ncols: buffer.ncols(),
+            nrows: buffer.nrows(),
+            nmats: buffer.nmats(),
+            nparams: buffer.num_params(),
+            col_stride,
+            row_stride,
+            mat_stride,
+            unit_stride,
+            _phantom: std::marker::PhantomData,
+        }
+    }
+
+    #[inline]
     pub fn new(offset: usize, buffer: &TensorBuffer) -> Self {
         // let col_stride = 1;
         // let row_stride = buffer.ncols();

@@ -63,12 +63,71 @@ where
         let mut JtJ: Mat<R> = Mat::zeros(objective.num_params(), objective.num_params());
         let mut Jtr: Mat<R> = Mat::zeros(objective.num_params(), 1);
 
+        // /////// FINITE ANALYSIS TEST
+        // unsafe {
+        //     // Calculate new residuals and jacobian
+        //     let param_slice = std::slice::from_raw_parts(x.as_ptr(), x.nrows());
+        //     objective.residuals_and_jacobian_into(param_slice, Rbuf.as_mut(), Jbuf.as_mut());
+        // }
+
+        // // Finite difference test for Jacobian correctness
+        // let epsilon = R::from64(1e-6); // Small perturbation
+        // let mut Rbuf_perturbed = objective.allocate_residual();
+
+        // println!("\n--- Finite Difference Jacobian Test ---");
+        // for j in 0..n_params {
+        //     let mut x_perturbed = x.clone(); // Copy x
+        //     // Perturb the j-th parameter
+        //     x_perturbed[j] += epsilon;
+
+        //     // Calculate residuals at x_perturbed
+        //     unsafe {
+        //         let param_slice = std::slice::from_raw_parts(x_perturbed.as_ptr(), x_perturbed.nrows());
+        //         objective.residuals_into(param_slice, Rbuf_perturbed.as_mut());
+        //     }
+
+        //     // Calculate finite difference approximation for the j-th column of the Jacobian
+        //     // J_fd_j = (R(x + e_j * epsilon) - R(x)) / epsilon
+        //     let fd_jacobian_col_j = (Rbuf_perturbed.as_mat() - Rbuf.as_mat()) * Scale(R::one() / epsilon);
+
+        //     // Get the analytical j-th column of the Jacobian
+        //     let analytical_jacobian_col_j = Jbuf.col(j);
+
+        //     // Compare: calculate the L2 norm of the difference
+        //     let diff_norm = (fd_jacobian_col_j - analytical_jacobian_col_j.as_mat()).norm_l2();
+        //     let analytical_norm = analytical_jacobian_col_j.norm_l2();
+
+        //     println!(
+        //         "Parameter {}: Diff Norm = {}, Analytical Norm = {}",
+        //         j, diff_norm, analytical_norm
+        //     );
+
+        //     // Optional: Add a threshold for warning
+        //     if analytical_norm > R::from64(1e-10) && diff_norm / analytical_norm > R::from64(1e-4) {
+        //         // A relative error of 0.01% might be acceptable, adjust as needed
+        //         println!(
+        //             "  WARNING: Large relative discrepancy. Relative error: {}",
+        //             diff_norm / analytical_norm
+        //         );
+        //     } else if analytical_norm <= R::from64(1e-10) && diff_norm > R::from64(1e-8) {
+        //         // If analytical norm is very small, check absolute difference
+        //         println!(
+        //             "  WARNING: Large absolute discrepancy (analytical norm near zero). Absolute error: {}",
+        //             diff_norm
+        //         );
+        //     }
+        // }
+        // println!("--- End Finite Difference Jacobian Test ---\n");
+
+        // ///////
+
         for iter in 0..self.max_iterations {
             // Safety: x is non null, initialized, and read-only while param_slice is alive.
             unsafe {
                 // Calculate new residuals and jacobian
                 let param_slice = std::slice::from_raw_parts(x.as_ptr(), x.nrows());
                 objective.residuals_and_jacobian_into(param_slice, Rbuf.as_mut(), Jbuf.as_mut());
+                // dbg!(&Jbuf);
             }
             
             // Calculate current cost

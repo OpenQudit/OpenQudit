@@ -1,6 +1,90 @@
 use qudit_core::{memory::MemoryBuffer, ComplexScalar};
+use qudit_core::matrix::RowRef;
+use qudit_core::matrix::ColRef;
+use qudit_core::matrix::MatRef;
+use qudit_core::array::TensorRef;
+use qudit_core::array::SymSqTensorRef;
 use qudit_expr::GenerationShape;
 use super::buffer::SizedTensorBuffer;
+
+pub struct TNVMReturnType2<'a, C: ComplexScalar> {
+    pub ncols: usize,
+    pub nrows: usize,
+    pub nmats: usize,
+    pub ntens: usize,
+    pub buffer: &'a [C],
+}
+
+impl<'a, C: ComplexScalar> TNVMReturnType2<'a, C> {
+    pub fn num_elements(&self) -> usize {
+        self.ncols * self.nrows * self.nmats * self.ntens
+    }
+
+    pub fn unpack_scalar(self) -> &'a C {
+        if self.num_elements() != 1 {
+            panic!("Cannot unpack a non-scalar type as a scalar.");
+        }
+        &self.buffer[0]
+    }
+
+    pub fn unpack_row(self) -> RowRef<'a, C> {
+        RowRef::from_slice(self.buffer)
+    }
+
+    pub fn unpack_col(self) -> ColRef<'a, C> {
+        ColRef::from_slice(self.buffer)
+    }
+
+    pub fn unpack_mat(self) -> MatRef<'a, C> {
+        if self.ntens != 1 {
+            MatRef::from_column_major_slice(self.buffer, self.ntens, self.nmats*self.nrows*self.ncols)
+        } else if self.nmats != 1 {
+            MatRef::from_column_major_slice(self.buffer, self.nmats, self.nrows*self.ncols)
+        } else {
+            MatRef::from_column_major_slice(self.buffer, self.nrows, self.ncols)
+        }
+    }
+
+    pub fn unpack_tensor3d(self) -> TensorRef<'a, C, 3> {
+        if self.ntens != 1 {
+            if self.nmats != 1 {
+                unsafe {
+                    TensorRef::from_raw_parts(
+                        self.buffer.as_ptr(),
+                        [self.ntens, self.nmats, self.nrows*self.ncols],
+                        [self.nmats*self.nrows*self.ncols, self.nrows*self.ncols, 1],
+                    )
+                }
+            } else {
+                unsafe {
+                    TensorRef::from_raw_parts(
+                        self.buffer.as_ptr(),
+                        [self.ntens, self.nrows, self.ncols],
+                        [self.nrows*self.ncols, 1, self.nrows],
+                    )
+                }
+            }
+        } else {
+            unsafe {
+                TensorRef::from_raw_parts(
+                    self.buffer.as_ptr(),
+                    [self.nmats, self.nrows, self.ncols],
+                    [self.nrows*self.ncols, 1, self.nrows],
+                )
+            }
+        }
+    }
+
+    pub fn unpack_tensor4d(self) -> TensorRef<'a, C, 4> {
+        unsafe {
+            TensorRef::from_raw_parts(
+                self.buffer.as_ptr(),
+                [self.ntens, self.nmats, self.nrows, self.ncols],
+                [self.nmats*self.nrows*self.ncols, self.nrows*self.ncols, 1, self.nrows],
+            )
+        }
+    }
+}
 
 pub enum TNVMReturnType<'a, C: ComplexScalar> {
     Scalar(&'a C),
@@ -100,6 +184,27 @@ impl<'a, C: ComplexScalar> TNVMResult<'a, C> {
         TNVMResult { memory, buffer }
     }
 
+    pub fn get_fn_result2(&self) -> TNVMReturnType2<'a, C> {
+        // println!("{}, {}, {}, {}", self.buffer.ncols(), self.buffer.nrows(), self.buffer.nmats(), self.buffer.unit_memory_size());
+        TNVMReturnType2 {
+            ncols: self.buffer.ncols(),
+            nrows: self.buffer.nrows(),
+            nmats: self.buffer.nmats(),
+            ntens: 1,
+            buffer: unsafe { std::slice::from_raw_parts(self.buffer.as_ptr(self.memory), self.buffer.unit_memory_size()) }
+        }
+    }
+
+    pub fn get_grad_result2(&self) -> TNVMReturnType2<'a, C> {
+        TNVMReturnType2 {
+            ncols: self.buffer.ncols(),
+            nrows: self.buffer.nrows(),
+            nmats: self.buffer.nmats(),
+            ntens: self.buffer.nparams(),
+            buffer: unsafe { std::slice::from_raw_parts(self.buffer.as_ptr(self.memory).add(self.buffer.unit_memory_size()), self.buffer.grad_memory_size()) }
+        }
+    }
+
     pub fn get_fn_result(&self) -> TNVMReturnType<'a, C> {
         match self.buffer.shape() {
             // Safety: TNVM told me this output buffer is mine
@@ -122,6 +227,7 @@ impl<'a, C: ComplexScalar> TNVMResult<'a, C> {
     // TODO: this needs to be made more safe by gating it behind const DifferentiationLevel generic
     // impls
     pub fn get_grad_result(&self) -> TNVMReturnType<'a, C> {
+        // TODO: Has to ensure nparams is always outer most vector when unpacking
         match self.buffer.shape() {
             // Safety: TNVM told me this output buffer is mine
             GenerationShape::Scalar => {

@@ -404,6 +404,7 @@ impl<'a, C: Display + Debug + Memorable, const D: usize> Debug for TensorRef<'a,
     }
 }
 
+// TODO: add iterators for subtensors
 
 /// A view struct of a tensor. It holds a reference to the underlying data.
 #[derive(Clone, Copy)]
