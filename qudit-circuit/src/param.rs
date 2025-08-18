@@ -7,6 +7,7 @@ pub enum ParamEntry<R: RealScalar> {
     Static(R),
     Dynamic(R),
     Existing(usize),
+    // Parametric(String),
     // Named(String),
     // TODO: Parametric
 }

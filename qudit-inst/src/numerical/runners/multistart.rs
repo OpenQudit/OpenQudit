@@ -23,12 +23,12 @@ where
         let mut func = self.minimizer.initialize(&problem);
         for _ in 0..self.num_starts {
             let x0 = self.guess_generator.generate(problem.num_params());
-            let now = std::time::Instant::now();
-            for _ in 0..100 {
-                let res = self.minimizer.minimize(&mut func, &x0);
-            }
-            let elapsed = now.elapsed();
-            println!("Minimization took: {:?}", elapsed/100);
+            // let now = std::time::Instant::now();
+            // for _ in 0..100 {
+            //     let res = self.minimizer.minimize(&mut func, &x0);
+            // }
+            // let elapsed = now.elapsed();
+            // println!("Minimization took: {:?}", elapsed/100);
 
             let res = self.minimizer.minimize(&mut func, &x0);
             println!("{}", res.fun);

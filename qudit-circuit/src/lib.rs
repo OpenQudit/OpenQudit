@@ -18,3 +18,6 @@ pub use location::CircuitLocation;
 pub use param::ParamEntry;
 pub use point::CircuitDitId;
 pub use point::CircuitPoint;
+pub use instruction::Instruction;
+pub use operation::Operation;
+pub use operation::ControlState;

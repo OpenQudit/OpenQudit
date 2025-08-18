@@ -16,6 +16,15 @@ use crate::point::CircuitDitId;
 use crate::ParamEntry;
 use crate::{compact::CompactIntegerVector, cycle::QuditCycle, cyclelist::CycleList, instruction::{Instruction, InstructionReference}, iterator::{QuditCircuitBFIterator, QuditCircuitDFIterator, QuditCircuitFastIterator}, location::CircuitLocation, operation::{Operation, OperationReference}, CircuitPoint};
 
+pub enum BaseExpression {
+    Variable(String),
+    Numeric(Ratio<BigInt>),
+}
+
+pub struct Parameter {
+    name: Option<String>,
+    expr: BaseExpression,
+}
 
 /// A quantum circuit that can be defined with qudits and classical bits.
 #[derive(Clone)]
@@ -504,6 +513,7 @@ impl<C: ComplexScalar> QuditCircuit<C> {
         self.append(op_ref, location, ParamList::empty());
     }
 
+    // pub fn z_basis_measure
 
     pub fn uninit_classically_control<L: ToLocation>(
         &mut self, 
@@ -1154,6 +1164,16 @@ mod tests {
         circ.append_uninit_gate(Gate::CX(), [0, 1]);
         circ.append_gate(Gate::P(2), [1], [ParamEntry::Existing(0)]);
         circ.append_uninit_gate(Gate::CX(), [0, 1]);
+
+        // optional: circ.new_parameteric_param("alpha");
+        // optional: circ.set_parameter_value("alpha", 0.5);
+        //  - if parameteric, makes it dynamic
+        //  - sets value
+        // optional: circ.freeze_parameter_value("alpha", 0.5);
+        //  - if parameteric, makes it static
+        //  - sets value
+        // circ.append_gate(Gate::P(2), [1], ["alpha"]);
+        // circ.append_gate(Gate::P(2), [1], ["alpha/2"]);
 
         let network = circ.to_tensor_network();
         let code = qudit_tensor::compile_network(network);

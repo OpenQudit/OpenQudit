@@ -13,6 +13,7 @@ pub use target::InstantiationTarget;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use faer::mat;
     use qudit_core::radices;
     use qudit_core::c32;
     use qudit_core::c64;
@@ -33,6 +34,10 @@ mod tests {
     use crate::numerical::MinimizingInstantiater;
     use qudit_core::QuditSystem;
     use qudit_expr::UnitaryExpressionGenerator;
+    use qudit_expr::StateSystemExpression;
+    use qudit_circuit::Instruction;
+    use qudit_circuit::Operation;
+    use qudit_circuit::ControlState;
 
     pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit<c64> {
         let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
@@ -82,7 +87,7 @@ mod tests {
     }
 
     pub fn build_dynamic_circuit() -> QuditCircuit<c64> {
-        let mut circ: QuditCircuit<c32> = QuditCircuit::new([2, 2, 2, 2], [2, 2]);
+        let mut circ: QuditCircuit<c64> = QuditCircuit::new([2, 2, 2, 2], [2, 2]);
 
         circ.zero_initialize([1, 2]);
 
@@ -90,10 +95,12 @@ mod tests {
             circ.append_uninit_gate(Gate::U3(), [i]);
         }
 
+        // TODO: add otimes, dot, and friends to gate methods.
         let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
-        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [0, 1], vec![]));
-        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [2, 3], vec![]));
-        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [1, 2], vec![]));
+        let block_gate = Gate::Expression(block_expr);
+        circ.append_uninit_gate(block_gate.clone(), [0, 1]);
+        circ.append_uninit_gate(block_gate.clone(), [2, 3]);
+        circ.append_uninit_gate(block_gate.clone(), [1, 2]);
 
         let two_qubit_basis_measurement = StateSystemExpression::new("TwoQMeasure() {
             [
@@ -104,6 +111,8 @@ mod tests {
             ]
         }");
         circ.append_instruction(Instruction::new(Operation::TerminatingMeasurement(two_qubit_basis_measurement), ([1, 2], [0,1]), vec![]));
+        // circ.z_basis_measure([1, 2], [0, 1]);
+        // circ.classically_multiplex(Gate::U3().otimes(Gate::U3()), [0, 3], [0, 1]);
 
         let cs1 = ControlState::from_binary_state([0,0]);
         circ.uninit_classically_control(Gate::U3(), cs1.clone(), ([0], [0, 1]));
@@ -128,14 +137,20 @@ mod tests {
     #[test]
     fn test_lm_minimization_simple() {
         // create simple circuit
-        let circ = build_qsearch_thin_step_circuit(3);
+        let circ = build_dynamic_circuit();
 
         // sample target
-        let network = circ.to_tensor_network();
-        let code = qudit_tensor::compile_network(network);
-        let mut tnvm = qudit_tensor::TNVM::<c64, GRADIENT>::new(&code);
-        let result = tnvm.evaluate::<FUNCTION>(&vec![1.7; circ.num_params()]).get_fn_result().unpack_matrix();
-        let target_utry = UnitaryMatrix::new(circ.radices(), result.to_owned());
+        // let network = circ.to_tensor_network();
+        // let code = qudit_tensor::compile_network(network);
+        // let mut tnvm = qudit_tensor::TNVM::<c64, GRADIENT>::new(&code);
+        // let result = tnvm.evaluate::<FUNCTION>(&vec![1.7; circ.num_params()]).get_fn_result().unpack_matrix();
+        // let target_utry = UnitaryMatrix::new(circ.radices(), result.to_owned());
+        let target_utry = UnitaryMatrix::new([2, 2], mat![
+            [c64::new(1.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0)],
+            [c64::new(0.0, 0.0), c64::new(1.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0)],
+            [c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(1.0, 0.0)],
+            [c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(1.0, 0.0), c64::new(0.0, 0.0)],
+        ]);
         let target = InstantiationTarget::UnitaryMatrix(target_utry);
 
         // build instantiater

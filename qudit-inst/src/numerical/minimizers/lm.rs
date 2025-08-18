@@ -20,11 +20,15 @@ pub struct LM<R: RealScalar> {
     /// Tolerance for convergence (change in parameters).
     pub tolerance: R,
     /// Initial damping parameter.
-    pub initial_lambda: R,
+    pub initial_lambda: Option<R>,
+    /// Initial lambda scaling factor.
+    pub tau: R,
     /// Multiplier for lambda when a step is rejected.
     pub lambda_increase_factor: R,
     /// Divisor for lambda when a step is accepted.
     pub lambda_decrease_factor: R,
+
+    pub minimum_lambda: R,
 }
 
 impl<R: RealScalar> Default for LM<R> {
@@ -32,9 +36,12 @@ impl<R: RealScalar> Default for LM<R> {
         Self {
             max_iterations: 100,
             tolerance: R::from64(1e-8),
-            initial_lambda: R::from64(0.01),
+            // initial_lambda: R::from64(0.01),
+            initial_lambda: None,
+            tau: R::from64(1e-3),
             lambda_increase_factor: R::from64(2.0),
             lambda_decrease_factor: R::from64(3.0),
+            minimum_lambda: R::from64(10.0)*R::epsilon(),
         }
     }
 }
@@ -55,9 +62,9 @@ where
     /// Reference: https://scispace.com/pdf/the-levenberg-marquardt-algorithm-implementation-and-theory-u1ziue6l3q.pdf
     fn minimize(&self, objective: &mut P::Jacobian, x0: &[R]) -> MinimizationResult<R> {
         let n_params = objective.num_params();
+        dbg!(&x0);
         let mut x = Col::from_fn(x0.len(), |i| x0[i].clone());
 
-        let mut lambda = self.initial_lambda;
         let mut Rbuf = objective.allocate_residual();
         let mut Jbuf = objective.allocate_jacobian();
         let mut JtJ: Mat<R> = Mat::zeros(objective.num_params(), objective.num_params());
@@ -118,34 +125,89 @@ where
         //     }
         // }
         // println!("--- End Finite Difference Jacobian Test ---\n");
-
         // ///////
 
-        for iter in 0..self.max_iterations {
-            // Safety: x is non null, initialized, and read-only while param_slice is alive.
-            unsafe {
-                // Calculate new residuals and jacobian
-                let param_slice = std::slice::from_raw_parts(x.as_ptr(), x.nrows());
-                objective.residuals_and_jacobian_into(param_slice, Rbuf.as_mut(), Jbuf.as_mut());
-                // dbg!(&Jbuf);
-            }
-            
-            // Calculate current cost
-            let current_cost = Rbuf.squared_norm_l2() * R::new(0.5);
+        // Safety: x is non null, initialized, and read-only while param_slice is alive.
+        unsafe {
+            // Calculate new residuals and jacobian
+            let param_slice = std::slice::from_raw_parts(x.as_ptr(), x.nrows());
+            objective.residuals_and_jacobian_into(param_slice, Rbuf.as_mut(), Jbuf.as_mut());
+            // dbg!(&Jbuf);
+        }
 
-            // Calculate hessian and gradient approximation to form new linear system problem
-            matmul(&mut JtJ, Accum::Replace, &Jbuf.transpose(), &Jbuf, R::one(), Par::Seq);
-            matmul(&mut Jtr, Accum::Replace, &Jbuf.transpose(), &Rbuf.as_mat(), R::one(), Par::Seq);
+        // Calculate current cost
+        let mut current_cost = Rbuf.squared_norm_l2() * R::new(0.5);
+
+        // Calculate hessian and gradient approximation to form new linear system problem
+        matmul(&mut JtJ, Accum::Replace, &Jbuf.transpose(), &Jbuf, R::one(), Par::Seq);
+        matmul(&mut Jtr, Accum::Replace, &Jbuf.transpose(), &Rbuf.as_mat(), R::one(), Par::Seq);
+   
+        // Start lambda scaled to problem if not specified
+        let mut lambda = match self.initial_lambda {
+            None => { 
+                let mut iter = JtJ.diagonal().column_vector().iter();
+                let mut l = iter.next().expect("Empty Jacobian");
+                for cand_l in iter {
+                    if cand_l > l {
+                        l = cand_l;
+                    }
+                }
+                *l
+            }
+            Some(l) => l,
+        };
+
+        for iter in 0..self.max_iterations {
 
             // Damp hessian approximation
             for j in JtJ.diagonal_mut().column_vector_mut().iter_mut() {
                 *j += lambda * *j; // TODO: add min and max?
             }
 
+            // Check JTJ for NaN or infinity values
+            let mut has_invalid_jtj = false;
+            for col in JtJ.col_iter() {
+                for elem in col.iter() {
+                    if elem.is_nan() || elem.is_infinite() || elem.is_subnormal() {
+                        has_invalid_jtj = true;
+                    }
+                }
+            }
+            if has_invalid_jtj {
+                println!("Step rejected due to NaN or infinity in JtJ matrix.");
+                // Recalculate JtJ to reset it to the undamped version before increasing lambda
+                matmul(&mut JtJ, Accum::Replace, &Jbuf.transpose(), &Jbuf, R::one(), Par::Seq);
+                lambda *= self.lambda_increase_factor;
+                println!("New lambda: {}", lambda);
+                continue;
+            }
+
+            // check condition of JTJ
+            let s = JtJ.svd().unwrap();
+            let max_s = s.S().column_vector().iter().next().unwrap();
+            let min_s = s.S().column_vector().iter().last().unwrap();
+            if RealScalar::abs(*min_s) < R::from64(1e-12) { // Avoid division by a near-zero number
+                dbg!("Infinity");
+            } else {
+                dbg!(max_s.to64() / min_s.to64());
+            }
+
+
             // Solve for delta_x
-            let llt = JtJ.llt(faer::Side::Lower).unwrap(); // TODO: If this fails; retry with
-            // larger lambda
-            let delta_x = llt.solve(&Jtr); // TODO: remove unnecessary allocations using scratch
+            let delta_x = match JtJ.llt(faer::Side::Lower) {
+                Ok(llt) => { llt.solve(&Jtr) },
+                Err(e) => {
+                    // Step rejected
+                    // println!("Step rejected due to invalid llt: {}", e);
+                    // matmul(&mut JtJ, Accum::Replace, &Jbuf.transpose(), &Jbuf, R::one(), Par::Seq);
+                    // lambda *= self.lambda_increase_factor;
+                    // println!("New lambda: {}", lambda);
+                    // continue;
+                    JtJ.lblt(faer::Side::Lower).solve(&Jtr)
+                }
+            };
+            // TODO: If this fails; fail step
+            // let delta_x = llt.solve(&Jtr); // TODO: remove unnecessary allocations using scratch
             // space: https://faer.veganb.tw/docs/dense-linalg/linsolve/
 
             // Calculate x_new
@@ -159,21 +221,44 @@ where
             }
             let new_cost = Rbuf.squared_norm_l2() * R::new(0.5);
 
-            // println!("Current cost: {}, New cost: {}", current_cost, new_cost);
+            // TODO: calculate gain ratio and create better update with more cases
+            // TODO: geodesic calculations
             if new_cost < current_cost {
                 // Step accepted
+                println!("Step accepted new cost: {}", new_cost);
                 x = x_new;
+                current_cost = new_cost;
                 lambda /= self.lambda_decrease_factor;
+                lambda = if lambda < self.minimum_lambda { self.minimum_lambda } else { lambda };
+
+                // Safety: x is non null, initialized, and read-only while param_slice is alive.
+                unsafe {
+                    // Calculate new residuals and jacobian
+                    let param_slice = std::slice::from_raw_parts(x.as_ptr(), x.nrows());
+                    objective.residuals_and_jacobian_into(param_slice, Rbuf.as_mut(), Jbuf.as_mut());
+                    // dbg!(&Jbuf);
+                }
+
+                // Calculate hessian and gradient approximation to form new linear system problem
+                matmul(&mut JtJ, Accum::Replace, &Jbuf.transpose(), &Jbuf, R::one(), Par::Seq);
+                matmul(&mut Jtr, Accum::Replace, &Jbuf.transpose(), &Rbuf.as_mat(), R::one(), Par::Seq);
             } else {
                 // Step rejected
+                println!("Step rejected");
+                matmul(&mut JtJ, Accum::Replace, &Jbuf.transpose(), &Jbuf, R::one(), Par::Seq);
+                // for j in JtJ.diagonal_mut().column_vector_mut().iter_mut() {
+                //     *j = *j / (R::from64(1.0) + lambda); // TODO: not numerically stable, look into a diag buf
+                // }
                 lambda *= self.lambda_increase_factor;
             }
             // println!("Lambda: {}", lambda);
 
             // Check for convergence
             if delta_x.norm_l2() < self.tolerance {
-                // println!("Converged");
+                println!("Converged");
                 let params_out = Vec::from_iter(x.iter().copied());
+                println!("Residuals");
+                dbg!(&Rbuf);
                 return MinimizationResult::simple_success(params_out, new_cost)
             }
         }
