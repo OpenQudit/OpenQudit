@@ -1,12 +1,14 @@
 //use qudit_core::matrix::MatMut;
 //use qudit_core::matrix::MatVecMut;
 use qudit_core::radices;
+use qudit_core::ComplexScalar;
 //use qudit_core::unitary::DifferentiableUnitaryFn;
 //use qudit_core::unitary::UnitaryFn;
 //use qudit_core::ComplexScalar;
 use qudit_core::HasParams;
 use qudit_core::QuditRadices;
 use qudit_expr::{UnitaryExpression, UnitaryExpressionGenerator};
+use qudit_core::matrix::Mat;
 
 pub mod constant {
     pub mod h;
@@ -17,6 +19,7 @@ pub mod constant {
 pub mod parameterized {
     pub mod p;
     pub mod u3;
+    pub mod variable;
 }
 
 pub mod composed {
@@ -30,6 +33,7 @@ pub use constant::x::XGate;
 pub use parameterized::p::PGate;
 pub use parameterized::u3::U3Gate;
 pub use composed::control::ControlledGate;
+pub use parameterized::variable::VariableUnitary;
 
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
 pub enum Gate {
@@ -39,6 +43,7 @@ pub enum Gate {
     U3Gate(U3Gate),
     Controlled(ControlledGate),
     Expression(UnitaryExpression),
+    VariableUnitary(VariableUnitary),
 }
 
 impl Gate {
@@ -50,6 +55,14 @@ impl Gate {
             Gate::U3Gate(_) => "U3".to_string(),
             Gate::Controlled(gate) => gate.name().to_string(),
             Gate::Expression(expr) => expr.name().to_string(),
+            Gate::VariableUnitary(_) => "VariableUnitary".to_string(),
+        }
+    }
+    
+    pub fn optimize<C: ComplexScalar>(&self, env: &Mat<C>, slowdown_factor: f64) -> Vec<C::R> {
+        match self {
+            Gate::VariableUnitary(gate) => gate.optimize(env, slowdown_factor),
+            _ => {todo!()}
         }
     }
 
@@ -82,6 +95,13 @@ impl Gate {
     pub fn U3() -> Self {
         Gate::U3Gate(U3Gate)
     }
+
+    #[allow(non_snake_case)]
+    pub fn VariableUnitary(radices: &[usize]) -> Self {
+        Gate::VariableUnitary(VariableUnitary::new(radices))
+    }
+
+
 }
 
 impl UnitaryExpressionGenerator for Gate {
@@ -93,6 +113,7 @@ impl UnitaryExpressionGenerator for Gate {
             Gate::U3Gate(gate) => gate.gen_expr(),
             Gate::Controlled(gate) => gate.gen_expr(),
             Gate::Expression(expr) => expr.clone(),
+            Gate::VariableUnitary(gate) => gate.gen_expr(), // Symbolic SVD is not generally possible
         }
     }
 }
@@ -106,6 +127,7 @@ impl HasParams for Gate {
             Gate::PGate(gate) => gate.radix - 1,
             Gate::Controlled(gate) => gate.num_params(),
             Gate::Expression(expr) => expr.num_params(),
+            Gate::VariableUnitary(gate) => gate.num_params(),
         }
     }
 }

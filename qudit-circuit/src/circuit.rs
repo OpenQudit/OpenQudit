@@ -1,8 +1,7 @@
 use std::collections::HashMap;
 use qudit_core::{ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, QuditSystem, ToRadices};
-
 use indexmap::IndexSet;
-use qudit_core::{QuditRadices, RealScalar, c64};
+use qudit_core::{QuditRadices, RealScalar, c64, unitary::UnitaryMatrix, matrix::Mat};
 use qudit_expr::index::{IndexDirection, TensorIndex};
 use qudit_gates::Gate;
 use qudit_expr::{TensorExpression, UnitaryExpressionGenerator};
@@ -14,7 +13,6 @@ use crate::param::ParamList;
 use crate::point::CircuitDitId;
 use crate::ParamEntry;
 use crate::{compact::CompactIntegerVector, cycle::QuditCycle, cyclelist::CycleList, instruction::{Instruction, InstructionReference}, iterator::{QuditCircuitBFIterator, QuditCircuitDFIterator, QuditCircuitFastIterator}, location::CircuitLocation, operation::{Operation, OperationReference}, CircuitPoint};
-
 
 /// A quantum circuit that can be defined with qudits and classical bits.
 #[derive(Clone)]
@@ -191,6 +189,89 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     pub fn params(&self) -> &[C::R] {
         &self.params
     }
+
+    //-----------------------------------------------------------------------------------------------------------
+    //-START----------------------------------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------------------------------------
+
+    // We add these (temporary) functions because params is now stored in circuit, not in each gate instruction.
+    // For borrow-checker reasons, we reference gates by an index and not a direct object reference.
+
+    pub fn update_inst_params(&mut self, inst_index: usize, opt_params: &[C::R]) {
+        let op_param_indices = &self.get_inst_ref(inst_index).param_indices;
+        let op_param_indices_vec: Vec<_> = op_param_indices.iter().collect();
+
+        for i in 0..op_param_indices.num_params() {
+            self.params[op_param_indices_vec[i]] = opt_params[i];
+        }
+    }
+
+    pub fn set_params(&mut self, params: &[C::R]) {
+        self.params = params.to_vec();
+    }
+
+    //-----------------------------------------------------------------------------------------------------------
+
+    pub fn get_op_utry(&self, index: usize) -> UnitaryMatrix<C> {
+        let op_utry: UnitaryMatrix<C>;
+        let inst_ref = self.get_inst_ref(index).op.dereference(self);
+        match inst_ref {
+            Operation::Gate(gate) => {
+                op_utry = gate.gen_expr().eval(&self.get_op_params(index));
+            }
+            _ => {todo!()}
+        }
+        return op_utry;
+    }
+
+    pub fn get_op_opt_params(&self, index: usize, env: &Mat<C>, slowdown_factor: f64) -> Vec<C::R> {
+        let op_gate : &Gate;
+        let inst_ref = self.get_inst_ref(index).op.dereference(self);
+        match inst_ref {
+            Operation::Gate(gate) => {
+                op_gate = gate;
+            }
+            _ => {todo!()}
+        }
+        return op_gate.optimize(&env, slowdown_factor);
+    }
+
+    pub fn get_op_params(&self, index: usize) -> Vec<C::R> {
+        let op_param_indices = self.get_op_param_indices(index);
+        let all_params = self.params();
+        return op_param_indices.iter().map(|x| all_params[x].clone()).collect(); 
+    }
+
+    pub fn get_op_location(&self, index: usize) -> Vec<usize> {
+        let inst_ref = self.get_inst_ref(index);
+        return inst_ref.location.qudits().to_vec();
+    }
+
+    pub fn get_op_num_params(&self, index: usize) -> usize {
+        let op_param_indices = self.get_op_param_indices(index);
+        return op_param_indices.num_params();
+    }
+
+    pub fn get_num_insts(&self) -> usize {
+        let inst_refs: Vec<_> = self.iter().collect();
+        return inst_refs.len();
+    }
+
+    //-----------------------------------------------------------------------------------------------------------
+
+    fn get_inst_ref(&self, index: usize) -> &InstructionReference {
+        // Very inefficient...
+        let inst_refs: Vec<_> = self.iter().collect();
+        return inst_refs[index];
+    }
+
+    fn get_op_param_indices(&self, index: usize) -> &ParamIndices {
+        return &self.get_inst_ref(index).param_indices;
+    }
+
+    //-----------------------------------------------------------------------------------------------------------
+    //--END-----------------------------------------------------------------------------------------------------
+    //-----------------------------------------------------------------------------------------------------------
 
     /// Increment internal instruction type counter.
     fn inc_op_counter(&mut self, op_type: &OperationReference) {
