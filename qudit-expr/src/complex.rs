@@ -1,9 +1,11 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 
 use qudit_core::ComplexScalar;
 
 use crate::expression::Expression;
 use crate::expression::Constant;
+use crate::qgl::parse_scalar;
 use crate::qgl::Expression as CiscExpression;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
@@ -13,6 +15,26 @@ pub struct ComplexExpression {
 }
 
 impl ComplexExpression {
+    pub fn from_string(input: impl AsRef<str>) -> Self {
+        ComplexExpression::new(
+            parse_scalar(input.as_ref()).unwrap_or_else(|e| panic!("Invalid input string: {e}")),
+        )
+    }
+
+    pub fn from_real_64(input: f64) -> Self {
+        ComplexExpression {
+            real: Expression::from_float_64(input),
+            imag: Expression::zero(),
+        }
+    }
+
+    pub fn from_real_32(input: f32) -> Self {
+        ComplexExpression {
+            real: Expression::from_float_32(input),
+            imag: Expression::zero(),
+        }
+    }
+
     pub fn new(cisc_expr: CiscExpression) -> Self {
         match cisc_expr {
             CiscExpression::Number(num) => ComplexExpression {
@@ -274,6 +296,10 @@ impl ComplexExpression {
             imag: Expression::Neg(Box::new(self.imag.clone())),
         }
     }
+
+    pub fn conjugate_in_place(&mut self) {
+        self.imag = Expression::Neg(Box::new(self.imag.clone()));
+    }
     
     pub fn differentiate(&self, wrt: &str) -> Self {
         ComplexExpression {
@@ -302,6 +328,7 @@ impl ComplexExpression {
     }
 
     pub fn substitute<S: AsRef<Expression>, T: AsRef<Expression>>(&self, original: S, substitution: T) -> Self {
+        // TODO: Allow ComplexExpression substitution
         ComplexExpression {
             real: self.real.substitute(original.as_ref(), substitution.as_ref()),
             imag: self.imag.substitute(original.as_ref(), substitution.as_ref()),
@@ -313,6 +340,20 @@ impl ComplexExpression {
             real: self.real.rename_variable(original.as_ref(), new.as_ref()),
             imag: self.imag.rename_variable(original.as_ref(), new.as_ref()),
         }
+    }
+
+    pub fn get_unique_variables(&self) -> Vec<String> {
+        let mut real = self.real.get_unique_variables();
+        for i in self.imag.get_unique_variables().into_iter() {
+            if !real.contains(&i) {
+                real.push(i)
+            }
+        }
+        real
+    }
+
+    pub fn is_parameterized(&self) -> bool {
+        self.real.is_parameterized() || self.imag.is_parameterized()
     }
 }
 

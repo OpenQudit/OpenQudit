@@ -21,6 +21,7 @@ use faer::reborrow::ReborrowMut;
 use crate::index::IndexDirection;
 use crate::index::IndexSize;
 use crate::index::TensorIndex;
+use crate::tensor::NamedExpression;
 use crate::tensor::TensorExpression;
 
 use crate::analysis::simplify_expressions;
@@ -31,6 +32,7 @@ use crate::qgl::parse_qobj;
 // use crate::qgl::parse_unitary;
 use crate::qgl::Expression as CiscExpression;
 use crate::DifferentiationLevel;
+use crate::GenerationShape;
 use qudit_core::TensorShape;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -56,7 +58,7 @@ impl StateExpression {
     ///
     /// A new `StateExpression` instance.
     pub fn new<T: AsRef<str>>(input: T) -> Self {
-        TensorExpression::new(input).to_state_expression()
+        TensorExpression::new(input).into()
     }
 
     pub fn zero<T: ToRadices>(radices: T) -> Self {
@@ -74,7 +76,7 @@ impl StateExpression {
     pub fn to_tensor_expression(self) -> TensorExpression {
         // TODO: What about distinguishing between bras and kets??!?
         let indices = self.radices.iter().enumerate().map(|(id, r)| TensorIndex::new(IndexDirection::Output, id, *r as IndexSize)).collect();
-        TensorExpression { name: self.name, variables: self.variables, indices, body: self.body }
+        TensorExpression::from_raw(indices, NamedExpression::new(self.name, self.variables, self.body))
     }
 
     /// Evaluates the state expression with the given arguments and returns a `StateVector`.
@@ -136,7 +138,7 @@ pub struct UnitaryExpression {
 
 impl UnitaryExpression {
     pub fn new<T: AsRef<str>>(input: T) -> Self {
-        TensorExpression::new(input).to_unitary_expression()
+        TensorExpression::new(input).into()
     }
 
     pub fn identity<S: AsRef<str>, T: ToRadices>(name: S, radices: T) -> Self {
@@ -362,37 +364,32 @@ impl UnitaryExpression {
         }
     }
 
-    pub fn differentiate(&self) -> MatVecExpression {
-        let mut grad_exprs = vec![vec![Vec::with_capacity(self.body.len()); self.body.len()]; self.variables.len()];
-        for (m, var) in self.variables.iter().enumerate() {
-            for (i, row) in self.body.iter().enumerate() {
-                for (_j, expr) in row.iter().enumerate() {
-                    grad_exprs[m][i].push(expr.differentiate(var));
-                }
-            }
-        }
+    // pub fn differentiate(&self) -> MatVecExpression {
+    //     let mut grad_exprs = vec![vec![Vec::with_capacity(self.body.len()); self.body.len()]; self.variables.len()];
+    //     for (m, var) in self.variables.iter().enumerate() {
+    //         for (i, row) in self.body.iter().enumerate() {
+    //             for (_j, expr) in row.iter().enumerate() {
+    //                 grad_exprs[m][i].push(expr.differentiate(var));
+    //             }
+    //         }
+    //     }
 
-        MatVecExpression {
-            name: format!("∇{}", self.name),
-            variables: self.variables.clone(),
-            body: grad_exprs,
-        }
-    }
+    //     MatVecExpression {
+    //         name: format!("∇{}", self.name),
+    //         variables: self.variables.clone(),
+    //         body: grad_exprs,
+    //     }
+    // }
 
     pub fn to_tensor_expression(&self) -> TensorExpression {
-        let flattened_body = self.body.clone().into_iter().flat_map(|row| row.into_iter()).collect();
+        let flattened_body: Vec<ComplexExpression> = self.body.clone().into_iter().flat_map(|row| row.into_iter()).collect();
         let indices = self.radices.iter()
             .map(|&r| (IndexDirection::Output, r))
             .chain(self.radices.iter().map(|&r| (IndexDirection::Input, r)))
             .enumerate()
             .map(|(id, (dir, size))| TensorIndex::new(dir, id, size as usize))
             .collect();
-        TensorExpression {
-            name: self.name.clone(),
-            variables: self.variables.clone(),
-            body: flattened_body,
-            indices,
-        }
+        TensorExpression::from_raw(indices, NamedExpression::new(self.name.clone(), self.variables.clone(), flattened_body))
     }
 
     pub fn simplify(&self) -> Self {
@@ -646,7 +643,7 @@ impl StateSystemExpression {
     ///
     /// A new `StateSystemExpression` instance.
     pub fn new<T: AsRef<str>>(input: T) -> Self {
-        TensorExpression::new(input).to_state_system_expression()
+        TensorExpression::new(input).into()
     }
 
     /// Evaluates the state system expression with the given arguments and returns a `Mat`.
@@ -683,7 +680,7 @@ impl StateSystemExpression {
     }
 
     pub fn to_tensor_expression(&self) -> TensorExpression {
-        let flattened_body = self.body.clone().into_iter().flat_map(|row| row.into_iter()).collect();
+        let flattened_body: Vec<ComplexExpression> = self.body.clone().into_iter().flat_map(|row| row.into_iter()).collect();
         // TODO: Ket vs Bra?!
         let indices = [self.body.len()].into_iter()
             .map(|r| (IndexDirection::Batch, r))
@@ -692,12 +689,7 @@ impl StateSystemExpression {
             .enumerate()
             .map(|(id, (dir, size))| TensorIndex::new(dir, id, size as usize))
             .collect();
-        TensorExpression {
-            name: self.name.clone(),
-            variables: self.variables.clone(),
-            body: flattened_body,
-            indices,
-        }
+        TensorExpression::from_raw(indices, NamedExpression::new(self.name.clone(), self.variables.clone(), flattened_body))
     }
 
     pub fn name(&self) -> String {
@@ -705,80 +697,9 @@ impl StateSystemExpression {
     }
 }
 
-pub struct MatVecExpression {
-    pub name: String,
-    pub variables: Vec<String>,
-    pub body: Vec<Vec<Vec<ComplexExpression>>>,
-}
-
-pub trait TensorExpressionGenerator {
-    fn gen_expr(&self) -> TensorExpression;
-}
-
-impl TensorExpressionGenerator for TensorExpression {
-    fn gen_expr(&self) -> TensorExpression {
-        self.clone()
-    }
-}
-
-pub trait UnitaryExpressionGenerator {
-    fn gen_expr(&self) -> UnitaryExpression;
-}
-
-impl UnitaryExpressionGenerator for UnitaryExpression {
-    fn gen_expr(&self) -> UnitaryExpression {
-        self.clone()
-    }
-}
-
 impl HasParams for UnitaryExpression {
     fn num_params(&self) -> usize {
         self.variables.len()
-    }
-}
-
-impl<R: RealScalar> HasPeriods<R> for UnitaryExpression {
-    fn periods(&self) -> Vec<Range<R>> {
-        todo!()
-    }
-}
-
-impl<C: ComplexScalar> UnitaryFn<C> for UnitaryExpression {
-    fn write_unitary(&self, params: &[<C as ComplexScalar>::R], mut utry: MatMut<C>) {
-        let arg_map = self.get_arg_map::<C>(params);
-        let dim = self.radices.dimension();
-        for i in 0..dim {
-            for j in 0..dim {
-                *utry.rb_mut().get_mut(i, j) = self.body[i][j].eval(&arg_map);
-            }
-        }
-    }
-}
-
-impl<C: ComplexScalar> DifferentiableUnitaryFn<C> for UnitaryExpression {
-    fn write_unitary_and_gradient(
-        &self,
-        params: &[C::R],
-        mut out_utry: MatMut<C>,
-        mut out_grad: MatVecMut<C>,
-    ) {
-        let arg_map = self.get_arg_map::<C>(params);
-        let dim = self.radices.dimension();
-        for i in 0..dim {
-            for j in 0..dim {
-                *out_utry.rb_mut().get_mut(i, j) = self.body[i][j].eval(&arg_map);
-            }
-        }
-
-        let grad_expr = self.differentiate();
-
-        for (i, grad_mat) in grad_expr.body.iter().enumerate() {
-            for (j, grad_row) in grad_mat.iter().enumerate() {
-                for (k, grad_elem) in grad_row.iter().enumerate() {
-                    out_grad.write(i, j, k, grad_elem.eval(&arg_map));
-                }
-            }
-        }
     }
 }
 
@@ -951,5 +872,104 @@ impl<C: ComplexScalar> From<UnitaryMatrix<C>> for UnitaryExpression {
             variables: vec![],
             body,
         }
+    }
+}
+
+impl From<TensorExpression> for UnitaryExpression {
+    fn from(value: TensorExpression) -> Self {    
+        match value.generation_shape() {
+            GenerationShape::Matrix(nrows, ncols) => {
+                assert_eq!(nrows, ncols);
+                let mut body = Vec::with_capacity(nrows);
+                for i in 0..nrows {
+                    let start = i * ncols;
+                    let end = start + ncols;
+                    let row = value[start..end].to_vec();
+                    body.push(row);
+                }
+                let radices = QuditRadices::from_iter(value.indices().iter().filter(|&i| i.direction().is_input()).map(|i| i.index_size()));
+                // TODO: use destruct to avoid allocations
+                UnitaryExpression {
+                    name: value.name().to_owned(),
+                    radices,
+                    variables: value.variables().to_owned(),
+                    body,
+                }
+            }
+            // TODO: Should be done with TryFrom
+            _ => panic!("TensorExpression shape must be a matrix to convert to UnitaryExpression"),
+        }
+    }
+}
+
+impl From<TensorExpression> for StateExpression {
+    fn from(value: TensorExpression) -> Self {    
+        match value.generation_shape() {
+            GenerationShape::Vector(_) => {
+                let radices = QuditRadices::from_iter(value.indices().iter().map(|i| i.index_size()));
+                // TODO: use destruct to avoid allocations
+                StateExpression {
+                    name: value.name().to_owned(),
+                    radices,
+                    variables: value.variables().to_owned(),
+                    body: value.elements().to_owned(),
+                }
+            }
+            // TODO: Should be done with TryFrom
+            _ => panic!("TensorExpression shape must be a vector to convert to StateExpression"),
+        }
+    }
+}
+
+impl From<TensorExpression> for StateSystemExpression {
+    fn from(value: TensorExpression) -> Self {    
+        match value.generation_shape() {
+            GenerationShape::Tensor3D(ntens, nrows, ncols) => {
+                let body = if nrows == 1 {
+                    let mut body = Vec::with_capacity(ntens);
+                    for i in 0..ntens {
+                        let start = i * ncols;
+                        let end = start + ncols;
+                        let row = value[start..end].to_vec();
+                        body.push(row);
+                    }
+                    body
+                } else if ncols == 1 {
+                    let mut body = Vec::with_capacity(ntens);
+                    for i in 0..ntens {
+                        let start = i * nrows;
+                        let end = start + nrows;
+                        let row = value[start..end].to_vec();
+                        body.push(row);
+                    }
+                    body
+                } else {
+                    panic!("Wrong (TODO: better message).")
+                };
+
+                let radices = QuditRadices::from_iter(value.indices().iter().filter(|&i| !i.direction().is_batch()).map(|i| i.index_size()));
+
+                StateSystemExpression {
+                    name: value.name().to_owned(),
+                    radices,
+                    variables: value.variables().to_owned(),
+                    body,
+                }
+            }
+            _ => panic!("TensorExpression shape must be a Tensor3D to convert to StateSystemExpression"),
+        }
+    }
+}
+
+impl From<UnitaryExpression> for TensorExpression {
+    fn from(value: UnitaryExpression) -> Self {
+        let flattened_body: Vec<ComplexExpression> = value.body.clone().into_iter().flat_map(|row| row.into_iter()).collect();
+        let indices = value.radices.iter()
+            .map(|&r| (IndexDirection::Output, r))
+            .chain(value.radices.iter().map(|&r| (IndexDirection::Input, r)))
+            .enumerate()
+            .map(|(id, (dir, size))| TensorIndex::new(dir, id, size as usize))
+            .collect();
+        TensorExpression::from_raw(indices, NamedExpression::new(value.name.clone(), value.variables.clone(), flattened_body))
     }
 }

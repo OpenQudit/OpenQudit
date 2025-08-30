@@ -104,7 +104,7 @@ impl GenerationShape {
     /// 
     /// # Examples
     /// ```
-    /// use qudit_core::shape::GenerationShape;
+    /// use qudit_expr::GenerationShape;
     /// 
     /// let scalar_shape = GenerationShape::Scalar;
     /// assert_eq!(scalar_shape.to_vec(), vec![]);
@@ -157,7 +157,7 @@ impl GenerationShape {
     /// 
     /// # Examples
     /// ```
-    /// use qudit_core::GenerationShape;
+    /// use qudit_expr::GenerationShape;
     /// 
     /// let test_scalar = GenerationShape::Scalar;
     /// let test_vector = GenerationShape::Vector(1);
@@ -188,7 +188,7 @@ impl GenerationShape {
     /// 
     /// # Examples
     /// ```
-    /// use qudit_core::GenerationShape;
+    /// use qudit_expr::GenerationShape;
     /// 
     /// let test_vector = GenerationShape::Vector(9);
     /// let test_matrix = GenerationShape::Matrix(1, 9);
@@ -232,7 +232,7 @@ impl GenerationShape {
     /// 
     /// # Examples
     /// ```
-    /// use qudit_core::GenerationShape;
+    /// use qudit_expr::GenerationShape;
     /// 
     /// let test_scalar = GenerationShape::Scalar;
     /// let test_vector = GenerationShape::Vector(1);
@@ -274,7 +274,7 @@ impl GenerationShape {
     /// 
     /// # Examples
     /// ```
-    /// use qudit_core::GenerationShape;
+    /// use qudit_expr::GenerationShape;
     /// 
     /// let test_scalar = GenerationShape::Scalar;
     /// let test_vector = GenerationShape::Vector(1);
@@ -311,7 +311,7 @@ impl GenerationShape {
     /// 
     /// # Examples
     /// ```
-    /// use qudit_core::GenerationShape;
+    /// use qudit_expr::GenerationShape;
     /// 
     /// let test_scalar = GenerationShape::Scalar;
     /// let test_vector = GenerationShape::Vector(1);
@@ -346,7 +346,7 @@ impl GenerationShape {
     ///
     /// # Examples
     /// ```
-    /// use qudit_core::shape::GenerationShape;
+    /// use qudit_expr::GenerationShape;
     /// let matrix_shape = GenerationShape::Matrix(2, 3);
     /// assert_eq!(matrix_shape.ncols(), 3);
     /// ```
@@ -367,7 +367,7 @@ impl GenerationShape {
     ///
     /// # Examples
     /// ```
-    /// use qudit_core::shape::GenerationShape;
+    /// use qudit_expr::GenerationShape;
     /// let matrix_shape = GenerationShape::Matrix(2, 3);
     /// assert_eq!(matrix_shape.nrows(), 2);
     /// ```
@@ -388,7 +388,7 @@ impl GenerationShape {
     ///
     /// # Examples
     /// ```
-    /// use qudit_core::shape::GenerationShape;
+    /// use qudit_expr::GenerationShape;
     /// let tensor3d_shape = GenerationShape::Tensor3D(5, 2, 3);
     /// assert_eq!(tensor3d_shape.nmats(), 5);
     /// ```
@@ -409,7 +409,7 @@ impl GenerationShape {
     ///
     /// # Examples
     /// ```
-    /// use qudit_core::shape::GenerationShape;
+    /// use qudit_expr::GenerationShape;
     /// let tensor4d_shape = GenerationShape::Tensor4D(7, 5, 2, 3);
     /// assert_eq!(tensor4d_shape.ntens(), 7);
     /// ```
@@ -420,6 +420,51 @@ impl GenerationShape {
             GenerationShape::Matrix(_, _) => 1,
             GenerationShape::Tensor3D(_, _, _) => 1,
             GenerationShape::Tensor4D(ntens, _, _, _) => *ntens,
+        }
+    }
+
+    pub fn calculate_directions(&self, index_sizes: &[usize]) -> Vec<IndexDirection> {
+        match self {
+            GenerationShape::Scalar => vec![],
+            GenerationShape::Vector(nelems) => vec![IndexDirection::Input; index_sizes.len()],
+            GenerationShape::Matrix(nrows, _) => {
+                let mut index_size_acm = 1usize;
+                let mut index_iter = 0;
+                let mut index_directions = vec![];
+                while index_size_acm < *nrows {
+                    index_size_acm *= index_sizes[index_iter]; 
+                    index_directions.push(IndexDirection::Output);
+                    index_iter += 1;
+                }
+                while index_iter != index_sizes.len() {
+                    index_directions.push(IndexDirection::Input);
+                    index_iter += 1;
+                }
+                index_directions
+            }
+            GenerationShape::Tensor3D(nmats, nrows, _) => {
+                let mut index_size_acm = 1usize;
+                let mut index_iter = 0;
+                let mut index_directions = vec![];
+                while index_size_acm < *nmats {
+                    index_size_acm *= index_sizes[index_iter]; 
+                    index_directions.push(IndexDirection::Batch);
+                    index_iter += 1;
+                }
+                while index_size_acm < *nrows {
+                    index_size_acm *= index_sizes[index_iter]; 
+                    index_directions.push(IndexDirection::Output);
+                    index_iter += 1;
+                }
+                while index_iter != index_sizes.len() {
+                    index_directions.push(IndexDirection::Input);
+                    index_iter += 1;
+                }
+                index_directions
+            }
+            GenerationShape::Tensor4D(_, _, _, _) => {
+                todo!()
+            }
         }
     }
 }

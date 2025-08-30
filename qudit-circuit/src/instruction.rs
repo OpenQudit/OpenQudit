@@ -1,27 +1,27 @@
-use qudit_core::{HasParams, ParamIndices, RealScalar};
+use qudit_core::{HasParams, ParamIndices, ParamInfo, RealScalar};
 
 use crate::{compact::CompactIntegerVector, location::ToLocation, operation::{Operation, OperationReference}, CircuitLocation};
 
-pub struct Instruction<R: RealScalar> {
-    pub op: Operation,
-    pub location: CircuitLocation,
-    pub params: Vec<R>,
-}
+// pub struct Instruction<R: RealScalar> {
+//     pub op: Operation,
+//     pub location: CircuitLocation,
+//     pub params: Vec<R>,
+// }
 
-impl<R: RealScalar> Instruction<R> {
-    pub fn new<L: ToLocation>(op: Operation, location: L, mut params: Vec<R>) -> Instruction<R> {
-        if params.len() != op.num_params() {
-            for _ in params.len()..op.num_params() {
-                params.push(R::zero());
-            }
-        }
-        Instruction {
-            op,
-            location: location.to_location(),
-            params,
-        }
-    }
-}
+// impl<R: RealScalar> Instruction<R> {
+//     pub fn new<L: ToLocation>(op: Operation, location: L, mut params: Vec<R>) -> Instruction<R> {
+//         if params.len() != op.num_params() {
+//             for _ in params.len()..op.num_params() {
+//                 params.push(R::zero());
+//             }
+//         }
+//         Instruction {
+//             op,
+//             location: location.to_location(),
+//             params,
+//         }
+//     }
+// }
 
 #[derive(Clone, Debug)]
 pub struct InstructionReference {
@@ -38,7 +38,6 @@ impl InstructionReference {
             op,
             location,
             param_indices,
-            // _packing: 0,
         }
     }
 

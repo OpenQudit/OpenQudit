@@ -1,5 +1,5 @@
 use qudit_core::{HasParams, QuditRadices, QuditSystem, ToRadix};
-use qudit_expr::{UnitaryExpression, UnitaryExpressionGenerator};
+use qudit_expr::{UnitaryExpression, ExpressionGenerator};
 
 
 /// An arbitrary controlled gate.
@@ -152,7 +152,7 @@ impl ControlledGate {
     /// # Examples
     ///
     /// // TODO: Come back to later
-    pub fn new<E: UnitaryExpressionGenerator>(
+    pub fn new<E: ExpressionGenerator<ExpressionType = UnitaryExpression>>(
         expr: E,
         control_radices: QuditRadices, // TODO: Make a ToRadices generic
         control_levels: Vec<Vec<usize>>,
@@ -188,7 +188,7 @@ impl ControlledGate {
             panic!("Expected control levels to be unique.");
         }
 
-        let gate_expr = expr.gen_expr();
+        let gate_expr = expr.generate_expression();
         let gate_dim = gate_expr.dimension();
 
         // Build appropriately sized identity expression
@@ -279,9 +279,11 @@ impl QuditSystem for ControlledGate {
     }
 }
 
-impl UnitaryExpressionGenerator for ControlledGate {
+impl ExpressionGenerator for ControlledGate {
+    type ExpressionType = UnitaryExpression;
+
     #[inline]
-    fn gen_expr(&self) -> UnitaryExpression {
+    fn generate_expression(&self) -> UnitaryExpression {
         self.expr.clone()
     }
 }

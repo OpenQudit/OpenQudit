@@ -3,7 +3,7 @@ use std::hash::Hash;
 
 use qudit_core::HasPeriods;
 use qudit_core::HasParams;
-use qudit_core::ParamIndices;
+use qudit_core::ParamInfo;
 use qudit_core::RealScalar;
 use qudit_core::QuditRadices;
 use qudit_core::QuditSystem;
@@ -13,13 +13,13 @@ use qudit_expr::index::TensorIndex;
 use qudit_expr::GenerationShape;
 
 use super::fmt::PrintTree;
-use super::tree::ExpressionTree;
+use super::tree::TTGTNode;
 
 /// A partial trace node in the computation tree.
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct TraceNode {
     /// The child node to be permuted.
-    pub child: Box<ExpressionTree>,
+    pub child: Box<TTGTNode>,
 
     pub dimension_pairs: Vec<(usize, usize)>,
 
@@ -27,7 +27,7 @@ pub struct TraceNode {
 }
 
 impl TraceNode {
-    pub fn new(child: ExpressionTree, pairs: Vec<(usize, usize)>) -> TraceNode {
+    pub fn new(child: TTGTNode, pairs: Vec<(usize, usize)>) -> TraceNode {
         let child_indices = child.indices();
 
         let mut indices_to_remove = Vec::new();
@@ -56,8 +56,8 @@ impl TraceNode {
         self.indices.clone()
     }
 
-    pub fn param_indices(&self) -> ParamIndices {
-        self.child.param_indices()
+    pub fn param_info(&self) -> ParamInfo {
+        self.child.param_info()
     }
 }
 

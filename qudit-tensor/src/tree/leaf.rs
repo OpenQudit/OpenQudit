@@ -1,53 +1,37 @@
 use std::hash::Hash;
 
 use super::fmt::PrintTree;
-use qudit_core::{ParamIndices, QuditRadices, RealScalar};
-use qudit_expr::{index::{IndexDirection, TensorIndex}, GenerationShape, TensorExpression};
+use qudit_core::{ParamIndices, ParamInfo, QuditRadices, RealScalar};
+use qudit_expr::{index::{IndexDirection, TensorIndex}, ExpressionId, GenerationShape, TensorExpression};
 use qudit_core::TensorShape;
-use super::tree::ExpressionTree;
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct LeafNode {
-    pub expr: TensorExpression,
-    pub param_indices: ParamIndices,
+    pub expr: ExpressionId,
+    pub param_info: ParamInfo,
+    pub indices: Vec<TensorIndex>,
 }
 
 impl LeafNode {
-    pub fn new(expr: TensorExpression, param_indices: ParamIndices) -> LeafNode {
+    pub fn new(expr: ExpressionId, param_info: ParamInfo, indices: Vec<TensorIndex>) -> LeafNode {
         LeafNode {
             expr,
-            param_indices,
+            param_info,
+            indices,
         }
     }
 
     pub fn indices(&self) -> Vec<TensorIndex> {
-        self.expr.indices()
+        self.indices.clone()
     }
 
-    pub fn generation_shape(&self) -> GenerationShape {
-        self.expr.generation_shape()
+    pub fn param_info(&self) -> ParamInfo {
+        self.param_info.clone()
     }
-
-    pub fn param_indices(&self) -> ParamIndices {
-        self.param_indices.clone()
-    }
-
-    pub fn permute(&mut self, perm: &[usize], redirection: Vec<IndexDirection>) {
-        self.expr.permute(perm, redirection);
-    }
-
-    pub fn reindex(&mut self, new_indices: Vec<TensorIndex>) {
-        self.expr.reindex(new_indices);
-    }
-
-    pub fn trace(&mut self, dimension_pairs: &[(usize, usize)]) {
-        self.expr = self.expr.partial_trace(dimension_pairs);
-    }
-
 }
 
 impl PrintTree for LeafNode {
     fn write_tree(&self, prefix: &str, fmt: &mut std::fmt::Formatter<'_>) {
-        writeln!(fmt, "{}{}", prefix, self.expr.name).unwrap()
+        writeln!(fmt, "{}{}", prefix, self.expr).unwrap()
     }
 }

@@ -42,6 +42,14 @@ impl Expression {
     }
 
     pub fn from_float(f: f64) -> Self {
+        Self::from_float_64(f)
+    }
+
+    pub fn from_float_32(f: f32) -> Self {
+        Expression::Constant(Constant::from_f32(f).unwrap())
+    }
+
+    pub fn from_float_64(f: f64) -> Self {
         Expression::Constant(Constant::from_f64(f).unwrap())
     }
 
@@ -60,6 +68,11 @@ impl Expression {
             Expression::Sin(expr) => expr.to_float().sin(),
             Expression::Cos(expr) => expr.to_float().cos(),
         }
+    }
+
+    pub fn to_constant(&self) -> Constant {
+        // TODO: Figure out how to maintain precision by doing math over Constants
+        Constant::from_float(self.to_float()).unwrap()
     }
 
     pub fn to_string(&self) -> String {
@@ -611,6 +624,77 @@ impl Expression {
 
     pub fn simplify(&self) -> Self {
         simplify(self)
+    }
+
+    pub fn get_unique_variables(&self) -> Vec<String> {
+        match self {
+            Expression::Pi => {
+                vec![]
+            },
+            Expression::Variable(s) => {
+                vec![s.clone()]
+            },
+            Expression::Constant(c) => {
+                vec![]
+            },
+            Expression::Neg(expr) => {
+                expr.get_unique_variables()
+            },
+            Expression::Add(lhs, rhs) => {
+                let mut l = lhs.get_unique_variables();
+                for r in rhs.get_unique_variables().into_iter() {
+                    if !l.contains(&r) {
+                        l.push(r)
+                    }
+                }
+                l
+            },
+            Expression::Sub(lhs, rhs) => {
+                let mut l = lhs.get_unique_variables();
+                for r in rhs.get_unique_variables().into_iter() {
+                    if !l.contains(&r) {
+                        l.push(r)
+                    }
+                }
+                l
+            },
+            Expression::Mul(lhs, rhs) => {
+                let mut l = lhs.get_unique_variables();
+                for r in rhs.get_unique_variables().into_iter() {
+                    if !l.contains(&r) {
+                        l.push(r)
+                    }
+                }
+                l
+            },
+            Expression::Div(lhs, rhs) => {
+                let mut l = lhs.get_unique_variables();
+                for r in rhs.get_unique_variables().into_iter() {
+                    if !l.contains(&r) {
+                        l.push(r)
+                    }
+                }
+                l
+            },
+            Expression::Pow(lhs, rhs) => {
+                let mut l = lhs.get_unique_variables();
+                for r in rhs.get_unique_variables().into_iter() {
+                    if !l.contains(&r) {
+                        l.push(r)
+                    }
+                }
+                l
+            },
+            Expression::Sqrt(expr) => {
+                expr.get_unique_variables()
+            },
+            Expression::Sin(expr) => {
+                expr.get_unique_variables()
+            },
+            Expression::Cos(expr) => {
+                expr.get_unique_variables()
+            },
+        }
     }
 }
 

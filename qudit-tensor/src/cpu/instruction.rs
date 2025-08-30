@@ -1,13 +1,14 @@
+use std::{cell::RefCell, rc::Rc};
+
 use faer::MatMut;
 use qudit_core::{matrix::{MatVecMut, SymSqMatMatMut}, memory::MemoryBuffer, ComplexScalar};
-use qudit_expr::{DifferentiationLevel, Module};
+use qudit_expr::{DifferentiationLevel, ExpressionCache, ExpressionId, Module};
 use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
 
-use crate::{bytecode::BytecodeInstruction, cpu::instructions::{ConsecutiveParamSingleWriteStruct, FRPRStruct, HadamardStruct, KronStruct, TraceStruct}};
+use crate::{bytecode::BytecodeInstruction, cpu::instructions::{WriteStruct, FRPRStruct, HadamardStruct, KronStruct, TraceStruct}};
 
 use super::buffer::SizedTensorBuffer;
 use super::instructions::MatmulStruct;
-use super::instructions::SplitParamSingleWriteStruct;
 
 pub enum TNVMInstruction<C: ComplexScalar> {
     FRPR(FRPRStruct<C>),
@@ -18,15 +19,14 @@ pub enum TNVMInstruction<C: ComplexScalar> {
     MatMulB(MatmulStruct<C>),
     MatMulS(MatmulStruct<C>),
     Trace(TraceStruct<C>),
-    WriteCS(ConsecutiveParamSingleWriteStruct<C>),
-    WriteSS(SplitParamSingleWriteStruct<C>),
+    Write(WriteStruct<C>),
 }
 
 impl<C: ComplexScalar> TNVMInstruction<C> {
     pub fn new(
         inst: &BytecodeInstruction,
         buffers: &Vec<SizedTensorBuffer<C>>,
-        module: &Module<C>,
+        expressions: Rc<RefCell<ExpressionCache>>,
         D: DifferentiationLevel,
     ) -> Self {
         match inst {
@@ -107,19 +107,18 @@ impl<C: ComplexScalar> TNVMInstruction<C> {
                     ))
                 }
             },
-            BytecodeInstruction::ConsecutiveParamWrite(name, param_start_index, buffer_index) => {
-                let write_fn = unsafe { module.get_function_raw(&name) };
-                TNVMInstruction::WriteCS(ConsecutiveParamSingleWriteStruct::new(
+            BytecodeInstruction::Write(expr_id, param_info, buffer_index) => {
+                let write_fn = expressions.borrow_mut().get_fn::<C::R>(*expr_id);
+                let output_map = expressions.borrow().get_output_map::<C::R>(*expr_id);
+                let param_map = param_info.get_param_map();
+                let const_map = param_info.get_const_map();
+
+                TNVMInstruction::Write(WriteStruct::new(
                     write_fn,
-                    *param_start_index,
+                    param_map,
+                    output_map,
+                    const_map,
                     buffers[*buffer_index].clone(),
-                ))
-            },
-            BytecodeInstruction::SplitParamWrite(name, param_indices, index) => {
-                let write_fn = unsafe { module.get_function_raw(&name) };
-                TNVMInstruction::WriteSS(SplitParamSingleWriteStruct::new(
-                    write_fn,
-                    buffers[*index].clone(),
                 ))
             },
             BytecodeInstruction::Trace(in_index, dimension_pairs, out_index) => {
@@ -146,8 +145,7 @@ impl<C: ComplexScalar> TNVMInstruction<C> {
             TNVMInstruction::MatMulB(s) => s.get_output_buffer(),
             TNVMInstruction::MatMulS(s) => s.get_output_buffer(),
             TNVMInstruction::Trace(s) => s.get_output_buffer(),
-            TNVMInstruction::WriteCS(s) => s.get_output_buffer(),
-            TNVMInstruction::WriteSS(s) => s.get_output_buffer(),
+            TNVMInstruction::Write(s) => s.get_output_buffer(),
         }
     }
 
@@ -162,8 +160,7 @@ impl<C: ComplexScalar> TNVMInstruction<C> {
             TNVMInstruction::MatMulB(s) => s.batched_evaluate::<D>(memory),
             TNVMInstruction::MatMulS(s) => s.evaluate::<D>(memory),
             TNVMInstruction::Trace(s) => s.evaluate(memory),
-            TNVMInstruction::WriteCS(s) => s.evaluate(params, memory),
-            TNVMInstruction::WriteSS(s) => s.evaluate(params, memory),
+            TNVMInstruction::Write(s) => s.evaluate(params, memory),
         }
     }
 }

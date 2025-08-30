@@ -1,4 +1,4 @@
-use qudit_expr::{UnitaryExpression, UnitaryExpressionGenerator};
+use qudit_expr::{UnitaryExpression, ExpressionGenerator};
 
 /// The one-qudit Hadamard gate. This is a Clifford/Weyl-Heisenberg gate.
 ///
@@ -41,8 +41,10 @@ impl HGate {
     }
 }
 
-impl UnitaryExpressionGenerator for HGate {
-    fn gen_expr(&self) -> UnitaryExpression {
+impl ExpressionGenerator for HGate {
+    type ExpressionType = UnitaryExpression;
+
+    fn generate_expression(&self) -> UnitaryExpression {
         let proto = format!("H<{}>()", self.radix);
         let mut body = "".to_string();
         if self.radix == 2 {

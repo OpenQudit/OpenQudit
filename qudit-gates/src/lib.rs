@@ -6,7 +6,7 @@ use qudit_core::radices;
 //use qudit_core::ComplexScalar;
 use qudit_core::HasParams;
 use qudit_core::QuditRadices;
-use qudit_expr::{UnitaryExpression, UnitaryExpressionGenerator};
+use qudit_expr::{UnitaryExpression, ExpressionGenerator};
 
 pub mod constant {
     pub mod h;
@@ -84,14 +84,16 @@ impl Gate {
     }
 }
 
-impl UnitaryExpressionGenerator for Gate {
-    fn gen_expr(&self) -> UnitaryExpression {
+impl ExpressionGenerator for Gate {
+    type ExpressionType = UnitaryExpression;
+
+    fn generate_expression(&self) -> UnitaryExpression {
         match self {
-            Gate::HGate(gate) => gate.gen_expr(),
-            Gate::PGate(gate) => gate.gen_expr(),
-            Gate::XGate(gate) => gate.gen_expr(),
-            Gate::U3Gate(gate) => gate.gen_expr(),
-            Gate::Controlled(gate) => gate.gen_expr(),
+            Gate::HGate(gate) => gate.generate_expression(),
+            Gate::PGate(gate) => gate.generate_expression(),
+            Gate::XGate(gate) => gate.generate_expression(),
+            Gate::U3Gate(gate) => gate.generate_expression(),
+            Gate::Controlled(gate) => gate.generate_expression(),
             Gate::Expression(expr) => expr.clone(),
         }
     }

@@ -1,10 +1,17 @@
+use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::BTreeMap;
+use std::rc::Rc;
 
 use qudit_core::unitary::UnitaryMatrix;
 use qudit_core::ComplexScalar;
+use qudit_core::ParamIndices;
+use qudit_core::ParamInfo;
 use qudit_core::{QuditRadices, TensorShape};
+use qudit_expr::ExpressionCache;
+use qudit_expr::ExpressionId;
+use qudit_expr::TensorExpression;
 use qudit_expr::UnitaryExpression;
 use crate::network::network::NetworkEdge;
 
@@ -57,6 +64,8 @@ pub struct QuditCircuitTensorNetworkBuilder {
     local_to_network_index_map: Vec<Vec<NetworkBuilderIndex>>,
     radices: QuditRadices,
 
+    expressions: Rc<RefCell<ExpressionCache>>,
+
     /// Pointer to front (left in math/right in circuit diagram) of the network for each qudit.
     front: Vec<Wire>,
 
@@ -67,7 +76,12 @@ pub struct QuditCircuitTensorNetworkBuilder {
 }
 
 impl QuditCircuitTensorNetworkBuilder {
-    pub fn new(radices: QuditRadices) -> Self {
+    pub fn new(radices: QuditRadices, expressions: Option<Rc<RefCell<ExpressionCache>>>) -> Self {
+        let expressions = match expressions {
+            Some(cache) => cache,
+            None => ExpressionCache::new_shared(),
+        };
+
         QuditCircuitTensorNetworkBuilder {
             tensors: vec![],
             local_to_network_index_map: vec![],
@@ -75,6 +89,7 @@ impl QuditCircuitTensorNetworkBuilder {
             rear: vec![Wire::Empty; radices.len()],
             batch_indices: HashMap::new(),
             radices,
+            expressions,
             contracted_indices: vec![],
         }
     }
@@ -111,6 +126,27 @@ impl QuditCircuitTensorNetworkBuilder {
         self.rear.iter()
             .filter(|wire| wire.is_active())
             .count()
+    }
+
+    pub fn expression_get(&mut self, expression: TensorExpression) -> ExpressionId {
+        match self.expressions.borrow().lookup(&expression) {
+            None => self.expressions.borrow_mut().insert(expression),
+            Some(id) => id,
+        }
+    }
+
+    pub fn prepend_expression(
+        mut self,
+        expression: TensorExpression,
+        param_info: ParamInfo,
+        input_index_map: Vec<usize>,
+        output_index_map: Vec<usize>,
+        batch_index_map: Vec<String>,
+    ) -> Self {
+        let indices = expression.indices().to_owned();
+        let id = self.expression_get(expression);
+        let tensor = QuditTensor::new(indices, id, param_info);
+        self.prepend(tensor, input_index_map, output_index_map, batch_index_map)
     }
 
     /// Prepend a tensor onto the circuit network.
@@ -303,8 +339,11 @@ impl QuditCircuitTensorNetworkBuilder {
         todo!()
     }
 
-    pub fn prepend_unitary<C: ComplexScalar>(self, utry: UnitaryMatrix<C>, qudits: Vec<usize>) -> Self {
-        self.prepend(QuditTensor::from(utry), qudits.clone(), qudits, vec![])
+    pub fn prepend_unitary<C: ComplexScalar>(mut self, utry: UnitaryMatrix<C>, qudits: Vec<usize>) -> Self {
+        let expr = UnitaryExpression::from(utry).to_tensor_expression();
+        let indices = expr.indices().to_owned();
+        let id = self.expression_get(expr); 
+        self.prepend(QuditTensor::new(indices, id, ParamInfo::empty()), qudits.clone(), qudits, vec![])
     }
 
     pub fn trace_wire(mut self, front_qudit: usize, rear_qudit: usize) -> Self {
@@ -312,13 +351,13 @@ impl QuditCircuitTensorNetworkBuilder {
         assert!(self.front[front_qudit].is_active() && self.rear[rear_qudit].is_active());
 
         if self.front[front_qudit].is_empty() {
-            let identity = QuditTensor::identity(self.radices[front_qudit].into());
-            self = self.prepend(identity, [front_qudit].into(), [front_qudit].into(), vec![]);
+            let identity = UnitaryExpression::identity("Identity", [self.radices[front_qudit]]).to_tensor_expression();
+            self = self.prepend_expression(identity, ParamInfo::empty(), [front_qudit].into(), [front_qudit].into(), vec![]);
         }
 
         if self.rear[rear_qudit].is_empty() {
-            let identity = QuditTensor::identity(self.radices[rear_qudit].into());
-            self = self.prepend(identity, [rear_qudit].into(), [rear_qudit].into(), vec![]);
+            let identity = UnitaryExpression::identity("Identity", [self.radices[rear_qudit]]).to_tensor_expression();
+            self = self.prepend_expression(identity, ParamInfo::empty(), [rear_qudit].into(), [rear_qudit].into(), vec![]);
         }
 
         match (&self.front[front_qudit], &self.rear[rear_qudit]) {
@@ -372,6 +411,7 @@ impl QuditCircuitTensorNetworkBuilder {
         let QuditCircuitTensorNetworkBuilder {
             mut tensors,
             mut local_to_network_index_map,
+            expressions,
             front,
             rear,
             batch_indices,
@@ -401,9 +441,15 @@ impl QuditCircuitTensorNetworkBuilder {
         for (qudit_id, wire) in front.into_iter().enumerate() {
             if wire.is_empty() {
                 // Cannot have empty indices in network, so we need to explicitly add identity.
-                let identity = QuditTensor::identity(self.radices[qudit_id].into());
+                let identity_expression = UnitaryExpression::identity("Identity", [self.radices[qudit_id]]).to_tensor_expression();
+                let identity_indices = identity_expression.indices().to_owned();
+                let identity_expr_id = match expressions.borrow().lookup(&identity_expression) {
+                    None => expressions.borrow_mut().insert(identity_expression),
+                    Some(id) => id,
+                };
+                let identity_tensor = QuditTensor::new(identity_indices, identity_expr_id, ParamInfo::empty());
                 let tensor_id = tensors.len();
-                tensors.push(identity);
+                tensors.push(identity_tensor);
                 local_to_network_index_map.push(vec![NetworkBuilderIndex::Front(qudit_id), NetworkBuilderIndex::Rear(qudit_id)]);
             }
 
@@ -463,6 +509,7 @@ impl QuditCircuitTensorNetworkBuilder {
 
         QuditTensorNetwork::new(
             tensors,
+            expressions,
             new_index_map,
             index_edges,
         )

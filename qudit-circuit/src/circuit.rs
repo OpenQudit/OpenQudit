@@ -1,4 +1,6 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::rc::Rc;
 use qudit_core::{ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, QuditSystem, ToRadices};
 
 use indexmap::IndexSet;
@@ -8,27 +10,17 @@ use qudit_gates::Gate;
 use qudit_expr::{StateExpression, TensorExpression, UnitaryExpressionGenerator};
 // use qudit_tensor::{BuilderExpressionInput, ExpressionTree, TreeBuilder, TreeOptimizer};
 use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
-use crate::exprset::{ExpressionSet, OperationSet};
 use crate::location::{self, ToLocation};
 use crate::operation::ControlState;
-use crate::param::ParamList;
+use crate::param::{ParamEntries, Parameter};
 use crate::point::CircuitDitId;
-use crate::ParamEntry;
-use crate::{compact::CompactIntegerVector, cycle::QuditCycle, cyclelist::CycleList, instruction::{Instruction, InstructionReference}, iterator::{QuditCircuitBFIterator, QuditCircuitDFIterator, QuditCircuitFastIterator}, location::CircuitLocation, operation::{Operation, OperationReference}, CircuitPoint};
-
-pub enum BaseExpression {
-    Variable(String),
-    Numeric(Ratio<BigInt>),
-}
-
-pub struct Parameter {
-    name: Option<String>,
-    expr: BaseExpression,
-}
+use crate::{OperationSet};
+use crate::{compact::CompactIntegerVector, cycle::QuditCycle, cyclelist::CycleList, instruction::{InstructionReference}, iterator::{QuditCircuitBFIterator, QuditCircuitDFIterator, QuditCircuitFastIterator}, location::CircuitLocation, operation::{Operation, OperationReference}, CircuitPoint};
+use qudit_expr::Constant;
 
 /// A quantum circuit that can be defined with qudits and classical bits.
 #[derive(Clone)]
-pub struct QuditCircuit<C: ComplexScalar = c64> {
+pub struct QuditCircuit {
     /// The number of qudits in the circuit.
     num_qudits: usize,
 
@@ -68,19 +60,19 @@ pub struct QuditCircuit<C: ComplexScalar = c64> {
     /// physical cycle indices.
     crear: Vec<Option<usize>>,
 
-    /// The set of gates in the circuit.
-    // pub gates: IndexSet<Gate>,
-    // pub expression_set: IndexSet<TensorExpression>,
-    pub expression_set: OperationSet,
+    /// The set of cached operations in the circuit.
+    operations: OperationSet,
 
     /// The set of subcircuits in the circuit.
     // pub subcircuits: IndexSet<ExpressionTree>,
 
     /// The stored parameters of the circuit.
-    params: Vec<C::R>,
+    params: Vec<Parameter>,
+
+    named_param_ids: HashMap<String, usize>,
 }
 
-impl<C: ComplexScalar> QuditCircuit<C> {
+impl QuditCircuit {
 
     /// Creates a new QuditCircuit object.
     ///
@@ -94,13 +86,12 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     ///
     /// We can define hybrid quantum-classical circuits:
     /// ```
-    /// use qudit_core::c64;
     /// use qudit_circuit::QuditCircuit;
     ///
-    /// let two_qubit_circuit = QuditCircuit::<c64>::new([2, 2], [2, 2]);
-    /// let two_qutrit_circuit = QuditCircuit::<c64>::new([3, 3], [3, 3]);
+    /// let two_qubit_circuit = QuditCircuit::new([2, 2], [2, 2]);
+    /// let two_qutrit_circuit = QuditCircuit::new([3, 3], [3, 3]);
     /// ```
-    pub fn new<T1: ToRadices, T2: ToRadices>(qudit_radices: T1, dit_radices: T2) -> QuditCircuit<C> {
+    pub fn new<T1: ToRadices, T2: ToRadices>(qudit_radices: T1, dit_radices: T2) -> QuditCircuit {
         QuditCircuit::with_capacity(qudit_radices, dit_radices, 1)
     }
 
@@ -114,14 +105,13 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     ///
     /// We can define purely quantum kernels without classical bits:
     /// ```
-    /// use qudit_core::c64;
     /// use qudit_circuit::QuditCircuit;
     ///
-    /// let two_qubit_circuit = QuditCircuit::<c64>::pure([2, 2]);
-    /// let two_qutrit_circuit = QuditCircuit::<c64>::pure([3, 3]);
-    /// let hybrid_circuit = QuditCircuit::<c64>::pure([2, 2, 3, 3]);
+    /// let two_qubit_circuit = QuditCircuit::pure([2, 2]);
+    /// let two_qutrit_circuit = QuditCircuit::pure([3, 3]);
+    /// let hybrid_circuit = QuditCircuit::pure([2, 2, 3, 3]);
     /// ```
-    pub fn pure<T: ToRadices>(qudit_radices: T) -> QuditCircuit<C> {
+    pub fn pure<T: ToRadices>(qudit_radices: T) -> QuditCircuit {
         QuditCircuit::with_capacity(qudit_radices, QuditRadices::new::<usize>(&[]), 1)
     }
 
@@ -138,15 +128,14 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::c64;
     /// use qudit_circuit::QuditCircuit;
-    /// let two_qubit_circuit = QuditCircuit::<c64>::with_capacity([2, 2], [2, 2], 10);
+    /// let two_qubit_circuit = QuditCircuit::with_capacity([2, 2], [2, 2], 10);
     /// ```
     pub fn with_capacity<T1: ToRadices, T2: ToRadices>(
         qudit_radices: T1,
         dit_radices: T2,
         capacity: usize,
-    ) -> QuditCircuit<C> {
+    ) -> QuditCircuit {
         let qudit_radices = qudit_radices.to_radices();
         let dit_radices = dit_radices.to_radices();
         let num_qudits = qudit_radices.len();
@@ -163,9 +152,10 @@ impl<C: ComplexScalar> QuditCircuit<C> {
             crear: vec![None; num_dits],
             qudit_radices,
             dit_radices,
-            expression_set: OperationSet::new(),
+            operations: OperationSet::new(),
             // subcircuits: IndexSet::new(),
             params: Vec::new(),
+            named_param_ids: HashMap::new(),
         }
     }
 
@@ -198,7 +188,7 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     }
 
     /// A reference to the parameters of the circuit.
-    pub fn params(&self) -> &[C::R] {
+    pub fn params(&self) -> &[Parameter] {
         &self.params
     }
 
@@ -278,9 +268,8 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::c64;
     /// use qudit_circuit::QuditCircuit;
-    /// let circuit = QuditCircuit::<c64>::new([2, 2], [2, 2]);
+    /// let circuit = QuditCircuit::new([2, 2], [2, 2]);
     /// assert!(circuit.is_valid_location([0, 1]));
     /// assert!(circuit.is_valid_location(([0, 1], [0, 1])));
     /// assert!(circuit.is_valid_location((0, 0)));
@@ -417,29 +406,27 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     // TODO: prepend + insert
     // TODO: param_indices_mapping
 
-    /// Append an instruction to the end of the circuit.
-    ///
-    /// # Arguments
-    ///
-    /// * `inst` - The instruction to append.
-    pub fn append_instruction(&mut self, inst: Instruction<C::R>) {
-        let Instruction { op, location, params } = inst;
+    // /// Append an instruction to the end of the circuit.
+    // ///
+    // /// # Arguments
+    // ///
+    // /// * `inst` - The instruction to append.
+    // pub fn append_instruction(&mut self, inst: Instruction<C::R>) {
+    //     let Instruction { op, location, params } = inst;
 
-        // Build operation reference
-        let op_ref = self.expression_set.insert(op);
+    //     // Build operation reference
+    //     let op_ref = self.expression_set.insert(op);
 
-        // let param_indices = ParamIndices::Joint(self.params.len(), params.len());
-        // self.params.extend(params);
+    //     // let param_indices = ParamIndices::Joint(self.params.len(), params.len());
+    //     // self.params.extend(params);
 
-        self.append(op_ref, location, params.into());
-    }
+    //     self.append(op_ref, location, params.into());
+    // }
 
-    fn append(&mut self, op_ref: OperationReference, location: CircuitLocation, params: ParamList<C::R>) {
+    fn append_ref(&mut self, op_ref: OperationReference, location: CircuitLocation, params: ParamIndices) {
         // TODO: check valid operation for radix match, measurement bandwidth etc
         
         // TODO: check params is valid: length is equal to op_params, existing exist, etc..
-        let param_map = params.to_param_indices(self.params.len());
-        self.params.extend(params.new_entries_unwrapped());
         // TODO: have to something about static entries...
         // TODO: have to do something about gate parameters mapped within same gate
 
@@ -477,68 +464,138 @@ impl<C: ComplexScalar> QuditCircuit<C> {
         }
 
         // Build instruction reference
-        let inst_ref = InstructionReference::new(op_ref, location, param_map);
+        let inst_ref = InstructionReference::new(op_ref, location, params);
 
         // Add op to cycle
         self.cycles[cycle_index].push(inst_ref);
     }
 
-    /// Shorthand for appending aate without caring about the gate parameters
-    pub fn append_uninit_gate<L: ToLocation>(&mut self, gate: Gate, location: L) {
-        let params = vec![None; gate.num_params()];
-        let op_ref = self.expression_set.insert(Operation::Gate(gate));
-        self.append(op_ref, location.to_location(), params.into());
+    pub fn append_parameterized<O: Into<Operation>, L: Into<CircuitLocation>>(&mut self, op: O, loc: L) {
+        let op = op.into();
+        let loc = loc.into();
+
+        let param_indices = ParamIndices::Joint(self.num_params(), op.num_params());
+        for _ in 0..op.num_params() {
+            self.params.push(Parameter::Indexed);
+        }
+        let op_ref = self.operations.insert(op);
+
+        self.append_ref(op_ref, loc, param_indices);
     }
 
-    /// Shorthand for appending a gate with specific parameter entries 
-    pub fn append_gate<L: ToLocation, P: Into<ParamList<C::R>>>(&mut self, gate: Gate, location: L, params: P) {
-        let op_ref = self.expression_set.insert(Operation::Gate(gate));
-        self.append(op_ref, location.to_location(), params.into());
+    pub fn append_specified<O, L, P>(&mut self, op: O, loc: L, params: P)
+    where
+        O: Into<Operation>,
+        L: Into<CircuitLocation>,
+        P: Into<ParamEntries>,
+    {
+        let op = op.into();
+        let loc = loc.into();
+        let params = params.into();
+        
+        let parameter_vector = params.organize_parameter_vector();
+
+        // Calculate param_indices for circuit instruction
+        let mut param_indices = vec![];
+        for param in parameter_vector.iter() {
+            if let Parameter::Named(name) = param {
+                if let Some(id) = self.named_param_ids.get(name) {
+                    param_indices.push(*id);
+                    continue;
+                }
+            }
+            param_indices.push(self.params.len());
+            self.params.push(param.clone());
+        }
+        let param_indices = ParamIndices::Disjoint(param_indices);
+
+        let unique_variables = params.get_unique_variables();
+        let expressions = params.to_expressions();
+
+        // Substitute params into op
+        let subbed_op = match op {
+            Operation::UnitaryGate(g) => {
+                let subbed_expr = g.gen_expr().to_tensor_expression().substitute_parameters(&unique_variables, &expressions).to_unitary_expression();
+                Operation::UnitaryGate(Gate::Expression(subbed_expr))
+            }
+            Operation::KrausOperators(k) => {
+                Operation::KrausOperators(k.substitute_parameters(&unique_variables, &expressions))
+            }
+            Operation::TerminatingMeasurement(t) => {
+                let subbed_expr = t.to_tensor_expression().substitute_parameters(&unique_variables, &expressions).to_state_system_expression();
+                Operation::TerminatingMeasurement(subbed_expr)
+            }
+            Operation::ClassicallyControlledUnitary(g, c) => {
+                let subbed_expr = g.gen_expr().to_tensor_expression().substitute_parameters(&unique_variables, &expressions).to_unitary_expression();
+                Operation::ClassicallyControlledUnitary(Gate::Expression(subbed_expr), c)
+            }
+            Operation::QuditInitialization(s) => {
+                let subbed_expr = s.to_tensor_expression().substitute_parameters(&unique_variables, &expressions).to_state_expression();
+                Operation::QuditInitialization(subbed_expr)
+            }
+        };
+
+        let op_ref = self.operations.insert(subbed_op);
+
+        self.append_ref(op_ref, loc, param_indices);
     }
+
+    // /// Shorthand for appending aate without caring about the gate parameters
+    // pub fn append_uninit_gate<L: ToLocation>(&mut self, gate: Gate, location: L) {
+    //     let params = vec![None; gate.num_params()];
+    //     let op_ref = self.expression_set.insert(Operation::Gate(gate));
+    //     self.append(op_ref, location.to_location(), params.into());
+    // }
+
+    // /// Shorthand for appending a gate with specific parameter entries 
+    // pub fn append_gate<L: ToLocation, P: Into<ParamList<C::R>>>(&mut self, gate: Gate, location: L, params: P) {
+    //     let op_ref = self.expression_set.insert(Operation::Gate(gate));
+    //     self.append(op_ref, location.to_location(), params.into());
+    // }
 
     pub fn is_qudit_inactive(&self, index: usize) -> bool {
         self.qfront[index].is_none()
     }
     
-    pub fn zero_initialize<L: ToLocation>(&mut self, location: L) {
-        let location = location.to_location();
-        assert_eq!(location.get_num_dits(), 0);
-        let location_radices = location.qudits().iter().map(|q| self.qudit_radices[q]);
-        let state = StateExpression::zero(location_radices);
-        let op = Operation::Initialization(state);
-        let op_ref = self.expression_set.insert(op);
+    // pub fn zero_initialize<L: ToLocation>(&mut self, location: L) {
+    //     let location = location.to_location();
+    //     assert_eq!(location.get_num_dits(), 0);
+    //     let location_radices = location.qudits().iter().map(|q| self.qudit_radices[q]);
+    //     let state = StateExpression::zero(location_radices);
+    //     let op = Operation::Initialization(state);
+    //     let op_ref = self.expression_set.insert(op);
 
-        assert!(location.qudits().iter().all(|q| self.is_qudit_inactive(q)));
+    //     assert!(location.qudits().iter().all(|q| self.is_qudit_inactive(q)));
 
-        self.append(op_ref, location, ParamList::empty());
-    }
+    //     self.append(op_ref, location, ParamList::empty());
+    // }
 
-    // pub fn z_basis_measure
+    // // pub fn z_basis_measure
 
-    pub fn uninit_classically_control<L: ToLocation>(
-        &mut self, 
-        gate: Gate, 
-        control_state: ControlState,
-        location: L,
-    ) {
-        let params = vec![None; gate.num_params()];
-        self.classically_control(gate, control_state, location, params);
-    }
+    // pub fn uninit_classically_control<L: ToLocation>(
+    //     &mut self, 
+    //     gate: Gate, 
+    //     control_state: ControlState,
+    //     location: L,
+    // ) {
+    //     let params = vec![None; gate.num_params()];
+    //     self.classically_control(gate, control_state, location, params);
+    // }
 
-    pub fn classically_control<L: ToLocation, P: Into<ParamList<C::R>>>(
-        &mut self, 
-        gate: Gate, 
-        control_state: ControlState,
-        location: L,
-        params: P,
-    ) {
-        // check that control-state length matches location
-        let location = location.to_location();
-        assert_eq!(control_state.state.len(), location.get_num_dits());
-        // TODO: Assert control_state radices match location; might be auto done in append
-        let op_ref = self.expression_set.insert(Operation::ClassicallyControlled(gate, control_state));
-        self.append(op_ref, location, params.into());
-    }
+    // pub fn classically_control<L: ToLocation, P: Into<ParamList<C::R>>>(
+    //     &mut self, 
+    //     gate: Gate, 
+    //     control_state: ControlState,
+    //     location: L,
+    //     params: P,
+    // ) {
+    //     // check that control-state length matches location
+    //     let location = location.to_location();
+    //     assert_eq!(control_state.state.len(), location.get_num_dits());
+    //     // TODO: Assert control_state radices match location; might be auto done in append
+    //     let op_ref = self.expression_set.insert(Operation::ClassicallyControlled(gate, control_state));
+    //     self.append(op_ref, location, params.into());
+    // }
 
     /// Remove the operation at `point` from the circuit.
     pub fn remove(&mut self, point: CircuitPoint) {
@@ -798,21 +855,21 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     /// be in a simulation/topological order. For more control over the
     /// ordering of iteration see [`QuditCircuit::iter_df`] or
     /// [`QuditCircuit::iter_bf`].
-    pub fn iter(&self) -> QuditCircuitFastIterator<C> {
+    pub fn iter(&self) -> QuditCircuitFastIterator {
         QuditCircuitFastIterator::new(self)
     }
 
     /// Return a depth-first iterator over the operations in the circuit.
     ///
     /// See [`QuditCircuitDFIterator`] for more info.
-    pub fn iter_df(&self) -> QuditCircuitDFIterator<C> {
+    pub fn iter_df(&self) -> QuditCircuitDFIterator {
         QuditCircuitDFIterator::new(self)
     }
 
     /// Return a breadth-first iterator over the operations in the circuit.
     ///
     /// See [`QuditCircuitBFIterator`] for more info.
-    pub fn iter_bf(&self) -> QuditCircuitBFIterator<C> {
+    pub fn iter_bf(&self) -> QuditCircuitBFIterator {
         QuditCircuitBFIterator::new(self)
     }
 
@@ -827,77 +884,78 @@ impl<C: ComplexScalar> QuditCircuit<C> {
     }
 
     pub fn as_tensor_network_builder(&self) -> QuditCircuitTensorNetworkBuilder {
-        let mut network = QuditCircuitTensorNetworkBuilder::new(self.qudit_radices());
-        for inst_ref in self.iter() {
-            let op_ref = inst_ref.op.dereference(self);
-            match op_ref {
-                Operation::Gate(gate) => {
-                    network = network.prepend(QuditTensor::new(gate.gen_expr().to_tensor_expression(), inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), vec![]);
-                }
-                Operation::ProjectiveMeasurement(t, a) => {
-                    let clbit_indices = a.iter().map(|clbit| clbit.to_string()).collect();
-                    network = network.prepend(QuditTensor::new(t.clone(), inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), clbit_indices);
-                }
-                Operation::TerminatingMeasurement(s) => {
-                    let dit_indices: Vec<String> = inst_ref.location.dits()
-                        .iter()
-                        .map(|id| id.to_string())
-                        .collect();
-                    let mut t = s.to_tensor_expression();
-                    let tensor_indices = inst_ref.location.dits()
-                        .iter()
-                        .map(|dit_id| (IndexDirection::Batch, self.dit_radices[dit_id] as IndexSize))
-                        .chain(t.indices().iter()
-                            .filter(|idx| idx.direction() != IndexDirection::Batch)
-                            .map(|idx| (idx.direction(), idx.index_size())))
-                        .enumerate()
-                        .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
-                        .collect();
-                    t.reindex(tensor_indices);
-                    network = network.prepend(QuditTensor::new(t, inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), vec![], dit_indices);
-                }
-                Operation::ClassicallyControlled(g, s) => {
-                    let dit_indices: Vec<String> = inst_ref.location.dits()
-                        .iter()
-                        .map(|id| id.to_string())
-                        .collect();
-                    let dit_dimension = inst_ref.location.dits()
-                        .iter()
-                        .map(|dit_id| self.dit_radices[dit_id] as usize)
-                        .product();
-                    let mut t = g.gen_expr()
-                        .to_tensor_expression()
-                        .stack_with_identity(&[s.to_measurement_kraus_position()], dit_dimension);
-                    let tensor_indices = inst_ref.location.dits()
-                        .iter()
-                        .map(|dit_id| (IndexDirection::Batch, self.dit_radices[dit_id] as IndexSize))
-                        .chain(t.indices().iter()
-                            .filter(|idx| idx.direction() != IndexDirection::Batch)
-                            .map(|idx| (idx.direction(), idx.index_size())))
-                        .enumerate()
-                        .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
-                        .collect();
-                    t.reindex(tensor_indices);
-                    network = network.prepend(
-                        QuditTensor::new(t.clone(), inst_ref.param_indices.clone()),
-                        inst_ref.location.qudits().to_vec(),
-                        inst_ref.location.qudits().to_vec(),
-                        dit_indices
-                    );
-                }
-                Operation::Initialization(s) => {
-                    let t = s.clone().to_tensor_expression();
-                    network = network.prepend(QuditTensor::new(t.clone(), inst_ref.param_indices.clone()), vec![], inst_ref.location.qudits().to_vec(), vec![]);
-                }
-                Operation::Reset => { todo!() }
-                Operation::Barrier => { /* NO-OP */ }
-            }
-        }
-        network
+        todo!()
+        // let mut network = QuditCircuitTensorNetworkBuilder::new(self.qudit_radices());
+        // for inst_ref in self.iter() {
+        //     let op_ref = inst_ref.op.dereference(self);
+        //     match op_ref {
+        //         Operation::Gate(gate) => {
+        //             network = network.prepend(QuditTensor::new(gate.gen_expr().to_tensor_expression(), inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), vec![]);
+        //         }
+        //         Operation::ProjectiveMeasurement(t, a) => {
+        //             let clbit_indices = a.iter().map(|clbit| clbit.to_string()).collect();
+        //             network = network.prepend(QuditTensor::new(t.clone(), inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), clbit_indices);
+        //         }
+        //         Operation::TerminatingMeasurement(s) => {
+        //             let dit_indices: Vec<String> = inst_ref.location.dits()
+        //                 .iter()
+        //                 .map(|id| id.to_string())
+        //                 .collect();
+        //             let mut t = s.to_tensor_expression();
+        //             let tensor_indices = inst_ref.location.dits()
+        //                 .iter()
+        //                 .map(|dit_id| (IndexDirection::Batch, self.dit_radices[dit_id] as IndexSize))
+        //                 .chain(t.indices().iter()
+        //                     .filter(|idx| idx.direction() != IndexDirection::Batch)
+        //                     .map(|idx| (idx.direction(), idx.index_size())))
+        //                 .enumerate()
+        //                 .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
+        //                 .collect();
+        //             t.reindex(tensor_indices);
+        //             network = network.prepend(QuditTensor::new(t, inst_ref.param_indices.clone()), inst_ref.location.qudits().to_vec(), vec![], dit_indices);
+        //         }
+        //         Operation::ClassicallyControlled(g, s) => {
+        //             let dit_indices: Vec<String> = inst_ref.location.dits()
+        //                 .iter()
+        //                 .map(|id| id.to_string())
+        //                 .collect();
+        //             let dit_dimension = inst_ref.location.dits()
+        //                 .iter()
+        //                 .map(|dit_id| self.dit_radices[dit_id] as usize)
+        //                 .product();
+        //             let mut t = g.gen_expr()
+        //                 .to_tensor_expression()
+        //                 .stack_with_identity(&[s.to_measurement_kraus_position()], dit_dimension);
+        //             let tensor_indices = inst_ref.location.dits()
+        //                 .iter()
+        //                 .map(|dit_id| (IndexDirection::Batch, self.dit_radices[dit_id] as IndexSize))
+        //                 .chain(t.indices().iter()
+        //                     .filter(|idx| idx.direction() != IndexDirection::Batch)
+        //                     .map(|idx| (idx.direction(), idx.index_size())))
+        //                 .enumerate()
+        //                 .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
+        //                 .collect();
+        //             t.reindex(tensor_indices);
+        //             network = network.prepend(
+        //                 QuditTensor::new(t.clone(), inst_ref.param_indices.clone()),
+        //                 inst_ref.location.qudits().to_vec(),
+        //                 inst_ref.location.qudits().to_vec(),
+        //                 dit_indices
+        //             );
+        //         }
+        //         Operation::Initialization(s) => {
+        //             let t = s.clone().to_tensor_expression();
+        //             network = network.prepend(QuditTensor::new(t.clone(), inst_ref.param_indices.clone()), vec![], inst_ref.location.qudits().to_vec(), vec![]);
+        //         }
+        //         Operation::Reset => { todo!() }
+        //         Operation::Barrier => { /* NO-OP */ }
+        //     }
+        // }
+        // network
     }
 }
 
-impl<C: ComplexScalar> QuditSystem for QuditCircuit<C> {
+impl QuditSystem for QuditCircuit {
     fn num_qudits(&self) -> usize {
         self.num_qudits
     }
@@ -911,13 +969,13 @@ impl<C: ComplexScalar> QuditSystem for QuditCircuit<C> {
     }
 }
 
-impl<C: ComplexScalar> HasParams for QuditCircuit<C> {
+impl HasParams for QuditCircuit {
     fn num_params(&self) -> usize {
         self.params.len()
     }
 }
 
-impl<C: ComplexScalar> ClassicalSystem for QuditCircuit<C> {
+impl ClassicalSystem for QuditCircuit {
     fn radices(&self) -> qudit_core::QuditRadices {
         self.dit_radices.clone()
     }
@@ -927,7 +985,7 @@ impl<C: ComplexScalar> ClassicalSystem for QuditCircuit<C> {
     }
 }
 
-impl<C: ComplexScalar> HybridSystem for QuditCircuit<C> {}
+impl HybridSystem for QuditCircuit {}
 
 #[cfg(test)]
 mod tests {
@@ -945,6 +1003,33 @@ mod tests {
     use qudit_core::unitary::UnitaryMatrix;
     use qudit_core::unitary::UnitaryFn;
     use qudit_expr::{FUNCTION, GRADIENT};
+
+    pub fn different_ways_to_add_an_operation() -> QuditCircuit {
+        let mut circ = QuditCircuit::new([2, 2, 3], [2, 2, 3]);
+        
+        // // Append a parameterized operation: this will append a fully parameterized expression to
+        // // the circuit at the location specified
+        // circ.append_parameterized(Gate::U3(), 0); // Standard gate; ez; simple
+        // circ.append_parameterized(BraSystemExpression::new("Z_meas() { [
+        //     [1, 0, 0, 0],
+        //     [0, 1, 0, 0],
+        //     [0, 0, 1, 0],
+        //     [0, 0, 0, 1],
+        // }"), ((0, 1), (0, 1))); // Terminating Z Measurement on qudit 0, 1
+        // circ.append_parameterized(KetExpression::new("Zero_init<2, 3>() { [1, 0, 0, 0, 0, 0] }") (0, 2)); // Initialize qudit 0 and 2 in zero state
+        // circ.append_parameterized(UnitaryExpression::new("..."), 2); // unitary expression on qudit 2
+        // circ.append_parameterized(KrausExpression::new("..."), 1); // Channel (Modelled as a measurement to environment; specified by no classical dits in location) on qudit 1
+        // circ.append_parameterized(KrausExpression::new("..."), (2, 2)); // Measurement Channel (specified by classical dit in location) on qudit 2
+        // circ.append_parameterized((UnitaryExpression::new("..."), "111, 002"), ([0, 1, 2], [0, 1, 2])); // Classically controlled operation
+
+
+        // Append an operation with a specified set of parameters
+        circ.append_specified(Gate::U3(), 0, ["pi/4", "alpha", "e^(i*theta)"]);
+        circ.append_specified(Gate::U3(), 0, [0.75, 0.123, 0.1414]);
+        circ.append_specified(Gate::U3(), 0, ["alpha", "alpha", "alpha"]);
+
+        circ
+    }
 
     pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
         let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());

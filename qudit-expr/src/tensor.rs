@@ -1,3 +1,7 @@
+use std::collections::HashMap;
+use std::ops::Deref;
+use std::ops::DerefMut;
+
 use itertools::Itertools;
 use qudit_core::unitary::UnitaryMatrix;
 use qudit_core::ComplexScalar;
@@ -6,6 +10,7 @@ use crate::complex::ComplexExpression;
 use crate::index::IndexSize;
 use crate::qgl::parse_qobj;
 use crate::qgl::Expression as CiscExpression;
+use crate::Expression;
 use crate::GenerationShape;
 use crate::index::TensorIndex;
 use crate::index::IndexDirection;
@@ -13,12 +18,270 @@ use crate::StateExpression;
 use crate::StateSystemExpression;
 use crate::UnitaryExpression;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub trait ExpressionGenerator {
+    type ExpressionType: Into<TensorExpression>;
+
+    fn generate_expression(&self) -> Self::ExpressionType;
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct ExpressionBody {
+    body: Vec<ComplexExpression>,
+}
+
+impl ExpressionBody {
+    pub fn new(body: Vec<ComplexExpression>) -> Self {
+        Self { body }
+    }
+
+    pub fn num_elements(&self) -> usize {
+        self.body.len()
+    }
+
+    pub fn elements(&self) -> &[ComplexExpression] {
+        &self.body
+    }
+
+    pub fn conjugate(&mut self) {
+        for expr in self.body.iter_mut() {
+            expr.conjugate_in_place()
+        }
+    }
+
+    pub fn apply_element_permutation(&mut self, elem_perm: &[usize]) {
+        // TODO: do physical element permutation in place via transpositions
+        let mut swap_vec = vec![];
+        std::mem::swap(&mut swap_vec, &mut self.body);
+        self.body = swap_vec.into_iter()
+            .enumerate()
+            .sorted_by(|(old_idx_a, _), (old_idx_b, _)| elem_perm[*old_idx_a].cmp(&elem_perm[*old_idx_b]))
+            .map(|(_, expr)| expr)
+            .collect();
+    }
+}
+
+impl From<Vec<ComplexExpression>> for ExpressionBody {
+    fn from(value: Vec<ComplexExpression>) -> Self {
+        ExpressionBody::new(value)
+    }
+}
+
+impl From<ExpressionBody> for Vec<ComplexExpression> {
+    fn from(value: ExpressionBody) -> Self {
+        value.body
+    }
+}
+
+impl AsRef<[ComplexExpression]> for ExpressionBody {
+    fn as_ref(&self) -> &[ComplexExpression] {
+        self.elements()
+    }
+}
+
+impl Deref for ExpressionBody {
+    type Target = [ComplexExpression];
+
+    fn deref(&self) -> &Self::Target {
+        &self.body
+    }
+}
+
+impl DerefMut for ExpressionBody {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.body
+    }
+}
+
+#[derive(PartialEq, Eq, Debug, Clone)]
+pub struct BoundExpressionBody {
+    variables: Vec<String>,
+    body: ExpressionBody,
+}
+
+impl BoundExpressionBody {
+    pub fn new<B: Into<ExpressionBody>>(variables: Vec<String>, body: B) -> Self {
+        Self { variables, body: body.into() }
+    }
+
+    pub fn num_params(&self) -> usize {
+        self.variables.len()
+    }
+
+    pub fn variables(&self) -> &[String] {
+        &self.variables
+    }
+
+    pub fn num_elements(&self) -> usize {
+        self.body.num_elements()
+    }
+
+    pub fn elements(&self) -> &[ComplexExpression] {
+        self.body.elements()
+    }
+
+    pub fn conjugate(&mut self) {
+        self.body.conjugate()
+    }
+
+    pub fn destruct(self) -> (Vec<String>, Vec<ComplexExpression>) {
+        let Self { variables, body } = self;
+        (variables, body.into())
+    }
+
+    pub fn apply_element_permutation(&mut self, elem_perm: &[usize]) {
+        self.body.apply_element_permutation(elem_perm);
+    }
+}
+
+impl AsRef<[ComplexExpression]> for BoundExpressionBody {
+    fn as_ref(&self) -> &[ComplexExpression] {
+        self.elements()
+    }
+}
+
+impl Deref for BoundExpressionBody {
+    type Target = ExpressionBody;
+
+    fn deref(&self) -> &Self::Target {
+        &self.body
+    }
+}
+
+impl DerefMut for BoundExpressionBody {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.body
+    }
+}
+
+pub trait JittableExpression: Into<NamedExpression> {
+    fn generation_shape(&self) -> GenerationShape;
+}
+
+#[derive(Debug, Clone)]
+pub struct NamedExpression {
+    name: String,
+    body: BoundExpressionBody,
+}
+
+impl NamedExpression {
+    pub fn new<B: Into<ExpressionBody>>(name: String, variables: Vec<String>, body: B) -> Self {
+        Self {
+            name,
+            body: BoundExpressionBody::new(variables, body)
+        }
+    }
+
+    pub fn from_body_with_name(name: String, body: BoundExpressionBody) -> Self {
+        Self {
+            name,
+            body,
+        }
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
+
+    pub fn set_name(&mut self, new_name: impl Into<String>) {
+        self.name = new_name.into();
+    }
+
+    pub fn destruct(self) -> (String, Vec<String>, Vec<ComplexExpression>) {
+        let Self { name, body } = self;
+        let (variables, body) = body.destruct();
+        (name, variables, body)
+    }
+
+    pub fn apply_element_permutation(&mut self, elem_perm: &[usize]) {
+        self.body.apply_element_permutation(elem_perm);
+    }
+}
+
+impl AsRef<NamedExpression> for NamedExpression {
+    fn as_ref(&self) -> &NamedExpression {
+        self
+    }
+}
+
+impl AsRef<[ComplexExpression]> for NamedExpression {
+    fn as_ref(&self) -> &[ComplexExpression] {
+        self.elements()
+    }
+}
+
+impl<B: AsRef<[ComplexExpression]>> PartialEq<B> for NamedExpression {
+    fn eq(&self, other: &B) -> bool {
+        self.elements() == other.as_ref()
+    }
+}
+
+impl Eq for NamedExpression {}
+
+impl Deref for NamedExpression {
+    type Target = BoundExpressionBody;
+
+    fn deref(&self) -> &Self::Target {
+        &self.body
+    }
+}
+
+impl DerefMut for NamedExpression {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.body
+    }
+}
+
+pub struct BraExpression {
+    inner: NamedExpression,
+    radices: QuditRadices,
+}
+
+impl From<BraExpression> for NamedExpression {
+    fn from(value: BraExpression) -> Self {
+        value.inner
+    }
+}
+
+pub struct KetExpression {
+    inner: NamedExpression,
+    radices: QuditRadices,
+}
+
+
+// TensorExpression -> indices: Vec<usize>
+// BraExpression
+// KetExpression
+// BraSystemExpression
+// KetSystemExpression
+// UnitaryExpression
+// KrausExpression
+// IsometryExpression
+// IsometrySystemExpression?
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TensorExpression {
-    pub name: String,
-    pub variables: Vec<String>,
-    pub indices: Vec<TensorIndex>,
-    pub body: Vec<ComplexExpression>,
+    indices: Vec<TensorIndex>,
+    inner: NamedExpression,
+}
+
+impl AsRef<NamedExpression> for TensorExpression {
+    fn as_ref(&self) -> &NamedExpression {
+        &self.inner
+    }
+}
+
+impl Deref for TensorExpression {
+    type Target = NamedExpression;
+
+    fn deref(&self) -> &Self::Target {
+        &self.inner
+    }
+}
+
+impl DerefMut for TensorExpression {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.inner
+    }
 }
 
 impl TensorExpression {
@@ -57,40 +320,26 @@ impl TensorExpression {
             _ => panic!("Tensor body must be a vector"),
         };
 
+
         TensorExpression {
-            name,
-            variables,
             indices,
-            body,
+            inner: NamedExpression::new(name, variables, body),
         }
     }
 
-    pub fn name(&self) -> &str {
-        self.name.as_str()
+    pub fn from_raw(indices: Vec<TensorIndex>, inner: NamedExpression) -> Self {
+        TensorExpression {
+            indices,
+            inner,
+        }
     }
-
-    pub fn set_name(&mut self, new_name: impl AsRef<str>) {
-        self.name = String::from(new_name.as_ref());
-    }
-    
-    pub fn num_params(&self) -> usize {
-        self.variables.len()
-    }
-
-    pub fn variables(&self) -> Vec<String> {
-        self.variables.clone()
-    }
-    
-    pub fn indices(&self) -> Vec<TensorIndex> {
-        self.indices.clone()
+ 
+    pub fn indices(&self) -> &[TensorIndex] {
+        &self.indices
     }
 
     pub fn dimensions(&self) -> Vec<IndexSize> {
         self.indices.iter().map(|idx| idx.index_size()).collect()
-    }
-
-    pub fn num_elements(&self) -> usize {
-        self.body.len()
     }
 
     pub fn rank(&self) -> usize {
@@ -99,83 +348,6 @@ impl TensorExpression {
 
     pub fn generation_shape(&self) -> GenerationShape {
         self.indices().into()
-    }
-
-    // TODO: rewrite with Froms and Intos
-    pub fn to_unitary_expression(&self) -> UnitaryExpression {
-        match self.generation_shape() {
-            GenerationShape::Matrix(nrows, ncols) => {
-                assert_eq!(nrows, ncols);
-                let mut body = Vec::with_capacity(nrows);
-                for i in 0..nrows {
-                    let start = i * ncols;
-                    let end = start + ncols;
-                    let row = self.body[start..end].to_vec();
-                    body.push(row);
-                }
-                let radices = QuditRadices::from_iter(self.indices.iter().filter(|&i| i.direction().is_input()).map(|i| i.index_size()));
-                UnitaryExpression {
-                    name: self.name.clone(),
-                    radices,
-                    variables: self.variables.clone(),
-                    body,
-                }
-            }
-            _ => panic!("TensorExpression shape must be a matrix to convert to UnitaryExpression"),
-        }
-    }
-
-    pub fn to_state_expression(&self) -> StateExpression {
-        match self.generation_shape() {
-            GenerationShape::Vector(_) => {
-                let radices = QuditRadices::from_iter(self.indices.iter().map(|i| i.index_size()));
-                StateExpression {
-                    name: self.name.clone(),
-                    radices,
-                    variables: self.variables.clone(),
-                    body: self.body.clone(),
-                }
-            }
-            _ => panic!("TensorExpression shape must be a vector to convert to StateExpression"),
-        }
-    }
-
-    pub fn to_state_system_expression(&self) -> StateSystemExpression {
-        match self.generation_shape() {
-            GenerationShape::Tensor3D(ntens, nrows, ncols) => {
-                let body = if nrows == 1 {
-                    let mut body = Vec::with_capacity(ntens);
-                    for i in 0..ntens {
-                        let start = i * ncols;
-                        let end = start + ncols;
-                        let row = self.body[start..end].to_vec();
-                        body.push(row);
-                    }
-                    body
-                } else if ncols == 1 {
-                    let mut body = Vec::with_capacity(ntens);
-                    for i in 0..ntens {
-                        let start = i * nrows;
-                        let end = start + nrows;
-                        let row = self.body[start..end].to_vec();
-                        body.push(row);
-                    }
-                    body
-                } else {
-                    panic!("Wrong (TODO: better message).")
-                };
-                
-                let radices = QuditRadices::from_iter(self.indices.iter().filter(|&i| !i.direction().is_batch()).map(|i| i.index_size()));
-
-                StateSystemExpression {
-                    name: self.name.clone(),
-                    radices,
-                    variables: self.variables.clone(),
-                    body,
-                }
-            }
-            _ => panic!("TensorExpression shape must be a Tensor3D to convert to StateSystemExpression"),
-        }
     }
 
     /// Calculates the strides for each dimension of the tensor.
@@ -218,21 +390,8 @@ impl TensorExpression {
         strides
     }
 
-    pub fn conjugate(&self) -> Self {
-        let mut out_body = Vec::new();
-        for expr in &self.body {
-            out_body.push(expr.conjugate());
-        }
-        TensorExpression {
-            name: format!("{}^_", self.name),
-            variables: self.variables(),
-            indices: self.indices(),
-            body: out_body,
-        }
-    }
-
     pub fn reindex(&mut self, new_indices: Vec<TensorIndex>) -> &mut Self {
-        assert_eq!(new_indices.iter().map(|idx| idx.index_size()).product::<usize>(), self.body.len(), "Product of new dimensions must match the total number of elements in the tensor body.");
+        assert_eq!(new_indices.iter().map(|idx| idx.index_size()).product::<usize>(), self.num_elements(), "Product of new dimensions must match the total number of elements in the tensor body.");
         
         // Assert that all indices are lined up correctly (Derv | Batch | Output | Input)
         let mut last_direction = IndexDirection::Derivative;
@@ -269,8 +428,8 @@ impl TensorExpression {
         let new_strides = self.tensor_strides();
 
         // Permute elements in the body based on the new index order.
-        let mut elem_perm: Vec<usize> = Vec::with_capacity(self.body.len());
-        for i in 0..self.body.len() {
+        let mut elem_perm: Vec<usize> = Vec::with_capacity(self.num_elements());
+        for i in 0..self.num_elements() {
             let mut original_coordinate: Vec<usize> = Vec::with_capacity(self.rank());
             let mut temp_i = i;
             for d_idx in 0..self.rank() {
@@ -294,14 +453,7 @@ impl TensorExpression {
             elem_perm.push(new_linear_idx);
         }
 
-        // TODO: do physical element permutation in place via transpositions
-        let mut swap_vec = vec![];
-        std::mem::swap(&mut swap_vec, &mut self.body);
-        self.body = swap_vec.into_iter()
-            .enumerate()
-            .sorted_by(|(old_idx_a, _), (old_idx_b, _)| elem_perm[*old_idx_a].cmp(&elem_perm[*old_idx_b]))
-            .map(|(_, expr)| expr)
-            .collect();
+        self.body.apply_element_permutation(&elem_perm);
         self
     }
 
@@ -347,10 +499,8 @@ impl TensorExpression {
             .collect();
 
         TensorExpression {
-            name: format!("Stacked_{}", self.name),
-            variables: self.variables.clone(),
-            body: expressions,
             indices: new_indices,
+            inner: NamedExpression::new(format!("Stacked_{}", self.name), self.variables().to_owned(), expressions),
         }
     }
 
@@ -421,11 +571,44 @@ impl TensorExpression {
         let new_indices = remaining_dims_indices.iter().map(|x| in_dims[*x]).collect();
 
         TensorExpression {
-            name: format!("PartialTraced_{}", self.name),
-            variables: self.variables.clone(),
-            body: new_body,
             indices: new_indices,
+            inner: NamedExpression::new(format!("PartialTraced_{}", self.name), self.variables().to_owned(), new_body),
         }
+    }
+
+    /// replace all variables with values, new variables given in variables input
+    pub fn substitute_parameters<S: AsRef<str>, C: AsRef<Expression>>(&self, variables: &[S], values: &[C]) -> Self {
+        let sub_map: HashMap<_, _> = self.variables.iter().zip(values.iter()).map(|(k, v)| (Expression::Variable(k.to_string()), v.as_ref())).collect();
+
+        let mut new_body = vec![];
+        for expr in self.body.iter() {
+            let mut new_expr = None; 
+            for (var, value) in &sub_map {
+                match new_expr {
+                    None => {
+                        new_expr = Some(expr.substitute(var, value))
+                    }
+                    Some(ref mut e) => *e = e.substitute(var, value),
+                }
+            } 
+            match new_expr {
+                None => new_body.push(expr.clone()),
+                Some(e) => new_body.push(e),
+            }
+        }
+
+        let new_variables = variables.iter().map(|s| s.as_ref().to_string()).collect();
+
+        TensorExpression {
+            indices: self.indices.clone(),
+            inner: NamedExpression::new(format!("{}_subbed", self.name), new_variables, new_body),
+        }
+    }
+
+    pub fn destruct(self) -> (String, Vec<String>, Vec<ComplexExpression>, Vec<TensorIndex>) {
+        let Self { inner, indices } = self;
+        let (name, variables, body) = inner.destruct();
+        (name, variables, body, indices)
     }
 }
 

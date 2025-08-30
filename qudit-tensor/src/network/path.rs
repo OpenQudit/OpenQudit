@@ -319,9 +319,13 @@ mod tests {
     #[test]
     fn test_calculate_cost() {
         // Path A: cost 5, indices (0,2), (1,3)
-        let path_a = create_test_path(0, &[(0, 2), (1, 3)], &[], 5, 1 << 0, vec![0]);
+        let mut set1 = BitSet::new();
+        set1.insert(0);
+        let path_a = create_test_path(0, &[(0, 2), (1, 3)], &[], 5, set1, vec![0]);
         // Path B: cost 10, indices (1,3), (2,4)
-        let path_b = create_test_path(1, &[(1, 3), (2, 4)], &[], 10, 1 << 1, vec![1]);
+        let mut set2 = BitSet::new();
+        set2.insert(1);
+        let path_b = create_test_path(1, &[(1, 3), (2, 4)], &[], 10, set2, vec![1]);
 
         // Expected total indices: (0,2), (1,3), (2,4)
         // Product of sizes: 2 * 3 * 4 = 24
@@ -330,7 +334,9 @@ mod tests {
         assert_eq!(ContractionPath::calculate_cost(&path_a, &path_b), expected_cost);
 
         // Test with no common indices
-        let path_c = create_test_path(2, &[(3, 5), (4, 6)], &[], 2, 1 << 2, vec![2]);
+        let mut set3 = BitSet::new();
+        set3.insert(2);
+        let path_c = create_test_path(2, &[(3, 5), (4, 6)], &[], 2, set3, vec![2]);
         // Expected total indices: (0,2), (1,3), (3,5), (4,6)
         // Product of sizes: 2 * 3 * 5 * 6 = 180
         // Expected cost: 5 + 2 + 180 = 187
@@ -338,22 +344,29 @@ mod tests {
         assert_eq!(ContractionPath::calculate_cost(&path_a, &path_c), expected_cost_no_common);
 
         // Test with empty paths (unlikely in real use, but good for robustness)
-        let path_empty_a = create_test_path(0, &[], &[], 0, 0, vec![]);
-        let path_empty_b = create_test_path(1, &[], &[], 0, 0, vec![]);
+        let path_empty_a = create_test_path(0, &[], &[], 0, BitSet::new(), vec![]);
+        let path_empty_b = create_test_path(1, &[], &[], 0, BitSet::new(), vec![]);
         assert_eq!(ContractionPath::calculate_cost(&path_empty_a, &path_empty_b), 1);
     }
 
     #[test]
     fn test_contract_paths() {
         // Path A: cost 5, indices (0,2), (1,3), output {0}
-        let path_a = create_test_path(0, &[(0, 2), (1, 3)], &[0], 5, 1 << 0, vec![0]);
+        let mut set1 = BitSet::new();
+        set1.insert(0);
+        let path_a = create_test_path(0, &[(0, 2), (1, 3)], &[0], 5, set1, vec![0]);
         // Path B: cost 10, indices (1,3), (2,4), output {2}
-        let path_b = create_test_path(1, &[(1, 3), (2, 4)], &[2], 10, 1 << 1, vec![1]);
+        let mut set2 = BitSet::new();
+        set2.insert(1);
+        let path_b = create_test_path(1, &[(1, 3), (2, 4)], &[2], 10, set2, vec![1]);
 
         let contracted_path = path_a.contract(&path_b);
 
         // Expected subnetwork: 1 << 0 | 1 << 1 = 3
-        assert_eq!(contracted_path.subnetwork, (1 << 0) | (1 << 1));
+        let mut expected = BitSet::new();
+        expected.insert(0);
+        expected.insert(1);
+        assert_eq!(contracted_path.subnetwork, expected);
 
         // Expected output indices: {0, 2}
         let mut expected_output_indices = BTreeSet::new();
@@ -382,9 +395,14 @@ mod tests {
         assert_eq!(contracted_path.path, vec![0, 1, usize::MAX]);
 
         // Test with no common indices, no output indices
-        let path_c = create_test_path(2, &[(3, 5), (4, 6)], &[], 2, 1 << 2, vec![2]);
+        let mut set = BitSet::new();
+        set.insert(2);
+        let path_c = create_test_path(2, &[(3, 5), (4, 6)], &[], 2, set, vec![2]);
         let contracted_path_ac = path_a.contract(&path_c);
-        assert_eq!(contracted_path_ac.subnetwork, (1 << 0) | (1 << 2));
+        let mut expected = BitSet::new();
+        expected.insert(0);
+        expected.insert(2);
+        assert_eq!(contracted_path_ac.subnetwork, expected);
         assert_eq!(contracted_path_ac.output_indices, path_a.output_indices); // Only path_a has output_indices
         
         let mut expected_indices_ac = BTreeSet::new();
@@ -402,15 +420,22 @@ mod tests {
     #[test]
     fn test_contract_with_shared_output_index() {
         // Path A: cost 5, indices (0,2), (1,3), output {0}
-        let path_a = create_test_path(0, &[(0, 2), (1, 3)], &[0], 5, 1 << 0, vec![0]);
+        let mut set1 = BitSet::new();
+        set1.insert(0);
+        let path_a = create_test_path(0, &[(0, 2), (1, 3)], &[0], 5, set1, vec![0]);
         // Path B: cost 10, indices (0,2), (2,4), output {0}
         // Index 0 is common and is an output index for both paths.
-        let path_b = create_test_path(1, &[(0, 2), (2, 4)], &[0], 10, 1 << 1, vec![1]);
+        let mut set2 = BitSet::new();
+        set2.insert(1);
+        let path_b = create_test_path(1, &[(0, 2), (2, 4)], &[0], 10, set2, vec![1]);
 
         let contracted_path = path_a.contract(&path_b);
 
         // Expected subnetwork: 1 << 0 | 1 << 1 = 3
-        assert_eq!(contracted_path.subnetwork, (1 << 0) | (1 << 1));
+        let mut expected = BitSet::new();
+        expected.insert(0);
+        expected.insert(1);
+        assert_eq!(contracted_path.subnetwork, expected);
 
         // Expected output indices: {0} (since 0 is output for both, union is just {0})
         let mut expected_output_indices = BTreeSet::new();

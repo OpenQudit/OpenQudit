@@ -6,28 +6,29 @@ mod codegen;
 mod analysis;
 mod tensor;
 mod shape;
+mod cache;
 pub mod index;
 
-use analysis::check_many_equality;
-use complex::ComplexExpression;
-use expression::Expression;
-use qudit_core::QuditSystem;
+pub use expression::Expression;
+pub use complex::ComplexExpression;
 pub use unitary::UnitaryExpression;
-pub use unitary::MatVecExpression;
-pub use unitary::UnitaryExpressionGenerator;
-pub use unitary::TensorExpressionGenerator;
 pub use tensor::TensorExpression;
+pub use tensor::ExpressionGenerator;
 pub use unitary::StateExpression;
 pub use unitary::StateSystemExpression;
 pub use codegen::DifferentiationLevel;
 pub use codegen::{FUNCTION, GRADIENT, HESSIAN};
 pub use codegen::ModuleBuilder;
 pub use codegen::Module;
+pub use codegen::WriteFunc;
 pub use codegen::UtryFunc;
 pub use codegen::UtryGradFunc;
 pub use codegen::CodeGenerator;
 pub use analysis::simplify_matrix_and_matvec;
 pub use shape::GenerationShape;
+pub use expression::Constant;
+pub use cache::ExpressionCache;
+pub use cache::ExpressionId;
 
 
 // use analysis::{check_equality, extract_best_sine};

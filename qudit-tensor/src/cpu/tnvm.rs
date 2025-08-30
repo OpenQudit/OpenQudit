@@ -1,5 +1,8 @@
+use std::cell::RefCell;
+use std::marker::PhantomData;
 use std::marker::PhantomPinned;
 use std::pin::Pin;
+use std::rc::Rc;
 
 use faer::reborrow::ReborrowMut;
 use qudit_expr::DifferentiationLevel;
@@ -7,6 +10,7 @@ use qudit_expr::GenerationShape;
 use qudit_expr::Module;
 use qudit_core::TensorShape;
 use qudit_expr::ModuleBuilder;
+use qudit_expr::ExpressionCache;
 use qudit_expr::FUNCTION;
 
 
@@ -27,12 +31,27 @@ use qudit_core::ComplexScalar;
 
 pub type PinnedTNVM<C, const D: DifferentiationLevel> = Pin<Box<TNVM<C, D>>>;
 
+pub struct ParamBuffer<C: ComplexScalar> {
+    num_params: usize,
+    dynamic_map: Vec<usize>,
+    _marker: PhantomData<C>
+}
+
+impl<C: ComplexScalar> ParamBuffer<C> {
+    fn place_new_args(params: &[C::R], memory: &mut MemoryBuffer<C>) {
+        // TODO: place params in the parambuffer section of memory
+        todo!()
+    }
+}
+
 pub struct TNVM<C: ComplexScalar, const D: DifferentiationLevel> {
     const_instructions: Vec<TNVMInstruction<C>>,
     dynamic_instructions: Vec<TNVMInstruction<C>>,
-    #[allow(dead_code)]
-    module: Module<C>,
+    // #[allow(dead_code)]
+    // module: Module<C>,
+    expressions: Rc<RefCell<ExpressionCache>>,
     memory: MemoryBuffer<C>,
+    // param_buffer: ParamBuffer<C>,
     out_buffer: SizedTensorBuffer<C>,
     _pin: PhantomPinned,
 }
@@ -57,28 +76,30 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
         // buffers can be skipped with the input and output buffer having the same offset
         // but different strides.
 
-        let mut builder: ModuleBuilder<C, D> = ModuleBuilder::new("tnvm");
+        // let mut builder: ModuleBuilder<C, D> = ModuleBuilder::new("tnvm");
 
-        for (expr, params, name) in &program.expressions {
-            let mut expr_clone = expr.clone();
-            expr_clone.name = name.clone();
-            match params {
-                None => builder = builder.add_tensor_expression(expr_clone),
-                Some(params) =>
-                    builder = builder.add_tensor_expression_with_param_indices(expr_clone, params.clone())
-            };
-        }
+        // for (expr, params, name) in &program.expressions {
+        //     let mut expr_clone = expr.clone();
+        //     expr_clone.name = name.clone();
+        //     match params {
+        //         None => builder = builder.add_tensor_expression(expr_clone),
+        //         Some(params) =>
+        //             builder = builder.add_tensor_expression_with_param_indices(expr_clone, params.clone())
+        //     };
+        // }
 
-        let module = builder.build();
+        // let module = builder.build();
+        let expressions = program.expressions.clone();
+        // TODO: ensure all necessary expressions are in the set
 
         let mut const_instructions = Vec::new();
         for inst in &program.const_code {
-            const_instructions.push(TNVMInstruction::new(inst, &sized_buffers, &module, D));
+            const_instructions.push(TNVMInstruction::new(inst, &sized_buffers, expressions.clone(), D));
         }
 
         let mut dynamic_instructions = Vec::new();
         for inst in &program.dynamic_code {
-            dynamic_instructions.push(TNVMInstruction::new(inst, &sized_buffers, &module, D));
+            dynamic_instructions.push(TNVMInstruction::new(inst, &sized_buffers, expressions.clone(), D));
         }
 
         // Get out buffer
@@ -99,7 +120,7 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
         let mut out = Self {
             const_instructions,
             dynamic_instructions,
-            module,
+            expressions,
             memory: alloc_zeroed_memory::<C>(memory_size),
             out_buffer,
             _pin: PhantomPinned,

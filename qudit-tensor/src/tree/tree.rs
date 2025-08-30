@@ -1,4 +1,7 @@
 
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::tree::HadamardProductNode;
 use crate::tree::TraceNode;
 
@@ -10,11 +13,13 @@ use super::transpose::TransposeNode;
 
 use qudit_core::HasPeriods;
 use qudit_core::HasParams;
-use qudit_core::ParamIndices;
+use qudit_core::ParamInfo;
 use qudit_core::RealScalar;
 use qudit_expr::index::IndexDirection;
 use qudit_expr::index::IndexId;
 use qudit_expr::index::TensorIndex;
+use qudit_expr::ExpressionId;
+use qudit_expr::ExpressionCache;
 use qudit_expr::GenerationShape;
 use qudit_expr::TensorExpression;
 use qudit_core::TensorShape;
@@ -24,8 +29,8 @@ use qudit_core::QuditSystem;
 
 // TODO: Rename to TensorTree
 /// A tree structure representing a parameterized quantum expression.
-#[derive(PartialEq, Clone)]
-pub enum ExpressionTree {
+#[derive(PartialEq, Eq, Clone)]
+pub enum TTGTNode {
     // kinds of products
     MatMul(MatMulNode),
     Outer(OuterProductNode),
@@ -41,17 +46,15 @@ pub enum ExpressionTree {
     Leaf(LeafNode),
 }
 
+#[derive(Clone)]
+pub struct TTGTTree {
+    pub root: TTGTNode,
+    pub expressions: Rc<RefCell<ExpressionCache>>,
+}
 
-impl ExpressionTree {
+impl TTGTTree {
     pub fn indices(&self) -> Vec<TensorIndex> {
-        match self {
-            Self::MatMul(s) => s.indices(),
-            Self::Outer(s) => s.indices(),
-            Self::Hadamard(s) => s.indices(),
-            Self::Transpose(s) => s.indices(),
-            Self::Trace(s) => s.indices(),
-            Self::Leaf(s) => s.indices(),
-        }
+        self.root.indices()
     }
 
     pub fn generation_shape(&self) -> GenerationShape {
@@ -62,98 +65,33 @@ impl ExpressionTree {
         self.indices().len()
     }
 
-    pub fn param_indices(&self) -> ParamIndices {
-        match self {
-            Self::MatMul(s) => s.param_indices(),
-            Self::Outer(s) => s.param_indices(),
-            Self::Hadamard(s) => s.param_indices(),
-            Self::Transpose(s) => s.param_indices(),
-            Self::Trace(s) => s.param_indices(),
-            Self::Leaf(s) => s.param_indices(),
-        }
-    }
-
-    pub fn traverse_mut(&mut self, f: &impl Fn(&mut Self)) {
-        f(self);
-        match self {
-            ExpressionTree::MatMul(n) => {
-                n.left.traverse_mut(f);
-                n.right.traverse_mut(f);
-            },
-            ExpressionTree::Outer(n) => {
-                n.left.traverse_mut(f);
-                n.right.traverse_mut(f);
-            },
-            ExpressionTree::Hadamard(n) => {
-                n.left.traverse_mut(f);
-                n.right.traverse_mut(f);
-            },
-            ExpressionTree::Transpose(n) => {
-                n.child.traverse_mut(f);
-            },
-            ExpressionTree::Trace(n) => {
-                n.child.traverse_mut(f);
-            },
-            ExpressionTree::Leaf(_) => {},
-        }
-    }
-
-    pub fn leaf(expr: TensorExpression, param_indices: ParamIndices) -> Self {
-        Self::Leaf(LeafNode::new(expr, param_indices))
-    }
-
-    pub fn outer(self, right: Self) -> Self {
-        ExpressionTree::Outer(OuterProductNode::new(self, right))
-    }
-
-    pub fn hadamard(self, right: Self) -> Self {
-        ExpressionTree::Hadamard(HadamardProductNode::new(self, right))
-    }
-
-    pub fn transpose(self, perm: Vec<usize>, redirection: Vec<IndexDirection>) -> Self {
-        let is_identity_permutation = perm.iter().enumerate().all(|(i, &p)| i == p);
-        let original_directions: Vec<IndexDirection> = self.indices().iter().map(|idx| idx.direction()).collect();
-        let is_identity_redirection = redirection == original_directions;
-
-        if is_identity_permutation && is_identity_redirection {
-            self
-        } else if let ExpressionTree::Leaf(mut n) = self {
-            n.permute(&perm, redirection);
-            ExpressionTree::Leaf(n)
-        } else if let ExpressionTree::Transpose(n) = self {
-            let TransposeNode { child, perm, .. } = n;
-            let composed_perm: Vec<usize> = perm.iter().map(|&idx| perm[idx]).collect();
-            Self::Transpose(TransposeNode::new(*child, composed_perm, redirection))
-        } else {
-            Self::Transpose(TransposeNode::new(self, perm, redirection))
-        }
-    }
-
-    pub fn reindex(self, new_indices: Vec<TensorIndex>) -> Self {
-        if let ExpressionTree::Leaf(mut n) = self {
-            n.reindex(new_indices);
-            ExpressionTree::Leaf(n)
-        } else {
-            panic!("Cannot reindex non leaf nodes directly.");
-        }
-    }
-
     pub fn contract(
         self,
         right: Self,
         shared_ids: Vec<IndexId>,
         contraction_ids: Vec<IndexId>,
     ) -> Self {
-        let left = self;
+        if !Rc::ptr_eq(&self.expressions, &right.expressions) {
+            panic!("Contracting two TTGT trees with different expression caches.");
+        }
+
         // TODO: assert all shared ids are in both left and right
         // TODO: assert all contracted ids are in both left and right
         // TODO: assert no overlap between shared and contracted
 
+        let left = self;
+
         if contraction_ids.is_empty() {
             if left.rank() == shared_ids.len() && right.rank() == left.rank() {
-                return ExpressionTree::Hadamard(HadamardProductNode::new(left, right));
+                return Self {
+                    root: TTGTNode::Hadamard(HadamardProductNode::new(left.root, right.root)),
+                    expressions: left.expressions,
+                };
             }
-            return ExpressionTree::Outer(OuterProductNode::new(left, right));
+            return Self {
+                root: TTGTNode::Outer(OuterProductNode::new(left.root, right.root)),
+                expressions: left.expressions,
+            };
         }
 
         // First find the permutation and redirection for left that makes its tensor
@@ -205,23 +143,126 @@ impl ExpressionTree {
         left_transposed_tree.matmul(right_transposed_tree)
     }
 
-    pub fn matmul(self, other: Self) -> Self {
-        Self::MatMul(MatMulNode::new(self, other))
+    pub fn outer(self, right: Self) -> Self {
+        if !Rc::ptr_eq(&self.expressions, &right.expressions) {
+            panic!("Contracting two TTGT trees with different expression caches.");
+        }
+
+        Self {
+            root: TTGTNode::Outer(OuterProductNode::new(self.root, right.root)),
+            expressions: self.expressions,
+        }
     }
-    
-    pub fn trace(self, pairs: Vec<(usize, usize)>) -> Self {
-        if pairs.is_empty() {
-            self
-        } else if let ExpressionTree::Leaf(mut n) = self {
-            n.trace(&pairs);
-            ExpressionTree::Leaf(n)
+
+    pub fn hadamard(self, right: Self) -> Self {
+        if !Rc::ptr_eq(&self.expressions, &right.expressions) {
+            panic!("Contracting two TTGT trees with different expression caches.");
+        }
+
+        Self {
+            root: TTGTNode::Hadamard(HadamardProductNode::new(self.root, right.root)),
+            expressions: self.expressions,
+        }
+    }
+
+    pub fn matmul(self, right: Self) -> Self {
+        if !Rc::ptr_eq(&self.expressions, &right.expressions) {
+            panic!("Contracting two TTGT trees with different expression caches.");
+        }
+
+        Self {
+            root: TTGTNode::MatMul(MatMulNode::new(self.root, right.root)),
+            expressions: self.expressions,
+        }
+    }
+
+    pub fn transpose(mut self, perm: Vec<usize>, redirection: Vec<IndexDirection>) -> Self {
+        let is_identity_permutation = perm.iter().enumerate().all(|(i, &p)| i == p);
+        let original_directions: Vec<IndexDirection> = self.indices().iter().map(|idx| idx.direction()).collect();
+        let is_identity_redirection = redirection == original_directions;
+
+        let new_root = if is_identity_permutation && is_identity_redirection {
+            self.root
+        // } else if let TTGTNode::Leaf(mut n) = self.root {
+        //     let new_id = self.expressions.borrow_mut().permute(n.expr, perm, redirection);
+        //     TTGTNode::Leaf(LeafNode::new(new_id, n.param_info, self.expressions.borrow_mut().indices(new_id)))
+        } else if let TTGTNode::Transpose(n) = self.root {
+            let TransposeNode { child, perm: base_perm, .. } = n;
+            let composed_perm: Vec<usize> = base_perm.iter().map(|&idx| perm[idx]).collect();
+            TTGTNode::Transpose(TransposeNode::new(*child, composed_perm, redirection))
         } else {
-            Self::Trace(TraceNode::new(self, pairs))
+            TTGTNode::Transpose(TransposeNode::new(self.root, perm, redirection))
+        };
+
+        Self {
+            root: new_root,
+            expressions: self.expressions
+        }
+    }
+
+    pub fn leaf(expressions: Rc<RefCell<ExpressionCache>>, expr: ExpressionId, param_info: ParamInfo, indices: Vec<TensorIndex>) -> Self {
+        Self {
+            root: TTGTNode::Leaf(LeafNode::new(expr, param_info, indices)),
+            expressions,
+        }
+    }
+
+    // pub fn reindex(mut self, new_indices: Vec<TensorIndex>) -> Self {
+    //     let new_root = if let TTGTNode::Leaf(mut n) = self.root {
+    //         let new_id = self.expressions.borrow_mut().reindex(n.expr, new_indices);
+    //         TTGTNode::Leaf(LeafNode::new(new_id, n.param_info, self.expressions.borrow_mut().indices(new_id)))
+    //     } else {
+    //         panic!("Cannot reindex non leaf nodes directly.");
+    //     };
+
+    //     Self {
+    //         root: new_root,
+    //         expressions: self.expressions
+    //     }
+    // }
+
+    pub fn trace(mut self, pairs: Vec<(usize, usize)>) -> Self {
+        let new_root = if pairs.is_empty() {
+            self.root
+        // } else if let TTGTNode::Leaf(mut n) = self.root {
+        //     let new_id = self.expressions.borrow_mut().trace(n.expr, pairs);
+        //     TTGTNode::Leaf(LeafNode::new(new_id, n.param_info, self.expressions.borrow_mut().indices(new_id)))
+        } else {
+            TTGTNode::Trace(TraceNode::new(self.root, pairs))
+        };
+
+        Self {
+            root: new_root,
+            expressions: self.expressions,
         }
     }
 }
 
-impl std::hash::Hash for ExpressionTree {
+impl TTGTNode {
+    pub fn indices(&self) -> Vec<TensorIndex> {
+        match self {
+            Self::MatMul(s) => s.indices(),
+            Self::Outer(s) => s.indices(),
+            Self::Hadamard(s) => s.indices(),
+            Self::Transpose(s) => s.indices(),
+            Self::Trace(s) => s.indices(),
+            Self::Leaf(s) => s.indices(),
+        }
+    }
+
+    pub fn param_info(&self) -> ParamInfo {
+        match self {
+            Self::MatMul(s) => s.param_info(),
+            Self::Outer(s) => s.param_info(),
+            Self::Hadamard(s) => s.param_info(),
+            Self::Transpose(s) => s.param_info(),
+            Self::Trace(s) => s.param_info(),
+            Self::Leaf(s) => s.param_info(),
+        }
+    }
+}
+
+impl std::hash::Hash for TTGTNode {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
             Self::MatMul(s) => s.hash(state),
@@ -234,9 +275,27 @@ impl std::hash::Hash for ExpressionTree {
     }
 }
 
-impl Eq for ExpressionTree {}
+impl PrintTree for TTGTTree {
+    fn write_tree(&self, prefix: &str, fmt: &mut std::fmt::Formatter<'_>) {
+        match &self.root {
+            TTGTNode::MatMul(s) => s.write_tree(prefix, fmt),
+            TTGTNode::Outer(s) => s.write_tree(prefix, fmt),
+            TTGTNode::Hadamard(s) => s.write_tree(prefix, fmt),
+            TTGTNode::Transpose(s) => s.write_tree(prefix, fmt),
+            TTGTNode::Trace(s) => s.write_tree(prefix, fmt),
+            TTGTNode::Leaf(s) => s.write_tree(prefix, fmt),
+        }
+    }
+}
 
-impl PrintTree for ExpressionTree {
+impl std::fmt::Debug for TTGTTree {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.write_tree("", f); // TODO: propogate results
+        Ok(())
+    }
+}
+
+impl PrintTree for TTGTNode {
     fn write_tree(&self, prefix: &str, fmt: &mut std::fmt::Formatter<'_>) {
         match self {
             Self::MatMul(s) => s.write_tree(prefix, fmt),
@@ -249,7 +308,7 @@ impl PrintTree for ExpressionTree {
     }
 }
 
-impl std::fmt::Debug for ExpressionTree {
+impl std::fmt::Debug for TTGTNode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.write_tree("", f); // TODO: propogate results
         Ok(())

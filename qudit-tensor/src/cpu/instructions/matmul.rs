@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use qudit_core::matrix::{MatMut, MatRef};
 use qudit_core::array::{TensorRef, TensorMut, SymSqTensorMut, SymSqTensorRef};
-use qudit_core::{memory, ComplexScalar, ParamIndices};
+use qudit_core::{memory, ComplexScalar, ParamInfo};
 use super::{GradOffsetList, HessOffsetList, cache_grad_offset_list, cache_hess_offset_list};
 
 use super::super::buffer::SizedTensorBuffer;
@@ -25,11 +25,11 @@ impl<C: ComplexScalar> MatmulStruct<C> {
         left: SizedTensorBuffer<C>,
         right: SizedTensorBuffer<C>,
         out: SizedTensorBuffer<C>,
-        left_param_map: ParamIndices,
-        right_param_map: ParamIndices,
+        left_param_info: ParamInfo,
+        right_param_info: ParamInfo,
     ) -> Self {
-        let grad_offset_list = cache_grad_offset_list(&left, &right, &out, &left_param_map, &right_param_map);
-        let hess_offset_list = cache_hess_offset_list(&left, &right, &out, &left_param_map, &right_param_map);
+        let grad_offset_list = cache_grad_offset_list(&left, &right, &out, &left_param_info, &right_param_info);
+        let hess_offset_list = cache_hess_offset_list(&left, &right, &out, &left_param_info, &right_param_info);
         let plan = MatMulPlan::new(left.nrows(), right.ncols(), left.ncols());
         Self { left, right, out, grad_offset_list, hess_offset_list, plan }
     }

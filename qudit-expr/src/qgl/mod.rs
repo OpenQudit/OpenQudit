@@ -95,10 +95,22 @@ pub(crate) mod lexer;
 mod parser;
 
 pub use expr::ParsedDefinition;
-pub use expr::{Expression, UnitaryDefinition};
+pub use expr::Expression;
+
+pub fn parse_scalar(input: &str) -> Result<Expression, String> {
+    let mut parser = parser::Parser::new(input, true);
+    let result = parser.parse_scalar();
+
+    let scalar = match result {
+        Ok(scalar) => scalar,
+        Err(e) => return Err(e.error),
+    };
+
+    Ok(scalar)
+}
 
 pub fn parse_qobj(input: &str) -> Result<ParsedDefinition, String> {
-    let mut parser = parser::Parser::new(input);
+    let mut parser = parser::Parser::new(input, false);
     let qdef_result = parser.parse();
 
     let qdef = match qdef_result {

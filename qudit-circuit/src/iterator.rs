@@ -5,7 +5,7 @@ use itertools::Itertools;
 
 use qudit_core::ComplexScalar;
 
-use crate::instruction::Instruction;
+// use crate::instruction::Instruction;
 use crate::instruction::InstructionReference;
 
 use super::operation::Operation;
@@ -15,14 +15,14 @@ use super::QuditCircuit;
 
 // TODO: implement size_hints
 
-pub struct QuditCircuitFastIterator<'a, C: ComplexScalar> {
-    circuit: &'a QuditCircuit<C>,
+pub struct QuditCircuitFastIterator<'a> {
+    circuit: &'a QuditCircuit,
     frontier: Vec<&'a InstructionReference>,
     next_cycle_index: usize,
 }
 
-impl<'a, C: ComplexScalar> QuditCircuitFastIterator<'a, C> {
-    pub fn new(circuit: &'a QuditCircuit<C>) -> Self {
+impl<'a> QuditCircuitFastIterator<'a> {
+    pub fn new(circuit: &'a QuditCircuit) -> Self {
         Self {
             circuit: circuit,
             frontier: vec![],
@@ -31,7 +31,7 @@ impl<'a, C: ComplexScalar> QuditCircuitFastIterator<'a, C> {
     }
 }
 
-impl<'a, C: ComplexScalar> Iterator for QuditCircuitFastIterator<'a, C> {
+impl<'a> Iterator for QuditCircuitFastIterator<'a> {
     type Item = &'a InstructionReference;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -108,14 +108,14 @@ impl<'a, C: ComplexScalar> Iterator for QuditCircuitFastIterator<'a, C> {
 //     }
 // }
 
-pub struct QuditCircuitBFIterator<'a, C: ComplexScalar> {
-    circuit: &'a QuditCircuit<C>,
+pub struct QuditCircuitBFIterator<'a> {
+    circuit: &'a QuditCircuit,
     frontier: Option<Vec<&'a Operation>>,
     next_cycle_index: usize,
 }
 
-impl<'a, C: ComplexScalar> QuditCircuitBFIterator<'a, C> {
-    pub fn new(circuit: &'a QuditCircuit<C>) -> Self {
+impl<'a> QuditCircuitBFIterator<'a> {
+    pub fn new(circuit: &'a QuditCircuit) -> Self {
         Self {
             circuit: circuit,
             frontier: None,
@@ -124,7 +124,7 @@ impl<'a, C: ComplexScalar> QuditCircuitBFIterator<'a, C> {
     }
 }
 
-impl<'a, C: ComplexScalar> Iterator for QuditCircuitBFIterator<'a, C> {
+impl<'a> Iterator for QuditCircuitBFIterator<'a> {
     type Item = &'a Operation;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -164,14 +164,14 @@ impl<'a, C: ComplexScalar> Iterator for QuditCircuitBFIterator<'a, C> {
     }
 }
 
-pub struct QuditCircuitDFIterator<'a, C: ComplexScalar> {
-    circuit: &'a QuditCircuit<C>,
+pub struct QuditCircuitDFIterator<'a> {
+    circuit: &'a QuditCircuit,
     frontier: VecDeque<CircuitPoint>,
     seen: HashSet<CircuitPoint>,
 }
 
-impl<'a, C: ComplexScalar> QuditCircuitDFIterator<'a, C> {
-    pub fn new(circuit: &'a QuditCircuit<C>) -> Self {
+impl<'a> QuditCircuitDFIterator<'a> {
+    pub fn new(circuit: &'a QuditCircuit) -> Self {
         let mut iterator = Self {
             circuit: circuit,
             frontier: VecDeque::new(),
@@ -204,7 +204,7 @@ impl<'a, C: ComplexScalar> QuditCircuitDFIterator<'a, C> {
     }
 }
 
-impl<'a, C: ComplexScalar> Iterator for QuditCircuitDFIterator<'a, C> {
+impl<'a> Iterator for QuditCircuitDFIterator<'a> {
     type Item = &'a Operation;
 
     fn next(&mut self) -> Option<Self::Item> {

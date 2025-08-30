@@ -1,4 +1,4 @@
-use qudit_expr::{UnitaryExpression, UnitaryExpressionGenerator};
+use qudit_expr::{UnitaryExpression, ExpressionGenerator};
 
 /// The one-qudit shift (X) gate. This is a Weyl-Heisenberg gate.
 ///
@@ -38,8 +38,10 @@ impl XGate {
     }
 }
 
-impl UnitaryExpressionGenerator for XGate {
-    fn gen_expr(&self) -> UnitaryExpression {
+impl ExpressionGenerator for XGate {
+    type ExpressionType = UnitaryExpression;
+
+    fn generate_expression(&self) -> UnitaryExpression {
         let proto = format!("X<{}>()", self.radix);
         let mut body = "[".to_string();
         for i in 0..self.radix {

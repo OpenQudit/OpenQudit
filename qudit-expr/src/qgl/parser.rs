@@ -27,12 +27,13 @@ pub type ParserResult<T> = Result<T, ParserError>;
 
 /// Recursive Descent Parser
 pub struct Parser {
+    scalar: bool,
     tokens: Vec<Token>,
     pos: usize,
 }
 
 impl Parser {
-    pub fn new(input: &str) -> Self {
+    pub fn new(input: &str, scalar: bool) -> Self {
         let mut lexer = Lexer::new(input);
         let tokens: Vec<Token> = lexer.by_ref().collect();
 
@@ -45,10 +46,14 @@ impl Parser {
             pos += 1;
         }
 
-        Parser { tokens, pos: pos }
+        Parser { scalar, tokens, pos }
     }
 
     pub fn parse(&mut self) -> ParserResult<Vec<ParsedDefinition>> {
+        if self.scalar {
+            return Err(ParserError::new("Cannot parse an expression definition in scalar mode."));
+        }
+
         let mut statements = Vec::new();
 
         while !self.at_end() {
@@ -56,6 +61,20 @@ impl Parser {
         }
 
         Ok(statements)
+    }
+
+    pub fn parse_scalar(&mut self) -> ParserResult<Expression> {
+        if !self.scalar {
+            return Err(ParserError::new("Cannot parse a scalar expression in array mode."));
+        }
+
+        let expr = self.parse_expr()?;
+
+        if !self.at_end() {
+            return Err(ParserError::with_index("Expected EOF.", self.pos));
+        }
+
+        Ok(expr)
     }
 
     fn peek(&self) -> Option<&Token> {

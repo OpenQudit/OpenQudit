@@ -1,8 +1,10 @@
 use qudit_core::unitary::UnitaryMatrix;
 use qudit_core::ComplexScalar;
 use qudit_core::ParamIndices;
+use qudit_core::ParamInfo;
 use qudit_core::TensorShape;
 use qudit_expr::index::IndexSize;
+use qudit_expr::ExpressionId;
 use qudit_expr::GenerationShape;
 use qudit_expr::TensorExpression;
 
@@ -13,22 +15,18 @@ use qudit_expr::UnitaryExpression;
 #[derive(Debug, Clone)]
 pub struct QuditTensor {
     pub indices: Vec<TensorIndex>,
-    pub expression: TensorExpression,
-    pub param_indices: ParamIndices,
+    pub expression: ExpressionId,
+    pub param_info: ParamInfo,
 }
 
 impl QuditTensor {
     /// Construct a new tensor object from a tensor expression and param indices.
-    pub fn new(expression: TensorExpression, param_indices: ParamIndices) -> Self {
+    pub fn new(indices: Vec<TensorIndex>, expression: ExpressionId, param_info: ParamInfo) -> Self {
         QuditTensor {
-            indices: expression.indices(),
+            indices,
             expression,
-            param_indices,
+            param_info,
         }
-    }
-
-    pub fn identity(radix: IndexSize) -> Self {
-        QuditTensor::new(UnitaryExpression::identity("Identity", [radix]).to_tensor_expression(), [].into())
     }
 
     pub fn num_indices(&self) -> usize {
@@ -99,25 +97,5 @@ impl QuditTensor {
     pub fn rank(&self) -> usize {
         return self.indices.len()
     }
-
-    /// Returns the shape of the tensor's data as it is generated.
-    pub fn shape(&self) -> GenerationShape {
-        self.expression.generation_shape()
-    }
-
-    /// Permutes the axes of the tensor according to the given permutation.
-    pub fn permute(&self, permutation: &[usize]) -> Self {
-        todo!()
-    }
-
-    /// Reshapes the tensor to the given new shape.
-    pub fn reshape(&self, new_shape: &[usize]) -> Self {
-        todo!()
-    }
 }
 
-impl<C: ComplexScalar> From<UnitaryMatrix<C>> for QuditTensor {
-    fn from(utry: UnitaryMatrix<C>) -> Self {
-        QuditTensor::new(utry.into(), ParamIndices::constant())
-    }
-}

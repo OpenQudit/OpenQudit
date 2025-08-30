@@ -3,7 +3,7 @@ use std::hash::Hash;
 use super::fmt::PrintTree;
 use qudit_core::HasPeriods;
 use qudit_core::HasParams;
-use qudit_core::ParamIndices;
+use qudit_core::ParamInfo;
 use qudit_core::RealScalar;
 use qudit_core::QuditRadices;
 use qudit_core::QuditSystem;
@@ -11,19 +11,19 @@ use qudit_core::TensorShape;
 use qudit_expr::index::IndexDirection;
 use qudit_expr::index::TensorIndex;
 use qudit_expr::GenerationShape;
-use super::tree::ExpressionTree;
+use super::tree::TTGTNode;
 
 /// A kron node in the computation tree that stacks two nodes.
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct OuterProductNode {
-    pub left: Box<ExpressionTree>,
-    pub right: Box<ExpressionTree>,
-    param_map: ParamIndices,
+    pub left: Box<TTGTNode>,
+    pub right: Box<TTGTNode>,
+    param_info: ParamInfo,
     indices: Vec<TensorIndex>,
 }
 
 impl OuterProductNode {
-    pub fn new(left: ExpressionTree, right: ExpressionTree) -> OuterProductNode {
+    pub fn new(left: TTGTNode, right: TTGTNode) -> OuterProductNode {
         let left_indices = left.indices();
         let right_indices = right.indices();
 
@@ -46,12 +46,12 @@ impl OuterProductNode {
             .copied()
             .collect();
 
-        let param_map = left.param_indices().concat(&right.param_indices());
+        let param_info = left.param_info().concat(&right.param_info());
 
         OuterProductNode {
             left: Box::new(left),
             right: Box::new(right),
-            param_map,
+            param_info,
             indices,
         }
     }
@@ -60,8 +60,8 @@ impl OuterProductNode {
         self.indices.clone()
     }
 
-    pub fn param_indices(&self) -> ParamIndices {
-        self.param_map.clone()
+    pub fn param_info(&self) -> ParamInfo {
+        self.param_info.clone()
     }
 }
 

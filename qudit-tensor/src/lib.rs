@@ -16,7 +16,7 @@ pub fn compile_network(network: QuditTensorNetwork) -> Bytecode {
     let optimal_path = network.solve_for_path();
 
     // println!("{:?}", optimal_path);
-    let tree = network.path_to_expression_tree(optimal_path);
+    let tree = network.path_to_ttgt_tree(optimal_path);
     // println!("{:?}", tree);
     crate::bytecode::BytecodeGenerator::new().generate(tree)
 }
@@ -27,7 +27,7 @@ mod tests {
 
     use crate::bytecode::BytecodeGenerator;
     // use crate::qvm::QVM;
-    use qudit_core::QuditRadices;
+    use qudit_core::{ParamInfo, QuditRadices};
     use qudit_expr::TensorExpression;
     use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
 
@@ -59,15 +59,14 @@ mod tests {
             ]
         }");
         
-        let mut network = QuditCircuitTensorNetworkBuilder::new(QuditRadices::new(&vec![2, 2]))
-            // .prepend(QuditTensor::new(ZZ.clone(), vec![].into()), vec![0, 1], vec![0, 1], vec!["a".to_string()])
-            .prepend(QuditTensor::new(classically_controlled_u3.clone(), vec![0, 1, 2].into()), vec![0], vec![0], vec!["a".to_string()])
-            .prepend(QuditTensor::new(classically_controlled_u3.clone(), vec![0, 1, 2].into()), vec![1], vec![1], vec!["a".to_string()])
+        let mut network = QuditCircuitTensorNetworkBuilder::new(QuditRadices::new(&vec![2, 2]), None)
+            .prepend_expression(ZZ.clone(), ParamInfo::empty(), vec![0, 1], vec![0, 1], vec!["a".to_string()])
+            .prepend_expression(classically_controlled_u3.clone(), ParamInfo::parameterized(vec![0, 1, 2]), vec![0], vec![0], vec!["a".to_string()])
             .build();
 
         let optimal_path = network.solve_for_path();
         println!("Optimal Path: {:?}", optimal_path.path);
-        let tree = network.path_to_expression_tree(optimal_path);
+        let tree = network.path_to_ttgt_tree(optimal_path);
         println!("Expression Tree: {:?}", tree);
         let code = BytecodeGenerator::new().generate(tree);
         println!("Bytecode: \n{:?}", code);
@@ -76,7 +75,7 @@ mod tests {
 
         let params = [1.7, 1.7, 1.7];
         let mut tnvm = TNVM::<qudit_core::c64, GRADIENT>::new(&code);
-        let out = tnvm.evaluate(&params);
+        let out = tnvm.evaluate::<GRADIENT>(&params);
         let out_fn = out.get_fn_result().unpack_tensor3d();
         println!("{:?}", out_fn);
         let out_fn = out.get_grad_result().unpack_tensor4d();

@@ -12,7 +12,6 @@ use qudit_core::ComplexScalar;
 use crate::codegen::process_name_for_gen;
 use crate::complex::ComplexExpression;
 use crate::expression::Expression;
-use crate::unitary::MatVecExpression;
 use crate::UnitaryExpression;
 
 use super::builtins::Builtins;
@@ -81,19 +80,21 @@ impl<'ctx, C: ComplexScalar> CodeGenerator<'ctx, C> {
         }
     }
 
-    fn gen_utry_func_proto(&self, name: &str) -> CodeGenResult<FunctionValue<'ctx>> {
+    // /// Function signature for a JIT-compiled expression
+    // ///
+    // /// # Params
+    // ///
+    // /// * (*const R): Pointer to input parameter vector
+    // /// * (*mut R): Pointer to output buffer
+    // /// * (*const u64): Pointer to parameter map
+    // /// * (*const u64): Pointer to output map
+    // /// * (u64): offset for each function unit (0*offset = function, 1*offset = first partial grad, ..)
+    // /// * (*const bool): Pointer to constant parameter map
+    // pub type WriteFunc<R> = unsafe extern "C" fn(*const R, *mut R, *const u64, *const u64, u64, *const bool);
+    fn gen_write_func_proto(&self, name: &str) -> CodeGenResult<FunctionValue<'ctx>> {
         let ret_type = self.context.context().void_type();
         let ptr_type = self.context.context().ptr_type(AddressSpace::default());
-        let param_types = vec![ptr_type.into(), ptr_type.into()];
-        let func_type = ret_type.fn_type(&param_types, false);
-        let func = self.context.module().add_function(name, func_type, None);
-        Ok(func)
-    }
-
-    fn gen_utry_and_grad_func_proto(&self, name: &str) -> CodeGenResult<FunctionValue<'ctx>> {
-        let ret_type = self.context.context().void_type();
-        let ptr_type = self.context.context().ptr_type(AddressSpace::default());
-        let param_types = vec![ptr_type.into(), ptr_type.into(), ptr_type.into()];
+        let param_types = vec![ptr_type.into(), ptr_type.into(), ptr_type.into(), ptr_type.into(), self.int_type().into(), ptr_type.into()];
         let func_type = ret_type.fn_type(&param_types, false);
         let func = self.context.module().add_function(name, func_type, None);
         Ok(func)
@@ -214,47 +215,36 @@ impl<'ctx, C: ComplexScalar> CodeGenerator<'ctx, C> {
         Ok(())
     }
 
-    fn build_var_table(&mut self, variables: &HashMap<String, usize>) {
+    fn build_var_table(&mut self, variables: &[String]) {
         self.variables.clear();
+        let params_ptr = self.fn_value_opt.unwrap().get_nth_param(0).unwrap().into_pointer_value();
+        let param_offset_ptr = self.fn_value_opt.unwrap().get_nth_param(2).unwrap().into_pointer_value();
 
-        for (var, offset) in variables.iter() {
-            let ptr = self.fn_value_opt.unwrap().get_nth_param(0).unwrap().into_pointer_value();
-            let offset_ptr = match offset {
-                0 => ptr,
-                _ => unsafe {
-                    self.builder.build_gep(
-                        self.float_type(),
-                        ptr,
-                        &[self.int_type().const_int(*offset as u64, false)],
-                        "offset_ptr"
-                    ).unwrap()
-                }
+        for (map_idx, var_name) in variables.iter().enumerate() {
+            // Load the actual offset from param_offset_ptr using map_idx
+            let map_idx_val = self.int_type().const_int(map_idx as u64, false);
+            let actual_offset_ptr = unsafe {
+                self.builder.build_gep(
+                    self.int_type(),
+                    param_offset_ptr,
+                    &[map_idx_val],
+                    "actual_offset_ptr_gep"
+                ).unwrap()
+            };
+            let actual_offset_val = self.builder.build_load(self.int_type(), actual_offset_ptr, "actual_offset_val").unwrap().into_int_value();
+
+            // Use the actual_offset_val to index into params_ptr
+            let var_ptr = unsafe {
+                self.builder.build_gep(
+                    self.float_type(),
+                    params_ptr,
+                    &[actual_offset_val],
+                    "var_ptr_gep"
+                ).unwrap()
             };
 
-            let val = self.builder.build_load(self.float_type(), offset_ptr, "tmp").unwrap().into_float_value();
-            self.variables.insert(var.to_string(), val);
-        }
-    }
-
-    fn build_var_map(&mut self, variables: &[String]) {
-        self.variables.clear();
-
-        for (offset, var) in variables.iter().enumerate() {
-            let ptr = self.fn_value_opt.unwrap().get_nth_param(0).unwrap().into_pointer_value();
-            let offset_ptr = match offset {
-                0 => ptr,
-                _ => unsafe {
-                    self.builder.build_gep(
-                        self.float_type(),
-                        ptr,
-                        &[self.int_type().const_int(offset as u64, false)],
-                        "offset_ptr"
-                    ).unwrap()
-                }
-            };
-
-            let val = self.builder.build_load(self.float_type(), offset_ptr, "tmp").unwrap().into_float_value();
-            self.variables.insert(var.to_string(), val);
+            let val = self.builder.build_load(self.float_type(), var_ptr, var_name).unwrap().into_float_value();
+            self.variables.insert(var_name.to_owned(), val);
         }
     }
 
@@ -304,50 +294,15 @@ impl<'ctx, C: ComplexScalar> CodeGenerator<'ctx, C> {
     //     None
     // }
 
-
-    pub fn gen_utry_func(
-        &mut self,
-        utry: &UnitaryExpression,
-        mat_idx_to_offset_map: &Box<dyn Fn(usize, usize) -> usize>
-    ) -> CodeGenResult<()> {
-        let name = process_name_for_gen(&utry.name);
-        self.expressions.clear();  
-        let func = self.gen_utry_func_proto(&name)?;
-        let entry = self.context.context().append_basic_block(func, "entry");
-        self.builder.position_at_end(entry);
-        self.fn_value_opt = Some(func);
-        self.output_ptr_idx = Some(1);
-        self.build_var_map(&utry.variables);
-
-        for (i, row) in utry.body.iter().enumerate()
-        {
-            for (j, elem) in row.iter().enumerate()
-            {
-                if i == j && elem.is_one_fast() {
-                    continue;
-                }
-                if i != j && elem.is_zero_fast() {
-                    continue;
-                }
-                self.compile_expr(elem, mat_idx_to_offset_map(i, j), i == j)?;
-            }
-        }
-
-        match self.builder.build_return(None) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(CodeGenError::new(&format!("Error building return: {}", e))),
-        }
-    }
-
     pub fn gen_func(
         &mut self,
         fn_name: &str,
         fn_expr: &[Expression],
-        var_table: &HashMap<String, usize>,
-        expr_idx_to_offset_map: &Box<dyn Fn(usize) -> usize>,
+        var_table: &[String],
+        fn_len: usize,
     ) -> CodeGenResult<()> {
         self.expressions.clear();
-        let func = self.gen_utry_func_proto(fn_name)?;
+        let func = self.gen_write_func_proto(fn_name)?;
         let entry = self.context.context().append_basic_block(func, "entry");
         self.builder.position_at_end(entry);
         self.fn_value_opt = Some(func);
@@ -355,80 +310,138 @@ impl<'ctx, C: ComplexScalar> CodeGenerator<'ctx, C> {
         self.build_var_table(var_table);
 
         let output_ptr = self.fn_value_opt.unwrap().get_nth_param(1).unwrap().into_pointer_value();
+        let output_map_ptr = self.fn_value_opt.unwrap().get_nth_param(4).unwrap().into_pointer_value();
+        let fn_unit_offset = self.fn_value_opt.unwrap().get_nth_param(5).unwrap().into_int_value();
+        let const_param_ptr = self.fn_value_opt.unwrap().get_nth_param(6).unwrap().into_pointer_value();
+        let int_increment = self.context.context().i64_type().const_int(1u64, false);
+        let mut dyn_fn_unit_idx = self.context.context().i64_type().const_int(0u64, false);
 
-        for (i, expr) in fn_expr.iter().enumerate() {
-            if expr.is_zero_fast() {
-                continue;
+        for (fn_unit_idx, fn_unit_exprs) in fn_expr.chunks(fn_len).enumerate() {
+            let current_fn = self.fn_value_opt.unwrap();
+            let compute_block = self.context.context().append_basic_block(current_fn, &format!("compute_unit_{}", fn_unit_idx));
+            let skip_block = self.context.context().append_basic_block(current_fn, &format!("skip_unit_{}", fn_unit_idx));
+
+            if fn_unit_idx == 0 {
+                // First function unit is the function, always compute.
+                self.builder.build_unconditional_branch(compute_block).unwrap();
+            } else if fn_unit_idx <= var_table.len() {
+                // Next var_table.len() function units are the partials in the gradient.
+                // Check if the corresponding parameter is constant.
+                let param_idx_for_const_check = self.int_type().const_int((fn_unit_idx - 1) as u64, false);
+                let const_param_elem_ptr = unsafe {
+                    self.builder.build_gep(
+                        self.context.context().bool_type(),
+                        const_param_ptr,
+                        &[param_idx_for_const_check],
+                        "const_param_elem_ptr"
+                    ).unwrap()
+                };
+                let is_constant_val = self.builder.build_load(self.context.context().bool_type(), const_param_elem_ptr, "is_constant").unwrap().into_int_value();
+
+                let is_constant_true = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    is_constant_val,
+                    self.context.context().bool_type().const_int(1, false),
+                    "is_constant_true"
+                ).unwrap();
+
+                // If is_constant_true, branch to skip_block. Else, branch to compute_block.
+                self.builder.build_conditional_branch(is_constant_true, skip_block, compute_block).unwrap();
+            } else {
+                // Last are the hessian units
+                
+                let index = fn_unit_idx - var_table.len() - 1;
+                let param_j = ((((8 * index + 1) as f64).sqrt().floor() as usize) - 1) / 2;
+                let param_i = index - param_j * (param_j + 1) / 2;
+                
+                // Check if the corresponding parameter is constant.
+                let param_idx_i_for_const_check = self.int_type().const_int((param_i - 1) as u64, false);
+                let const_param_elem_ptr = unsafe {
+                    self.builder.build_gep(
+                        self.context.context().bool_type(),
+                        const_param_ptr,
+                        &[param_idx_i_for_const_check],
+                        "const_param_i_elem_ptr"
+                    ).unwrap()
+                };
+                let is_i_constant_val = self.builder.build_load(self.context.context().bool_type(), const_param_elem_ptr, "is_i_constant").unwrap().into_int_value();
+
+                let is_i_constant_true = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    is_i_constant_val,
+                    self.context.context().bool_type().const_int(1, false),
+                    "is_i_constant_true"
+                ).unwrap();
+
+                // Check if the corresponding parameter is constant.
+                let param_idx_j_for_const_check = self.int_type().const_int((param_j - 1) as u64, false);
+                let const_param_elem_ptr = unsafe {
+                    self.builder.build_gep(
+                        self.context.context().bool_type(),
+                        const_param_ptr,
+                        &[param_idx_j_for_const_check],
+                        "const_param_j_elem_ptr"
+                    ).unwrap()
+                };
+                let is_j_constant_val = self.builder.build_load(self.context.context().bool_type(), const_param_elem_ptr, "is_j_constant").unwrap().into_int_value();
+
+                let is_j_constant_true = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    is_j_constant_val,
+                    self.context.context().bool_type().const_int(1, false),
+                    "is_j_constant_true"
+                ).unwrap();
+
+                let is_j_constant_true = self.builder.build_int_compare(
+                    inkwell::IntPredicate::EQ,
+                    is_j_constant_val,
+                    self.context.context().bool_type().const_int(1, false),
+                    "is_j_constant_true"
+                ).unwrap();
+
+                let is_either_constant = self.builder.build_or(is_i_constant_true, is_j_constant_true, "is_either_constant").unwrap();
+
+                // If is_constant_true, branch to skip_block. Else, branch to compute_block.
+                self.builder.build_conditional_branch(is_either_constant, skip_block, compute_block).unwrap();
             }
 
-            let val = self.build_expression(&expr)?;
-            let offset = self.int_type().const_int(expr_idx_to_offset_map(i) as u64, false);
-            let offset_ptr = unsafe {
-                self.builder.build_gep(
-                    self.float_type(),
-                    output_ptr,
-                    &[offset],
-                    "offset_ptr"
-                ).unwrap()
-            };
+            // Position builder at the compute block to emit the actual computation logic
+            self.builder.position_at_end(compute_block);
 
-            match self.builder.build_store(offset_ptr, val) {
-                Ok(_) => {},
-                Err(e) => { return Err(CodeGenError::new(&format!("Error storing value: {}", e))); }
-            };
-        }
+            let this_unit_offset = self.builder.build_int_mul(fn_unit_offset, dyn_fn_unit_idx, "this_unit_offset").unwrap();
+            dyn_fn_unit_idx = self.builder.build_int_add(dyn_fn_unit_idx, int_increment, "dyn_fn_unit_idx").unwrap();
 
-        match self.builder.build_return(None) {
-            Ok(_) => Ok(()),
-            Err(e) => Err(CodeGenError::new(&format!("Error building return: {}", e))),
-        }
-    }
-
-    pub fn gen_utry_and_grad_func(
-        &mut self,
-        utry: &UnitaryExpression,
-        grad: &MatVecExpression,
-        mat_idx_to_offset_map: &Box<dyn Fn(usize, usize) -> usize>,
-        grad_idx_to_offset_map: &Box<dyn Fn(usize, usize, usize) -> usize>
-    ) -> CodeGenResult<()> {
-        let name = process_name_for_gen(&utry.name) + "_grad";
-        self.expressions.clear();
-        let func = self.gen_utry_and_grad_func_proto(&name)?; 
-        let entry = self.context.context().append_basic_block(func, "entry");
-        self.builder.position_at_end(entry);
-        self.fn_value_opt = Some(func);
-        self.output_ptr_idx = Some(1);
-        self.build_var_map(&utry.variables);
-
-        
-        for (i, row) in utry.body.iter().enumerate()
-        {
-            for (j, elem) in row.iter().enumerate()
-            {
-                if i == j && elem.is_one_fast() {
+            for (i, expr) in fn_unit_exprs.iter().enumerate() {
+                if expr.is_zero_fast() {
                     continue;
                 }
-                if i != j && elem.is_zero_fast() {
-                    continue;
-                }
-                self.compile_expr(elem, mat_idx_to_offset_map(i, j), i == j)?;
-            }
-        }
 
-        self.output_ptr_idx = Some(2);
+                let val = self.build_expression(&expr)?;
+                let offset_ptr = unsafe {
+                    let output_idx = self.int_type().const_int(i as u64, false);
+                    let output_map_elem_ptr = self.builder.build_gep(self.context.context().i64_type(), output_map_ptr, &[output_idx], "output_map_elem_ptr").unwrap();
+                    let output_map_offset = self.builder.build_load(self.context.context().i64_type(), output_map_elem_ptr, "output_map_offset").unwrap().into_int_value();
+                    let combined_offset = self.builder.build_int_add(output_map_offset, this_unit_offset, "combined_offset").unwrap();
+                    self.builder.build_gep(
+                        self.float_type(),
+                        output_ptr,
+                        &[combined_offset],
+                        "offset_ptr"
+                    ).unwrap()
+                };
 
-        for (m, partial) in grad.body.iter().enumerate()
-        {
-            for (i, row) in partial.iter().enumerate()
-            {
-                for (j, elem) in row.iter().enumerate()
-                {
-                    if elem.is_zero_fast() {
-                        continue;
-                    }
-                    self.compile_expr(elem, grad_idx_to_offset_map(m, i, j), false)?;
-                }
+                match self.builder.build_store(offset_ptr, val) {
+                    Ok(_) => {},
+                    Err(e) => { return Err(CodeGenError::new(&format!("Error storing value: {}", e))); }
+                };
             }
+
+            // After computation (if compute_block was taken), branch to the skip_block
+            // to ensure control flow continues to the next iteration of the loop.
+            self.builder.build_unconditional_branch(skip_block).unwrap();
+
+            // Position builder at the skip block for the next iteration.
+            self.builder.position_at_end(skip_block);
         }
 
         match self.builder.build_return(None) {

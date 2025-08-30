@@ -1,9 +1,10 @@
-use std::{collections::{BTreeMap, BTreeSet, HashMap}, hash::Hash};
+use std::{cell::RefCell, collections::{BTreeMap, BTreeSet, HashMap}, hash::Hash, rc::Rc};
 
 use qudit_core::{QuditRadices, TensorShape};
-use qudit_expr::GenerationShape;
+use qudit_expr::{ExpressionCache, GenerationShape};
 
-use crate::tree::ExpressionTree;
+use crate::tree::TTGTNode;
+use crate::tree::TTGTTree;
 use super::path::ContractionPath;
 use super::tensor::QuditTensor;
 use super::index::NetworkIndex;
@@ -19,6 +20,7 @@ pub type NetworkEdge = (NetworkIndex, BTreeSet<TensorId>);
 
 pub struct QuditTensorNetwork {
     tensors: Vec<QuditTensor>,
+    expressions: Rc<RefCell<ExpressionCache>>,
     local_to_network_index_map: Vec<Vec<IndexId>>,
     indices: Vec<NetworkEdge>,
 }
@@ -26,7 +28,7 @@ pub struct QuditTensorNetwork {
 // TODO: handle multiple disjoint (potentially empty) subnetworks
 // TODO: handle partial trace
 impl QuditTensorNetwork {
-    pub fn new(tensors: Vec<QuditTensor>, local_to_network_index_map: Vec<Vec<IndexId>>, indices: Vec<NetworkEdge>) -> Self {
+    pub fn new(tensors: Vec<QuditTensor>, expressions: Rc<RefCell<ExpressionCache>>, local_to_network_index_map: Vec<Vec<IndexId>>, indices: Vec<NetworkEdge>) -> Self {
         for (index, edge) in indices.iter() {
             if edge.is_empty() {
                 panic!("Index not attached to any tensor detected. Empty indices, must have explicit identity/copy tensors attached before final network construction.");
@@ -35,6 +37,7 @@ impl QuditTensorNetwork {
 
         QuditTensorNetwork {
             tensors,
+            expressions,
             local_to_network_index_map,
             indices,
         }
@@ -205,8 +208,8 @@ impl QuditTensorNetwork {
             }).collect()
     }
 
-    pub fn path_to_expression_tree(&self, path: ContractionPath) -> ExpressionTree {
-        let mut tree_stack: Vec<ExpressionTree> = Vec::new();
+    pub fn path_to_ttgt_tree(&self, path: ContractionPath) -> TTGTTree {
+        let mut tree_stack: Vec<TTGTTree> = Vec::new();
 
         for path_element in path.path.iter() {
             if *path_element == usize::MAX {
@@ -237,10 +240,18 @@ impl QuditTensorNetwork {
 
                 tree_stack.push(left.contract(right, shared_ids, contraction_ids));
             } else {
-                let tensor = self.tensors[*path_element].clone();
-                // [5, 1, 5, 0, 1, 2] (5 contracted, 1 traced)
+                // This tensor is time to be formatted: self.tensors[*path_element]
+                // it's cache id is base_id
+                // It has these indices: [5, 1, 0, 5, 1, 2] (5 contracted, 1 traced)
+                // First trace over 1: [5, 0, 5, 2]
+                // let traced_id = self.expression_cache.trace(base_id, vec![(1, 4)]);
+                // Then permute-reshape: [5, 0, 2]
+                // let permuted_id = self.expression_cache.permute_reshape(traced_id, (0, 2, 1, 3), [4, 2, 2])
+                // tree_stack.push(New Leaf Node (permuted_id, TensorIndices(...))
+
+                let QuditTensor { expression: expr_id, indices, param_info } = &self.tensors[*path_element];
+                // [5, 1, 0, 5, 1, 2] (5 contracted, 1 traced)
                 let mut network_idx_ids = self.local_to_network_index_map[*path_element].clone();
-                let leaf_node = ExpressionTree::leaf(tensor.expression.clone(), tensor.param_indices.clone());
 
                 // Perform partial traces if necessary
                 // find any indices that appear twice in indices and are only connected to this
@@ -265,27 +276,26 @@ impl QuditTensorNetwork {
                 for traced_local_index in to_remove.iter().rev() {
                     network_idx_ids.remove(*traced_local_index);
                 }
-                // indices = [5, 5, 0, 2]
+                // network_idx_ids = [5, 0, 5, 2]
+                
+                let traced_id = self.expressions.borrow_mut().trace(expr_id, looped_index_pairs);
+                let traced_indices = self.expressions.borrow().indices(traced_id);
+                // traced_indices = ((0, output), (1, output), (2, input), (3, input))
 
-                let traced_node = leaf_node.trace(looped_index_pairs);
-                // traced_node(leaf).indices = ((0, output), (2, output), (3, input), (5, input))
-
-                // need to argsort indices such equal elements are consecutive without changing
-                // direction ordering
-                //
-                // This way a tensor with local_to_network map like [5, 6, 5, 0, 1, 2]
-                // can have the two from its generation shape be treated as one, for
-                // future operations.
+                // need to argsort indices so local indices that correspond to the same network
+                // index are consecutive
                 let argsorted_indices = {
                     let mut argsorted_indices = (0..network_idx_ids.len()).collect::<Vec<_>>();
-                    argsorted_indices.sort_by_key(|&i| (traced_node.indices()[i].direction(), network_idx_ids[i]));
+                    argsorted_indices.sort_by_key(|&i| (traced_indices[i].direction(), network_idx_ids[i]));
+                    // TODO: what happens if the same network index appears on both sides of the
+                    // local tensor
                     argsorted_indices 
                 };
 
-                let new_directions = argsorted_indices.iter().map(|id| traced_node.indices()[*id].direction()).collect();
+                let new_directions = argsorted_indices.iter().map(|id| traced_indices[*id].direction()).collect();
 
                 // println!("New leaf \nperm: {:?} \nnew_directions: {:?}", argsorted_indices, new_directions);
-                let tranposed_node = traced_node.transpose(argsorted_indices.clone(), new_directions);
+                let tranposed_node = self.expressions.borrow_mut().permute_reshape(argsorted_indices.clone(), new_directions);
 
                 // group (redimension) indices together that have the same network id
                 let new_node_indices = {
@@ -335,6 +345,6 @@ impl QuditTensorNetwork {
 
         // println!("Current direction: {:?}", tree.indices().iter().map(|idx| idx.direction()).collect::<Vec<_>>());
         // println!("Final transpose: {:?} redirection: {:?}", final_transpose, final_redirection);
-        tree.transpose(final_transpose, final_redirection) 
+        tree.transpose(final_transpose, final_redirection)
     }
 }

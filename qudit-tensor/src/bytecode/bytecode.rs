@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 // use aligned_vec::CACHELINE_ALIGN;
 // use faer_entity::Entity;
@@ -6,13 +6,14 @@ use std::collections::HashMap;
 // use crate::sim::qvm::QVMType;
 
 use qudit_core::{ComplexScalar, ParamIndices};
-use qudit_expr::{DifferentiationLevel, Module, ModuleBuilder, TensorExpression, UnitaryExpression};
+use qudit_expr::{DifferentiationLevel, ExpressionCache, Module, ModuleBuilder, TensorExpression, UnitaryExpression};
 
 use super::{BytecodeInstruction, TensorBuffer};
 
 #[derive(Clone)]
 pub struct Bytecode {
-    pub expressions: Vec<(TensorExpression, Option<ParamIndices>, String)>,
+    // pub expressions: Vec<(TensorExpression, Option<ParamIndices>, String)>,
+    pub expressions: Rc<RefCell<ExpressionCache>>,
     pub const_code: Vec<BytecodeInstruction>,
     pub dynamic_code: Vec<BytecodeInstruction>,
     pub buffers: Vec<TensorBuffer>,

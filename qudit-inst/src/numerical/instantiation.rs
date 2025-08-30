@@ -11,7 +11,7 @@ use crate::InstantiationTarget;
 
 pub trait InstantiationProblem<'a, R: RealScalar>: Problem {
     fn from_instantiation(
-        circuit: &'a QuditCircuit<R::C>,
+        circuit: &'a QuditCircuit,
         target: &'a InstantiationTarget<R::C>,
         data: &'a DataMap,
     ) -> Self;
@@ -39,7 +39,7 @@ where
 {
     fn instantiate(
         &'a self,
-        circuit: &'a qudit_circuit::QuditCircuit<C>,
+        circuit: &'a qudit_circuit::QuditCircuit,
         target: &'a InstantiationTarget<C>,
         data: &'a std::collections::HashMap<String, Box<dyn std::any::Any>>,
     ) -> InstantiationResult<C> {

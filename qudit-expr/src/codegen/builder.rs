@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use super::{codegen::CodeGenerator, module::Module};
 use qudit_core::{TensorShape, ComplexScalar, ParamIndices, QuditSystem};
 
-use crate::{analysis::{simplify_expressions, simplify_matrix_and_matvec}, expression::Expression, tensor::TensorExpression, unitary::{MatVecExpression, UnitaryExpression}, GenerationShape};
+use crate::{analysis::{simplify_expressions, simplify_matrix_and_matvec}, expression::Expression, tensor::{JittableExpression, TensorExpression}, unitary::{UnitaryExpression}, GenerationShape};
 
 
 #[derive(Default, Clone)]
@@ -100,22 +100,17 @@ impl IdxMapBuilder {
 struct CompilableUnit {
     pub fn_name: String,
     pub exprs: Vec<Expression>,
-    /// Lookup table for the parameter pointer offset for each variable
-    pub variable_table: HashMap<String, usize>,
-    pub expr_idx_to_offset_map: Box<dyn Fn(usize) -> usize>,
+    pub variables: Vec<String>,
+    pub unit_size: usize,
 }
 
 impl CompilableUnit {
-    pub fn new(name: &str, exprs: Vec<Expression>, variable_list: Vec<String>) -> Self {
-        let expr_idx_to_offset_map = move |idx: usize| -> usize {
-            idx
-        };
-        let variable_table: HashMap<String, usize> = variable_list.into_iter().enumerate().map(|(i, v)| (v, i)).collect();
+    pub fn new(name: &str, exprs: Vec<Expression>, variables: Vec<String>, unit_size: usize) -> Self {
         CompilableUnit {
             fn_name: name.to_string(),
             exprs,
-            variable_table,
-            expr_idx_to_offset_map: Box::new(expr_idx_to_offset_map),
+            variables,
+            unit_size
         }
     }
     
@@ -125,159 +120,159 @@ impl CompilableUnit {
         //     println!("{:?}", expr);
         // }
         let mut codegen = CodeGenerator::new(&module);
-        codegen.gen_func(&self.fn_name, &self.exprs, &self.variable_table, &self.expr_idx_to_offset_map).expect("Error generating function.");
+        codegen.gen_func(&self.fn_name, &self.exprs, &self.variables, self.unit_size).expect("Error generating function.");
     }
 
-    pub fn new_with_matrix_out_buffer(name: &str, exprs: Vec<Expression>, variable_list: Vec<String>, nrows: usize, ncols: usize, col_stride: usize) -> Self {
-        let expr_idx_to_offset_map = move |idx: usize| -> usize {
-            let row = (idx/2) / ncols;
-            let col = (idx/2) % ncols;
-            2 * (col * col_stride + row)
-        };
-        let variable_table: HashMap<String, usize> = variable_list.into_iter().enumerate().map(|(i, v)| (v, i)).collect();
-        CompilableUnit {
-            fn_name: name.to_string(),
-            exprs,
-            variable_table,
-            expr_idx_to_offset_map: Box::new(expr_idx_to_offset_map),
-        }
-    }
+    // pub fn new_with_matrix_out_buffer(name: &str, exprs: Vec<Expression>, variable_list: Vec<String>, nrows: usize, ncols: usize, col_stride: usize) -> Self {
+    //     let expr_idx_to_offset_map = move |idx: usize| -> usize {
+    //         let row = (idx/2) / ncols;
+    //         let col = (idx/2) % ncols;
+    //         2 * (col * col_stride + row)
+    //     };
+    //     let variable_table: HashMap<String, usize> = variable_list.into_iter().enumerate().map(|(i, v)| (v, i)).collect();
+    //     CompilableUnit {
+    //         fn_name: name.to_string(),
+    //         exprs,
+    //         variable_table,
+    //         expr_idx_to_offset_map: Box::new(expr_idx_to_offset_map),
+    //     }
+    // }
 
-    pub fn new_with_matvec_out_buffer(name: &str, exprs: Vec<Expression>, variable_list: Vec<String>, nrows: usize, ncols: usize, col_stride: usize, mat_stride: usize) -> Self {
-        let expr_idx_to_offset_map = move |idx: usize| -> usize {
-            let mat = (idx/2) / (nrows * ncols);
-            let row = (idx/2) / nrows;
-            let col = (idx/2) % nrows;
-            2 * (mat * mat_stride + col * col_stride + row)
-        };
-        let variable_table: HashMap<String, usize> = variable_list.into_iter().enumerate().map(|(i, v)| (v, i)).collect();
-        CompilableUnit {
-            fn_name: name.to_string(),
-            exprs,
-            variable_table,
-            expr_idx_to_offset_map: Box::new(expr_idx_to_offset_map),
-        }
-    }
+    // pub fn new_with_matvec_out_buffer(name: &str, exprs: Vec<Expression>, variable_list: Vec<String>, nrows: usize, ncols: usize, col_stride: usize, mat_stride: usize) -> Self {
+    //     let expr_idx_to_offset_map = move |idx: usize| -> usize {
+    //         let mat = (idx/2) / (nrows * ncols);
+    //         let row = (idx/2) / nrows;
+    //         let col = (idx/2) % nrows;
+    //         2 * (mat * mat_stride + col * col_stride + row)
+    //     };
+    //     let variable_table: HashMap<String, usize> = variable_list.into_iter().enumerate().map(|(i, v)| (v, i)).collect();
+    //     CompilableUnit {
+    //         fn_name: name.to_string(),
+    //         exprs,
+    //         variable_table,
+    //         expr_idx_to_offset_map: Box::new(expr_idx_to_offset_map),
+    //     }
+    // }
 }
 
-#[derive(Default, Clone)]
-struct CompilableUnitBuilder {
-    name: Option<String>,
-    exprs: Option<Vec<Expression>>,
-    variables: Option<Vec<String>>,
-    indices: Option<ParamIndices>,
-    gen_shape: Option<GenerationShape>,
-}
+// #[derive(Default, Clone)]
+// struct CompilableUnitBuilder {
+//     name: Option<String>,
+//     exprs: Option<Vec<Expression>>,
+//     variables: Option<Vec<String>>,
+//     indices: Option<ParamIndices>,
+//     gen_shape: Option<GenerationShape>,
+// }
 
-impl CompilableUnitBuilder {
-    pub fn new() -> Self {
-        Self::default()
-    }
+// impl CompilableUnitBuilder {
+//     pub fn new() -> Self {
+//         Self::default()
+//     }
 
-    pub fn name(mut self, name: &str) -> Self {
-        self.name = Some(name.to_string());
-        self
-    }
+//     pub fn name(mut self, name: &str) -> Self {
+//         self.name = Some(name.to_string());
+//         self
+//     }
 
-    pub fn exprs(mut self, exprs: Vec<Expression>) -> Self {
-        self.exprs = Some(exprs);
-        self
-    }
+//     pub fn exprs(mut self, exprs: Vec<Expression>) -> Self {
+//         self.exprs = Some(exprs);
+//         self
+//     }
 
-    pub fn variable_list(mut self, variables: Vec<String>) -> Self {
-        self.variables = Some(variables);
-        self
-    }
+//     pub fn variable_list(mut self, variables: Vec<String>) -> Self {
+//         self.variables = Some(variables);
+//         self
+//     }
 
-    // TODO: change ParamIndices name to ParamMap
-    pub fn indices(mut self, indices: ParamIndices) -> Self {
-        self.indices = Some(indices);
-        self
-    }
+//     // TODO: change ParamIndices name to ParamMap
+//     pub fn indices(mut self, indices: ParamIndices) -> Self {
+//         self.indices = Some(indices);
+//         self
+//     }
 
-    pub fn gen_shape(mut self, gen_shape: GenerationShape) -> Self {
-        self.gen_shape = Some(gen_shape);
-        self
-    }
+//     pub fn gen_shape(mut self, gen_shape: GenerationShape) -> Self {
+//         self.gen_shape = Some(gen_shape);
+//         self
+//     }
 
-    pub fn build<C: ComplexScalar>(self) -> CompilableUnit {
-        let fn_name = self.name.expect("Name must be set");
-        let exprs = self.exprs.expect("Exprs must be set");
-        let variables = self.variables.expect("Variables must be set");
+//     pub fn build<C: ComplexScalar>(self) -> CompilableUnit {
+//         let fn_name = self.name.expect("Name must be set");
+//         let exprs = self.exprs.expect("Exprs must be set");
+//         let variables = self.variables.expect("Variables must be set");
 
-        let variable_table = if let Some(indices) = self.indices {
-            let mut table: HashMap<String, usize> = HashMap::new();
-            for (i, idx) in indices.iter().enumerate() {
-                table.insert(variables[i].clone(), idx);
-            }
-            table
-        } else {
-            variables.into_iter().enumerate().map(|(i, v)| (v, i)).collect()
-        };
+//         let variable_table = if let Some(indices) = self.indices {
+//             let mut table: HashMap<String, usize> = HashMap::new();
+//             for (i, idx) in indices.iter().enumerate() {
+//                 table.insert(variables[i].clone(), idx);
+//             }
+//             table
+//         } else {
+//             variables.into_iter().enumerate().map(|(i, v)| (v, i)).collect()
+//         };
 
-        let gen_shape = self.gen_shape.expect("Gen shape must be set");
+//         let gen_shape = self.gen_shape.expect("Gen shape must be set");
 
-        // println!("Shape: {:?}, Expr length: {}", gen_shape, exprs.len());
-        assert!(gen_shape.num_elements()*2 == exprs.len());
+//         // println!("Shape: {:?}, Expr length: {}", gen_shape, exprs.len());
+//         assert!(gen_shape.num_elements()*2 == exprs.len());
         
-        let idx_map = match gen_shape {
-            GenerationShape::Scalar => {
-                IdxMapBuilder::new()
-                    .ncols(1)
-                    .nrows(0)
-                    .nmats(0)
-                    .build()
-            }
-            GenerationShape::Vector(length) => {
-                IdxMapBuilder::new()
-                    .ncols(length)
-                    .nrows(1)
-                    .nmats(1)
-                    .row_stride(1)
-                    .build()
-            }
-            GenerationShape::Matrix(nrows, ncols) => {
-                let col_stride = qudit_core::memory::calc_col_stride::<C>(nrows, ncols);
-                IdxMapBuilder::new()
-                    .ncols(ncols)
-                    .nrows(nrows)
-                    .nmats(1)
-                    .row_stride(1)
-                    .col_stride(col_stride)
-                    .build()
-            }
-            GenerationShape::Tensor3D(nmats, nrows, ncols) => {
-                let col_stride = qudit_core::memory::calc_col_stride::<C>(nrows, ncols);
-                let mat_stride = qudit_core::memory::calc_mat_stride::<C>(nrows, ncols, col_stride);
-                IdxMapBuilder::new()
-                    .ncols(ncols)
-                    .nrows(nrows)
-                    .nmats(nmats)
-                    .row_stride(1)
-                    .col_stride(col_stride)
-                    .mat_stride(mat_stride)
-                    .build()
-            }
-            GenerationShape::Tensor4D(ntens, nmats, nrows, ncols) => {
-                let col_stride = qudit_core::memory::calc_col_stride::<C>(nrows, ncols);
-                let mat_stride = qudit_core::memory::calc_mat_stride::<C>(nrows, ncols, col_stride);
-                let nxt_stride = qudit_core::memory::calc_next_stride::<C>(mat_stride*col_stride*ncols);
-                IdxMapBuilder::new()
-                    .ncols(ncols)
-                    .nrows(nrows)
-                    .nmats(nmats)
-                    .ntens(ntens)
-                    .row_stride(1)
-                    .col_stride(col_stride)
-                    .mat_stride(mat_stride)
-                    .ten_stride(nxt_stride)
-                    .build()
-            }
-        };
+//         let idx_map = match gen_shape {
+//             GenerationShape::Scalar => {
+//                 IdxMapBuilder::new()
+//                     .ncols(1)
+//                     .nrows(0)
+//                     .nmats(0)
+//                     .build()
+//             }
+//             GenerationShape::Vector(length) => {
+//                 IdxMapBuilder::new()
+//                     .ncols(length)
+//                     .nrows(1)
+//                     .nmats(1)
+//                     .row_stride(1)
+//                     .build()
+//             }
+//             GenerationShape::Matrix(nrows, ncols) => {
+//                 let col_stride = qudit_core::memory::calc_col_stride::<C>(nrows, ncols);
+//                 IdxMapBuilder::new()
+//                     .ncols(ncols)
+//                     .nrows(nrows)
+//                     .nmats(1)
+//                     .row_stride(1)
+//                     .col_stride(col_stride)
+//                     .build()
+//             }
+//             GenerationShape::Tensor3D(nmats, nrows, ncols) => {
+//                 let col_stride = qudit_core::memory::calc_col_stride::<C>(nrows, ncols);
+//                 let mat_stride = qudit_core::memory::calc_mat_stride::<C>(nrows, ncols, col_stride);
+//                 IdxMapBuilder::new()
+//                     .ncols(ncols)
+//                     .nrows(nrows)
+//                     .nmats(nmats)
+//                     .row_stride(1)
+//                     .col_stride(col_stride)
+//                     .mat_stride(mat_stride)
+//                     .build()
+//             }
+//             GenerationShape::Tensor4D(ntens, nmats, nrows, ncols) => {
+//                 let col_stride = qudit_core::memory::calc_col_stride::<C>(nrows, ncols);
+//                 let mat_stride = qudit_core::memory::calc_mat_stride::<C>(nrows, ncols, col_stride);
+//                 let nxt_stride = qudit_core::memory::calc_next_stride::<C>(mat_stride*col_stride*ncols);
+//                 IdxMapBuilder::new()
+//                     .ncols(ncols)
+//                     .nrows(nrows)
+//                     .nmats(nmats)
+//                     .ntens(ntens)
+//                     .row_stride(1)
+//                     .col_stride(col_stride)
+//                     .mat_stride(mat_stride)
+//                     .ten_stride(nxt_stride)
+//                     .build()
+//             }
+//         };
 
-        CompilableUnit { fn_name, exprs, variable_table, expr_idx_to_offset_map: idx_map }
-    }
-}
+//         CompilableUnit { fn_name, exprs, variable_table, expr_idx_to_offset_map: idx_map }
+//     }
+// }
 
 // #[derive(Debug, PartialEq, Clone, Copy, Eq, Hash, PartialOrd, Ord)]
 // pub enum DifferentiationLevel {
@@ -338,57 +333,25 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> ModuleBuilder<C, D> {
         self
     }
 
-    pub fn add_expression_with_stride(mut self, expr: UnitaryExpression, col_stride: usize) -> Self {
-        // let grad_col_stride = qudit_core::memory::calc_col_stride::<C>(expr.dimension(), expr.dimension());
-        // let mat_stride = qudit_core::memory::calc_mat_stride::<C>(expr.dimension(), expr.dimension(), grad_col_stride);
-        // let compilable_unitary_unit = CompilableUnitaryUnit::new_with_grad(expr, col_stride, grad_col_stride, mat_stride);
-        // self.exprs.push(compilable_unitary_unit);
-        // self
-        todo!()
-    }
-
-    pub fn add_expression(mut self, expr: UnitaryExpression) -> Self {
-        todo!()
-        // let col_stride = qudit_core::memory::calc_col_stride::<C>(expr.dimension(), expr.dimension());
-        // let nrows = expr.dimension();
-        // let ncols = expr.dimension();
-        // let UnitaryExpression { name, radices, variables, body } = expr;
-        // let exprs: Vec<Expression> = body.into_iter().flatten().map(|c| vec![c.real, c.imag]).flatten().collect();
-        // let compilable_unit = CompilableUnit::new_with_matrix_out_buffer(&name, exprs.clone(), variables.clone(), nrows, ncols, col_stride);
-        // self.exprs.push(compilable_unit);
-
-        // if self.diff_lvl == FUNCTION {
-        //     return self;
-        // }
-
-        // let mut grad_exprs = vec![];
-        // for variable in &variables {
-        //     for expr in &exprs {
-        //         let grad_expr = expr.differentiate(&variable);
-        //         grad_exprs.push(grad_expr);
-        //     }
-        // }
-
-        // let simplified_exprs = simplify_expressions(exprs.into_iter().chain(grad_exprs.into_iter()).collect());
-        // let mat_stride = qudit_core::memory::calc_mat_stride::<C>(nrows, ncols, col_stride);
-        // let compilable_unit = CompilableUnit::new_with_matvec_out_buffer(&(name + "_grad"), simplified_exprs, variables, nrows, ncols, col_stride, mat_stride);
-        // self.exprs.push(compilable_unit);
-        // self
-    }
+    // pub fn add_expression2(mut self, expr: impl GeneratableExpression) -> Self {
+    //     let shape = expr.generation_shape();
+    //     let BoundExpressionBody { variables, body } = expr.into();
+    //     let exprs: Vec<Expression> = body.into_iter().map(|c| vec![c.real, c.imag]).flatten().collect();
+    // }
 
     pub fn add_tensor_expression(mut self, expr: TensorExpression) -> Self {
-        let shape = expr.generation_shape();
-        let TensorExpression { name, variables, body, .. } = expr;
+        let (name, variables, body, indices) = expr.destruct();
         let exprs: Vec<Expression> = body.into_iter().map(|c| vec![c.real, c.imag]).flatten().collect();
+        let unit_size = exprs.len();
         
         match D {
             FUNCTION => {
-                let unit = CompilableUnitBuilder::new()
-                    .name(&name)
-                    .exprs(exprs.clone())
-                    .variable_list(variables.clone())
-                    .gen_shape(shape.clone())
-                    .build::<C>();
+                let unit = CompilableUnit::new(
+                    &name,
+                    exprs,
+                    variables.clone(),
+                    unit_size,
+                );
                 self.exprs.push(unit);
             }
             GRADIENT => {
@@ -401,12 +364,12 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> ModuleBuilder<C, D> {
                 }
 
                 let simplified_exprs = simplify_expressions(exprs.into_iter().chain(grad_exprs.into_iter()).collect());
-                let unit = CompilableUnitBuilder::new()
-                    .name(&name)
-                    .exprs(simplified_exprs)
-                    .variable_list(variables.clone())
-                    .gen_shape(shape.gradient_shape(1 + variables.len()))
-                    .build::<C>();
+                let unit = CompilableUnit::new(
+                    &name,
+                    simplified_exprs,
+                    variables.clone(),
+                    unit_size,
+                );
                 self.exprs.push(unit);
             }
             HESSIAN => {
@@ -432,12 +395,12 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> ModuleBuilder<C, D> {
                     .chain(hess_exprs.into_iter())
                     .collect());
 
-                let unit = CompilableUnitBuilder::new()
-                    .name(&name)
-                    .exprs(simplified_exprs)
-                    .variable_list(variables.clone())
-                    .gen_shape(shape.gradient_shape(1 + variables.len()) + shape.hessian_shape(variables.len()))
-                    .build::<C>();
+                let unit = CompilableUnit::new(
+                    &name,
+                    simplified_exprs,
+                    variables.clone(),
+                    unit_size,
+                );
                 self.exprs.push(unit);
             }
             _ => panic!("Invalid differentiation level."),
@@ -446,78 +409,78 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> ModuleBuilder<C, D> {
         self
     }
 
-    pub fn add_tensor_expression_with_param_indices(mut self, expr: TensorExpression, indices: ParamIndices) -> Self {
-        let shape = expr.generation_shape();
-        let TensorExpression { name, variables, body, .. } = expr;
-        let exprs: Vec<Expression> = body.into_iter().map(|c| vec![c.real, c.imag]).flatten().collect();
+    // pub fn add_tensor_expression_with_param_indices(mut self, expr: TensorExpression, indices: ParamIndices) -> Self {
+    //     let shape = expr.generation_shape();
+    //     let TensorExpression { name, variables, body, .. } = expr;
+    //     let exprs: Vec<Expression> = body.into_iter().map(|c| vec![c.real, c.imag]).flatten().collect();
 
-        match D {
-            FUNCTION => {
-                let unit = CompilableUnitBuilder::new()
-                    .name(&name)
-                    .exprs(exprs.clone())
-                    .variable_list(variables.clone())
-                    .indices(indices.clone())
-                    .gen_shape(shape.clone())
-                    .build::<C>();
-                self.exprs.push(unit);
-            }
-            GRADIENT => {
-                let mut grad_exprs = vec![];
-                for variable in &variables {
-                    for expr in &exprs {
-                        let grad_expr = expr.differentiate(&variable);
-                        grad_exprs.push(grad_expr);
-                    }
-                }
+    //     match D {
+    //         FUNCTION => {
+    //             let unit = CompilableUnitBuilder::new()
+    //                 .name(&name)
+    //                 .exprs(exprs.clone())
+    //                 .variable_list(variables.clone())
+    //                 .indices(indices.clone())
+    //                 .gen_shape(shape.clone())
+    //                 .build::<C>();
+    //             self.exprs.push(unit);
+    //         }
+    //         GRADIENT => {
+    //             let mut grad_exprs = vec![];
+    //             for variable in &variables {
+    //                 for expr in &exprs {
+    //                     let grad_expr = expr.differentiate(&variable);
+    //                     grad_exprs.push(grad_expr);
+    //                 }
+    //             }
 
-                let simplified_exprs = simplify_expressions(exprs.into_iter().chain(grad_exprs.into_iter()).collect());
-                let unit = CompilableUnitBuilder::new()
-                    .name(&name)
-                    .exprs(simplified_exprs)
-                    .variable_list(variables.clone())
-                    .indices(indices)
-                    .gen_shape(shape.gradient_shape(1 + variables.len()))
-                    .build::<C>();
-                self.exprs.push(unit);
-            }
-            HESSIAN => {
-                let mut grad_exprs = vec![];
-                for variable in &variables {
-                    for expr in &exprs {
-                        let grad_expr = expr.differentiate(&variable);
-                        grad_exprs.push(grad_expr);
-                    }
-                }
+    //             let simplified_exprs = simplify_expressions(exprs.into_iter().chain(grad_exprs.into_iter()).collect());
+    //             let unit = CompilableUnitBuilder::new()
+    //                 .name(&name)
+    //                 .exprs(simplified_exprs)
+    //                 .variable_list(variables.clone())
+    //                 .indices(indices)
+    //                 .gen_shape(shape.gradient_shape(1 + variables.len()))
+    //                 .build::<C>();
+    //             self.exprs.push(unit);
+    //         }
+    //         HESSIAN => {
+    //             let mut grad_exprs = vec![];
+    //             for variable in &variables {
+    //                 for expr in &exprs {
+    //                     let grad_expr = expr.differentiate(&variable);
+    //                     grad_exprs.push(grad_expr);
+    //                 }
+    //             }
 
-                let mut hess_exprs = vec![];
-                for variable in &variables {
-                    for expr in &grad_exprs {
-                        let hess_expr = expr.differentiate(&variable);
-                        hess_exprs.push(hess_expr);
-                    }
-                }
+    //             let mut hess_exprs = vec![];
+    //             for variable in &variables {
+    //                 for expr in &grad_exprs {
+    //                     let hess_expr = expr.differentiate(&variable);
+    //                     hess_exprs.push(hess_expr);
+    //                 }
+    //             }
 
-                let simplified_exprs = simplify_expressions(exprs
-                    .into_iter()
-                    .chain(grad_exprs.into_iter())
-                    .chain(hess_exprs.into_iter())
-                    .collect());
+    //             let simplified_exprs = simplify_expressions(exprs
+    //                 .into_iter()
+    //                 .chain(grad_exprs.into_iter())
+    //                 .chain(hess_exprs.into_iter())
+    //                 .collect());
 
-                let unit = CompilableUnitBuilder::new()
-                    .name(&name)
-                    .exprs(simplified_exprs)
-                    .variable_list(variables.clone())
-                    .indices(indices)
-                    .gen_shape(shape.gradient_shape(1 + variables.len()))
-                    .build::<C>();
-                self.exprs.push(unit);
-            }
-            _ => panic!("Invalid differentiation level."),
-        }
+    //             let unit = CompilableUnitBuilder::new()
+    //                 .name(&name)
+    //                 .exprs(simplified_exprs)
+    //                 .variable_list(variables.clone())
+    //                 .indices(indices)
+    //                 .gen_shape(shape.gradient_shape(1 + variables.len()))
+    //                 .build::<C>();
+    //             self.exprs.push(unit);
+    //         }
+    //         _ => panic!("Invalid differentiation level."),
+    //     }
 
-        self
-    }
+    //     self
+    // }
 
     // pub fn add_tensor_expression_with_param_indices(mut self, expr: TensorExpression, param_indices: ParamIndices) -> Self {
     //     let TensorExpression { name, shape, variables, body, dimensions } = expr;

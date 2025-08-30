@@ -30,13 +30,13 @@ use qudit_expr::HESSIAN;
 use faer::reborrow::ReborrowMut;
 
 pub struct HSProblem<'a, R: RealScalar> {
-    pub circuit: &'a QuditCircuit<R::C>,
+    pub circuit: &'a QuditCircuit,
     pub target: &'a InstantiationTarget<R::C>,
 }
 
 
 impl<'a, R: RealScalar> HSProblem<'a, R> {
-    pub fn new(circuit: &'a QuditCircuit<R::C>, target: &'a InstantiationTarget<R::C>) -> Self {
+    pub fn new(circuit: &'a QuditCircuit, target: &'a InstantiationTarget<R::C>) -> Self {
         HSProblem {
             circuit,
             target,
@@ -81,7 +81,7 @@ impl<'a, R: RealScalar> HSProblem<'a, R> {
 
 impl<'a, R: RealScalar> InstantiationProblem<'a, R> for HSProblem<'a, R> {
     fn from_instantiation(
-        circuit: &'a QuditCircuit<R::C>,
+        circuit: &'a QuditCircuit,
         target: &'a InstantiationTarget<R::C>,
         data: &'a crate::DataMap,
     ) -> Self {

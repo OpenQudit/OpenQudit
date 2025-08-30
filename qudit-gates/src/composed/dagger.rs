@@ -1,5 +1,5 @@
 use qudit_core::{HasParams, QuditRadices, QuditSystem};
-use qudit_expr::{UnitaryExpression, UnitaryExpressionGenerator};
+use qudit_expr::{UnitaryExpression, ExpressionGenerator};
 
 /// An arbitrary inverted gate.
 ///
@@ -24,8 +24,8 @@ impl DaggerGate {
     /// # Examples
     ///
     /// // TODO: Come back to later
-    pub fn new<E: UnitaryExpressionGenerator>(expr: E) -> Self {
-        let gate_expr = expr.gen_expr();
+    pub fn new<E: ExpressionGenerator<ExpressionType = UnitaryExpression>>(expr: E) -> Self {
+        let gate_expr = expr.generate_expression();
         let expr = gate_expr.conjugate().transpose();
         DaggerGate { expr }
     }
@@ -55,9 +55,11 @@ impl QuditSystem for DaggerGate {
     }
 }
 
-impl UnitaryExpressionGenerator for DaggerGate {
+impl ExpressionGenerator for DaggerGate {
+    type ExpressionType = UnitaryExpression;
+
     #[inline]
-    fn gen_expr(&self) -> UnitaryExpression {
+    fn generate_expression(&self) -> UnitaryExpression {
         self.expr.clone()
     }
 }

@@ -3,20 +3,18 @@ mod hadamard;
 mod kron;
 mod matmul;
 mod trace;
-mod write_cs;
-mod write_ss;
+mod write;
 
 pub use frpr::FRPRStruct;
 pub use hadamard::HadamardStruct;
 pub use kron::KronStruct;
 pub use matmul::MatmulStruct;
 pub use trace::TraceStruct;
-pub use write_cs::ConsecutiveParamSingleWriteStruct;
-pub use write_ss::SplitParamSingleWriteStruct;
+pub use write::WriteStruct;
 
 
 use super::buffer::SizedTensorBuffer;
-use qudit_core::ParamIndices;
+use qudit_core::ParamInfo;
 use qudit_core::ComplexScalar;
 use std::collections::BTreeMap;
 
@@ -66,14 +64,16 @@ fn cache_grad_offset_list<C: ComplexScalar>(
     left: &SizedTensorBuffer<C>,
     right: &SizedTensorBuffer<C>,
     out: &SizedTensorBuffer<C>,
-    left_param_map: &ParamIndices,
-    right_param_map: &ParamIndices,
+    left_param_info: &ParamInfo,
+    right_param_info: &ParamInfo,
 ) -> GradOffsetList {
     // Calculate grad offset map
     // We loop through all left and right parameters and record the ptrs of
     // matrices that need to be interacted and where they will be stored.
+    let sorted_left = left_param_info.sorted_non_constant();
+    let sorted_right = right_param_info.sorted_non_constant();
     let mut offset_map = BTreeMap::new();
-    for (i, param) in left_param_map.sorted().iter().enumerate() {
+    for (i, param) in sorted_left.iter().enumerate() {
         offset_map.insert(
             param,
             (
@@ -86,7 +86,7 @@ fn cache_grad_offset_list<C: ComplexScalar>(
         );
     }
 
-    for (i, param) in right_param_map.sorted().iter().enumerate() {
+    for (i, param) in sorted_right.iter().enumerate() {
         offset_map.entry(param).and_modify(|offs| {
             // This parameter is also in left, need to apply product rule
             offs.2 = true;
@@ -122,12 +122,14 @@ fn cache_hess_offset_list<C: ComplexScalar>(
     left: &SizedTensorBuffer<C>,
     right: &SizedTensorBuffer<C>,
     out: &SizedTensorBuffer<C>,
-    left_param_map: &ParamIndices,
-    right_param_map: &ParamIndices,
+    left_param_info: &ParamInfo,
+    right_param_info: &ParamInfo,
 ) -> HessOffsetList {
+    let sorted_left = left_param_info.sorted_non_constant();
+    let sorted_right = right_param_info.sorted_non_constant();
     let mut offset_map = BTreeMap::new();
-    for (i, param_i) in left_param_map.sorted().iter().enumerate() {
-        for (j, param_j) in left_param_map.sorted().iter().enumerate() {
+    for (i, param_i) in sorted_left.iter().enumerate() {
+        for (j, param_j) in sorted_left.iter().enumerate() {
             // Only upper right triangle of hessian is stored since its a symmetric square
             if param_i > param_j {
                 continue
@@ -151,8 +153,8 @@ fn cache_hess_offset_list<C: ComplexScalar>(
         }
     }
 
-    for (i, param_i) in right_param_map.sorted().iter().enumerate() {
-        for (j, param_j) in right_param_map.sorted().iter().enumerate() {
+    for (i, param_i) in sorted_right.iter().enumerate() {
+        for (j, param_j) in sorted_right.iter().enumerate() {
             if param_i > param_j {
                 continue
             }
@@ -179,8 +181,8 @@ fn cache_hess_offset_list<C: ComplexScalar>(
     // Hessian also includes double partials, where the first is taken with respect to a
     // parameter in left and the second in right. This is realized as a single partial of
     // left multiplied by a single partial of right.
-    for (i, param_i) in left_param_map.sorted().iter().enumerate() {
-        for (j, param_j) in right_param_map.sorted().iter().enumerate() {
+    for (i, param_i) in sorted_left.iter().enumerate() {
+        for (j, param_j) in sorted_right.iter().enumerate() {
             offset_map.entry((param_i, param_j))
                 // If offset_map already contains this then param_i is in right and
                 // param_j is in left. Since its shared, I don't do anything

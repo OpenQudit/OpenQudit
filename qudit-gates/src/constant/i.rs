@@ -1,4 +1,4 @@
-use qudit_expr::{UnitaryExpression, UnitaryExpressionGenerator};
+use qudit_expr::{UnitaryExpression, ExpressionGenerator};
 
 /// The identity or no-op gate.
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
@@ -12,8 +12,10 @@ impl IGate {
     }
 }
 
-impl UnitaryExpressionGenerator for IGate {
-    fn gen_expr(&self) -> UnitaryExpression {
+impl ExpressionGenerator for IGate {
+    type ExpressionType = UnitaryExpression;
+
+    fn generate_expression(&self) -> UnitaryExpression {
         let proto = format!("I<{}>()", self.radix);
         let mut body = "".to_string();
         body += "[";

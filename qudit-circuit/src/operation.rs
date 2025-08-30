@@ -1,5 +1,9 @@
+use std::cell::RefCell;
+use std::collections::BTreeMap;
+use std::rc::Rc;
+
 use qudit_core::{ComplexScalar, HasParams, QuditRadices, RealScalar, ToRadix};
-use qudit_expr::UnitaryExpressionGenerator;
+use qudit_expr::{ExpressionCache, ExpressionId, UnitaryExpressionGenerator};
 use qudit_expr::{StateExpression, StateSystemExpression, TensorExpression};
 use qudit_gates::Gate;
 use qudit_core::state::StateVector;
@@ -73,42 +77,42 @@ impl ControlState {
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum Operation {
-    Gate(Gate),
-    ProjectiveMeasurement(TensorExpression, BitSet), // TODO: Switch to kraus operator/andor POVM
+
+    UnitaryGate(Gate),
+    KrausOperators(TensorExpression),
     TerminatingMeasurement(StateSystemExpression),
-    ClassicallyControlled(Gate, ControlState),
-    // ClassicallyControlled(The gate to execute, control state?)
-    Initialization(StateExpression),
+    ClassicallyControlledUnitary(Gate, ControlState), // TODO: control state can get folded
+    // into expression; then maybe fold ExpressionId, OperationReference, CachedOperation?
+    QuditInitialization(StateExpression),
+
     // TODO: Delay
     // Subcircuit(ImmutableCircuit),
-    Reset,
-    Barrier,
+    // Reset,
+    // Barrier,
 }
 
 impl Operation {
     pub fn name(&self) -> String {
         match self {
-            Operation::Gate(gate) => gate.name().to_string(),
-            Operation::ProjectiveMeasurement(t, _) => format!("ProjectiveMeasurement({})", t.name()),
+            Operation::UnitaryGate(gate) => gate.name().to_string(),
+            Operation::KrausOperators(t) => format!("ProjectiveMeasurement({})", t.name()),
             Operation::TerminatingMeasurement(s) => format!("TerminatingMeasurement({})", s.name()),
-            Operation::ClassicallyControlled(g, _) => format!("ClassicallyControlled({})", g.name()),
-            Operation::Initialization(s) => format!("Initialization({})", s.name()),
-            Operation::Reset => "Reset".to_string(),
-            Operation::Barrier => "Barrier".to_string(),
+            Operation::ClassicallyControlledUnitary(g, _) => format!("ClassicallyControlled({})", g.name()),
+            Operation::QuditInitialization(s) => format!("Initialization({})", s.name()),
+            // Operation::Reset => "Reset".to_string(),
+            // Operation::Barrier => "Barrier".to_string(),
         }
     }
+}
 
-    pub fn discriminant(&self) -> usize {
-        match self {
-            Operation::Gate(_) => 0,
-            Operation::ProjectiveMeasurement(_, _) => 1,
-            Operation::TerminatingMeasurement(_) => 2,
-            Operation::ClassicallyControlled(_, _) => 3,
-            Operation::Initialization(_) => 4,
-            Operation::Reset => 5,
-            Operation::Barrier => 6,
-        }
-    }
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub enum CachedOperation {
+    UnitaryGate(ExpressionId),
+    KrausOperators(ExpressionId),
+    TerminatingMeasurement(ExpressionId),
+    ClassicallyControlledUnitary(ExpressionId, ControlState), // TODO: control state can get folded
+    // into expression; then maybe fold ExpressionId, OperationReference, CachedOperation?
+    QuditInitialization(ExpressionId),
 }
 
 
@@ -120,55 +124,6 @@ impl OperationReference {
     pub(super) fn new(id: u64) -> Self {
         OperationReference(id)
     }
-    // pub fn new<C: ComplexScalar>(circuit: &mut QuditCircuit<C>, op: Operation) -> OperationReference {
-    //     OperationReference(circuit.expression_set.insert(op))
-    //     // match op {
-    //         // Operation::Gate(gate) => {
-    //         //     let index = circuit.expression_set.insert(gate.gen_expr().to_tensor_expression());
-    //         //     OperationReference((index as u64) << 2 | 0b00)
-    //         // },
-    //         // _ => todo!(),
-    //         // Operation::Subcircuit(subcircuit) => {
-    //         //     let index = circuit.subcircuits.insert_full(subcircuit).0;
-    //         //     OperationReference((index as u64) << 2 | 0b01)
-    //         // },
-    //     // }
-    // }
-
-    // pub fn op_type(&self) -> OperationType {
-    //     match self.0 & 0b11 {
-    //         0b00 => OperationType::Gate,
-    //         0b01 => todo!(),
-    //         // 0b01 => OperationType::Subcircuit,
-    //         0b10 => OperationType::Control,
-    //         _ => panic!("Invalid operation type"),
-    //     }
-    // }
-
-    pub fn index(&self) -> usize {
-        (self.0 >> 2) as usize
-    }
-
-    pub fn dereference<'a, C: ComplexScalar>(&'a self, circuit: &'a QuditCircuit<C>) -> &'a Operation {
-        match circuit.expression_set.get(&self) {
-            Some(s) => s,
-            None => panic!("Unable to find expression."),
-        }
-        // let index = (self.0 >> 2) as usize;
-        // match self.0 & 0b11 {
-        //     // 0b00 => Operation::Gate(circuit.gates[index].clone()),
-        //     _ => todo!(),
-        //     // 0b01 => todo!(),
-        //     // 0b01 => Operation::Subcircuit(circuit.subcircuits[index].clone()),
-        //     // 0b10 => Operation::Control(match self.0 >> 2 {
-        //     //     0 => ControlOperation::Measurement,
-        //     //     1 => ControlOperation::Reset,
-        //     //     2 => ControlOperation::Barrier,
-        //     //     _ => panic!("Invalid control operation discriminant"),
-        //     // }),
-        //     _ => panic!("Invalid operation type"),
-        // }
-    }
 }
 
 impl From<u64> for OperationReference {
@@ -179,14 +134,62 @@ impl From<u64> for OperationReference {
 
 impl HasParams for Operation {
     fn num_params(&self) -> usize {
-        match self {
-            Operation::Gate(gate) => gate.num_params(),
-            Operation::TerminatingMeasurement(s) => s.variables.len(),
-            Operation::ClassicallyControlled(s, _) => s.num_params(),
-            _ => todo!()
-            // Operation::Subcircuit(subcircuit) => subcircuit.num_params(),
-            // Operation::Control(_) => 0,
-        }
+        todo!()
+        // match self {
+        //     Operation::Gate(gate) => gate.num_params(),
+        //     Operation::TerminatingMeasurement(s) => s.variables.len(),
+        //     Operation::ClassicallyControlled(s, _) => s.num_params(),
+        //     _ => todo!()
+        //     // Operation::Subcircuit(subcircuit) => subcircuit.num_params(),
+        //     // Operation::Control(_) => 0,
+        // }
     }
 }
 
+#[derive(Clone)]
+pub struct OperationSet {
+    expressions: Rc<RefCell<ExpressionCache>>,
+    map: BTreeMap<OperationReference, CachedOperation>,
+    idx_counter: u64,
+}
+
+impl OperationSet {
+    pub fn new() -> Self {
+        OperationSet {
+            expressions: ExpressionCache::new_shared(),
+            map: BTreeMap::new(),
+            idx_counter: 0
+        }
+    }
+
+    pub fn insert(&mut self, expr: Operation) -> OperationReference {
+        todo!()
+        // // TODO: this name mapping implements label-based identification
+        // // replace it, once expression data structures are optimized with
+        // // fast equal
+        // let name = expr.name().to_string();
+
+        // // Get a mutable reference to the vector associated with the key.
+        // // If the key does not exist, insert a new empty vector.
+        // let exprs_vec = self.data.entry(name).or_insert_with(Vec::new);
+
+        // for (existing_expr, idx) in exprs_vec.iter() {
+        //     if existing_expr == &expr {
+        //         return *idx;
+        //     }
+        // }
+
+        // // If the expression is not found, assign a new index,
+        // // add it to the vector, and increment the counter.
+        // let current_idx = OperationReference::new(self.idx_counter);
+        // exprs_vec.push((expr.clone(), current_idx));
+        // self.map.insert(current_idx, expr);
+        // self.idx_counter += 1;
+        // current_idx
+    }
+
+    pub fn get(&self, index: &OperationReference) -> Option<&Operation> {
+        todo!()
+        // self.map.get(index)
+    }
+}

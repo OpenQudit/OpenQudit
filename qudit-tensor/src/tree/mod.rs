@@ -17,5 +17,6 @@ pub use trace::TraceNode;
 pub use hadamard::HadamardProductNode;
 
 // pub use optimizer::TreeOptimizer;
-pub use tree::ExpressionTree;
+pub use tree::TTGTNode;
+pub use tree::TTGTTree;
 

@@ -31,7 +31,7 @@ pub type DataMap = HashMap<String, Box<dyn Any>>;
 pub trait Instantiater<'a, C: ComplexScalar> {
     fn instantiate(
         &'a self,
-        circuit: &'a QuditCircuit<C>,
+        circuit: &'a QuditCircuit,
         target: &'a InstantiationTarget<C>,
         data: &'a DataMap,
     ) -> InstantiationResult<C>;
@@ -39,7 +39,7 @@ pub trait Instantiater<'a, C: ComplexScalar> {
 
     fn batched_instantiate(
         &'a self,
-        circuit: &'a QuditCircuit<C>,
+        circuit: &'a QuditCircuit,
         targets: &'a[&'a InstantiationTarget<C>],
         data: &'a DataMap,
     ) -> Vec<InstantiationResult<C>> {
