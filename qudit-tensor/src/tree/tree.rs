@@ -190,6 +190,15 @@ impl TTGTTree {
             let TransposeNode { child, perm: base_perm, .. } = n;
             let composed_perm: Vec<usize> = base_perm.iter().map(|&idx| perm[idx]).collect();
             TTGTNode::Transpose(TransposeNode::new(*child, composed_perm, redirection))
+        } else if let TTGTNode::Leaf(n) = self.root {
+            let LeafNode { expr: expr_id, param_info, indices } = n;
+            let new_indices = indices.iter()
+                .zip(redirection.iter())
+                .map(|(idx, new_direction)| TensorIndex::new(*new_direction, idx.index_id(), idx.index_size()))
+                .collect::<Vec<TensorIndex>>();
+            let new_shape: GenerationShape = (&new_indices).into();
+            let new_expr_id = self.expressions.borrow_mut().permute_reshape(expr_id, perm, new_shape);
+            TTGTNode::Leaf(LeafNode::new(new_expr_id, param_info, new_indices))
         } else {
             TTGTNode::Transpose(TransposeNode::new(self.root, perm, redirection))
         };

@@ -20,6 +20,12 @@ pub struct CachedExpressionBody {
     hess: Option<ExpressionBody>,
 }
 
+impl CachedExpressionBody {
+    pub fn num_elements(&self) -> usize {
+        self.func.num_elements()
+    }
+}
+
 impl<B: Into<ExpressionBody>> From<B> for CachedExpressionBody {
     fn from(value: B) -> Self {
         CachedExpressionBody {
@@ -51,6 +57,10 @@ impl CachedTensorExpression {
             expressions: body.into(),
             id_lookup,
         }
+    }
+
+    pub fn num_elements(&self) -> usize {
+        self.expressions.num_elements()
     }
 
     pub fn form_expression(&self) -> TensorExpression {
@@ -152,6 +162,14 @@ impl ExpressionCache {
         let modifiers = cexpr.id_lookup.get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
         cexpr.form_modified_indices(modifiers)
+    }
+
+    pub fn num_elements(&self, expr_id: ExpressionId) -> usize {
+        let base_id = self.id_lookup.get(&expr_id)
+            .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
+        let cexpr = self.expressions.get(base_id)
+            .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
+        cexpr.num_elements()
     }
 
     pub fn generation_shape(&self, expr_id: ExpressionId) -> GenerationShape {

@@ -3,8 +3,8 @@ use std::collections::HashSet;
 
 use qudit_core::ComplexScalar;
 
-use crate::expression::Expression;
-use crate::expression::Constant;
+use crate::expressions::Expression;
+use crate::expressions::Constant;
 use crate::qgl::parse_scalar;
 use crate::qgl::Expression as CiscExpression;
 

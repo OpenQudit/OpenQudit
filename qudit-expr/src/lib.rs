@@ -1,21 +1,17 @@
 mod qgl;
-mod complex;
-mod expression;
-mod unitary;
+mod expressions;
 mod codegen;
 mod analysis;
-mod tensor;
 mod shape;
 mod cache;
 pub mod index;
 
-pub use expression::Expression;
-pub use complex::ComplexExpression;
-pub use unitary::UnitaryExpression;
-pub use tensor::TensorExpression;
-pub use tensor::ExpressionGenerator;
-pub use unitary::StateExpression;
-pub use unitary::StateSystemExpression;
+pub use expressions::Constant;
+pub use expressions::Expression;
+pub use expressions::ComplexExpression;
+pub use expressions::UnitaryExpression;
+pub use expressions::TensorExpression;
+pub use expressions::ExpressionGenerator;
 pub use codegen::DifferentiationLevel;
 pub use codegen::{FUNCTION, GRADIENT, HESSIAN};
 pub use codegen::ModuleBuilder;
@@ -26,7 +22,6 @@ pub use codegen::UtryGradFunc;
 pub use codegen::CodeGenerator;
 pub use analysis::simplify_matrix_and_matvec;
 pub use shape::GenerationShape;
-pub use expression::Constant;
 pub use cache::ExpressionCache;
 pub use cache::ExpressionId;
 

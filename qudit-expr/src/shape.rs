@@ -469,14 +469,15 @@ impl GenerationShape {
     }
 }
 
-impl From<Vec<TensorIndex>> for GenerationShape {
-    fn from(indices: Vec<TensorIndex>) -> Self {        
-        GenerationShape::from(indices.as_slice())
-    }
-}
+// impl From<Vec<TensorIndex>> for GenerationShape {
+//     fn from(indices: Vec<TensorIndex>) -> Self {        
+//         GenerationShape::from(indices.as_slice())
+//     }
+// }
 
-impl From<&[TensorIndex]> for GenerationShape {
-    fn from(indices: &[TensorIndex]) -> Self {        
+impl<I: AsRef<[TensorIndex]>> From<I> for GenerationShape {
+    fn from(indices: I) -> Self {        
+        let indices = indices.as_ref();
         let mut dimensions = [1, 1, 1, 1];
         for index in indices.iter() {
             match index.direction() {

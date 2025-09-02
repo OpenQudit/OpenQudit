@@ -228,7 +228,6 @@ impl QuditTensorNetwork {
                 // Shared indices appear in a contraction on both sides, but are not summed over.
                 // These are realized as indices that are output to the network that appear on
                 // in both left and right index sets.
-                // println!("Baby contraction being born with intersection of ids: {:?}", intersection);
                 let shared_ids: Vec<IndexId> = intersection.iter()
                     .filter(|&id| self.indices[*id].0.is_output())
                     .copied()
@@ -259,6 +258,7 @@ impl QuditTensorNetwork {
                 for (local_idx, &network_idx_id) in network_idx_ids.iter().enumerate() {
                     let index_edge = &self.indices[network_idx_id];
                     if !index_edge.0.is_output() && index_edge.1.len() == 1 {
+                        // This edge is looped
                         looped_index_map.entry(network_idx_id).or_default().push(local_idx);
                     }
                 }
@@ -278,44 +278,58 @@ impl QuditTensorNetwork {
                 }
                 // network_idx_ids = [5, 0, 5, 2]
                 
-                let traced_id = self.expressions.borrow_mut().trace(expr_id, looped_index_pairs);
+                let traced_id = self.expressions.borrow_mut().trace(*expr_id, looped_index_pairs);
                 let traced_indices = self.expressions.borrow().indices(traced_id);
                 // traced_indices = ((0, output), (1, output), (2, input), (3, input))
 
                 // need to argsort indices so local indices that correspond to the same network
                 // index are consecutive
-                let argsorted_indices = {
+                let perm = {
                     let mut argsorted_indices = (0..network_idx_ids.len()).collect::<Vec<_>>();
-                    argsorted_indices.sort_by_key(|&i| (traced_indices[i].direction(), network_idx_ids[i]));
-                    // TODO: what happens if the same network index appears on both sides of the
-                    // local tensor
+                    argsorted_indices.sort_by_key(|&i| network_idx_ids[i]);
                     argsorted_indices 
                 };
 
-                let new_directions = argsorted_indices.iter().map(|id| traced_indices[*id].direction()).collect();
-
-                // println!("New leaf \nperm: {:?} \nnew_directions: {:?}", argsorted_indices, new_directions);
-                let tranposed_node = self.expressions.borrow_mut().permute_reshape(argsorted_indices.clone(), new_directions);
+                // For now, set generation shape to a vector as the the first time this tensor
+                // is used (either in a contraction, or in output ordering) the tensor indices
+                // will be reshaped again.
+                let traced_nelems = self.expressions.borrow().num_elements(traced_id);
+                let new_shape = GenerationShape::Vector(traced_nelems);
+                let tranposed_id = self.expressions.borrow_mut().permute_reshape(traced_id, perm.clone(), new_shape);
 
                 // group (redimension) indices together that have the same network id
                 let new_node_indices = {
-                    let mut last = None;
                     let mut new_node_indices = Vec::new();
-                    let mut dimension_acm = 1;
-                    let mut old_node_indices = tranposed_node.indices();
-                    for (id, idx) in argsorted_indices.iter().enumerate().map(|(id, &i)| (id, network_idx_ids[i])) {
-                        if last == Some(idx) {
-                            let to_group_with_idx: &mut TensorIndex = new_node_indices.last_mut().expect("Just checked for last.");
-                            *to_group_with_idx = TensorIndex::new(to_group_with_idx.direction(), to_group_with_idx.index_id(), to_group_with_idx.index_size() * old_node_indices[id].index_size());
+                    let mut index_size_acm = 1;
+                    for (curr_index_index, next_index_index) in perm.iter().zip(perm.iter().skip(1)) {
+                        let curr_network_idx_id = network_idx_ids[*curr_index_index];
+                        let curr_index_size = traced_indices[*curr_index_index].index_size(); 
+                        let next_network_idx_id = network_idx_ids[*next_index_index];
+
+                        if curr_index_index == next_index_index {
+                            index_size_acm *= curr_index_size;
                         } else {
-                            new_node_indices.push(TensorIndex::new(old_node_indices[id].direction(), idx, old_node_indices[id].index_size()))
+                            new_node_indices.push(TensorIndex::new(
+                                IndexDirection::Output,
+                                curr_network_idx_id,
+                                curr_index_size * index_size_acm,
+                            ));
+                            index_size_acm = 1;
                         }
-                        last = Some(idx);
+                    }
+                    if !perm.is_empty() {
+                        let last_index_index = *perm.last().expect("Expected perm length > 0");
+                        let last_index_size = traced_indices[last_index_index].index_size();
+                        new_node_indices.push(TensorIndex::new(
+                            IndexDirection::Output,
+                            network_idx_ids[last_index_index],
+                            last_index_size * index_size_acm,
+                        ));
                     }
                     new_node_indices
                 };
                
-                tree_stack.push(tranposed_node.reindex(new_node_indices));
+                tree_stack.push(TTGTTree::leaf(self.expressions.clone(), traced_id, param_info.clone(), new_node_indices));
             }
         }
         if tree_stack.len() != 1 {

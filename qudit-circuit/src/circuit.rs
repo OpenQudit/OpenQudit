@@ -7,7 +7,7 @@ use indexmap::IndexSet;
 use qudit_core::{QuditRadices, RealScalar, c64};
 use qudit_expr::index::{IndexDirection, IndexSize, TensorIndex};
 use qudit_gates::Gate;
-use qudit_expr::{StateExpression, TensorExpression, UnitaryExpressionGenerator};
+use qudit_expr::{StateExpression, TensorExpression};
 // use qudit_tensor::{BuilderExpressionInput, ExpressionTree, TreeBuilder, TreeOptimizer};
 use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
 use crate::location::{self, ToLocation};

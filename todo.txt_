@@ -1,3 +1,0 @@
-- [ ] input states in circuit object?
-- [ ] Classically controlled on zero?
-- [ ] Better error handling: panics all over the place aren't the best
