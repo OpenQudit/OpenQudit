@@ -12,15 +12,6 @@ mod tensor;
 mod generator;
 
 
-// TensorExpression -> indices: Vec<usize>
-// BraExpression
-// KetExpression
-// BraSystemExpression
-// KetSystemExpression
-// UnitaryExpression
-// KrausExpression
-// IsometryExpression
-// IsometrySystemExpression?
 pub trait JittableExpression: Into<NamedExpression> {
     fn generation_shape(&self) -> crate::GenerationShape;
 }
@@ -36,5 +27,7 @@ pub use bra::BraExpression;
 pub use ketsys::KetSystemExpression;
 pub use brasys::BraSystemExpression;
 pub use unitary::UnitaryExpression;
+pub use isometry::IsometryExpression;
+pub use kraus::KrausOperatorsExpression;
 pub use tensor::TensorExpression;
 pub use generator::ExpressionGenerator;

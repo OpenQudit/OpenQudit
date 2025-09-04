@@ -129,7 +129,8 @@ impl QuditCircuitTensorNetworkBuilder {
     }
 
     pub fn expression_get(&mut self, expression: TensorExpression) -> ExpressionId {
-        match self.expressions.borrow().lookup(&expression) {
+        let result = { self.expressions.borrow().lookup(&expression) };
+        match result {
             None => self.expressions.borrow_mut().insert(expression),
             Some(id) => id,
         }
@@ -340,7 +341,7 @@ impl QuditCircuitTensorNetworkBuilder {
     }
 
     pub fn prepend_unitary<C: ComplexScalar>(mut self, utry: UnitaryMatrix<C>, qudits: Vec<usize>) -> Self {
-        let expr = UnitaryExpression::from(utry).to_tensor_expression();
+        let expr: TensorExpression = UnitaryExpression::from(utry).into();
         let indices = expr.indices().to_owned();
         let id = self.expression_get(expr); 
         self.prepend(QuditTensor::new(indices, id, ParamInfo::empty()), qudits.clone(), qudits, vec![])
@@ -351,12 +352,12 @@ impl QuditCircuitTensorNetworkBuilder {
         assert!(self.front[front_qudit].is_active() && self.rear[rear_qudit].is_active());
 
         if self.front[front_qudit].is_empty() {
-            let identity = UnitaryExpression::identity("Identity", [self.radices[front_qudit]]).to_tensor_expression();
+            let identity = UnitaryExpression::identity("Identity", [self.radices[front_qudit]]).into();
             self = self.prepend_expression(identity, ParamInfo::empty(), [front_qudit].into(), [front_qudit].into(), vec![]);
         }
 
         if self.rear[rear_qudit].is_empty() {
-            let identity = UnitaryExpression::identity("Identity", [self.radices[rear_qudit]]).to_tensor_expression();
+            let identity = UnitaryExpression::identity("Identity", [self.radices[rear_qudit]]).into();
             self = self.prepend_expression(identity, ParamInfo::empty(), [rear_qudit].into(), [rear_qudit].into(), vec![]);
         }
 
@@ -441,7 +442,7 @@ impl QuditCircuitTensorNetworkBuilder {
         for (qudit_id, wire) in front.into_iter().enumerate() {
             if wire.is_empty() {
                 // Cannot have empty indices in network, so we need to explicitly add identity.
-                let identity_expression = UnitaryExpression::identity("Identity", [self.radices[qudit_id]]).to_tensor_expression();
+                let identity_expression: TensorExpression = UnitaryExpression::identity("Identity", [self.radices[qudit_id]]).into();
                 let identity_indices = identity_expression.indices().to_owned();
                 let identity_expr_id = match expressions.borrow().lookup(&identity_expression) {
                     None => expressions.borrow_mut().insert(identity_expression),

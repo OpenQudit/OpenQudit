@@ -23,9 +23,11 @@ pub struct ParamInfo {
 
 impl ParamInfo {
     pub fn parameterized(indices: impl Into<ParamIndices>) -> ParamInfo {
+        let indices = indices.into();
+        let num_params = indices.num_params();
         ParamInfo {
-            indices: indices.into(),
-            constant: vec![],
+            indices,
+            constant: vec![false; num_params],
         }
     }
 

@@ -40,7 +40,14 @@ mod tests {
                 [cos(a/2), ~e^(c*i)*sin(a/2)],
                 [e^(b*i)*sin(a/2), e^(i*(b+c))*cos(a/2)],
             ]
-        }"); 
+        }");
+        // let p3 = TensorExpression::new("Phase<3>(a, b) {
+        //     [
+        //         [ 1, 0, 0 ],
+        //         [ 0, e^(i*a), 0 ],
+        //         [ 0, 0, e^(i*b) ]
+        //     ]
+        // }");
         let classically_controlled_u3 = u3.stack_with_identity(&[1], 2);
         let ZZ = TensorExpression::new("ZZParity() {
             [

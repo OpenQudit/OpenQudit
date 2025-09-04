@@ -1,3 +1,4 @@
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::ops::DerefMut;
@@ -5,6 +6,7 @@ use std::ops::DerefMut;
 use qudit_core::unitary::UnitaryMatrix;
 use qudit_core::ComplexScalar;
 use super::ComplexExpression;
+use crate::expressions::JittableExpression;
 use crate::expressions::NamedExpression;
 use crate::index::IndexSize;
 use crate::qgl::parse_qobj;
@@ -19,6 +21,12 @@ use crate::UnitaryExpression;
 pub struct TensorExpression {
     indices: Vec<TensorIndex>,
     inner: NamedExpression,
+}
+
+impl JittableExpression for TensorExpression {
+    fn generation_shape(&self) -> GenerationShape {
+        self.indices().into()
+    }
 }
 
 impl AsRef<NamedExpression> for TensorExpression {
@@ -210,7 +218,7 @@ impl TensorExpression {
             elem_perm.push(new_linear_idx);
         }
 
-        self.body.apply_element_permutation(&elem_perm);
+        self.apply_element_permutation(&elem_perm);
         self
     }
 
@@ -227,7 +235,7 @@ impl TensorExpression {
         // Ensure positions are unique
         let mut sorted_positions = positions.to_vec();
         sorted_positions.sort_unstable();
-        assert!(sorted_positions.iter().dedup().count() == sorted_positions.len(), "Positions must be unique");
+        assert!(sorted_positions.iter().collect::<BTreeSet<_>>().len() == sorted_positions.len(), "Positions must be unique");
 
         // Construct identity expression
         let mut identity = Vec::with_capacity(nrows * ncols);
@@ -245,7 +253,7 @@ impl TensorExpression {
         let mut expressions = Vec::with_capacity(nrows * ncols * new_dim);
         for i in 0..new_dim {
             if positions.contains(&i) {
-                expressions.extend(self.body.iter().cloned());
+                expressions.extend(self.elements().iter().cloned());
             } else {
                 expressions.extend(identity.iter().cloned());
             }
@@ -257,7 +265,7 @@ impl TensorExpression {
 
         TensorExpression {
             indices: new_indices,
-            inner: NamedExpression::new(format!("Stacked_{}", self.name), self.variables().to_owned(), expressions),
+            inner: NamedExpression::new(format!("Stacked_{}", self.name()), self.variables().to_owned(), expressions),
         }
     }
 
@@ -308,7 +316,7 @@ impl TensorExpression {
         };
 
         // 3. Iterate through original tensor elements
-        for (i, expr) in self.body.iter().enumerate() {
+        for (i, expr) in self.elements().iter().enumerate() {
             let original_coordinate: Vec<usize> = (0..in_dims.len())
                 .into_iter()
                 .map(|d| ((i % in_strides[d+1]) / in_strides[d]))
@@ -329,16 +337,16 @@ impl TensorExpression {
 
         TensorExpression {
             indices: new_indices,
-            inner: NamedExpression::new(format!("PartialTraced_{}", self.name), self.variables().to_owned(), new_body),
+            inner: NamedExpression::new(format!("PartialTraced_{}", self.name()), self.variables().to_owned(), new_body),
         }
     }
 
     /// replace all variables with values, new variables given in variables input
     pub fn substitute_parameters<S: AsRef<str>, C: AsRef<Expression>>(&self, variables: &[S], values: &[C]) -> Self {
-        let sub_map: HashMap<_, _> = self.variables.iter().zip(values.iter()).map(|(k, v)| (Expression::Variable(k.to_string()), v.as_ref())).collect();
+        let sub_map: HashMap<_, _> = self.variables().iter().zip(values.iter()).map(|(k, v)| (Expression::Variable(k.to_string()), v.as_ref())).collect();
 
         let mut new_body = vec![];
-        for expr in self.body.iter() {
+        for expr in self.elements().iter() {
             let mut new_expr = None; 
             for (var, value) in &sub_map {
                 match new_expr {
@@ -358,7 +366,7 @@ impl TensorExpression {
 
         TensorExpression {
             indices: self.indices.clone(),
-            inner: NamedExpression::new(format!("{}_subbed", self.name), new_variables, new_body),
+            inner: NamedExpression::new(format!("{}_subbed", self.name()), new_variables, new_body),
         }
     }
 
@@ -369,11 +377,11 @@ impl TensorExpression {
     }
 }
 
-impl<C: ComplexScalar> From<UnitaryMatrix<C>> for TensorExpression {
-    fn from(utry: UnitaryMatrix<C>) -> Self {
-        UnitaryExpression::from(utry).to_tensor_expression()
-    }
-}
+// impl<C: ComplexScalar> From<UnitaryMatrix<C>> for TensorExpression {
+//     fn from(utry: UnitaryMatrix<C>) -> Self {
+//         UnitaryExpression::from(utry).to_tensor_expression()
+//     }
+// }
 
 impl From<TensorExpression> for NamedExpression {
     fn from(value: TensorExpression) -> Self {

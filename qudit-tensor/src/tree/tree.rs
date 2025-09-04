@@ -192,7 +192,8 @@ impl TTGTTree {
             TTGTNode::Transpose(TransposeNode::new(*child, composed_perm, redirection))
         } else if let TTGTNode::Leaf(n) = self.root {
             let LeafNode { expr: expr_id, param_info, indices } = n;
-            let new_indices = indices.iter()
+            let new_indices = perm.iter()
+                .map(|p| indices[*p])
                 .zip(redirection.iter())
                 .map(|(idx, new_direction)| TensorIndex::new(*new_direction, idx.index_id(), idx.index_size()))
                 .collect::<Vec<TensorIndex>>();

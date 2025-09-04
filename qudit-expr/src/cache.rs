@@ -4,10 +4,9 @@ use std::rc::Rc;
 
 use qudit_core::{ComplexScalar, RealScalar};
 
-use crate::complex::ComplexExpression;
+use crate::expressions::{ExpressionBody, NamedExpression};
 use crate::index::TensorIndex;
-use crate::tensor::{ExpressionBody, NamedExpression};
-use crate::{expression, GenerationShape, Module, WriteFunc};
+use crate::{GenerationShape, Module, WriteFunc};
 use crate::TensorExpression;
 use qudit_core::c32;
 use qudit_core::c64;

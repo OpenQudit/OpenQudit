@@ -10,9 +10,8 @@ use std::collections::HashMap;
 use qudit_core::ComplexScalar;
 
 use crate::codegen::process_name_for_gen;
-use crate::complex::ComplexExpression;
-use crate::expression::Expression;
-use crate::UnitaryExpression;
+use crate::ComplexExpression;
+use crate::Expression;
 
 use super::builtins::Builtins;
 use super::module::Module;

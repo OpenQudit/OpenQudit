@@ -3,8 +3,12 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use qudit_core::{ComplexScalar, HasParams, QuditRadices, RealScalar, ToRadix};
-use qudit_expr::{ExpressionCache, ExpressionId, UnitaryExpressionGenerator};
-use qudit_expr::{StateExpression, StateSystemExpression, TensorExpression};
+use qudit_expr::{ExpressionCache, ExpressionId, UnitaryExpression};
+use qudit_expr::TensorExpression;
+use qudit_expr::BraSystemExpression;
+use qudit_expr::KetExpression;
+use qudit_expr::KrausOperatorsExpression;
+use qudit_expr::NamedExpression;
 use qudit_gates::Gate;
 use qudit_core::state::StateVector;
 use bit_set::BitSet;
@@ -75,43 +79,50 @@ impl ControlState {
 //      the desired state of each clbit?
 // }
 
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Operation {
 
-    UnitaryGate(Gate),
-    KrausOperators(TensorExpression),
-    TerminatingMeasurement(StateSystemExpression),
-    ClassicallyControlledUnitary(Gate, ControlState), // TODO: control state can get folded
-    // into expression; then maybe fold ExpressionId, OperationReference, CachedOperation?
-    QuditInitialization(StateExpression),
+    UnitaryGate(UnitaryExpression),
+    KrausOperators(KrausOperatorsExpression),
+    TerminatingMeasurement(BraSystemExpression),
+    ClassicallyControlledUnitary(KrausOperatorsExpression),
+    QuditInitialization(KetExpression),
 
     // TODO: Delay
     // Subcircuit(ImmutableCircuit),
-    // Reset,
     // Barrier,
 }
 
-impl Operation {
-    pub fn name(&self) -> String {
+impl AsRef<NamedExpression> for Operation {
+    fn as_ref(&self) -> &NamedExpression {
         match self {
-            Operation::UnitaryGate(gate) => gate.name().to_string(),
-            Operation::KrausOperators(t) => format!("ProjectiveMeasurement({})", t.name()),
-            Operation::TerminatingMeasurement(s) => format!("TerminatingMeasurement({})", s.name()),
-            Operation::ClassicallyControlledUnitary(g, _) => format!("ClassicallyControlled({})", g.name()),
-            Operation::QuditInitialization(s) => format!("Initialization({})", s.name()),
-            // Operation::Reset => "Reset".to_string(),
-            // Operation::Barrier => "Barrier".to_string(),
+            Operation::UnitaryGate(e) => e.as_ref(),
+            Operation::KrausOperators(e) => e.as_ref(),
+            Operation::TerminatingMeasurement(e) => e.as_ref(),
+            Operation::ClassicallyControlledUnitary(e) => e.as_ref(),
+            Operation::QuditInitialization(e) => e.as_ref(),
         }
     }
 }
+
+// impl Operation {
+//     pub fn name(&self) -> String {
+//         match self {
+//             Operation::UnitaryGate(gate) => gate.name().to_string(),
+//             Operation::KrausOperators(t) => format!("ProjectiveMeasurement({})", t.name()),
+//             Operation::TerminatingMeasurement(s) => format!("TerminatingMeasurement({})", s.name()),
+//             Operation::ClassicallyControlledUnitary(g, _) => format!("ClassicallyControlled({})", g.name()),
+//             Operation::QuditInitialization(s) => format!("Initialization({})", s.name()),
+//         }
+//     }
+// }
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum CachedOperation {
     UnitaryGate(ExpressionId),
     KrausOperators(ExpressionId),
     TerminatingMeasurement(ExpressionId),
-    ClassicallyControlledUnitary(ExpressionId, ControlState), // TODO: control state can get folded
-    // into expression; then maybe fold ExpressionId, OperationReference, CachedOperation?
+    ClassicallyControlledUnitary(ExpressionId),
     QuditInitialization(ExpressionId),
 }
 

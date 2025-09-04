@@ -2,10 +2,9 @@ use egg::*;
 use num::Signed;
 use num::Zero;
 use ordered_float::NotNan;
-use rustc_hash::FxHashMap;
 
-use crate::complex::ComplexExpression;
-use crate::expression::Expression;
+use crate::ComplexExpression;
+use crate::Expression;
 
 #[cfg(test)]
 mod extract;

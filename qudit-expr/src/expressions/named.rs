@@ -1,3 +1,8 @@
+use itertools::Itertools;
+use std::ops::{Deref, DerefMut};
+
+use crate::ComplexExpression;
+
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct ExpressionBody {
     body: Vec<ComplexExpression>,
@@ -134,9 +139,9 @@ pub struct NamedExpression {
 }
 
 impl NamedExpression {
-    pub fn new<B: Into<ExpressionBody>>(name: String, variables: Vec<String>, body: B) -> Self {
+    pub fn new<S: Into<String>, B: Into<ExpressionBody>>(name: S, variables: Vec<String>, body: B) -> Self {
         Self {
-            name,
+            name: name.into(),
             body: BoundExpressionBody::new(variables, body)
         }
     }
@@ -167,15 +172,15 @@ impl NamedExpression {
     }
 }
 
-impl AsRef<NamedExpression> for NamedExpression {
-    fn as_ref(&self) -> &NamedExpression {
-        self
-    }
-}
-
 impl AsRef<[ComplexExpression]> for NamedExpression {
     fn as_ref(&self) -> &[ComplexExpression] {
         self.elements()
+    }
+}
+
+impl AsRef<BoundExpressionBody> for NamedExpression {
+    fn as_ref(&self) -> &BoundExpressionBody {
+        &self.body
     }
 }
 
