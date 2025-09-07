@@ -1,6 +1,6 @@
 use inkwell::execution_engine::JitFunction;
 use inkwell::{context::Context, execution_engine::ExecutionEngine};
-use qudit_core::ComplexScalar;
+use qudit_core::{ComplexScalar, RealScalar};
 
 use std::borrow::Cow;
 use std::ffi::{CStr, CString};
@@ -13,6 +13,8 @@ use llvm_sys::execution_engine::{LLVMCreateJITCompilerForModule, LLVMDisposeExec
 use llvm_sys::prelude::LLVMModuleRef;
 
 use inkwell::module::Module as InkwellModule;
+
+use crate::WriteFunc;
 
 use super::builder::DifferentiationLevel;
 use super::{process_name_for_gen, UtryGradFunc, UtryFunc};
@@ -42,14 +44,14 @@ fn convert_c_string(c_str: *mut i8) -> String {
 }
 
 #[derive(Debug)]
-pub struct Module<C: ComplexScalar> {
+pub struct Module<R: RealScalar> {
     engine: Rc<LLVMExecutionEngineRef>,
     module: LLVMModuleRef,
     context: Context,
-    phantom: std::marker::PhantomData<C>,
+    phantom: std::marker::PhantomData<R>,
 }
 
-impl<C: ComplexScalar> Module<C> {
+impl<R: RealScalar> Module<R> {
     pub fn new(module_name: &str) -> Self {
         unsafe {
             let core_context = LLVMContextCreate();
@@ -99,28 +101,18 @@ impl<C: ComplexScalar> Module<C> {
         &self.context
     }
 
-    pub fn get_function<'a>(&'a self, name: &str) -> Option<JitFunction<'a, UtryFunc<C>>> {
+    pub fn get_function<'a>(&'a self, name: &str) -> Option<JitFunction<'a, WriteFunc<R>>> {
         let name = process_name_for_gen(name);
         unsafe { self.engine().get_function(&name).ok() }
     }
 
-    pub unsafe fn get_function_raw(&self, name: &str) -> UtryFunc<C> {
+    pub unsafe fn get_function_raw(&self, name: &str) -> WriteFunc<R> {
         let name = process_name_for_gen(name);
-        self.engine().get_function(&name).unwrap().as_raw()
-    }
-
-    pub fn get_function_and_gradient<'a>(&'a self, name: &str) -> Option<JitFunction<'a, UtryFunc<C>>> {
-        let name = process_name_for_gen(name) + "_grad";
-        unsafe { self.engine().get_function(&name).ok() }
-    }
-
-    pub unsafe fn get_function_and_gradient_raw(&self, name: &str) -> UtryFunc<C> {
-        let name = process_name_for_gen(name) + "_grad";
         self.engine().get_function(&name).unwrap().as_raw()
     }
 }
 
-impl<C: ComplexScalar> Drop for Module<C> {
+impl<R: RealScalar> Drop for Module<R> {
     fn drop(&mut self) {
         assert_eq!(Rc::strong_count(&self.engine), 1);
         unsafe { 
@@ -129,7 +121,7 @@ impl<C: ComplexScalar> Drop for Module<C> {
     }
 }
 
-impl<C: ComplexScalar> std::fmt::Display for Module<C> {
+impl<R: RealScalar> std::fmt::Display for Module<R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.module().print_to_string().to_string().fmt(f)
     }

@@ -6,7 +6,7 @@ use qudit_core::{ComplexScalar, RealScalar};
 
 use crate::expressions::{ExpressionBody, NamedExpression};
 use crate::index::TensorIndex;
-use crate::{GenerationShape, Module, WriteFunc};
+use crate::{DifferentiationLevel, GenerationShape, Module, ModuleBuilder, WriteFunc, FUNCTION, GRADIENT};
 use crate::TensorExpression;
 use qudit_core::c32;
 use qudit_core::c64;
@@ -22,6 +22,42 @@ pub struct CachedExpressionBody {
 impl CachedExpressionBody {
     pub fn num_elements(&self) -> usize {
         self.func.num_elements()
+    }
+
+    pub fn differentiate(&mut self, diff_level: DifferentiationLevel) {
+        if diff_level == FUNCTION {
+            return
+        }
+
+        if diff_level == GRADIENT {
+            if self.grad.is_some() {
+                return
+            }
+
+            
+
+                // let mut grad_exprs = vec![];
+                // for variable in &variables {
+                //     for expr in &exprs {
+                //         let grad_expr = expr.differentiate(&variable);
+                //         grad_exprs.push(grad_expr);
+                //     }
+                // }
+
+                // let mut hess_exprs = vec![];
+                // for variable in &variables {
+                //     for expr in &grad_exprs {
+                //         let hess_expr = expr.differentiate(&variable);
+                //         hess_exprs.push(hess_expr);
+                //     }
+                // }
+
+                // let simplified_exprs = simplify_expressions(exprs
+                //     .into_iter()
+                //     .chain(grad_exprs.into_iter())
+                //     .chain(hess_exprs.into_iter())
+                //     .collect());
+        }
     }
 }
 
@@ -58,6 +94,10 @@ impl CachedTensorExpression {
         }
     }
 
+    pub fn differentiate(&mut self, diff_level: DifferentiationLevel) {
+        self.expressions.differentate(diff_level)
+    }
+
     pub fn num_elements(&self) -> usize {
         self.expressions.num_elements()
     }
@@ -89,8 +129,8 @@ pub struct ExpressionCache {
     expressions: BTreeMap<ExpressionId, CachedTensorExpression>,
     id_lookup: BTreeMap<ExpressionId, ExpressionId>, // Maps derived expressions to their base id
     name_lookup: BTreeMap<String, Vec<ExpressionId>>, // Name to base expression ids
-    module32: Option<Module<c32>>,
-    module64: Option<Module<c64>>,
+    module32: Option<Module<f32>>,
+    module64: Option<Module<f64>>,
     id_counter: ExpressionId
 }
 
@@ -180,8 +220,17 @@ impl ExpressionCache {
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
         modifiers.1
     }
+    
+    pub fn base_name(&self, expr_id: ExpressionId) -> String {
+        let base_id = self.id_lookup.get(&expr_id)
+            .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
+        let cexpr = self.expressions.get(base_id)
+            .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
+        
+       cexpr.name.clone()
+    }
 
-    pub fn name(&mut self, expr_id: ExpressionId) -> String {
+    pub fn name(&self, expr_id: ExpressionId) -> String {
         let base_id = self.id_lookup.get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
         let cexpr = self.expressions.get(base_id)
@@ -251,18 +300,49 @@ impl ExpressionCache {
         new_id
     }
 
-    pub fn compile<C: ComplexScalar>(&mut self) {
-        todo!()
+    fn _get_module<R: RealScalar>(&self) -> &Option<Module<R>> {
+        if std::any::TypeId::of::<R>() == std::any::TypeId::of::<f32>() {
+            // Safety: Just checked exact type id
+            unsafe { std::mem::transmute(&self.module32) }
+        } else if std::any::TypeId::of::<R>() == std::any::TypeId::of::<f64>() {
+            // Safety: Just checked exact type id
+            unsafe { std::mem::transmute(&self.module64) }
+        } else {
+            unreachable!()
+        }
     }
 
-    pub fn module<C: ComplexScalar>(&mut self) {
-        // if not compiled:
-            self.compile::<C>();
+    pub fn is_compiled<R: RealScalar>(&self) -> bool {
+        self._get_module::<R>().is_some()
+    }
+
+    pub fn differentiate(&mut self, diff_level: DifferentiationLevel) {
+        for (_, cexpr) in self.expressions {
+            cexpr.differentiate(diff_level)
+        }
+    }
+
+    pub fn compile<R: RealScalar>(&mut self) {
+        // create module builder
+        let module_builder: ModuleBuilder<R> = ModuleBuilder::new("cache");
+        // For each base expression
+            // create compilation unit
+            // add to module builder
+        // build and place in the place I want
         todo!()
     }
 
     pub fn get_fn<R: RealScalar>(&mut self, expr_id: ExpressionId) -> WriteFunc<R> {
-        todo!()
+        if !self.is_compiled::<R>() {
+            self.compile::<R>();
+        }
+        let module = self._get_module().as_ref().expect("Module should exist due to previous compilation.");
+        // Safety: will compile for all expressions before getting this function
+        // TODO: another safety value needs to expressed: WriteFunc is only valid while we haven't
+        // compiled again
+        unsafe {
+            module.get_function_raw(&self.base_name(expr_id))
+        }
     }
 
     pub fn get_output_map<R: RealScalar>(&self, expr_id: ExpressionId) -> Vec<u64> {

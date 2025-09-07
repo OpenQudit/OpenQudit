@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use super::{codegen::CodeGenerator, module::Module};
-use qudit_core::{TensorShape, ComplexScalar, ParamIndices, QuditSystem};
+use num::traits::real::Real;
+use qudit_core::{ComplexScalar, ParamIndices, QuditSystem, RealScalar, TensorShape};
 
 use crate::{analysis::{simplify_expressions, simplify_matrix_and_matvec}, Expression, expressions::JittableExpression, TensorExpression, UnitaryExpression, GenerationShape};
 
@@ -114,7 +115,7 @@ impl CompilableUnit {
         }
     }
     
-    pub fn add_to_module<C: ComplexScalar>(&self, module: &Module<C>) {
+    pub fn add_to_module<R: RealScalar>(&self, module: &Module<R>) {
         // println!("Adding fn_name: {} to module.", self.fn_name);
         // for expr in &self.exprs {
         //     println!("{:?}", expr);
@@ -313,13 +314,13 @@ pub const HESSIAN: DifferentiationLevel = 2;
 //     }
 // }
 
-pub struct ModuleBuilder<C: ComplexScalar, const D: DifferentiationLevel> {
+pub struct ModuleBuilder<R: RealScalar> {
     name: String,
     exprs: Vec<CompilableUnit>,
-    _phantom_c: std::marker::PhantomData<C>,
+    _phantom_c: std::marker::PhantomData<R>,
 }
 
-impl<C: ComplexScalar, const D: DifferentiationLevel> ModuleBuilder<C, D> {
+impl<R: RealScalar> ModuleBuilder<R> {
     pub fn new(name: &str) -> Self {
         ModuleBuilder {
             name: name.to_string(),
@@ -339,7 +340,7 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> ModuleBuilder<C, D> {
     //     let exprs: Vec<Expression> = body.into_iter().map(|c| vec![c.real, c.imag]).flatten().collect();
     // }
 
-    pub fn add_tensor_expression(mut self, expr: TensorExpression) -> Self {
+    pub fn add_tensor_expression<const D: DifferentiationLevel>(mut self, expr: TensorExpression) -> Self {
         let (name, variables, body, indices) = expr.destruct();
         let exprs: Vec<Expression> = body.into_iter().map(|c| vec![c.real, c.imag]).flatten().collect();
         let unit_size = exprs.len();
@@ -409,113 +410,7 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> ModuleBuilder<C, D> {
         self
     }
 
-    // pub fn add_tensor_expression_with_param_indices(mut self, expr: TensorExpression, indices: ParamIndices) -> Self {
-    //     let shape = expr.generation_shape();
-    //     let TensorExpression { name, variables, body, .. } = expr;
-    //     let exprs: Vec<Expression> = body.into_iter().map(|c| vec![c.real, c.imag]).flatten().collect();
-
-    //     match D {
-    //         FUNCTION => {
-    //             let unit = CompilableUnitBuilder::new()
-    //                 .name(&name)
-    //                 .exprs(exprs.clone())
-    //                 .variable_list(variables.clone())
-    //                 .indices(indices.clone())
-    //                 .gen_shape(shape.clone())
-    //                 .build::<C>();
-    //             self.exprs.push(unit);
-    //         }
-    //         GRADIENT => {
-    //             let mut grad_exprs = vec![];
-    //             for variable in &variables {
-    //                 for expr in &exprs {
-    //                     let grad_expr = expr.differentiate(&variable);
-    //                     grad_exprs.push(grad_expr);
-    //                 }
-    //             }
-
-    //             let simplified_exprs = simplify_expressions(exprs.into_iter().chain(grad_exprs.into_iter()).collect());
-    //             let unit = CompilableUnitBuilder::new()
-    //                 .name(&name)
-    //                 .exprs(simplified_exprs)
-    //                 .variable_list(variables.clone())
-    //                 .indices(indices)
-    //                 .gen_shape(shape.gradient_shape(1 + variables.len()))
-    //                 .build::<C>();
-    //             self.exprs.push(unit);
-    //         }
-    //         HESSIAN => {
-    //             let mut grad_exprs = vec![];
-    //             for variable in &variables {
-    //                 for expr in &exprs {
-    //                     let grad_expr = expr.differentiate(&variable);
-    //                     grad_exprs.push(grad_expr);
-    //                 }
-    //             }
-
-    //             let mut hess_exprs = vec![];
-    //             for variable in &variables {
-    //                 for expr in &grad_exprs {
-    //                     let hess_expr = expr.differentiate(&variable);
-    //                     hess_exprs.push(hess_expr);
-    //                 }
-    //             }
-
-    //             let simplified_exprs = simplify_expressions(exprs
-    //                 .into_iter()
-    //                 .chain(grad_exprs.into_iter())
-    //                 .chain(hess_exprs.into_iter())
-    //                 .collect());
-
-    //             let unit = CompilableUnitBuilder::new()
-    //                 .name(&name)
-    //                 .exprs(simplified_exprs)
-    //                 .variable_list(variables.clone())
-    //                 .indices(indices)
-    //                 .gen_shape(shape.gradient_shape(1 + variables.len()))
-    //                 .build::<C>();
-    //             self.exprs.push(unit);
-    //         }
-    //         _ => panic!("Invalid differentiation level."),
-    //     }
-
-    //     self
-    // }
-
-    // pub fn add_tensor_expression_with_param_indices(mut self, expr: TensorExpression, param_indices: ParamIndices) -> Self {
-    //     let TensorExpression { name, shape, variables, body, dimensions } = expr;
-    //     let exprs = body.into_iter().map(|c| vec![c.real, c.imag]).flatten().collect();
-    //     match shape {
-    //         TensorGenerationShape::Scalar => {
-    //             let compilable_unit = CompilableUnit::new(&name, exprs, variables);
-    //             self.exprs.push(compilable_unit);
-    //         }
-    //         TensorGenerationShape::Vector(length) => {
-    //             let compilable_unit = CompilableUnit::new(&name, exprs, variables);
-    //             self.exprs.push(compilable_unit);
-    //         }
-    //         TensorGenerationShape::Matrix(nrows, ncols) => {
-    //             let col_stride = qudit_core::memory::calc_col_stride::<C>(nrows, ncols);
-    //             let compilable_unit = CompilableUnit::new_with_matrix_out_buffer(&name, exprs, variables, nrows, ncols, col_stride);
-    //             self.exprs.push(compilable_unit);
-    //         }
-    //         TensorGenerationShape::Tensor(nrows, ncols, nmats) => {
-    //             let col_stride = qudit_core::memory::calc_col_stride::<C>(nrows, ncols);
-    //             let mat_stride = qudit_core::memory::calc_mat_stride::<C>(nrows, ncols, col_stride);
-    //             let compilable_unit = CompilableUnit::new_with_matvec_out_buffer(&name, exprs, variables, nrows, ncols, col_stride, mat_stride);
-    //             self.exprs.push(compilable_unit);
-    //         }
-    //     }
-
-    //     if !self.diff_lvl.gradient_capable() {
-    //         return self;
-    //     }
-
-    //     todo!()
-    //     // self
-    // }
-
-    pub fn build(self) -> Module<C> {
+    pub fn build(self) -> Module<R> {
         let module = Module::new(&self.name);
         for expr in &self.exprs {
             expr.add_to_module(&module);

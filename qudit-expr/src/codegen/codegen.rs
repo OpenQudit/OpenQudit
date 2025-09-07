@@ -4,8 +4,10 @@ use inkwell::values::FunctionValue;
 use inkwell::AddressSpace;
 
 use coe::is_same;
+use num::traits::real::Real;
 use qudit_core::c32;
 use qudit_core::c64;
+use qudit_core::RealScalar;
 use std::collections::HashMap;
 use qudit_core::ComplexScalar;
 
@@ -32,8 +34,8 @@ impl CodeGenError {
 type CodeGenResult<T> = Result<T, CodeGenError>;
 
 #[derive(Debug)]
-pub struct CodeGenerator<'ctx, C: ComplexScalar> {
-    pub context: &'ctx Module<C>,
+pub struct CodeGenerator<'ctx, R: RealScalar> {
+    pub context: &'ctx Module<R>,
     pub builder: Builder<'ctx>,
 
     variables: HashMap<String, FloatValue<'ctx>>,
@@ -41,11 +43,10 @@ pub struct CodeGenerator<'ctx, C: ComplexScalar> {
     functions: HashMap<String, FunctionValue<'ctx>>,
     fn_value_opt: Option<FunctionValue<'ctx>>,
     output_ptr_idx: Option<u32>,
-    phantom: std::marker::PhantomData<C>,
 }
 
-impl<'ctx, C: ComplexScalar> CodeGenerator<'ctx, C> {
-    pub fn new(context: &'ctx Module<C>) -> Self {
+impl<'ctx, R: RealScalar> CodeGenerator<'ctx, R> {
+    pub fn new(context: &'ctx Module<R>) -> Self {
         let builder = context.context().create_builder();
         CodeGenerator {
             context,
@@ -55,14 +56,13 @@ impl<'ctx, C: ComplexScalar> CodeGenerator<'ctx, C> {
             expressions: HashMap::new(),
             fn_value_opt: None,
             output_ptr_idx: None,
-            phantom: std::marker::PhantomData,
         }
     }
 
     fn int_type(&self) -> inkwell::types::IntType<'ctx> { 
-        if is_same::<C, c32>() {
+        if is_same::<R, f32>() {
             self.context.context().i32_type()
-        } else if is_same::<C, c64>() {
+        } else if is_same::<R, f64>() {
             self.context.context().i64_type()
         } else {
             panic!("Unknown bit width");
@@ -70,26 +70,15 @@ impl<'ctx, C: ComplexScalar> CodeGenerator<'ctx, C> {
     }
 
     fn float_type(&self) -> inkwell::types::FloatType<'ctx> {
-        if is_same::<C, c32>() {
+        if is_same::<R, f32>() {
             self.context.context().f32_type()
-        } else if is_same::<C, c64>() {
+        } else if is_same::<R, f64>() {
             self.context.context().f64_type()
         } else {
             panic!("Unknown bit width");
         }
     }
 
-    // /// Function signature for a JIT-compiled expression
-    // ///
-    // /// # Params
-    // ///
-    // /// * (*const R): Pointer to input parameter vector
-    // /// * (*mut R): Pointer to output buffer
-    // /// * (*const u64): Pointer to parameter map
-    // /// * (*const u64): Pointer to output map
-    // /// * (u64): offset for each function unit (0*offset = function, 1*offset = first partial grad, ..)
-    // /// * (*const bool): Pointer to constant parameter map
-    // pub type WriteFunc<R> = unsafe extern "C" fn(*const R, *mut R, *const u64, *const u64, u64, *const bool);
     fn gen_write_func_proto(&self, name: &str) -> CodeGenResult<FunctionValue<'ctx>> {
         let ret_type = self.context.context().void_type();
         let ptr_type = self.context.context().ptr_type(AddressSpace::default());
