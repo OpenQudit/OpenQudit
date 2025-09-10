@@ -185,7 +185,7 @@ impl QuditTensorNetwork {
 
         for subgraph in self.get_subnetworks() {
             let input = self.build_trivial_contraction_paths(subgraph);
-            let path = if input.len() < 12 {
+            let path = if input.len() < 7 {
                 ContractionPath::solve_optimal_simple(input)
             } else {
                 ContractionPath::solve_greedy_simple(input)

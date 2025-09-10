@@ -1,5 +1,5 @@
 mod instantiater;
-mod numerical;
+pub mod numerical;
 mod qfactor;
 mod result;
 mod target;
@@ -29,6 +29,7 @@ mod tests {
     use qudit_expr::FUNCTION;
     use qudit_expr::GRADIENT;
     use crate::numerical::functions::HSProblem;
+    use crate::numerical::initializers::GreedyFurthestPoint;
     use crate::numerical::runners::MultiStartRunner;
     use crate::numerical::minimizers::LM;
     use crate::numerical::initializers::Zeros;
@@ -47,7 +48,7 @@ mod tests {
         }
         for _ in 0..2 {
             for i in 0..(n - 1) {
-                circ.append_parameterized(Gate::Expression(block_expr.clone()), [i, i+1]);
+                circ.append_parameterized(block_expr.clone(), [i, i+1]);
             }
         }
         circ
@@ -144,7 +145,7 @@ mod tests {
         // sample target
         let network = circ.to_tensor_network();
         let code = qudit_tensor::compile_network(network);
-        let mut tnvm = qudit_tensor::TNVM::<c64, GRADIENT>::new(&code);
+        let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
         let result = tnvm.evaluate::<FUNCTION>(&vec![1.7; circ.num_params()]).get_fn_result().unpack_matrix();
         let target_utry = UnitaryMatrix::new(circ.radices(), result.to_owned());
         // let target_utry = UnitaryMatrix::new([2, 2], mat![
@@ -159,12 +160,36 @@ mod tests {
         let minimizer = LM::default();
         // let initializer = Zeros::default();
         let initializer = Uniform::default();
+        // let initializer = GreedyFurthestPoint::default();
         let runner = MultiStartRunner { minimizer, guess_generator: initializer, num_starts: 1 };
-        let instantiater = MinimizingInstantiater::<_, HSProblem<f64>>::new(runner);
+        let instantiater = MinimizingInstantiater::<_, HSProblem<f32>>::new(runner);
         let data = std::collections::HashMap::new();
 
         // call instantiater
         let result = instantiater.instantiate(&circ, &target, &data);
+        let mut success_times = vec![];
+        let mut failure_times = vec![];
+        for _ in 0..1000 {
+            let now = std::time::Instant::now();
+            let result = instantiater.instantiate(&circ, &target, &data);
+            let elapsed = now.elapsed();
+            if let Some(f) = result.fun {
+                if f < 1e-4 {
+                    success_times.push(elapsed);
+                } else {
+                    failure_times.push(elapsed);
+                }
+            }
+        }
+        println!("Number of successes: {:?}", success_times.len());
+        println!("Number of failures: {:?}", failure_times.len());
+        let average_success_time = success_times.iter().cloned().sum::<std::time::Duration>()/(success_times.len() as u32);
+        let average_failure_time = failure_times.iter().cloned().sum::<std::time::Duration>()/(failure_times.len() as u32);
+        let average_time = success_times.iter().chain(failure_times.iter()).cloned().sum::<std::time::Duration>()/1000;
+        println!("Average success time: {:?}", average_success_time); 
+        println!("Average failure time: {:?}", average_failure_time); 
+        println!("Average overall time: {:?}", average_time); 
+        // println!("Instantiation took: {:?}", elapsed/100);
     }
 }
 

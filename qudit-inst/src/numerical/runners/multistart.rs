@@ -31,7 +31,7 @@ where
             // println!("Minimization took: {:?}", elapsed/100);
 
             let res = self.minimizer.minimize(&mut func, &x0);
-            println!("{}", res.fun);
+            // println!("{}", res.fun);
             match &mut best {
                 None => best = Some(res),
                 Some(b) if res.fun < b.fun => *b = res,
