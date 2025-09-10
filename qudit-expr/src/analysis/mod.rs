@@ -1099,6 +1099,30 @@ pub fn simplify_matrix(matrix_expression: &Vec<Vec<ComplexExpression>>) -> Vec<V
     simplified_matrix
 }
 
+pub fn simplify_expressions_iter<'a>(expression: impl Iterator<Item = &'a Expression>) -> Vec<Expression> {
+    let mut runner: Runner<TrigLanguage, ConstantFold> = Runner::default();
+
+    let mut num_expressions = 0;
+    for expr in expression {
+        let expr: RecExpr<TrigLanguage> = to_egg_expr(&expr);
+        runner = runner.with_expr(&expr);
+        num_expressions += 1;
+    }
+
+    runner = runner.run(&make_rules());
+    let mut extractor = TrigExprExtractor::new(&runner.egraph);
+
+    let mut simplified_expressions = vec![];
+    
+    for i in 0..num_expressions {
+        let root = runner.roots[i];
+        let best = extractor.extract_best(root);
+        simplified_expressions.push(from_egg_expr(best));
+    }
+
+    simplified_expressions
+}
+
 pub fn simplify_expressions(expression: Vec<Expression>) -> Vec<Expression> {
     let mut runner: Runner<TrigLanguage, ConstantFold> = Runner::default();
 

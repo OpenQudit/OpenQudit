@@ -1,17 +1,17 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
-use qudit_core::{ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, QuditSystem, ToRadices};
+use qudit_core::{ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, ParamInfo, QuditSystem, ToRadices};
 
 use indexmap::IndexSet;
 use qudit_core::{QuditRadices, RealScalar, c64};
 use qudit_expr::index::{IndexDirection, IndexSize, TensorIndex};
 use qudit_gates::Gate;
-use qudit_expr::{StateExpression, TensorExpression};
+use qudit_expr::{BraSystemExpression, KetExpression, KrausOperatorsExpression, TensorExpression, UnitaryExpression};
 // use qudit_tensor::{BuilderExpressionInput, ExpressionTree, TreeBuilder, TreeOptimizer};
 use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
 use crate::location::{self, ToLocation};
-use crate::operation::ControlState;
+use crate::operation::{CachedOperation, ControlState};
 use crate::param::{ParamEntries, Parameter};
 use crate::point::CircuitDitId;
 use crate::{OperationSet};
@@ -423,7 +423,7 @@ impl QuditCircuit {
     //     self.append(op_ref, location, params.into());
     // }
 
-    fn append_ref(&mut self, op_ref: OperationReference, location: CircuitLocation, params: ParamIndices) {
+    fn _append_ref(&mut self, op_ref: OperationReference, location: CircuitLocation, params: ParamIndices) {
         // TODO: check valid operation for radix match, measurement bandwidth etc
         
         // TODO: check params is valid: length is equal to op_params, existing exist, etc..
@@ -470,7 +470,27 @@ impl QuditCircuit {
         self.cycles[cycle_index].push(inst_ref);
     }
 
-    pub fn append_parameterized<O: Into<Operation>, L: Into<CircuitLocation>>(&mut self, op: O, loc: L) {
+    pub fn append_ref_parameterized<L: Into<CircuitLocation>>(&mut self, op_ref: OperationReference, loc: L) {
+        let loc = loc.into();
+
+        let num_params = match self.operations.num_params(&op_ref) {
+            None => panic!("Operation reference is invalid."),
+            Some(n) => n,
+        };
+
+        let param_indices = ParamIndices::Joint(self.num_params(), num_params);
+        for _ in 0..num_params {
+            self.params.push(Parameter::Indexed);
+        }
+
+        self._append_ref(op_ref, loc, param_indices);
+    }
+
+    pub fn cache_operation<O: Into<Operation>>(&mut self, op: O) -> OperationReference {
+        self.operations.insert(op.into())
+    }
+
+    pub fn append_parameterized<O: Into<Operation>, L: Into<CircuitLocation>>(&mut self, op: O, loc: L) -> OperationReference {
         let op = op.into();
         let loc = loc.into();
 
@@ -480,10 +500,34 @@ impl QuditCircuit {
         }
         let op_ref = self.operations.insert(op);
 
-        self.append_ref(op_ref, loc, param_indices);
+        self._append_ref(op_ref.clone(), loc, param_indices);
+
+        op_ref
     }
 
-    pub fn append_specified<O, L, P>(&mut self, op: O, loc: L, params: P)
+    pub fn append_ref_constant<L: Into<CircuitLocation>, R: RealScalar>(&mut self, op_ref: OperationReference, loc: L, params: Vec<R>)
+    {
+        let loc = loc.into();
+
+        let num_params = match self.operations.num_params(&op_ref) {
+            None => panic!("Operation reference is invalid."),
+            Some(n) => n,
+        };
+
+        if params.len() != num_params {
+            panic!("Invalid number of parameters");
+        }
+
+        let param_indices = ParamIndices::Joint(self.num_params(), num_params);
+        for p in params {
+            // TODO: this is just horrible...
+            self.params.push(Parameter::Static(Constant::from_float(p.to64()).unwrap()));
+        }
+
+        self._append_ref(op_ref, loc, param_indices);
+    }
+
+    pub fn append_specified<O, L, P>(&mut self, op: O, loc: L, params: P) -> OperationReference
     where
         O: Into<Operation>,
         L: Into<CircuitLocation>,
@@ -514,30 +558,38 @@ impl QuditCircuit {
 
         // Substitute params into op
         let subbed_op = match op {
-            Operation::UnitaryGate(g) => {
-                let subbed_expr = g.gen_expr().to_tensor_expression().substitute_parameters(&unique_variables, &expressions).to_unitary_expression();
-                Operation::UnitaryGate(Gate::Expression(subbed_expr))
+            Operation::UnitaryGate(e) => {
+                let e: TensorExpression = e.into();
+                let subbed_expr: UnitaryExpression = e.substitute_parameters(&unique_variables, &expressions).try_into().unwrap();
+                Operation::UnitaryGate(subbed_expr)
             }
-            Operation::KrausOperators(k) => {
-                Operation::KrausOperators(k.substitute_parameters(&unique_variables, &expressions))
+            Operation::KrausOperators(e) => {
+                let e: TensorExpression = e.into();
+                let subbed_expr: KrausOperatorsExpression = e.substitute_parameters(&unique_variables, &expressions).try_into().unwrap();
+                Operation::KrausOperators(subbed_expr)
             }
-            Operation::TerminatingMeasurement(t) => {
-                let subbed_expr = t.to_tensor_expression().substitute_parameters(&unique_variables, &expressions).to_state_system_expression();
+            Operation::TerminatingMeasurement(e) => {
+                let e: TensorExpression = e.into();
+                let subbed_expr: BraSystemExpression = e.substitute_parameters(&unique_variables, &expressions).try_into().unwrap();
                 Operation::TerminatingMeasurement(subbed_expr)
             }
-            Operation::ClassicallyControlledUnitary(g, c) => {
-                let subbed_expr = g.gen_expr().to_tensor_expression().substitute_parameters(&unique_variables, &expressions).to_unitary_expression();
-                Operation::ClassicallyControlledUnitary(Gate::Expression(subbed_expr), c)
+            Operation::ClassicallyControlledUnitary(e) => {
+                let e: TensorExpression = e.into();
+                let subbed_expr: KrausOperatorsExpression = e.substitute_parameters(&unique_variables, &expressions).try_into().unwrap();
+                Operation::ClassicallyControlledUnitary(subbed_expr)
             }
-            Operation::QuditInitialization(s) => {
-                let subbed_expr = s.to_tensor_expression().substitute_parameters(&unique_variables, &expressions).to_state_expression();
+            Operation::QuditInitialization(e) => {
+                let e: TensorExpression = e.into();
+                let subbed_expr: KetExpression = e.substitute_parameters(&unique_variables, &expressions).try_into().unwrap();
                 Operation::QuditInitialization(subbed_expr)
             }
         };
 
         let op_ref = self.operations.insert(subbed_op);
 
-        self.append_ref(op_ref, loc, param_indices);
+        self._append_ref(op_ref.clone(), loc, param_indices);
+
+        op_ref
     }
 
     // /// Shorthand for appending aate without caring about the gate parameters
@@ -884,8 +936,34 @@ impl QuditCircuit {
     }
 
     pub fn as_tensor_network_builder(&self) -> QuditCircuitTensorNetworkBuilder {
-        todo!()
-        // let mut network = QuditCircuitTensorNetworkBuilder::new(self.qudit_radices());
+        let mut network = QuditCircuitTensorNetworkBuilder::new(self.qudit_radices(), Some(self.operations.expressions()));
+
+        for inst_ref in self.iter() {
+            let cached_op = self.operations.get_cached(&inst_ref.op).unwrap();
+            match cached_op {
+                CachedOperation::UnitaryGate(expr_id) => {
+                    let indices = self.operations.indices(*expr_id);
+                    let constant = inst_ref.param_indices.iter().map(|i| matches!(self.params[i], Parameter::Static(_))).collect();
+                    let param_info = ParamInfo::new(inst_ref.param_indices.clone(), constant); 
+                    let tensor = QuditTensor::new(indices, *expr_id, param_info);
+                    network = network.prepend(tensor, inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), vec![]);
+                }
+                CachedOperation::KrausOperators(expr_id) => {
+                    todo!()
+                }
+                CachedOperation::TerminatingMeasurement(expr_id) => {
+                    todo!()
+                }
+                CachedOperation::ClassicallyControlledUnitary(expr_id) => {
+                    todo!()
+                }
+                CachedOperation::QuditInitialization(expr_id) => {
+                    todo!()
+                }
+            }
+        }
+
+        network
         // for inst_ref in self.iter() {
         //     let op_ref = inst_ref.op.dereference(self);
         //     match op_ref {
@@ -997,12 +1075,12 @@ mod tests {
     use qudit_core::radices;
     use qudit_core::QuditRadices;
     use qudit_expr::DifferentiationLevel;
-    use qudit_expr::StateSystemExpression;
     use qudit_tensor::Bytecode;
     use crate::CircuitLocation;
     use qudit_core::unitary::UnitaryMatrix;
     use qudit_core::unitary::UnitaryFn;
     use qudit_expr::{FUNCTION, GRADIENT};
+    use qudit_expr::ExpressionGenerator;
 
     pub fn different_ways_to_add_an_operation() -> QuditCircuit {
         let mut circ = QuditCircuit::new([2, 2, 3], [2, 2, 3]);
@@ -1032,14 +1110,14 @@ mod tests {
     }
 
     pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
-        let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
+        let block_expr = Gate::U3().generate_expression().otimes(&Gate::U3().generate_expression()).dot(&Gate::CX().generate_expression());
         let mut circ = QuditCircuit::pure(vec![2; n]);
         for i in 0..n {
-            circ.append_uninit_gate(Gate::U3(), [i]);
+            circ.append_parameterized(Gate::U3(), [i]);
         }
         for _ in 0..n {
             for i in 0..(n - 1) {
-                circ.append_uninit_gate(Gate::Expression(block_expr.clone()), [i, i+1]);
+                circ.append_parameterized(Gate::Expression(block_expr.clone()), [i, i+1]);
                 // circ.append_gate(Gate::CX(), loc![i, i + 1], vec![]);
                 // circ.append_gate(Gate::U3(), loc![i], vec![]);
                 // circ.append_gate(Gate::U3(), loc![i + 1], vec![]);
@@ -1061,11 +1139,17 @@ mod tests {
     fn build_qsearch_thin_step_circuit_to_tensor_test() {
         const n: usize = 3;
 
-        // let mut circ: QuditCircuit<c64> = QuditCircuit::new(radices![2; n], 0);
+        // let mut circ: QuditCircuit = QuditCircuit::pure(radices![2; n]);
         // for i in 0..n {
-        //     circ.append_gate(Gate::U3(), loc![i], vec![]);
+        //     circ.append_parameterized(Gate::U3(), i);
         // }
-        // circ.append_gate(Gate::CP(), loc![0, 1], vec![]);
+        // circ.append_parameterized(Gate::U3(), 1);
+        // let block_expr = Gate::U3().generate_expression().otimes(&Gate::U3().generate_expression()).dot(&Gate::CX().generate_expression());
+        // circ.append_parameterized(block_expr, [0, 1]);
+        // circ.append_parameterized(Gate::CX(), [0, 1]);
+        // for i in 0..n {
+        //     circ.append_parameterized(Gate::U3(), i);
+        // }
         let circ = build_qsearch_thin_step_circuit(n);
 
         // let start = std::time::Instant::now();
@@ -1084,15 +1168,17 @@ mod tests {
         // let code = Bytecode { expressions, const_code, dynamic_code: dynamic_code[..3].to_vec(), buffers };
 
         println!("{:?}", code);
-        let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
-        let start = std::time::Instant::now();
-        for _ in 0..1000 {
-            let result = tnvm.evaluate::<GRADIENT>(&[1.7; (3*n) + (7*(n-1)*n)]);
-        }
-        let elapsed = start.elapsed();
-        println!("Time per evaluation: {:?}", elapsed / 1000);
-        // let unitary = result.get_fn_result().unpack_matrix();
-        // println!("{:?}", unitary);
+        let mut tnvm = qudit_tensor::TNVM::<c32, FUNCTION>::new(&code);
+        // let start = std::time::Instant::now();
+        // for _ in 0..1000 {
+        //     let result = tnvm.evaluate::<FUNCTION>(&[1.7; (3*n) + (7*(n-1)*n)]);
+        // }
+        // let elapsed = start.elapsed();
+        // println!("Time per evaluation: {:?}", elapsed / 1000);
+
+        let result = tnvm.evaluate::<FUNCTION>(&[1.7; (3*n) + (7*(n-1)*n)]);
+        let unitary = result.get_fn_result().unpack_matrix();
+        println!("{:?}", unitary);
     }
 
     // #[test]
@@ -1119,159 +1205,159 @@ mod tests {
     //     // println!("{:?}", unitary);
     // }
 
-    #[test]
-    fn simple_instantiation_structure_test() {
-        let mut circ: QuditCircuit<c32> = QuditCircuit::new([2], [2, 2, 2]);
-        circ.append_uninit_gate(Gate::U3(), [0]);
-        let mut builder = circ.as_tensor_network_builder();
-        builder = builder.prepend_unitary(UnitaryMatrix::<c32>::identity(radices![2]), vec![0]);
-        let network = builder.build();
-        let code = qudit_tensor::compile_network(network);
-        let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
-        let result = tnvm.evaluate::<GRADIENT>(&[1.7; 3]);
-        let fn_out = result.get_fn_result().unpack_matrix();
-        let grad_out = result.get_grad_result().unpack_tensor3d();
-    }
+    // #[test]
+    // fn simple_instantiation_structure_test() {
+    //     let mut circ: QuditCircuit<c32> = QuditCircuit::new([2], [2, 2, 2]);
+    //     circ.append_uninit_gate(Gate::U3(), [0]);
+    //     let mut builder = circ.as_tensor_network_builder();
+    //     builder = builder.prepend_unitary(UnitaryMatrix::<c32>::identity(radices![2]), vec![0]);
+    //     let network = builder.build();
+    //     let code = qudit_tensor::compile_network(network);
+    //     let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
+    //     let result = tnvm.evaluate::<GRADIENT>(&[1.7; 3]);
+    //     let fn_out = result.get_fn_result().unpack_matrix();
+    //     let grad_out = result.get_grad_result().unpack_tensor3d();
+    // }
 
-    #[test]
-    fn dynamic_circuit_test2() {
-        let mut circ: QuditCircuit<c32> = QuditCircuit::new([2, 2, 2, 2], [2, 2]);
+    // #[test]
+    // fn dynamic_circuit_test2() {
+    //     let mut circ: QuditCircuit<c32> = QuditCircuit::new([2, 2, 2, 2], [2, 2]);
 
-        circ.zero_initialize([1, 2]);
+    //     circ.zero_initialize([1, 2]);
 
-        for i in 0..4 {
-            circ.append_uninit_gate(Gate::U3(), [i]);
-        }
+    //     for i in 0..4 {
+    //         circ.append_uninit_gate(Gate::U3(), [i]);
+    //     }
 
-        let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
-        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [0, 1], vec![]));
-        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [2, 3], vec![]));
-        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [1, 2], vec![]));
+    //     let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
+    //     circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [0, 1], vec![]));
+    //     circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [2, 3], vec![]));
+    //     circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [1, 2], vec![]));
 
-        let two_qubit_basis_measurement = StateSystemExpression::new("TwoQMeasure() {
-            [
-                [[ 1, 0, 0, 0 ]],
-                [[ 0, 1, 0, 0 ]],
-                [[ 0, 0, 1, 0 ]],
-                [[ 0, 0, 0, 1 ]],
-            ]
-        }");
-        circ.append_instruction(Instruction::new(Operation::TerminatingMeasurement(two_qubit_basis_measurement), ([1, 2], [0,1]), vec![]));
+    //     let two_qubit_basis_measurement = StateSystemExpression::new("TwoQMeasure() {
+    //         [
+    //             [[ 1, 0, 0, 0 ]],
+    //             [[ 0, 1, 0, 0 ]],
+    //             [[ 0, 0, 1, 0 ]],
+    //             [[ 0, 0, 0, 1 ]],
+    //         ]
+    //     }");
+    //     circ.append_instruction(Instruction::new(Operation::TerminatingMeasurement(two_qubit_basis_measurement), ([1, 2], [0,1]), vec![]));
 
-        let cs1 = ControlState::from_binary_state([0,0]);
-        circ.uninit_classically_control(Gate::U3(), cs1.clone(), ([0], [0, 1]));
-        circ.uninit_classically_control(Gate::U3(), cs1.clone(), ([3], [0, 1]));
+    //     let cs1 = ControlState::from_binary_state([0,0]);
+    //     circ.uninit_classically_control(Gate::U3(), cs1.clone(), ([0], [0, 1]));
+    //     circ.uninit_classically_control(Gate::U3(), cs1.clone(), ([3], [0, 1]));
 
-        let cs2 = ControlState::from_binary_state([0,1]);
-        circ.uninit_classically_control(Gate::U3(), cs2.clone(), ([0], [0, 1]));
-        circ.uninit_classically_control(Gate::U3(), cs2.clone(), ([3], [0, 1]));
+    //     let cs2 = ControlState::from_binary_state([0,1]);
+    //     circ.uninit_classically_control(Gate::U3(), cs2.clone(), ([0], [0, 1]));
+    //     circ.uninit_classically_control(Gate::U3(), cs2.clone(), ([3], [0, 1]));
 
-        let cs3 = ControlState::from_binary_state([1,0]);
-        circ.uninit_classically_control(Gate::U3(), cs3.clone(), ([0], [0, 1]));
-        circ.uninit_classically_control(Gate::U3(), cs3.clone(), ([3], [0, 1]));
+    //     let cs3 = ControlState::from_binary_state([1,0]);
+    //     circ.uninit_classically_control(Gate::U3(), cs3.clone(), ([0], [0, 1]));
+    //     circ.uninit_classically_control(Gate::U3(), cs3.clone(), ([3], [0, 1]));
 
-        let cs4 = ControlState::from_binary_state([1,1]);
-        circ.uninit_classically_control(Gate::U3(), cs4.clone(), ([0], [0, 1]));
-        circ.uninit_classically_control(Gate::U3(), cs4.clone(), ([3], [0, 1]));
+    //     let cs4 = ControlState::from_binary_state([1,1]);
+    //     circ.uninit_classically_control(Gate::U3(), cs4.clone(), ([0], [0, 1]));
+    //     circ.uninit_classically_control(Gate::U3(), cs4.clone(), ([3], [0, 1]));
         
-        let network = circ.to_tensor_network();
-        let code = qudit_tensor::compile_network(network);
-        let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
-        let start = std::time::Instant::now();
-        for _ in 0..1000 {
-            let result = tnvm.evaluate::<GRADIENT>(&vec![1.7; circ.num_params()]);
-        }
-        let elapsed = start.elapsed();
-        println!("Time per evaluation: {:?}", elapsed / 1000);
-    }
+    //     let network = circ.to_tensor_network();
+    //     let code = qudit_tensor::compile_network(network);
+    //     let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
+    //     let start = std::time::Instant::now();
+    //     for _ in 0..1000 {
+    //         let result = tnvm.evaluate::<GRADIENT>(&vec![1.7; circ.num_params()]);
+    //     }
+    //     let elapsed = start.elapsed();
+    //     println!("Time per evaluation: {:?}", elapsed / 1000);
+    // }
 
-    #[test]
-    fn dynamic_circuit_test() {
-        let mut circ: QuditCircuit<c32> = QuditCircuit::new([2, 2, 2, 2], [2, 2]);
+    // #[test]
+    // fn dynamic_circuit_test() {
+    //     let mut circ: QuditCircuit<c32> = QuditCircuit::new([2, 2, 2, 2], [2, 2]);
 
-        for i in 0..4 {
-            circ.append_uninit_gate(Gate::U3(), [i]);
-        }
+    //     for i in 0..4 {
+    //         circ.append_uninit_gate(Gate::U3(), [i]);
+    //     }
 
-        let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
+    //     let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
 
-        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [0, 1], vec![]));
-        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [2, 3], vec![]));
-        circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [1, 2], vec![]));
-        // circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), loc![3, 4], vec![]));
+    //     circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [0, 1], vec![]));
+    //     circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [2, 3], vec![]));
+    //     circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), [1, 2], vec![]));
+    //     // circ.append_instruction(Instruction::new(Operation::Gate(Gate::Expression(block_expr.clone())), loc![3, 4], vec![]));
 
-        // let clbits = BitSet::from_bit_vec(&[0b11]);
-        let mut clbits = BitSet::new();
-        clbits.insert(0);
-        clbits.insert(1);
-        // let two_qubit_basis_measurement = StateSystemExpression::new("ThreeQMeasure() {
-        //     [
-        //         [[ 1, 0, 0, 0, 0, 0, 0, 0 ]],
-        //         [[ 0, 1, 0, 0, 0, 0, 0, 0 ]],
-        //         [[ 0, 0, 1, 0, 0, 0, 0, 0 ]],
-        //         [[ 0, 0, 0, 1, 0, 0, 0, 0 ]],
-        //         [[ 0, 0, 0, 0, 1, 0, 0, 0 ]],
-        //         [[ 0, 0, 0, 0, 0, 1, 0, 0 ]],
-        //         [[ 0, 0, 0, 0, 0, 0, 1, 0 ]],
-        //         [[ 0, 0, 0, 0, 0, 0, 0, 1 ]],
-        //     ]
-        // }");
-        let two_qubit_basis_measurement = StateSystemExpression::new("ThreeQMeasure() {
-            [
-                [[ 1, 0, 0, 0 ]],
-                [[ 0, 1, 0, 0 ]],
-                [[ 0, 0, 1, 0 ]],
-                [[ 0, 0, 0, 1 ]],
-            ]
-        }");
-        circ.append_instruction(Instruction::new(Operation::TerminatingMeasurement(two_qubit_basis_measurement), ([1, 2], [0,1]), vec![]));
+    //     // let clbits = BitSet::from_bit_vec(&[0b11]);
+    //     let mut clbits = BitSet::new();
+    //     clbits.insert(0);
+    //     clbits.insert(1);
+    //     // let two_qubit_basis_measurement = StateSystemExpression::new("ThreeQMeasure() {
+    //     //     [
+    //     //         [[ 1, 0, 0, 0, 0, 0, 0, 0 ]],
+    //     //         [[ 0, 1, 0, 0, 0, 0, 0, 0 ]],
+    //     //         [[ 0, 0, 1, 0, 0, 0, 0, 0 ]],
+    //     //         [[ 0, 0, 0, 1, 0, 0, 0, 0 ]],
+    //     //         [[ 0, 0, 0, 0, 1, 0, 0, 0 ]],
+    //     //         [[ 0, 0, 0, 0, 0, 1, 0, 0 ]],
+    //     //         [[ 0, 0, 0, 0, 0, 0, 1, 0 ]],
+    //     //         [[ 0, 0, 0, 0, 0, 0, 0, 1 ]],
+    //     //     ]
+    //     // }");
+    //     let two_qubit_basis_measurement = StateSystemExpression::new("ThreeQMeasure() {
+    //         [
+    //             [[ 1, 0, 0, 0 ]],
+    //             [[ 0, 1, 0, 0 ]],
+    //             [[ 0, 0, 1, 0 ]],
+    //             [[ 0, 0, 0, 1 ]],
+    //         ]
+    //     }");
+    //     circ.append_instruction(Instruction::new(Operation::TerminatingMeasurement(two_qubit_basis_measurement), ([1, 2], [0,1]), vec![]));
 
-        // circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits.clone()), [0], vec![]));
-        // circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits.clone()), [3], vec![]));
-        // circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits), loc![0, 3], vec![]));
+    //     // circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits.clone()), [0], vec![]));
+    //     // circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits.clone()), [3], vec![]));
+    //     // circ.append_instruction(Instruction::new(Operation::ClassicallyControlled(Gate::U3(), clbits), loc![0, 3], vec![]));
 
-        let network = circ.to_tensor_network();
-        let code = qudit_tensor::compile_network(network);
-        let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
-        let start = std::time::Instant::now();
-        for _ in 0..1000 {
-            let result = tnvm.evaluate::<GRADIENT>(&[1.7; 36]);
-        }
-        let elapsed = start.elapsed();
-        println!("Time per evaluation: {:?}", elapsed / 1000);
-    }
+    //     let network = circ.to_tensor_network();
+    //     let code = qudit_tensor::compile_network(network);
+    //     let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
+    //     let start = std::time::Instant::now();
+    //     for _ in 0..1000 {
+    //         let result = tnvm.evaluate::<GRADIENT>(&[1.7; 36]);
+    //     }
+    //     let elapsed = start.elapsed();
+    //     println!("Time per evaluation: {:?}", elapsed / 1000);
+    // }
 
-    #[test]
-    fn test_param_overlapping_cirucit() {
-        let mut circ: QuditCircuit<c64> = QuditCircuit::pure([2, 2]);
-        circ.append_uninit_gate(Gate::CX(), [0, 1]);
-        circ.append_uninit_gate(Gate::P(2), [1]);
-        circ.append_uninit_gate(Gate::CX(), [0, 1]);
-        circ.append_gate(Gate::P(2), [1], [ParamEntry::Existing(0)]);
-        circ.append_uninit_gate(Gate::CX(), [0, 1]);
+    // #[test]
+    // fn test_param_overlapping_cirucit() {
+    //     let mut circ: QuditCircuit<c64> = QuditCircuit::pure([2, 2]);
+    //     circ.append_uninit_gate(Gate::CX(), [0, 1]);
+    //     circ.append_uninit_gate(Gate::P(2), [1]);
+    //     circ.append_uninit_gate(Gate::CX(), [0, 1]);
+    //     circ.append_gate(Gate::P(2), [1], [ParamEntry::Existing(0)]);
+    //     circ.append_uninit_gate(Gate::CX(), [0, 1]);
 
-        // optional: circ.new_parameteric_param("alpha");
-        // optional: circ.set_parameter_value("alpha", 0.5);
-        //  - if parameteric, makes it dynamic
-        //  - sets value
-        // optional: circ.freeze_parameter_value("alpha", 0.5);
-        //  - if parameteric, makes it static
-        //  - sets value
-        // circ.append_gate(Gate::P(2), [1], ["alpha"]);
-        // circ.append_gate(Gate::P(2), [1], ["alpha/2"]);
+    //     // optional: circ.new_parameteric_param("alpha");
+    //     // optional: circ.set_parameter_value("alpha", 0.5);
+    //     //  - if parameteric, makes it dynamic
+    //     //  - sets value
+    //     // optional: circ.freeze_parameter_value("alpha", 0.5);
+    //     //  - if parameteric, makes it static
+    //     //  - sets value
+    //     // circ.append_gate(Gate::P(2), [1], ["alpha"]);
+    //     // circ.append_gate(Gate::P(2), [1], ["alpha/2"]);
 
-        let network = circ.to_tensor_network();
-        let code = qudit_tensor::compile_network(network);
-        let mut tnvm = qudit_tensor::TNVM::<c64, GRADIENT>::new(&code);
-        let start = std::time::Instant::now();
-        for _ in 0..1000 {
-            let result = tnvm.evaluate::<GRADIENT>(&[1.7]);
-        }
-        let result = tnvm.evaluate::<GRADIENT>(&[1.7]);
-        dbg!(result.get_grad_result().unpack_tensor3d());
-        let elapsed = start.elapsed();
-        println!("Time per evaluation: {:?}", elapsed / 1000);
-    }
+    //     let network = circ.to_tensor_network();
+    //     let code = qudit_tensor::compile_network(network);
+    //     let mut tnvm = qudit_tensor::TNVM::<c64, GRADIENT>::new(&code);
+    //     let start = std::time::Instant::now();
+    //     for _ in 0..1000 {
+    //         let result = tnvm.evaluate::<GRADIENT>(&[1.7]);
+    //     }
+    //     let result = tnvm.evaluate::<GRADIENT>(&[1.7]);
+    //     dbg!(result.get_grad_result().unpack_tensor3d());
+    //     let elapsed = start.elapsed();
+    //     println!("Time per evaluation: {:?}", elapsed / 1000);
+    // }
 
     // #[test]
     // fn test_u3_mul_circuit() {

@@ -82,7 +82,15 @@ impl<'ctx, R: RealScalar> CodeGenerator<'ctx, R> {
     fn gen_write_func_proto(&self, name: &str) -> CodeGenResult<FunctionValue<'ctx>> {
         let ret_type = self.context.context().void_type();
         let ptr_type = self.context.context().ptr_type(AddressSpace::default());
-        let param_types = vec![ptr_type.into(), ptr_type.into(), ptr_type.into(), ptr_type.into(), self.int_type().into(), ptr_type.into()];
+        // Match Rust WriteFunc<R> signature: (*const R, *mut R, *const u64, *const u64, u64, *const bool)
+        let param_types = vec![
+            ptr_type.into(),                                    // *const R
+            ptr_type.into(),                                    // *mut R  
+            ptr_type.into(),                                    // *const u64
+            ptr_type.into(),                                    // *const u64
+            self.context.context().i64_type().into(),          // u64
+            ptr_type.into()                                     // *const bool
+        ];
         let func_type = ret_type.fn_type(&param_types, false);
         let func = self.context.module().add_function(name, func_type, None);
         Ok(func)
@@ -210,16 +218,17 @@ impl<'ctx, R: RealScalar> CodeGenerator<'ctx, R> {
 
         for (map_idx, var_name) in variables.iter().enumerate() {
             // Load the actual offset from param_offset_ptr using map_idx
-            let map_idx_val = self.int_type().const_int(map_idx as u64, false);
+            // param_offset_ptr points to u64 values according to Rust signature
+            let map_idx_val = self.context.context().i64_type().const_int(map_idx as u64, false);
             let actual_offset_ptr = unsafe {
                 self.builder.build_gep(
-                    self.int_type(),
+                    self.context.context().i64_type(),
                     param_offset_ptr,
                     &[map_idx_val],
                     "actual_offset_ptr_gep"
                 ).unwrap()
             };
-            let actual_offset_val = self.builder.build_load(self.int_type(), actual_offset_ptr, "actual_offset_val").unwrap().into_int_value();
+            let actual_offset_val = self.builder.build_load(self.context.context().i64_type(), actual_offset_ptr, "actual_offset_val").unwrap().into_int_value();
 
             // Use the actual_offset_val to index into params_ptr
             let var_ptr = unsafe {
@@ -298,9 +307,9 @@ impl<'ctx, R: RealScalar> CodeGenerator<'ctx, R> {
         self.build_var_table(var_table);
 
         let output_ptr = self.fn_value_opt.unwrap().get_nth_param(1).unwrap().into_pointer_value();
-        let output_map_ptr = self.fn_value_opt.unwrap().get_nth_param(4).unwrap().into_pointer_value();
-        let fn_unit_offset = self.fn_value_opt.unwrap().get_nth_param(5).unwrap().into_int_value();
-        let const_param_ptr = self.fn_value_opt.unwrap().get_nth_param(6).unwrap().into_pointer_value();
+        let output_map_ptr = self.fn_value_opt.unwrap().get_nth_param(3).unwrap().into_pointer_value();
+        let fn_unit_offset = self.fn_value_opt.unwrap().get_nth_param(4).unwrap().into_int_value();
+        let const_param_ptr = self.fn_value_opt.unwrap().get_nth_param(5).unwrap().into_pointer_value();
         let int_increment = self.context.context().i64_type().const_int(1u64, false);
         let mut dyn_fn_unit_idx = self.context.context().i64_type().const_int(0u64, false);
 
@@ -315,21 +324,21 @@ impl<'ctx, R: RealScalar> CodeGenerator<'ctx, R> {
             } else if fn_unit_idx <= var_table.len() {
                 // Next var_table.len() function units are the partials in the gradient.
                 // Check if the corresponding parameter is constant.
-                let param_idx_for_const_check = self.int_type().const_int((fn_unit_idx - 1) as u64, false);
+                let param_idx_for_const_check = self.context.context().i64_type().const_int((fn_unit_idx - 1) as u64, false);
                 let const_param_elem_ptr = unsafe {
                     self.builder.build_gep(
-                        self.context.context().bool_type(),
+                        self.context.context().i8_type(),
                         const_param_ptr,
                         &[param_idx_for_const_check],
                         "const_param_elem_ptr"
                     ).unwrap()
                 };
-                let is_constant_val = self.builder.build_load(self.context.context().bool_type(), const_param_elem_ptr, "is_constant").unwrap().into_int_value();
+                let is_constant_val = self.builder.build_load(self.context.context().i8_type(), const_param_elem_ptr, "is_constant").unwrap().into_int_value();
 
                 let is_constant_true = self.builder.build_int_compare(
                     inkwell::IntPredicate::EQ,
                     is_constant_val,
-                    self.context.context().bool_type().const_int(1, false),
+                    self.context.context().i8_type().const_int(1, false),
                     "is_constant_true"
                 ).unwrap();
 
@@ -343,47 +352,40 @@ impl<'ctx, R: RealScalar> CodeGenerator<'ctx, R> {
                 let param_i = index - param_j * (param_j + 1) / 2;
                 
                 // Check if the corresponding parameter is constant.
-                let param_idx_i_for_const_check = self.int_type().const_int((param_i - 1) as u64, false);
+                let param_idx_i_for_const_check = self.context.context().i64_type().const_int((param_i - 1) as u64, false);
                 let const_param_elem_ptr = unsafe {
                     self.builder.build_gep(
-                        self.context.context().bool_type(),
+                        self.context.context().i8_type(),
                         const_param_ptr,
                         &[param_idx_i_for_const_check],
                         "const_param_i_elem_ptr"
                     ).unwrap()
                 };
-                let is_i_constant_val = self.builder.build_load(self.context.context().bool_type(), const_param_elem_ptr, "is_i_constant").unwrap().into_int_value();
+                let is_i_constant_val = self.builder.build_load(self.context.context().i8_type(), const_param_elem_ptr, "is_i_constant").unwrap().into_int_value();
 
                 let is_i_constant_true = self.builder.build_int_compare(
                     inkwell::IntPredicate::EQ,
                     is_i_constant_val,
-                    self.context.context().bool_type().const_int(1, false),
+                    self.context.context().i8_type().const_int(1, false),
                     "is_i_constant_true"
                 ).unwrap();
 
                 // Check if the corresponding parameter is constant.
-                let param_idx_j_for_const_check = self.int_type().const_int((param_j - 1) as u64, false);
+                let param_idx_j_for_const_check = self.context.context().i64_type().const_int((param_j - 1) as u64, false);
                 let const_param_elem_ptr = unsafe {
                     self.builder.build_gep(
-                        self.context.context().bool_type(),
+                        self.context.context().i8_type(),
                         const_param_ptr,
                         &[param_idx_j_for_const_check],
                         "const_param_j_elem_ptr"
                     ).unwrap()
                 };
-                let is_j_constant_val = self.builder.build_load(self.context.context().bool_type(), const_param_elem_ptr, "is_j_constant").unwrap().into_int_value();
+                let is_j_constant_val = self.builder.build_load(self.context.context().i8_type(), const_param_elem_ptr, "is_j_constant").unwrap().into_int_value();
 
                 let is_j_constant_true = self.builder.build_int_compare(
                     inkwell::IntPredicate::EQ,
                     is_j_constant_val,
-                    self.context.context().bool_type().const_int(1, false),
-                    "is_j_constant_true"
-                ).unwrap();
-
-                let is_j_constant_true = self.builder.build_int_compare(
-                    inkwell::IntPredicate::EQ,
-                    is_j_constant_val,
-                    self.context.context().bool_type().const_int(1, false),
+                    self.context.context().i8_type().const_int(1, false),
                     "is_j_constant_true"
                 ).unwrap();
 
@@ -406,7 +408,7 @@ impl<'ctx, R: RealScalar> CodeGenerator<'ctx, R> {
 
                 let val = self.build_expression(&expr)?;
                 let offset_ptr = unsafe {
-                    let output_idx = self.int_type().const_int(i as u64, false);
+                    let output_idx = self.context.context().i64_type().const_int(i as u64, false);
                     let output_map_elem_ptr = self.builder.build_gep(self.context.context().i64_type(), output_map_ptr, &[output_idx], "output_map_elem_ptr").unwrap();
                     let output_map_offset = self.builder.build_load(self.context.context().i64_type(), output_map_elem_ptr, "output_map_offset").unwrap().into_int_value();
                     let combined_offset = self.builder.build_int_add(output_map_offset, this_unit_offset, "combined_offset").unwrap();

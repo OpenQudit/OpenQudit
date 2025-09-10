@@ -72,7 +72,7 @@ impl BytecodeGenerator {
         //  no need for second write, just make kron: kron 0 0 2
 
         match tree {
-            TTGTNode::Leaf(LeafNode { expr, param_info, indices } ) => {
+            TTGTNode::Leaf(LeafNode { expr, param_info, indices, .. } ) => {
                 let shape = expressions.borrow().generation_shape(expr);
                 let out = self.new_buffer(shape, param_info.num_params());
                 let constant = param_info.is_empty();

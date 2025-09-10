@@ -98,15 +98,15 @@ impl IdxMapBuilder {
 }
 
 
-struct CompilableUnit {
+pub struct CompilableUnit<'a> {
     pub fn_name: String,
-    pub exprs: Vec<Expression>,
+    pub exprs: &'a [Expression],
     pub variables: Vec<String>,
     pub unit_size: usize,
 }
 
-impl CompilableUnit {
-    pub fn new(name: &str, exprs: Vec<Expression>, variables: Vec<String>, unit_size: usize) -> Self {
+impl<'a> CompilableUnit<'a> {
+    pub fn new(name: &str, exprs: &'a [Expression], variables: Vec<String>, unit_size: usize) -> Self {
         CompilableUnit {
             fn_name: name.to_string(),
             exprs,
@@ -282,10 +282,10 @@ impl CompilableUnit {
 //     Hessian,
 // }
 
-pub type DifferentiationLevel = u8;
-pub const FUNCTION: DifferentiationLevel = 0;
-pub const GRADIENT: DifferentiationLevel = 1;
-pub const HESSIAN: DifferentiationLevel = 2;
+pub type DifferentiationLevel = usize;
+pub const FUNCTION: DifferentiationLevel = 1;
+pub const GRADIENT: DifferentiationLevel = 2;
+pub const HESSIAN: DifferentiationLevel = 3;
 
 // pub trait DifferentiationLevel {}
 
@@ -314,13 +314,13 @@ pub const HESSIAN: DifferentiationLevel = 2;
 //     }
 // }
 
-pub struct ModuleBuilder<R: RealScalar> {
+pub struct ModuleBuilder<'a, R: RealScalar> {
     name: String,
-    exprs: Vec<CompilableUnit>,
+    exprs: Vec<CompilableUnit<'a>>,
     _phantom_c: std::marker::PhantomData<R>,
 }
 
-impl<R: RealScalar> ModuleBuilder<R> {
+impl<'a, R: RealScalar> ModuleBuilder<'a, R> {
     pub fn new(name: &str) -> Self {
         ModuleBuilder {
             name: name.to_string(),
@@ -329,7 +329,7 @@ impl<R: RealScalar> ModuleBuilder<R> {
         }
     }
 
-    pub fn add_unit(mut self, unit: CompilableUnit) -> Self {
+    pub fn add_unit(mut self, unit: CompilableUnit<'a>) -> Self {
         self.exprs.push(unit);
         self
     }
@@ -340,75 +340,75 @@ impl<R: RealScalar> ModuleBuilder<R> {
     //     let exprs: Vec<Expression> = body.into_iter().map(|c| vec![c.real, c.imag]).flatten().collect();
     // }
 
-    pub fn add_tensor_expression<const D: DifferentiationLevel>(mut self, expr: TensorExpression) -> Self {
-        let (name, variables, body, indices) = expr.destruct();
-        let exprs: Vec<Expression> = body.into_iter().map(|c| vec![c.real, c.imag]).flatten().collect();
-        let unit_size = exprs.len();
+    // pub fn add_tensor_expression<const D: DifferentiationLevel>(mut self, expr: TensorExpression) -> Self {
+    //     let (name, variables, body, indices) = expr.destruct();
+    //     let exprs: Vec<Expression> = body.into_iter().map(|c| vec![c.real, c.imag]).flatten().collect();
+    //     let unit_size = exprs.len();
         
-        match D {
-            FUNCTION => {
-                let unit = CompilableUnit::new(
-                    &name,
-                    exprs,
-                    variables.clone(),
-                    unit_size,
-                );
-                self.exprs.push(unit);
-            }
-            GRADIENT => {
-                let mut grad_exprs = vec![];
-                for variable in &variables {
-                    for expr in &exprs {
-                        let grad_expr = expr.differentiate(&variable);
-                        grad_exprs.push(grad_expr);
-                    }
-                }
+    //     match D {
+    //         FUNCTION => {
+    //             let unit = CompilableUnit::new(
+    //                 &name,
+    //                 exprs,
+    //                 variables.clone(),
+    //                 unit_size,
+    //             );
+    //             self.exprs.push(unit);
+    //         }
+    //         GRADIENT => {
+    //             let mut grad_exprs = vec![];
+    //             for variable in &variables {
+    //                 for expr in &exprs {
+    //                     let grad_expr = expr.differentiate(&variable);
+    //                     grad_exprs.push(grad_expr);
+    //                 }
+    //             }
 
-                let simplified_exprs = simplify_expressions(exprs.into_iter().chain(grad_exprs.into_iter()).collect());
-                let unit = CompilableUnit::new(
-                    &name,
-                    simplified_exprs,
-                    variables.clone(),
-                    unit_size,
-                );
-                self.exprs.push(unit);
-            }
-            HESSIAN => {
-                let mut grad_exprs = vec![];
-                for variable in &variables {
-                    for expr in &exprs {
-                        let grad_expr = expr.differentiate(&variable);
-                        grad_exprs.push(grad_expr);
-                    }
-                }
+    //             let simplified_exprs = simplify_expressions(exprs.into_iter().chain(grad_exprs.into_iter()).collect());
+    //             let unit = CompilableUnit::new(
+    //                 &name,
+    //                 simplified_exprs,
+    //                 variables.clone(),
+    //                 unit_size,
+    //             );
+    //             self.exprs.push(unit);
+    //         }
+    //         HESSIAN => {
+    //             let mut grad_exprs = vec![];
+    //             for variable in &variables {
+    //                 for expr in &exprs {
+    //                     let grad_expr = expr.differentiate(&variable);
+    //                     grad_exprs.push(grad_expr);
+    //                 }
+    //             }
 
-                let mut hess_exprs = vec![];
-                for variable in &variables {
-                    for expr in &grad_exprs {
-                        let hess_expr = expr.differentiate(&variable);
-                        hess_exprs.push(hess_expr);
-                    }
-                }
+    //             let mut hess_exprs = vec![];
+    //             for variable in &variables {
+    //                 for expr in &grad_exprs {
+    //                     let hess_expr = expr.differentiate(&variable);
+    //                     hess_exprs.push(hess_expr);
+    //                 }
+    //             }
 
-                let simplified_exprs = simplify_expressions(exprs
-                    .into_iter()
-                    .chain(grad_exprs.into_iter())
-                    .chain(hess_exprs.into_iter())
-                    .collect());
+    //             let simplified_exprs = simplify_expressions(exprs
+    //                 .into_iter()
+    //                 .chain(grad_exprs.into_iter())
+    //                 .chain(hess_exprs.into_iter())
+    //                 .collect());
 
-                let unit = CompilableUnit::new(
-                    &name,
-                    simplified_exprs,
-                    variables.clone(),
-                    unit_size,
-                );
-                self.exprs.push(unit);
-            }
-            _ => panic!("Invalid differentiation level."),
-        }
+    //             let unit = CompilableUnit::new(
+    //                 &name,
+    //                 simplified_exprs,
+    //                 variables.clone(),
+    //                 unit_size,
+    //             );
+    //             self.exprs.push(unit);
+    //         }
+    //         _ => panic!("Invalid differentiation level."),
+    //     }
 
-        self
-    }
+    //     self
+    // }
 
     pub fn build(self) -> Module<R> {
         let module = Module::new(&self.name);

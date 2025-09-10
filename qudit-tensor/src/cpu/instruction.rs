@@ -10,8 +10,8 @@ use crate::{bytecode::BytecodeInstruction, cpu::instructions::{WriteStruct, FRPR
 use super::buffer::SizedTensorBuffer;
 use super::instructions::MatmulStruct;
 
-pub enum TNVMInstruction<C: ComplexScalar> {
-    FRPR(FRPRStruct<C>),
+pub enum TNVMInstruction<C: ComplexScalar, const D: DifferentiationLevel> {
+    FRPR(FRPRStruct<C, D>),
     HadamardB(HadamardStruct<C>),
     HadamardS(HadamardStruct<C>),
     KronB(KronStruct<C>),
@@ -19,15 +19,14 @@ pub enum TNVMInstruction<C: ComplexScalar> {
     MatMulB(MatmulStruct<C>),
     MatMulS(MatmulStruct<C>),
     Trace(TraceStruct<C>),
-    Write(WriteStruct<C>),
+    Write(WriteStruct<C, D>),
 }
 
-impl<C: ComplexScalar> TNVMInstruction<C> {
+impl<C: ComplexScalar, const D: DifferentiationLevel> TNVMInstruction<C, D> {
     pub fn new(
         inst: &BytecodeInstruction,
         buffers: &Vec<SizedTensorBuffer<C>>,
         expressions: Rc<RefCell<ExpressionCache>>,
-        D: DifferentiationLevel,
     ) -> Self {
         match inst {
             BytecodeInstruction::FRPR(in_index, shape, perm, out_index) => {
@@ -38,7 +37,6 @@ impl<C: ComplexScalar> TNVMInstruction<C> {
                     shape,
                     perm,
                     spec_b,
-                    D,
                 ))
             },
             BytecodeInstruction::Hadamard(a, b, c, p1, p2) => {
@@ -108,17 +106,23 @@ impl<C: ComplexScalar> TNVMInstruction<C> {
                 }
             },
             BytecodeInstruction::Write(expr_id, param_info, buffer_index) => {
-                let write_fn = expressions.borrow_mut().get_fn::<C::R>(*expr_id);
-                let output_map = expressions.borrow().get_output_map::<C::R>(*expr_id);
+                let out_buffer = buffers[*buffer_index].clone();
+                let write_fns = std::array::from_fn(|i| expressions.borrow_mut().get_fn::<C::R>(*expr_id, i + 1));
+                let output_map = expressions.borrow().get_output_map::<C::R>(
+                    *expr_id,
+                    out_buffer.row_stride() as u64,
+                    out_buffer.col_stride() as u64,
+                    out_buffer.mat_stride() as u64,
+                );
                 let param_map = param_info.get_param_map();
                 let const_map = param_info.get_const_map();
 
                 TNVMInstruction::Write(WriteStruct::new(
-                    write_fn,
+                    write_fns,
                     param_map,
                     output_map,
                     const_map,
-                    buffers[*buffer_index].clone(),
+                    out_buffer,
                 ))
             },
             BytecodeInstruction::Trace(in_index, dimension_pairs, out_index) => {
@@ -150,17 +154,17 @@ impl<C: ComplexScalar> TNVMInstruction<C> {
     }
 
     #[inline(always)]
-    pub unsafe fn evaluate<const D: DifferentiationLevel>(&self, params: &[C::R], memory: &mut MemoryBuffer<C>) {
+    pub unsafe fn evaluate<const E: DifferentiationLevel>(&self, params: &[C::R], memory: &mut MemoryBuffer<C>) {
         match self {
-            TNVMInstruction::FRPR(s) => s.evaluate(memory),
-            TNVMInstruction::HadamardB(s) => s.batched_evaluate::<D>(memory),
-            TNVMInstruction::HadamardS(s) => s.evaluate::<D>(memory),
-            TNVMInstruction::KronB(s) => s.batched_evaluate::<D>(memory),
-            TNVMInstruction::KronS(s) => s.evaluate::<D>(memory),
-            TNVMInstruction::MatMulB(s) => s.batched_evaluate::<D>(memory),
-            TNVMInstruction::MatMulS(s) => s.evaluate::<D>(memory),
+            TNVMInstruction::FRPR(s) => s.evaluate::<E>(memory),
+            TNVMInstruction::HadamardB(s) => s.batched_evaluate::<E>(memory),
+            TNVMInstruction::HadamardS(s) => s.evaluate::<E>(memory),
+            TNVMInstruction::KronB(s) => s.batched_evaluate::<E>(memory),
+            TNVMInstruction::KronS(s) => s.evaluate::<E>(memory),
+            TNVMInstruction::MatMulB(s) => s.batched_evaluate::<E>(memory),
+            TNVMInstruction::MatMulS(s) => s.evaluate::<E>(memory),
             TNVMInstruction::Trace(s) => s.evaluate(memory),
-            TNVMInstruction::Write(s) => s.evaluate(params, memory),
+            TNVMInstruction::Write(s) => s.evaluate::<E>(params, memory),
         }
     }
 }

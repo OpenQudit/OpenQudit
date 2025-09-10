@@ -21,6 +21,10 @@ impl ExpressionBody {
         &self.body
     }
 
+    pub fn elements_mut(&mut self) -> &mut [ComplexExpression] {
+        &mut self.body
+    }
+
     pub fn conjugate(&mut self) {
         for expr in self.body.iter_mut() {
             expr.conjugate_in_place()
@@ -90,12 +94,20 @@ impl BoundExpressionBody {
         &self.variables
     }
 
+    pub fn set_variables(&mut self, new_variables: Vec<String>) {
+        self.variables = new_variables;
+    }
+
     pub fn num_elements(&self) -> usize {
         self.body.num_elements()
     }
 
     pub fn elements(&self) -> &[ComplexExpression] {
         self.body.elements()
+    }
+
+    pub fn elements_mut(&mut self) -> &mut [ComplexExpression] {
+        self.body.elements_mut()
     }
 
     pub fn conjugate(&mut self) {
@@ -159,6 +171,10 @@ impl NamedExpression {
 
     pub fn set_name(&mut self, new_name: impl Into<String>) {
         self.name = new_name.into();
+    }
+
+    pub fn set_variables(&mut self, new_variables: Vec<String>) {
+        self.body.set_variables(new_variables);
     }
 
     pub fn destruct(self) -> (String, Vec<String>, Vec<ComplexExpression>) {

@@ -1599,6 +1599,7 @@ dependencies = [
  "qudit-expr",
  "qudit-gates",
  "qudit-tensor",
+ "rand 0.8.5",
 ]
 
 [[package]]

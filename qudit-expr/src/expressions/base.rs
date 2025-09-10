@@ -898,10 +898,11 @@ impl std::fmt::Debug for Expression {
 
 impl PartialEq for Expression {
     fn eq(&self, other: &Self) -> bool {
-        if self.fast_eq(other) {
-            return true;
-        }
-        check_equality(self, other)
+        self.fast_eq(other)
+        // if self.fast_eq(other) {
+        //     return true;
+        // }
+        // check_equality(self, other)
     }
 }
 

@@ -298,39 +298,57 @@ impl QuditTensorNetwork {
                 let tranposed_id = self.expressions.borrow_mut().permute_reshape(traced_id, perm.clone(), new_shape);
 
                 // group (redimension) indices together that have the same network id
-                let new_node_indices = {
+                let (new_node_indices, tensor_to_expr_position_map) = {
                     let mut new_node_indices = Vec::new();
-                    let mut index_size_acm = 1;
-                    for (curr_index_index, next_index_index) in perm.iter().zip(perm.iter().skip(1)) {
-                        let curr_network_idx_id = network_idx_ids[*curr_index_index];
-                        let curr_index_size = traced_indices[*curr_index_index].index_size(); 
-                        let next_network_idx_id = network_idx_ids[*next_index_index];
+                    let mut tensor_to_expr_position_map = Vec::new();
 
-                        if curr_index_index == next_index_index {
-                            index_size_acm *= curr_index_size;
-                        } else {
-                            new_node_indices.push(TensorIndex::new(
-                                IndexDirection::Output,
-                                curr_network_idx_id,
-                                curr_index_size * index_size_acm,
-                            ));
-                            index_size_acm = 1;
+                    if perm.is_empty() {
+                        // If there are no indices after tracing (e.g., a scalar result),
+                        // the list of new node indices should be empty.
+                    } else {
+                        // Initialize accumulator for the first group of indices
+                        let mut index_size_acm = 1;
+                        let mut prev_network_idx_id = network_idx_ids[perm[0]];
+                        let mut current_group = vec![];
+
+                        // Iterate through the permuted local indices to group by network index ID
+                        for i in 0..perm.len() {
+                            let curr_local_idx = perm[i];
+                            let curr_network_idx_id = network_idx_ids[curr_local_idx];
+                            let curr_index_size = traced_indices[curr_local_idx].index_size();
+
+                            if curr_network_idx_id == prev_network_idx_id {
+                                // If the current network index ID is the same as the previous, accumulate its size
+                                index_size_acm *= curr_index_size;
+                                current_group.push(i);
+                            } else {
+                                // If a new network index ID is encountered, push the accumulated
+                                // TensorIndex for the previous group, then start a new group.
+                                new_node_indices.push(TensorIndex::new(
+                                    IndexDirection::Input,
+                                    prev_network_idx_id,
+                                    index_size_acm,
+                                ));
+                                tensor_to_expr_position_map.push(current_group.clone());
+                                // Start a new group with the current index's size and ID
+                                current_group = vec![i];
+                                index_size_acm = curr_index_size;
+                                prev_network_idx_id = curr_network_idx_id;
+                            }
                         }
-                    }
-                    if !perm.is_empty() {
-                        let last_index_index = *perm.last().expect("Expected perm length > 0");
-                        let last_index_size = traced_indices[last_index_index].index_size();
+                        // After the loop, push the last accumulated group
                         new_node_indices.push(TensorIndex::new(
-                            IndexDirection::Output,
-                            network_idx_ids[last_index_index],
-                            last_index_size * index_size_acm,
+                            IndexDirection::Input,
+                            prev_network_idx_id,
+                            index_size_acm,
                         ));
+                        tensor_to_expr_position_map.push(current_group.clone());
                     }
-                    new_node_indices
+                    (new_node_indices, tensor_to_expr_position_map)
                 };
                
                 // println!("Leaf node has indices: {new_node_indices:?}");
-                tree_stack.push(TTGTTree::leaf(self.expressions.clone(), traced_id, param_info.clone(), new_node_indices));
+                tree_stack.push(TTGTTree::leaf(self.expressions.clone(), tranposed_id, param_info.clone(), new_node_indices, tensor_to_expr_position_map));
             }
         }
         if tree_stack.len() != 1 {

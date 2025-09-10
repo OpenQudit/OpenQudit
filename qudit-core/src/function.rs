@@ -22,6 +22,13 @@ pub struct ParamInfo {
 }
 
 impl ParamInfo {
+    pub fn new(indices: impl Into<ParamIndices>, constant: Vec<bool>) -> ParamInfo {
+        ParamInfo {
+            indices: indices.into(),
+            constant,
+        }
+    }
+
     pub fn parameterized(indices: impl Into<ParamIndices>) -> ParamInfo {
         let indices = indices.into();
         let num_params = indices.num_params();

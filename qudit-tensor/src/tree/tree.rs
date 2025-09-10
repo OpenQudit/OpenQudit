@@ -191,15 +191,16 @@ impl TTGTTree {
             let composed_perm: Vec<usize> = base_perm.iter().map(|&idx| perm[idx]).collect();
             TTGTNode::Transpose(TransposeNode::new(*child, composed_perm, redirection))
         } else if let TTGTNode::Leaf(n) = self.root {
-            let LeafNode { expr: expr_id, param_info, indices } = n;
+            let expr_perm = n.convert_tensor_perm_to_expression_perm(&perm);
+            let LeafNode { expr: expr_id, param_info, indices, tensor_to_expr_position_map } = n;
             let new_indices = perm.iter()
                 .map(|p| indices[*p])
                 .zip(redirection.iter())
                 .map(|(idx, new_direction)| TensorIndex::new(*new_direction, idx.index_id(), idx.index_size()))
                 .collect::<Vec<TensorIndex>>();
             let new_shape: GenerationShape = (&new_indices).into();
-            let new_expr_id = self.expressions.borrow_mut().permute_reshape(expr_id, perm, new_shape);
-            TTGTNode::Leaf(LeafNode::new(new_expr_id, param_info, new_indices))
+            let new_expr_id = self.expressions.borrow_mut().permute_reshape(expr_id, expr_perm, new_shape);
+            TTGTNode::Leaf(LeafNode::new(new_expr_id, param_info, new_indices, tensor_to_expr_position_map))
         } else {
             TTGTNode::Transpose(TransposeNode::new(self.root, perm, redirection))
         };
@@ -210,9 +211,9 @@ impl TTGTTree {
         }
     }
 
-    pub fn leaf(expressions: Rc<RefCell<ExpressionCache>>, expr: ExpressionId, param_info: ParamInfo, indices: Vec<TensorIndex>) -> Self {
+    pub fn leaf(expressions: Rc<RefCell<ExpressionCache>>, expr: ExpressionId, param_info: ParamInfo, indices: Vec<TensorIndex>, tensor_to_expr_position_map: Vec<Vec<usize>>) -> Self {
         Self {
-            root: TTGTNode::Leaf(LeafNode::new(expr, param_info, indices)),
+            root: TTGTNode::Leaf(LeafNode::new(expr, param_info, indices, tensor_to_expr_position_map)),
             expressions,
         }
     }

@@ -4,7 +4,7 @@ use qudit_expr::{UnitaryExpression, ExpressionGenerator};
 /// An arbitrary inverted gate.
 ///
 /// Given any gate, DaggerGate takes the conjugate transpose of the input gate.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DaggerGate {
     // The expression being inverted.
     expr: UnitaryExpression,
@@ -25,9 +25,9 @@ impl DaggerGate {
     ///
     /// // TODO: Come back to later
     pub fn new<E: ExpressionGenerator<ExpressionType = UnitaryExpression>>(expr: E) -> Self {
-        let gate_expr = expr.generate_expression();
-        let expr = gate_expr.conjugate().transpose();
-        DaggerGate { expr }
+        let mut gate_expr = expr.generate_expression();
+        gate_expr.dagger();
+        DaggerGate { expr: gate_expr }
     }
 }
 

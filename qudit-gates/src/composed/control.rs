@@ -114,7 +114,7 @@ use qudit_expr::{UnitaryExpression, ExpressionGenerator};
 ///     \frac{\partial U_{control}}{\partial \theta} =
 ///         P_c \otimes \frac{\partial G}{\partial \theta}
 /// $$
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ControlledGate {
     expr: UnitaryExpression,
 }
@@ -251,7 +251,7 @@ impl ControlledGate {
     }
 
     pub fn name(&self) -> String {
-        self.expr.name()
+        self.expr.name().to_owned()
     }
 }
 

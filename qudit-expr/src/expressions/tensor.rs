@@ -270,6 +270,10 @@ impl TensorExpression {
     }
 
     pub fn partial_trace(&self, dimension_pairs: &[(usize, usize)]) -> TensorExpression {
+        if dimension_pairs.is_empty() {
+            return self.clone();
+        }
+
         let in_dims = self.indices();
         let num_dims = in_dims.len();
 

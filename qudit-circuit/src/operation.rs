@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 use qudit_core::{ComplexScalar, HasParams, QuditRadices, RealScalar, ToRadix};
+use qudit_expr::index::TensorIndex;
 use qudit_expr::{ExpressionCache, ExpressionId, UnitaryExpression};
 use qudit_expr::TensorExpression;
 use qudit_expr::BraSystemExpression;
@@ -105,17 +106,29 @@ impl AsRef<NamedExpression> for Operation {
     }
 }
 
-// impl Operation {
-//     pub fn name(&self) -> String {
-//         match self {
-//             Operation::UnitaryGate(gate) => gate.name().to_string(),
-//             Operation::KrausOperators(t) => format!("ProjectiveMeasurement({})", t.name()),
-//             Operation::TerminatingMeasurement(s) => format!("TerminatingMeasurement({})", s.name()),
-//             Operation::ClassicallyControlledUnitary(g, _) => format!("ClassicallyControlled({})", g.name()),
-//             Operation::QuditInitialization(s) => format!("Initialization({})", s.name()),
-//         }
-//     }
-// }
+impl From<Operation> for TensorExpression {
+    fn from(value: Operation) -> Self {
+        match value {
+            Operation::UnitaryGate(e) => e.into(),
+            Operation::KrausOperators(e) => e.into(),
+            Operation::TerminatingMeasurement(e) => e.into(),
+            Operation::ClassicallyControlledUnitary(e) => e.into(),
+            Operation::QuditInitialization(e) => e.into(),
+        }
+    }
+}
+
+impl Operation {
+    pub fn discriminant(&self) -> usize {
+        match self {
+            Operation::UnitaryGate(_) => 0,
+            Operation::KrausOperators(_) => 1,
+            Operation::TerminatingMeasurement(_) => 2,
+            Operation::ClassicallyControlledUnitary(_) => 3,
+            Operation::QuditInitialization(_) => 4,
+        }
+    }
+}
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum CachedOperation {
@@ -145,22 +158,21 @@ impl From<u64> for OperationReference {
 
 impl HasParams for Operation {
     fn num_params(&self) -> usize {
-        todo!()
-        // match self {
-        //     Operation::Gate(gate) => gate.num_params(),
-        //     Operation::TerminatingMeasurement(s) => s.variables.len(),
-        //     Operation::ClassicallyControlled(s, _) => s.num_params(),
-        //     _ => todo!()
-        //     // Operation::Subcircuit(subcircuit) => subcircuit.num_params(),
-        //     // Operation::Control(_) => 0,
-        // }
+        match self {
+            Operation::UnitaryGate(e) => e.num_params(),
+            Operation::KrausOperators(e) => e.num_params(),
+            Operation::TerminatingMeasurement(e) => e.num_params(),
+            Operation::ClassicallyControlledUnitary(e) => e.num_params(),
+            Operation::QuditInitialization(e) => e.num_params(),
+        }
     }
 }
 
 #[derive(Clone)]
 pub struct OperationSet {
     expressions: Rc<RefCell<ExpressionCache>>,
-    map: BTreeMap<OperationReference, CachedOperation>,
+    op_to_expr_map: BTreeMap<OperationReference, CachedOperation>,
+    expr_to_op_map: BTreeMap<ExpressionId, OperationReference>,
     idx_counter: u64,
 }
 
@@ -168,39 +180,76 @@ impl OperationSet {
     pub fn new() -> Self {
         OperationSet {
             expressions: ExpressionCache::new_shared(),
-            map: BTreeMap::new(),
+            op_to_expr_map: BTreeMap::new(),
+            expr_to_op_map: BTreeMap::new(),
             idx_counter: 0
         }
     }
 
-    pub fn insert(&mut self, expr: Operation) -> OperationReference {
-        todo!()
-        // // TODO: this name mapping implements label-based identification
-        // // replace it, once expression data structures are optimized with
-        // // fast equal
-        // let name = expr.name().to_string();
-
-        // // Get a mutable reference to the vector associated with the key.
-        // // If the key does not exist, insert a new empty vector.
-        // let exprs_vec = self.data.entry(name).or_insert_with(Vec::new);
-
-        // for (existing_expr, idx) in exprs_vec.iter() {
-        //     if existing_expr == &expr {
-        //         return *idx;
-        //     }
-        // }
-
-        // // If the expression is not found, assign a new index,
-        // // add it to the vector, and increment the counter.
-        // let current_idx = OperationReference::new(self.idx_counter);
-        // exprs_vec.push((expr.clone(), current_idx));
-        // self.map.insert(current_idx, expr);
-        // self.idx_counter += 1;
-        // current_idx
+    pub fn expressions(&self) -> Rc<RefCell<ExpressionCache>> {
+        self.expressions.clone()
     }
 
-    pub fn get(&self, index: &OperationReference) -> Option<&Operation> {
-        todo!()
-        // self.map.get(index)
+    pub fn insert(&mut self, op: Operation) -> OperationReference {
+        let disc = op.discriminant();
+        let expr: TensorExpression = op.into();
+        let expr_id = self.expressions.borrow_mut().insert(expr);
+
+        match self.expr_to_op_map.get(&expr_id) {
+            None => {
+                let op_ref = OperationReference(self.idx_counter);
+                self.expr_to_op_map.insert(expr_id, op_ref);
+
+                // TODO: replce this hack with something actually good
+                let cached = match disc {
+                    0 => CachedOperation::UnitaryGate(expr_id),
+                    1 => CachedOperation::KrausOperators(expr_id),
+                    2 => CachedOperation::TerminatingMeasurement(expr_id),
+                    3 => CachedOperation::ClassicallyControlledUnitary(expr_id),
+                    4 => CachedOperation::QuditInitialization(expr_id),
+                    _ => unreachable!(),
+                };
+                self.op_to_expr_map.insert(op_ref, cached);
+                self.idx_counter += 1;
+                op_ref
+            }
+            Some(op_ref) => op_ref.clone(),
+        }
+    }
+
+    pub fn get_expression(&self, index: &OperationReference) -> Option<ExpressionId> {
+        self.op_to_expr_map.get(index).map(|cached| match cached {
+            CachedOperation::UnitaryGate(e) => *e,
+            CachedOperation::KrausOperators(e) => *e,
+            CachedOperation::TerminatingMeasurement(e) => *e,
+            CachedOperation::ClassicallyControlledUnitary(e) => *e,
+            CachedOperation::QuditInitialization(e) => *e,
+        })
+    }
+
+    pub fn indices(&self, expr_id: ExpressionId) -> Vec<TensorIndex> {
+        self.expressions.borrow().indices(expr_id)
+    }
+    
+    pub fn num_params(&self, index: &OperationReference) -> Option<usize> {
+        self.get_expression(index).map(|expr_id| self.expressions.borrow().num_params(expr_id))
+    }
+
+    pub fn get_cached(&self, index: &OperationReference) -> Option<&CachedOperation> {
+        self.op_to_expr_map.get(index)
+    }
+}
+
+use qudit_expr::ExpressionGenerator;
+
+impl From<qudit_gates::Gate> for Operation {
+    fn from(value: qudit_gates::Gate) -> Self {
+        Operation::UnitaryGate(value.generate_expression())
+    }
+}
+
+impl From<UnitaryExpression> for Operation {
+    fn from(value: UnitaryExpression) -> Self {
+        Operation::UnitaryGate(value)
     }
 }

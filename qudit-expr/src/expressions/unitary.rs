@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 
 use qudit_core::unitary::UnitaryMatrix;
@@ -18,7 +19,33 @@ pub struct UnitaryExpression {
     radices: QuditRadices,
 }
 
+// pub trait ExpressionContainer {
+//     pub fn elements(&self) -> &[ComplexExpression];
+//     pub fn elements_mut(&mut self) -> &mut [ComplexExpression];
+
+//     pub fn conjugate(&mut self) {
+//         todo!()
+//     }
+// }
+
+// pub trait MatrixExpression: ExpressionContainer {
+//     pub fn nrows(&self) -> usize;
+//     pub fn ncols(&self) -> usize;
+
+//     pub fn dagger(&mut self) {
+//         todo!()
+//     }
+
+//     pub fn transpose(&mut self) {
+//         todo!()
+//     }
+// }
+
 impl UnitaryExpression {
+    pub fn new<T: AsRef<str>>(input: T) -> Self {
+        TensorExpression::new(input).try_into().unwrap()
+    }
+
     // TODO: Change ToRadices by implementing appropriate Froms
     pub fn identity<S: Into<String>, T: ToRadices>(name: S, radices: T) -> Self {
         let radices = radices.to_radices();
@@ -40,11 +67,149 @@ impl UnitaryExpression {
             radices,
         }
     }
+
+    pub fn transpose(&mut self) {
+        let dim = self.dimension();
+        for i in 1..dim {
+            for j in i..dim {
+                let (head, tail) = self.split_at_mut(j * dim + i);
+                std::mem::swap(&mut head[i * dim + j], &mut tail[0]);
+            }
+        }
+    }
+
+    pub fn dagger(&mut self) {
+        self.conjugate();
+        self.transpose();
+    }
+
+    pub fn embed(&mut self, sub_matrix: UnitaryExpression, top_left_row_idx: usize, top_left_col_idx: usize) {
+        let nrows = self.dimension();
+        let ncols = self.dimension();
+        let sub_nrows = sub_matrix.dimension();
+        let sub_ncols = sub_matrix.dimension();
+
+        if top_left_row_idx + sub_nrows > nrows || top_left_col_idx + sub_ncols > ncols {
+            panic!("Embedding matrix is too large");
+        }
+        
+        for i in 0..sub_nrows {
+            for j in 0..sub_ncols {
+                // TODO: remove clone by building into_iter for sub_matrix
+                let sub_expr = sub_matrix[i * sub_ncols + j].clone();
+                self[(top_left_row_idx + i) * ncols + (top_left_col_idx + j)] = sub_expr; 
+            }
+        }
+
+        // Update variables: collect all unique variables from self and sub_matrix
+        let mut new_variables: Vec<String> = self.variables().to_vec();
+        for var in sub_matrix.variables().iter() {
+            if !new_variables.contains(var) {
+                new_variables.push(var.clone());
+            }
+        }
+        self.set_variables(new_variables);
+    }
+
+    pub fn otimes<U: AsRef<UnitaryExpression>>(&self,  other: U) -> Self {
+        let other = other.as_ref();
+        let mut variables = Vec::new();
+        let mut var_map_self = HashMap::new();
+        let mut i = 0;
+        for var in self.variables().iter() {
+            variables.push(format!("x{}", i));
+            var_map_self.insert(var.clone(), format!("x{}", i));
+            i += 1;
+        }
+        let mut var_map_other = HashMap::new();
+        for var in other.variables().iter() {
+            variables.push(format!("x{}", i));
+            var_map_other.insert(var.clone(), format!("x{}", i));
+            i += 1;
+        }
+
+        let lhs_nrows = self.dimension();
+        let lhs_ncols = self.dimension();
+        let rhs_nrows = other.dimension();
+        let rhs_ncols = other.dimension();
+
+        let mut out_body = Vec::with_capacity(lhs_nrows * lhs_ncols * rhs_ncols * rhs_nrows);
+        
+        for i in 0..lhs_nrows {
+            for j in 0..rhs_nrows {
+                for k in 0..lhs_ncols {
+                    for l in 0..rhs_ncols {
+                        out_body.push(self[i * lhs_ncols + k].map_var_names(&var_map_self) * other[j * rhs_ncols + l].map_var_names(&var_map_other));
+                    }
+                }
+            }
+        }
+
+        let inner = NamedExpression::new(format!("{} ⊗ {}", self.name(), other.name()), variables, out_body);
+
+        UnitaryExpression {
+            inner,
+            radices: self.radices.concat(&other.radices),
+        }
+    }
+
+    pub fn dot<U: AsRef<UnitaryExpression>>(&self, other: U) -> Self {
+        let other = other.as_ref();
+        let lhs_nrows = self.dimension();
+        let lhs_ncols = self.dimension();
+        let rhs_nrows = other.dimension();
+        let rhs_ncols = other.dimension();
+
+        if lhs_ncols != rhs_nrows {
+            panic!("Matrix dimensions do not match for dot product: {} != {}", lhs_ncols, rhs_nrows);
+        }
+
+        let mut variables = Vec::new();
+        let mut var_map_self = HashMap::new();
+        let mut i = 0;
+        for var in self.variables().iter() {
+            variables.push(format!("x{}", i));
+            var_map_self.insert(var.clone(), format!("x{}", i));
+            i += 1;
+        }
+        let mut var_map_other = HashMap::new();
+        for var in other.variables().iter() {
+            variables.push(format!("x{}", i));
+            var_map_other.insert(var.clone(), format!("x{}", i));
+            i += 1;
+        }
+
+        let mut out_body = Vec::with_capacity(lhs_nrows*rhs_ncols);
+
+        for i in 0..lhs_nrows {
+            for j in 0..rhs_ncols {
+                let mut sum = self[i * lhs_ncols].map_var_names(&var_map_self) * other[j].map_var_names(&var_map_other);
+                for k in 1..lhs_ncols {
+                    sum += self[i * lhs_ncols + k].map_var_names(&var_map_self) * other[k * rhs_ncols + j].map_var_names(&var_map_other);
+                }
+                out_body.push(sum);
+            }
+        }
+
+        let inner = NamedExpression::new(format!("{} ⋅ {}", self.name(), other.name()), variables, out_body);
+
+        UnitaryExpression {
+            inner,
+            radices: self.radices.clone(),
+        }
+    }
+
 }
 
 impl JittableExpression for UnitaryExpression {
     fn generation_shape(&self) -> GenerationShape {
         GenerationShape::Matrix(self.radices.dimension(), self.radices.dimension())
+    }
+}
+
+impl AsRef<UnitaryExpression> for UnitaryExpression {
+    fn as_ref(&self) -> &UnitaryExpression {
+        &self
     }
 }
 
@@ -136,37 +301,11 @@ impl<C: ComplexScalar> From<UnitaryMatrix<C>> for UnitaryExpression {
     }
 }
 
-
-
-//impl UnitaryExpression {
-//    pub fn new<T: AsRef<str>>(input: T) -> Self {
-//        TensorExpression::new(input).into()
-//    }
-
-//    pub fn identity<S: AsRef<str>, T: ToRadices>(name: S, radices: T) -> Self {
-//        let radices = radices.to_radices();
-//        let dim = radices.dimension();
-//        let mut body = vec![Vec::new(); dim];
-//        for i in 0..dim {
-//            for j in 0..dim {
-//                if i == j {
-//                    body[i].push(ComplexExpression::one());
-//                } else {
-//                    body[i].push(ComplexExpression::zero());
-//                }
-//            }
-//        }
-//        UnitaryExpression {
-//            name: name.as_ref().to_string(),
-//            radices,
-//            variables: vec![],
-//            body,
-//        }
-//    }
-
-//    pub fn name(&self) -> String {
-//        self.name.clone()
-//    }
+impl QuditSystem for UnitaryExpression {
+    fn radices(&self) -> qudit_core::QuditRadices {
+        self.radices.clone()
+    }
+}
 
 //    pub fn get_arg_map<C: ComplexScalar>(&self, args: &[C::R]) -> HashMap<&str, C::R> {
 //        self.variables.iter().zip(args.iter()).map(|(a, b)| (a.as_str(), *b)).collect()

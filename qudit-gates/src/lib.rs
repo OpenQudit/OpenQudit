@@ -31,7 +31,7 @@ pub use parameterized::p::PGate;
 pub use parameterized::u3::U3Gate;
 pub use composed::control::ControlledGate;
 
-#[derive(Hash, PartialEq, Eq, Clone, Debug)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Gate {
     HGate(HGate),
     PGate(PGate),

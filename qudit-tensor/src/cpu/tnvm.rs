@@ -45,8 +45,8 @@ impl<C: ComplexScalar> ParamBuffer<C> {
 }
 
 pub struct TNVM<C: ComplexScalar, const D: DifferentiationLevel> {
-    const_instructions: Vec<TNVMInstruction<C>>,
-    dynamic_instructions: Vec<TNVMInstruction<C>>,
+    const_instructions: Vec<TNVMInstruction<C, D>>,
+    dynamic_instructions: Vec<TNVMInstruction<C, D>>,
     // #[allow(dead_code)]
     // module: Module<C>,
     expressions: Rc<RefCell<ExpressionCache>>,
@@ -54,6 +54,7 @@ pub struct TNVM<C: ComplexScalar, const D: DifferentiationLevel> {
     // param_buffer: ParamBuffer<C>,
     out_buffer: SizedTensorBuffer<C>,
     _pin: PhantomPinned,
+    // TODO: hold a mutable borrow of the expressions to prevent any uncompiling of it
 }
 
 impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
@@ -76,30 +77,19 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
         // buffers can be skipped with the input and output buffer having the same offset
         // but different strides.
 
-        // let mut builder: ModuleBuilder<C, D> = ModuleBuilder::new("tnvm");
-
-        // for (expr, params, name) in &program.expressions {
-        //     let mut expr_clone = expr.clone();
-        //     expr_clone.name = name.clone();
-        //     match params {
-        //         None => builder = builder.add_tensor_expression(expr_clone),
-        //         Some(params) =>
-        //             builder = builder.add_tensor_expression_with_param_indices(expr_clone, params.clone())
-        //     };
-        // }
-
-        // let module = builder.build();
         let expressions = program.expressions.clone();
-        // TODO: ensure all necessary expressions are in the set
+
+        // Ensure that all expressions are prepared up to diff_level D.
+        expressions.borrow_mut().prepare(D);
 
         let mut const_instructions = Vec::new();
         for inst in &program.const_code {
-            const_instructions.push(TNVMInstruction::new(inst, &sized_buffers, expressions.clone(), D));
+            const_instructions.push(TNVMInstruction::new(inst, &sized_buffers, expressions.clone()));
         }
 
         let mut dynamic_instructions = Vec::new();
         for inst in &program.dynamic_code {
-            dynamic_instructions.push(TNVMInstruction::new(inst, &sized_buffers, expressions.clone(), D));
+            dynamic_instructions.push(TNVMInstruction::new(inst, &sized_buffers, expressions.clone()));
         }
 
         // Get out buffer

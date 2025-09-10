@@ -7,10 +7,11 @@ use criterion::profiler::Profiler;
 use pprof::ProfilerGuard;
 use qudit_circuit::CircuitLocation;
 use qudit_circuit::QuditCircuit;
-use qudit_circuit::loc;
 use qudit_core::radices;
+use qudit_expr::UnitaryExpression;
 use qudit_gates::Gate;
 use qudit_core::QuditRadices;
+use rand::Rng;
 
 /// Build a QFT circuit with `n` qubits.
 ///
@@ -20,28 +21,91 @@ use qudit_core::QuditRadices;
 #[allow(dead_code)]
 pub fn build_qft_circuit(n: usize) -> QuditCircuit {
     // TODO: Double check this is actually a QFT
-    let mut circ = QuditCircuit::new(radices![2; n], 0);
+    let mut circ = QuditCircuit::pure(radices![2; n]);
+    let h_ref = circ.cache_operation(Gate::H(2));
+    let cp_ref = circ.cache_operation(Gate::CP());
     for i in 0..n {
-        circ.append_gate(Gate::H(2), loc![i], vec![]);
+        circ.append_ref_parameterized(h_ref, [i]);
         for j in (i + 1)..n {
             let p = PI * (2.0f64.powi((j - i) as i32));
-            circ.append_gate(Gate::CP(), loc![i, j], vec![p]);
+            circ.append_ref_constant(cp_ref, [i, j], vec![p]);
         }
     }
     circ
 }
 
+
+pub fn build_dtc_circuit(n: usize) {
+    let g = 0.95;
+
+    let rx_expr = UnitaryExpression::new("RX(theta) {
+        [
+            [cos(theta/2), ~i*sin(theta/2)],
+            [~i*sin(theta/2), cos(theta/2)],
+        ]
+    }");
+
+    let rz_expr = UnitaryExpression::new("RZ(theta) {
+        [
+            [e^(~i*theta/2), 0],
+            [0, e^(i*theta/2)],
+        ]
+    }");
+
+    let rzz_expr = UnitaryExpression::new("RZZ(theta) {
+        [
+            [e^(~i*theta/2), 0, 0, 0],
+            [0, e^(i*theta/2), 0, 0],
+            [0, 0, e^(i*theta/2), 0],
+            [0, 0, 0, e^(~i*theta/2)],
+        ]
+    }");
+
+    let mut circ = QuditCircuit::pure(radices![2; n]);
+    let rx_ref = circ.cache_operation(rx_expr);
+    let rz_ref = circ.cache_operation(rz_expr);
+    let rzz_ref = circ.cache_operation(rzz_expr);
+    let mut rng = rand::thread_rng();
+
+    for _ in 0..n {
+        for i in 0..n {
+            circ.append_ref_constant(rx_ref, i, vec![g * std::f64::consts::PI]);
+        }
+
+        for i in (0..(n - 1)).step_by(2) {
+            let low = PI / 16.0;
+            let high = 3.0 * PI / 16.0;
+            let phi: f64 = rng.gen_range(low..high);  
+            circ.append_ref_constant(rzz_ref, [i, i + 1], vec![phi]);
+        }
+
+        for i in (1..(n - 1)).step_by(2) {
+            let low = PI / 16.0;
+            let high = 3.0 * PI / 16.0;
+            let phi: f64 = rng.gen_range(low..high);  
+            circ.append_ref_constant(rzz_ref, [i, i + 1], vec![phi]);
+        }
+
+        for i in 0..n {
+            let low = -PI;
+            let high = PI;
+            let phi: f64 = rng.gen_range(low..high);  
+            circ.append_ref_constant(rz_ref, i, vec![phi]);
+        }
+    }
+}
+
 #[allow(dead_code)]
 pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
-    let mut circ = QuditCircuit::new(radices![2; n], 0);
+    let mut circ = QuditCircuit::pure(radices![2; n]);
     for i in 0..n {
-        circ.append_gate(Gate::U3(), loc![i], vec![]);
+        circ.append_parameterized(Gate::U3(), [i]);
     }
     for _ in 0..n {
         for i in 0..(n - 1) {
-            circ.append_gate(Gate::CX(), loc![i, i + 1], vec![]);
-            circ.append_gate(Gate::U3(), loc![i], vec![]);
-            circ.append_gate(Gate::U3(), loc![i + 1], vec![]);
+            circ.append_parameterized(Gate::CX(), [i, i + 1]);
+            circ.append_parameterized(Gate::U3(), [i]);
+            circ.append_parameterized(Gate::U3(), [i + 1]);
         }
     }
     circ
@@ -49,16 +113,16 @@ pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
 
 #[allow(dead_code)]
 pub fn build_qsearch_thick_step_circuit(n: usize) -> QuditCircuit {
-    let mut circ = QuditCircuit::new(radices![2; n], 0);
+    let mut circ = QuditCircuit::pure(radices![2; n]);
     for i in 0..n {
-        circ.append_gate(Gate::U3(), loc![i], vec![]);
+        circ.append_parameterized(Gate::U3(), [i]);
     }
     for _ in 0..n {
         for i in 0..(n - 1) {
             for _j in 0..3 {
-                circ.append_gate(Gate::CX(), loc![i, i + 1], vec![]);
-                circ.append_gate(Gate::U3(), loc![i], vec![]);
-                circ.append_gate(Gate::U3(), loc![i + 1], vec![]);
+                circ.append_parameterized(Gate::CX(), [i, i + 1]);
+                circ.append_parameterized(Gate::U3(), [i]);
+                circ.append_parameterized(Gate::U3(), [i + 1]);
             }
         }
     }

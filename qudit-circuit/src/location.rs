@@ -573,11 +573,11 @@ pub trait ToLocation {
     fn to_location(self) -> CircuitLocation;
 }
 
-impl ToLocation for CircuitLocation {
-    fn to_location(self) -> CircuitLocation {
-        self
-    }
-}
+// impl ToLocation for CircuitLocation {
+//     fn to_location(self) -> CircuitLocation {
+//         self
+//     }
+// }
 
 impl<'a> ToLocation for &'a CircuitLocation {
     fn to_location(self) -> CircuitLocation {
@@ -653,6 +653,12 @@ impl<'a, 'b, const N: usize, const M: usize> ToLocation for (&'a [usize; N], &'b
     fn to_location(self) -> CircuitLocation {
         CircuitLocation::new(self.0, self.1)
     }
+}
+
+impl<L: ToLocation> From<L> for CircuitLocation {
+    fn from(value: L) -> Self {
+        value.to_location()
+    } 
 }
 
 // #[cfg(test)]

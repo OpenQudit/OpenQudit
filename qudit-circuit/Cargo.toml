@@ -26,6 +26,7 @@ bit-set = "*"
 proptest = "1.2"
 criterion = "0.5"
 pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
+rand = "*"
 
 [package.metadata.docs.rs]
 rustdoc-args = [
