@@ -6,6 +6,6 @@ edition = "2021"
 [dependencies]
 qudit-core = { path = "../qudit-core" }
 qudit-expr = { path = "../qudit-expr" }
-num-traits = "*"
-rand = "*"
+num-traits = "0.2.19"
+rand = "0.8.5"
 cargo-show-asm = "0.2.39"

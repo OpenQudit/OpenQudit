@@ -17,16 +17,16 @@ itertools = "0.10"
 num-traits = "0.2"
 num-complex = "0.4"
 faer = "0.22.6"
-aligned-vec = "*"
-bytemuck = "*"
-anyhow = "*"
-bit-set = "*"
+aligned-vec = "0.6.4"
+bytemuck = "1.23.2"
+anyhow = "1.0.99"
+bit-set = "0.8.0"
 
 [dev-dependencies]
 proptest = "1.2"
 criterion = "0.5"
 pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
-rand = "*"
+rand = "0.8.5"
 
 [package.metadata.docs.rs]
 rustdoc-args = [
