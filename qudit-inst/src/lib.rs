@@ -161,7 +161,7 @@ mod tests {
         // let initializer = Zeros::default();
         let initializer = Uniform::default();
         // let initializer = GreedyFurthestPoint::default();
-        let runner = MultiStartRunner { minimizer, guess_generator: initializer, num_starts: 1 };
+        let runner = MultiStartRunner { minimizer, guess_generator: initializer, num_starts: 16 };
         let instantiater = MinimizingInstantiater::<_, HSProblem<f32>>::new(runner);
         let data = std::collections::HashMap::new();
 
@@ -184,10 +184,12 @@ mod tests {
         println!("Number of successes: {:?}", success_times.len());
         println!("Number of failures: {:?}", failure_times.len());
         let average_success_time = success_times.iter().cloned().sum::<std::time::Duration>()/(success_times.len() as u32);
-        let average_failure_time = failure_times.iter().cloned().sum::<std::time::Duration>()/(failure_times.len() as u32);
+        if failure_times.len() != 0 {
+            let average_failure_time = failure_times.iter().cloned().sum::<std::time::Duration>()/(failure_times.len() as u32);
+            println!("Average failure time: {:?}", average_failure_time); 
+        }
         let average_time = success_times.iter().chain(failure_times.iter()).cloned().sum::<std::time::Duration>()/1000;
         println!("Average success time: {:?}", average_success_time); 
-        println!("Average failure time: {:?}", average_failure_time); 
         println!("Average overall time: {:?}", average_time); 
         // println!("Instantiation took: {:?}", elapsed/100);
     }

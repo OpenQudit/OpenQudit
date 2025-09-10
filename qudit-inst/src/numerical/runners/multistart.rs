@@ -31,6 +31,9 @@ where
             // println!("Minimization took: {:?}", elapsed/100);
 
             let res = self.minimizer.minimize(&mut func, &x0);
+            if res.fun <= R::from64(1e-4) {
+                return res;
+            }
             // println!("{}", res.fun);
             match &mut best {
                 None => best = Some(res),
