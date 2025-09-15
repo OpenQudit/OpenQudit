@@ -3,6 +3,7 @@ use std::ops::{Deref, DerefMut};
 use crate::{expressions::JittableExpression, index::{IndexDirection, TensorIndex}, GenerationShape, TensorExpression};
 
 use super::NamedExpression;
+use super::ComplexExpression;
 use qudit_core::QuditRadices;
 use qudit_core::QuditSystem;
 
@@ -10,6 +11,21 @@ use qudit_core::QuditSystem;
 pub struct KetExpression {
     inner: NamedExpression,
     radices: QuditRadices,
+}
+
+impl KetExpression {
+    pub fn zero<R: Into<QuditRadices>>(radices: R) -> Self {
+        let name = "zero";
+        let radices = radices.into();
+        let mut body = vec![ComplexExpression::zero(); radices.dimension()];
+        body[0] = ComplexExpression::one();
+        let variables = vec![];
+        let inner = NamedExpression::new(name, variables, body);
+        KetExpression {
+            inner,
+            radices,
+        }
+    }
 }
 
 impl JittableExpression for KetExpression {

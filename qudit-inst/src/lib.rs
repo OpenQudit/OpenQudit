@@ -23,6 +23,7 @@ mod tests {
     use qudit_core::QuditRadices;
     use qudit_circuit::QuditCircuit;
     use qudit_circuit::CircuitLocation;
+    use qudit_expr::BraSystemExpression;
     use qudit_expr::UnitaryExpression;
     use qudit_gates::Gate;
     use qudit_tensor::TNVM;
@@ -88,72 +89,71 @@ mod tests {
         circ
     }
 
-    // pub fn build_dynamic_circuit() -> QuditCircuit<c64> {
-    //     let mut circ: QuditCircuit<c64> = QuditCircuit::new([2, 2, 2, 2], [2, 2]);
+    pub fn build_dynamic_circuit() -> QuditCircuit {
+        let mut circ: QuditCircuit = QuditCircuit::new([2, 2, 2, 2], [2, 2]);
 
-    //     circ.zero_initialize([1, 2]);
+        circ.zero_initialize([1, 2]);
 
-    //     for i in 0..4 {
-    //         circ.append_uninit_gate(Gate::U3(), [i]);
-    //     }
+        for i in 0..4 {
+            circ.append_parameterized(Gate::U3(), [i]);
+        }
 
-    //     // TODO: add otimes, dot, and friends to gate methods.
-    //     let block_expr = Gate::U3().gen_expr().otimes(Gate::U3().gen_expr()).dot(Gate::CX().gen_expr());
-    //     let block_gate = Gate::Expression(block_expr);
-    //     circ.append_uninit_gate(block_gate.clone(), [0, 1]);
-    //     circ.append_uninit_gate(block_gate.clone(), [2, 3]);
-    //     circ.append_uninit_gate(block_gate.clone(), [1, 2]);
+        // TODO: add otimes, dot, and friends to gate methods.
+        let block_expr = Gate::U3().generate_expression().otimes(Gate::U3().generate_expression()).dot(Gate::CX().generate_expression());
+        circ.append_parameterized(block_expr.clone(), [0, 1]);
+        circ.append_parameterized(block_expr.clone(), [2, 3]);
+        circ.append_parameterized(block_expr.clone(), [1, 2]);
 
-    //     let two_qubit_basis_measurement = StateSystemExpression::new("TwoQMeasure() {
-    //         [
-    //             [[ 1, 0, 0, 0 ]],
-    //             [[ 0, 1, 0, 0 ]],
-    //             [[ 0, 0, 1, 0 ]],
-    //             [[ 0, 0, 0, 1 ]],
-    //         ]
-    //     }");
-    //     circ.append_instruction(Instruction::new(Operation::TerminatingMeasurement(two_qubit_basis_measurement), ([1, 2], [0,1]), vec![]));
-    //     // circ.z_basis_measure([1, 2], [0, 1]);
-    //     // circ.classically_multiplex(Gate::U3().otimes(Gate::U3()), [0, 3], [0, 1]);
+        // TODO: Shorten the following block to: circ.z_basis_measure([1, 2], [0, 1]);
+        let one_qubit_basis_measurement = BraSystemExpression::new("OneQMeasure() {
+            [
+                [[ 1, 0, ]],
+                [[ 0, 1, ]],
+            ]
+        }");
 
-    //     let cs1 = ControlState::from_binary_state([0,0]);
-    //     circ.uninit_classically_control(Gate::U3(), cs1.clone(), ([0], [0, 1]));
-    //     circ.uninit_classically_control(Gate::U3(), cs1.clone(), ([3], [0, 1]));
+        circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement.clone()), ([1], [0]));
+        circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement), ([2], [1]));
 
-    //     let cs2 = ControlState::from_binary_state([0,1]);
-    //     circ.uninit_classically_control(Gate::U3(), cs2.clone(), ([0], [0, 1]));
-    //     circ.uninit_classically_control(Gate::U3(), cs2.clone(), ([3], [0, 1]));
+        // TODO: Shorten the following four blocks to:
+        // circ.classically_multiplex(Gate::U3().otimes(Gate::U3()), [0, 3], [0, 1]);
 
-    //     let cs3 = ControlState::from_binary_state([1,0]);
-    //     circ.uninit_classically_control(Gate::U3(), cs3.clone(), ([0], [0, 1]));
-    //     circ.uninit_classically_control(Gate::U3(), cs3.clone(), ([3], [0, 1]));
+        // If the two readout bits (0, 1 bits) are in state 0 (out of 4 possible states) then apply
+        // a U3 to qubit [0]
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[0], &[2, 2])), ([0], [0, 1]));
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[0], &[2, 2])), ([3], [0, 1]));
 
-    //     let cs4 = ControlState::from_binary_state([1,1]);
-    //     circ.uninit_classically_control(Gate::U3(), cs4.clone(), ([0], [0, 1]));
-    //     circ.uninit_classically_control(Gate::U3(), cs4.clone(), ([3], [0, 1]));
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[1], &[2, 2])), ([0], [0, 1]));
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[1], &[2, 2])), ([3], [0, 1]));
 
-    //     circ
-    // }
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[2], &[2, 2])), ([0], [0, 1]));
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[2], &[2, 2])), ([3], [0, 1]));
+
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[3], &[2, 2])), ([0], [0, 1]));
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[3], &[2, 2])), ([3], [0, 1]));
+
+        circ
+    }
 
 
     #[test]
     fn test_lm_minimization_simple() {
         // create simple circuit
-        // let circ = build_dynamic_circuit();
-        let circ = build_qsearch_thin_step_circuit(3);
+        let circ = build_dynamic_circuit();
+        // let circ = build_qsearch_thin_step_circuit(3);
 
         // sample target
-        let network = circ.to_tensor_network();
-        let code = qudit_tensor::compile_network(network);
-        let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
-        let result = tnvm.evaluate::<FUNCTION>(&vec![1.7; circ.num_params()]).get_fn_result().unpack_matrix();
-        let target_utry = UnitaryMatrix::new(circ.radices(), result.to_owned());
-        // let target_utry = UnitaryMatrix::new([2, 2], mat![
-        //     [c64::new(1.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0)],
-        //     [c64::new(0.0, 0.0), c64::new(1.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0)],
-        //     [c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(1.0, 0.0)],
-        //     [c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(1.0, 0.0), c64::new(0.0, 0.0)],
-        // ]);
+        // let network = circ.to_tensor_network();
+        // let code = qudit_tensor::compile_network(network);
+        // let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
+        // let result = tnvm.evaluate::<FUNCTION>(&vec![1.7; circ.num_params()]).get_fn_result().unpack_matrix();
+        // let target_utry = UnitaryMatrix::new(circ.radices(), result.to_owned());
+        let target_utry = UnitaryMatrix::new([2, 2], mat![
+            [c64::new(1.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0)],
+            [c64::new(0.0, 0.0), c64::new(1.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0)],
+            [c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(1.0, 0.0)],
+            [c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(1.0, 0.0), c64::new(0.0, 0.0)],
+        ]);
         let target = InstantiationTarget::UnitaryMatrix(target_utry);
 
         // build instantiater
@@ -162,7 +162,7 @@ mod tests {
         let initializer = Uniform::default();
         // let initializer = GreedyFurthestPoint::default();
         let runner = MultiStartRunner { minimizer, guess_generator: initializer, num_starts: 16 };
-        let instantiater = MinimizingInstantiater::<_, HSProblem<f32>>::new(runner);
+        let instantiater = MinimizingInstantiater::<_, HSProblem<f64>>::new(runner);
         let data = std::collections::HashMap::new();
 
         // call instantiater
@@ -183,13 +183,15 @@ mod tests {
         }
         println!("Number of successes: {:?}", success_times.len());
         println!("Number of failures: {:?}", failure_times.len());
-        let average_success_time = success_times.iter().cloned().sum::<std::time::Duration>()/(success_times.len() as u32);
+        if success_times.len() != 0 {
+            let average_success_time = success_times.iter().cloned().sum::<std::time::Duration>()/(success_times.len() as u32);
+            println!("Average success time: {:?}", average_success_time); 
+        }
         if failure_times.len() != 0 {
             let average_failure_time = failure_times.iter().cloned().sum::<std::time::Duration>()/(failure_times.len() as u32);
             println!("Average failure time: {:?}", average_failure_time); 
         }
         let average_time = success_times.iter().chain(failure_times.iter()).cloned().sum::<std::time::Duration>()/1000;
-        println!("Average success time: {:?}", average_success_time); 
         println!("Average overall time: {:?}", average_time); 
         // println!("Instantiation took: {:?}", elapsed/100);
     }

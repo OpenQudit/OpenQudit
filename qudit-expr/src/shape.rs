@@ -431,12 +431,12 @@ impl GenerationShape {
                 let mut index_size_acm = 1usize;
                 let mut index_iter = 0;
                 let mut index_directions = vec![];
-                while index_size_acm < *nrows {
+                while index_iter < index_sizes.len() && index_size_acm < *nrows {
                     index_size_acm *= index_sizes[index_iter]; 
                     index_directions.push(IndexDirection::Output);
                     index_iter += 1;
                 }
-                while index_iter != index_sizes.len() {
+                while index_iter < index_sizes.len() {
                     index_directions.push(IndexDirection::Input);
                     index_iter += 1;
                 }
@@ -446,17 +446,18 @@ impl GenerationShape {
                 let mut index_size_acm = 1usize;
                 let mut index_iter = 0;
                 let mut index_directions = vec![];
-                while index_size_acm < *nmats {
+                while index_iter < index_sizes.len() && index_size_acm < *nmats {
                     index_size_acm *= index_sizes[index_iter]; 
                     index_directions.push(IndexDirection::Batch);
                     index_iter += 1;
                 }
-                while index_size_acm < *nrows {
+                index_size_acm = 1usize; // Reset to calculate for nrows
+                while index_iter < index_sizes.len() && index_size_acm < *nrows {
                     index_size_acm *= index_sizes[index_iter]; 
                     index_directions.push(IndexDirection::Output);
                     index_iter += 1;
                 }
-                while index_iter != index_sizes.len() {
+                while index_iter < index_sizes.len() {
                     index_directions.push(IndexDirection::Input);
                     index_iter += 1;
                 }

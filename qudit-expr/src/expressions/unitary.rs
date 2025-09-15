@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 use std::ops::{Deref, DerefMut};
 
 use qudit_core::unitary::UnitaryMatrix;
@@ -81,6 +81,49 @@ impl UnitaryExpression {
     pub fn dagger(&mut self) {
         self.conjugate();
         self.transpose();
+    }
+
+    // TODO: better API for user-facing thoughts
+    pub fn classically_control(&self, positions: &[usize], new_dim_radices: &[usize]) -> TensorExpression {
+        let new_dim = new_dim_radices.iter().product();
+        assert!(positions.len() <= new_dim, "Cannot place unitary in more locations than length of new dimension.");
+
+        // Ensure positions are unique
+        let mut sorted_positions = positions.to_vec();
+        sorted_positions.sort_unstable();
+        assert!(sorted_positions.iter().collect::<BTreeSet<_>>().len() == sorted_positions.len(), "Positions must be unique");
+
+        // Construct identity expression
+        let mut identity = Vec::with_capacity(self.dimension() * self.dimension());
+        for i in 0..self.dimension() {
+            for j in 0..self.dimension() {
+                if i == j {
+                    identity.push(ComplexExpression::one());
+                } else {
+                    identity.push(ComplexExpression::zero());
+                }
+            }
+        }
+
+        // construct larger tensor
+        let mut expressions = Vec::with_capacity(self.dimension() * self.dimension() * new_dim);
+        for i in 0..new_dim {
+            if positions.contains(&i) {
+                expressions.extend(self.elements().iter().cloned());
+            } else {
+                expressions.extend(identity.iter().cloned());
+            }
+        }
+
+        let new_indices = new_dim_radices.iter().map(|r| (IndexDirection::Batch, *r as usize))
+            .chain(self.radices.iter().map(|r| (IndexDirection::Output, *r as usize)))
+            .chain(self.radices.iter().map(|r| (IndexDirection::Input, *r as usize)))
+            .enumerate()
+            .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
+            .collect();
+
+        let inner = NamedExpression::new(format!("Stacked_{}", self.name()), self.variables().to_owned(), expressions);
+        TensorExpression::from_raw(new_indices, inner)
     }
 
     pub fn embed(&mut self, sub_matrix: UnitaryExpression, top_left_row_idx: usize, top_left_col_idx: usize) {

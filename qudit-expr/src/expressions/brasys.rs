@@ -13,6 +13,12 @@ pub struct BraSystemExpression {
     num_states: usize,
 }
 
+impl BraSystemExpression {
+    pub fn new<T: AsRef<str>>(input: T) -> Self {
+        TensorExpression::new(input).try_into().unwrap()
+    }
+}
+
 impl JittableExpression for BraSystemExpression {
     fn generation_shape(&self) -> GenerationShape {
         GenerationShape::Tensor3D(self.num_states, 1, self.radices.dimension())

@@ -574,9 +574,7 @@ impl QuditCircuit {
                 Operation::TerminatingMeasurement(subbed_expr)
             }
             Operation::ClassicallyControlledUnitary(e) => {
-                let e: TensorExpression = e.into();
-                let subbed_expr: KrausOperatorsExpression = e.substitute_parameters(&unique_variables, &expressions).try_into().unwrap();
-                Operation::ClassicallyControlledUnitary(subbed_expr)
+                Operation::ClassicallyControlledUnitary(e.substitute_parameters(&unique_variables, &expressions))
             }
             Operation::QuditInitialization(e) => {
                 let e: TensorExpression = e.into();
@@ -609,18 +607,13 @@ impl QuditCircuit {
         self.qfront[index].is_none()
     }
     
-    // pub fn zero_initialize<L: ToLocation>(&mut self, location: L) {
-    //     let location = location.to_location();
-    //     assert_eq!(location.get_num_dits(), 0);
-    //     let location_radices = location.qudits().iter().map(|q| self.qudit_radices[q]);
-    //     let state = StateExpression::zero(location_radices);
-    //     let op = Operation::Initialization(state);
-    //     let op_ref = self.expression_set.insert(op);
-
-    //     assert!(location.qudits().iter().all(|q| self.is_qudit_inactive(q)));
-
-    //     self.append(op_ref, location, ParamList::empty());
-    // }
+    pub fn zero_initialize<L: ToLocation>(&mut self, location: L) {
+        let location = location.to_location();
+        let location_radices = location.qudits().iter().map(|q| self.qudit_radices[q] as u8).collect::<Vec<_>>();
+        let state = KetExpression::zero(location_radices);
+        let op = Operation::QuditInitialization(state);
+        self.append_parameterized(op, location);
+    }
 
     // // pub fn z_basis_measure
 
@@ -949,16 +942,59 @@ impl QuditCircuit {
                     network = network.prepend(tensor, inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), vec![]);
                 }
                 CachedOperation::KrausOperators(expr_id) => {
-                    todo!()
+                    let indices = self.operations.indices(*expr_id);
+                    let constant = inst_ref.param_indices.iter().map(|i| matches!(self.params[i], Parameter::Static(_))).collect();
+                    let param_info = ParamInfo::new(inst_ref.param_indices.clone(), constant); 
+                    let tensor = QuditTensor::new(indices, *expr_id, param_info);
+                    let input_index_map = inst_ref.location.qudits().to_vec();
+                    let output_index_map = inst_ref.location.qudits().to_vec();
+                    let batch_index_map: Vec<String> = inst_ref.location.dits()
+                        .iter()
+                        .map(|id| id.to_string())
+                        .collect();
+                    network = network.prepend(tensor, input_index_map, output_index_map, batch_index_map)
                 }
                 CachedOperation::TerminatingMeasurement(expr_id) => {
-                    todo!()
+                    let indices = self.operations.indices(*expr_id);
+                    let constant = inst_ref.param_indices.iter().map(|i| matches!(self.params[i], Parameter::Static(_))).collect();
+                    let param_info = ParamInfo::new(inst_ref.param_indices.clone(), constant); 
+                    // let tensor_indices = inst_ref.location.dits()
+                    //     .iter()
+                    //     .map(|dit_id| (IndexDirection::Batch, self.dit_radices[dit_id] as IndexSize))
+                    //     .chain(indices.into_iter()
+                    //         .filter(|idx| idx.direction() != IndexDirection::Batch)
+                    //         .map(|idx| (idx.direction(), idx.index_size())))
+                    //     .enumerate()
+                    //     .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
+                    //     .collect();
+                    let tensor = QuditTensor::new(indices, *expr_id, param_info);
+                    let input_index_map = inst_ref.location.qudits().to_vec();
+                    let batch_index_map: Vec<String> = inst_ref.location.dits()
+                        .iter()
+                        .map(|id| id.to_string())
+                        .collect();
+                    network = network.prepend(tensor, input_index_map, vec![], batch_index_map)
                 }
                 CachedOperation::ClassicallyControlledUnitary(expr_id) => {
-                    todo!()
+                    let indices = self.operations.indices(*expr_id);
+                    let constant = inst_ref.param_indices.iter().map(|i| matches!(self.params[i], Parameter::Static(_))).collect();
+                    let param_info = ParamInfo::new(inst_ref.param_indices.clone(), constant); 
+                    let tensor = QuditTensor::new(indices, *expr_id, param_info);
+                    let input_index_map = inst_ref.location.qudits().to_vec();
+                    let output_index_map = inst_ref.location.qudits().to_vec();
+                    let batch_index_map: Vec<String> = inst_ref.location.dits()
+                        .iter()
+                        .map(|id| id.to_string())
+                        .collect();
+                    network = network.prepend(tensor, input_index_map, output_index_map, batch_index_map)
                 }
                 CachedOperation::QuditInitialization(expr_id) => {
-                    todo!()
+                    let indices = self.operations.indices(*expr_id);
+                    let constant = inst_ref.param_indices.iter().map(|i| matches!(self.params[i], Parameter::Static(_))).collect();
+                    let param_info = ParamInfo::new(inst_ref.param_indices.clone(), constant); 
+                    let tensor = QuditTensor::new(indices, *expr_id, param_info);
+                    let output_index_map = inst_ref.location.qudits().to_vec();
+                    network = network.prepend(tensor, vec![], output_index_map, vec![])
                 }
             }
         }
@@ -1168,17 +1204,17 @@ mod tests {
         // let code = Bytecode { expressions, const_code, dynamic_code: dynamic_code[..3].to_vec(), buffers };
 
         println!("{:?}", code);
-        let mut tnvm = qudit_tensor::TNVM::<c32, FUNCTION>::new(&code);
-        // let start = std::time::Instant::now();
-        // for _ in 0..1000 {
-        //     let result = tnvm.evaluate::<FUNCTION>(&[1.7; (3*n) + (7*(n-1)*n)]);
-        // }
-        // let elapsed = start.elapsed();
-        // println!("Time per evaluation: {:?}", elapsed / 1000);
+        let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
+        let start = std::time::Instant::now();
+        for _ in 0..1000 {
+            let result = tnvm.evaluate::<GRADIENT>(&[1.7; (3*n) + (7*(n-1)*n)]);
+        }
+        let elapsed = start.elapsed();
+        println!("Time per evaluation: {:?}", elapsed / 1000);
 
-        let result = tnvm.evaluate::<FUNCTION>(&[1.7; (3*n) + (7*(n-1)*n)]);
-        let unitary = result.get_fn_result().unpack_matrix();
-        println!("{:?}", unitary);
+        // let result = tnvm.evaluate::<GRADIENT>(&[1.7; (3*n) + (7*(n-1)*n)]);
+        // let unitary = result.get_fn_result().unpack_matrix();
+        // println!("{:?}", unitary);
     }
 
     // #[test]
@@ -1423,25 +1459,23 @@ mod tests {
     //     assert!(dist < 1e-7);
     // }
 
-    // #[test]
-    // fn test_gen_code_for_paper() {
-    //     let mut circ: QuditCircuit<f64> = QuditCircuit::new(radices![2; 3], 0);
-    //     circ.append_gate(Gate::U3(), loc![0], vec![]);
-    //     circ.append_gate(Gate::U3(), loc![1], vec![]);
-    //     circ.append_gate(Gate::U3(), loc![2], vec![]);
-    //     circ.append_gate(Gate::CP(), loc![1, 2], vec![]);
-    //     circ.append_gate(Gate::CP(), loc![0, 1], vec![]);
-    //     circ.append_gate(Gate::U3(), loc![0], vec![]);
-    //     circ.append_gate(Gate::CP(), loc![0, 1], vec![]);
-    //     circ.append_gate(Gate::CP(), loc![1, 2], vec![]);
-    //     circ.append_gate(Gate::U3(), loc![0], vec![]);
-    //     circ.append_gate(Gate::U3(), loc![1], vec![]);
-    //     circ.append_gate(Gate::U3(), loc![2], vec![]);
-    //     let tree = circ.to_tree();
-    //     println!("{:?}", tree);
-    //     let code = compile(&tree);
-    //     println!("{:?}", code);
-    // }
+    #[test]
+    fn test_gen_code_for_paper() {
+        let mut circ = QuditCircuit::pure(vec![2; 3]);
+        circ.append_parameterized(Gate::U3(), [0]);
+        circ.append_parameterized(Gate::U3(), [1]);
+        circ.append_parameterized(Gate::U3(), [2]);
+        circ.append_parameterized(Gate::CX(), [1, 2]);
+        circ.append_parameterized(Gate::CX(), [0, 1]);
+        circ.append_parameterized(Gate::U3(), [0]);
+        circ.append_parameterized(Gate::CX(), [0, 1]);
+        circ.append_parameterized(Gate::CX(), [1, 2]);
+        circ.append_parameterized(Gate::U3(), [0]);
+        circ.append_parameterized(Gate::U3(), [1]);
+        circ.append_parameterized(Gate::U3(), [2]);
+        let code = qudit_tensor::compile_network(circ.to_tensor_network());
+        println!("{:?}", code);
+    }
 
     // #[test]
     // fn test_qsearch_2block_circuit() {

@@ -86,7 +86,7 @@ pub enum Operation {
     UnitaryGate(UnitaryExpression),
     KrausOperators(KrausOperatorsExpression),
     TerminatingMeasurement(BraSystemExpression),
-    ClassicallyControlledUnitary(KrausOperatorsExpression),
+    ClassicallyControlledUnitary(TensorExpression),
     QuditInitialization(KetExpression),
 
     // TODO: Delay
