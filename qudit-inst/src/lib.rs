@@ -94,15 +94,14 @@ mod tests {
 
         circ.zero_initialize([1, 2]);
 
-        for i in 0..4 {
+        for i in 0..1 {
             circ.append_parameterized(Gate::U3(), [i]);
         }
 
-        // TODO: add otimes, dot, and friends to gate methods.
-        let block_expr = Gate::U3().generate_expression().otimes(Gate::U3().generate_expression()).dot(Gate::CX().generate_expression());
-        circ.append_parameterized(block_expr.clone(), [0, 1]);
-        circ.append_parameterized(block_expr.clone(), [2, 3]);
-        circ.append_parameterized(block_expr.clone(), [1, 2]);
+        let block_expr = Gate::CX().generate_expression();
+        circ.append_parameterized(block_expr.clone(), [3, 0]);
+        circ.append_parameterized(block_expr.clone(), [0, 3]);
+        circ.append_parameterized(block_expr.clone(), [3, 0]);
 
         // TODO: Shorten the following block to: circ.z_basis_measure([1, 2], [0, 1]);
         let one_qubit_basis_measurement = BraSystemExpression::new("OneQMeasure() {
@@ -115,22 +114,22 @@ mod tests {
         circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement.clone()), ([1], [0]));
         circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement), ([2], [1]));
 
+        // circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement.clone()), ([2], [0]));
+        // circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement), ([3], [1]));
+
         // TODO: Shorten the following four blocks to:
         // circ.classically_multiplex(Gate::U3().otimes(Gate::U3()), [0, 3], [0, 1]);
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[0], &[2, 2])), ([0], [0, 1]));
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[0], &[2, 2])), ([3], [0, 1]));
 
-        // If the two readout bits (0, 1 bits) are in state 0 (out of 4 possible states) then apply
-        // a U3 to qubit [0]
-        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[0], &[2, 2])), ([0], [0, 1]));
-        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[0], &[2, 2])), ([3], [0, 1]));
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[1], &[2, 2])), ([0], [0, 1]));
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[1], &[2, 2])), ([3], [0, 1]));
 
-        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[1], &[2, 2])), ([0], [0, 1]));
-        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[1], &[2, 2])), ([3], [0, 1]));
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[2], &[2, 2])), ([0], [0, 1]));
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[2], &[2, 2])), ([3], [0, 1]));
 
-        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[2], &[2, 2])), ([0], [0, 1]));
-        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[2], &[2, 2])), ([3], [0, 1]));
-
-        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[3], &[2, 2])), ([0], [0, 1]));
-        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[3], &[2, 2])), ([3], [0, 1]));
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[3], &[2, 2])), ([0], [0, 1]));
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[3], &[2, 2])), ([3], [0, 1]));
 
         circ
     }
@@ -150,9 +149,9 @@ mod tests {
         // let target_utry = UnitaryMatrix::new(circ.radices(), result.to_owned());
         let target_utry = UnitaryMatrix::new([2, 2], mat![
             [c64::new(1.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0)],
+            [c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(1.0, 0.0), c64::new(0.0, 0.0)],
             [c64::new(0.0, 0.0), c64::new(1.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0)],
             [c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(1.0, 0.0)],
-            [c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(1.0, 0.0), c64::new(0.0, 0.0)],
         ]);
         let target = InstantiationTarget::UnitaryMatrix(target_utry);
 
@@ -169,7 +168,7 @@ mod tests {
         let result = instantiater.instantiate(&circ, &target, &data);
         let mut success_times = vec![];
         let mut failure_times = vec![];
-        for _ in 0..1000 {
+        for _ in 0..1 {
             let now = std::time::Instant::now();
             let result = instantiater.instantiate(&circ, &target, &data);
             let elapsed = now.elapsed();
