@@ -33,6 +33,7 @@ pub use composed::control::ControlledGate;
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum Gate {
+    IGate(IGate),
     HGate(HGate),
     PGate(PGate),
     XGate(XGate),
@@ -44,6 +45,7 @@ pub enum Gate {
 impl Gate {
     pub fn name(&self) -> String {
         match self {
+            Gate::IGate(_) => "I".to_string(),
             Gate::HGate(_) => "H".to_string(),
             Gate::PGate(_) => "P".to_string(),
             Gate::XGate(_) => "X".to_string(),
@@ -52,6 +54,13 @@ impl Gate {
             Gate::Expression(expr) => expr.name().to_string(),
         }
     }
+
+
+    #[allow(non_snake_case)]
+    pub fn I(radix: usize) -> Self {
+        Gate::IGate(IGate::new(radix))
+    }
+
 
     #[allow(non_snake_case)]
     pub fn H(radix: usize) -> Self {
@@ -89,6 +98,7 @@ impl ExpressionGenerator for Gate {
 
     fn generate_expression(&self) -> UnitaryExpression {
         match self {
+            Gate::IGate(gate) => gate.generate_expression(),
             Gate::HGate(gate) => gate.generate_expression(),
             Gate::PGate(gate) => gate.generate_expression(),
             Gate::XGate(gate) => gate.generate_expression(),
@@ -102,6 +112,7 @@ impl ExpressionGenerator for Gate {
 impl HasParams for Gate {
     fn num_params(&self) -> usize {
         match self {
+            Gate::IGate(_gate) => 0,
             Gate::HGate(_gate) => 0,
             Gate::XGate(_gate) => 0,
             Gate::U3Gate(_gate) => 3,

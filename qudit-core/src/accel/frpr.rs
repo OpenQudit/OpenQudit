@@ -677,6 +677,11 @@ fn tensor_fused_reshape_permute_reshape_into_prepare_helper(
                 shape_index += 1;
             }
             in_shape_index += 1;
+
+        // Skip an axis; special case
+        } else if in_shape[in_shape_index] == 1 && in_strides[in_shape_index] == 1 {
+            in_shape_index += 1;
+
         
         // Merging axes (column-wise)
         // This can handle cases where we have a sequence of axes that are and aren't contiguous or column-major.
@@ -758,13 +763,13 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
     perm: &[usize],
 ) -> (Vec<isize>, Vec<isize>, Vec<usize>) {
     
+    // Input validation
     let N = in_shape.len();
     assert!(in_strides.len() == N);
     let M = out_shape.len();
     assert!(out_strides.len() == M);
     let K = shape.len();
     assert!(perm.len() == K);
-    // Input validation
     // println!("in_shape: {:?}", in_shape);
     // println!("in_strides: {:?}", in_strides);
     // println!("out_shape: {:?}", out_shape);

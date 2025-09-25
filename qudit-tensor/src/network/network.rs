@@ -218,6 +218,10 @@ impl QuditTensorNetwork {
 
                 let left_network_index_ids: Vec<IndexId> = left.indices().iter().map(|&idx| idx.index_id()).collect();
                 let right_network_index_ids: Vec<IndexId> = right.indices().iter().map(|&idx| idx.index_id()).collect();
+                // println!("Contracting");
+                // println!("Left network ids: {:?}", left_network_index_ids);
+                // println!("Right network ids: {:?}", right_network_index_ids);
+                // println!("");
 
                 let intersection: Vec<IndexId> = left_network_index_ids.iter()
                     .filter(|&id| right_network_index_ids.contains(id))
@@ -250,7 +254,8 @@ impl QuditTensorNetwork {
                 let QuditTensor { expression: expr_id, indices, param_info } = &self.tensors[*path_element];
                 // [5, 1, 0, 5, 1, 2] (5 contracted, 1 traced)
                 let mut network_idx_ids = self.local_to_network_index_map[*path_element].clone();
-                // println!("New Leaf {expr_id}, with network ids {network_idx_ids:?}");
+                // println!("");
+                // println!("New Leaf {}, with network ids {network_idx_ids:?}", self.expressions.borrow().base_name(*expr_id));
 
                 // Perform partial traces if necessary
                 // find any indices that appear twice in indices and are only connected to this
@@ -349,6 +354,7 @@ impl QuditTensorNetwork {
                
                 // println!("Leaf node has indices: {new_node_indices:?}");
                 tree_stack.push(TTGTTree::leaf(self.expressions.clone(), tranposed_id, param_info.clone(), new_node_indices, tensor_to_expr_position_map));
+                // println!("");
             }
         }
         if tree_stack.len() != 1 {

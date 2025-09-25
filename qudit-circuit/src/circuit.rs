@@ -939,6 +939,7 @@ impl QuditCircuit {
                     let constant = inst_ref.param_indices.iter().map(|i| matches!(self.params[i], Parameter::Static(_))).collect();
                     let param_info = ParamInfo::new(inst_ref.param_indices.clone(), constant); 
                     let tensor = QuditTensor::new(indices, *expr_id, param_info);
+                    // println!("Adding new unitary gate to tensor network builder with {:?} qudits", inst_ref.location.qudits().to_vec());
                     network = network.prepend(tensor, inst_ref.location.qudits().to_vec(), inst_ref.location.qudits().to_vec(), vec![]);
                 }
                 CachedOperation::KrausOperators(expr_id) => {
@@ -952,6 +953,7 @@ impl QuditCircuit {
                         .iter()
                         .map(|id| id.to_string())
                         .collect();
+                    // println!("Adding new kraus operators to tensor network builder with {:?} qudits and {:?} batch indices", inst_ref.location.qudits().to_vec(), batch_index_map);
                     network = network.prepend(tensor, input_index_map, output_index_map, batch_index_map)
                 }
                 CachedOperation::TerminatingMeasurement(expr_id) => {
@@ -973,6 +975,7 @@ impl QuditCircuit {
                         .iter()
                         .map(|id| id.to_string())
                         .collect();
+                    // println!("Adding new terminating measurement to tensor network builder with {:?} qudits and {:?} batch indices", inst_ref.location.qudits().to_vec(), batch_index_map);
                     network = network.prepend(tensor, input_index_map, vec![], batch_index_map)
                 }
                 CachedOperation::ClassicallyControlledUnitary(expr_id) => {
@@ -986,6 +989,7 @@ impl QuditCircuit {
                         .iter()
                         .map(|id| id.to_string())
                         .collect();
+                    // println!("Adding new classically controlled to tensor network builder with {:?} qudits and {:?} batch indices", inst_ref.location.qudits().to_vec(), batch_index_map);
                     network = network.prepend(tensor, input_index_map, output_index_map, batch_index_map)
                 }
                 CachedOperation::QuditInitialization(expr_id) => {
@@ -994,6 +998,7 @@ impl QuditCircuit {
                     let param_info = ParamInfo::new(inst_ref.param_indices.clone(), constant); 
                     let tensor = QuditTensor::new(indices, *expr_id, param_info);
                     let output_index_map = inst_ref.location.qudits().to_vec();
+                    // println!("Adding new qudit initialization to tensor network builder with {:?} qudits", inst_ref.location.qudits().to_vec());
                     network = network.prepend(tensor, vec![], output_index_map, vec![])
                 }
             }
@@ -1215,6 +1220,83 @@ mod tests {
         // let result = tnvm.evaluate::<GRADIENT>(&[1.7; (3*n) + (7*(n-1)*n)]);
         // let unitary = result.get_fn_result().unpack_matrix();
         // println!("{:?}", unitary);
+    }
+
+    pub fn build_simple_dynamic_circuit() -> QuditCircuit {
+        let mut circ: QuditCircuit = QuditCircuit::new([2, 2, 2, 2], [2, 2]);
+        circ.append_parameterized(Gate::U3(), [0]);
+        let block_expr = Gate::CX().generate_expression();
+        circ.append_parameterized(block_expr.clone(), [3, 0]);
+        circ.append_parameterized(block_expr.clone(), [0, 3]);
+        circ.append_parameterized(block_expr.clone(), [3, 0]);
+
+        circ.zero_initialize([1, 2]);
+        let one_qubit_basis_measurement = BraSystemExpression::new("OneQMeasure() {
+            [
+                [[ 1, 0, ]],
+                [[ 0, 1, ]],
+            ]
+        }");
+
+        circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement.clone()), ([1], [0]));
+        circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement), ([2], [1]));
+
+        // let mut circ: QuditCircuit = QuditCircuit::new([2, 2, 2, 2], [2, 2]);
+
+        // circ.zero_initialize([1, 2]);
+
+        // for i in 0..1 {
+        //     circ.append_parameterized(Gate::U3(), [i]);
+        // }
+
+        // let block_expr = Gate::CX().generate_expression();
+        // circ.append_parameterized(block_expr.clone(), [3, 0]);
+        // circ.append_parameterized(block_expr.clone(), [0, 3]);
+        // circ.append_parameterized(block_expr.clone(), [3, 0]);
+
+        // // TODO: Shorten the following block to: circ.z_basis_measure([1, 2], [0, 1]);
+        // let one_qubit_basis_measurement = BraSystemExpression::new("OneQMeasure() {
+        //     [
+        //         [[ 1, 0, ]],
+        //         [[ 0, 1, ]],
+        //     ]
+        // }");
+
+        // circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement.clone()), ([1], [0]));
+        // circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement), ([2], [1]));
+
+        // // circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement.clone()), ([2], [0]));
+        // // circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement), ([3], [1]));
+
+        // // TODO: Shorten the following four blocks to:
+        // // circ.classically_multiplex(Gate::U3().otimes(Gate::U3()), [0, 3], [0, 1]);
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[0], &[2, 2])), ([0], [0, 1]));
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[0], &[2, 2])), ([3], [0, 1]));
+
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[1], &[2, 2])), ([0], [0, 1]));
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[1], &[2, 2])), ([3], [0, 1]));
+
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[2], &[2, 2])), ([0], [0, 1]));
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[2], &[2, 2])), ([3], [0, 1]));
+
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[3], &[2, 2])), ([0], [0, 1]));
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[3], &[2, 2])), ([3], [0, 1]));
+
+        circ
+    }
+
+    #[test]
+    fn dynamic_circuit_tnvm_test() {
+        let circ = build_simple_dynamic_circuit();
+
+        let network = circ.to_tensor_network();
+        let code = qudit_tensor::compile_network(network);
+       println!("{:?}", code);
+
+        let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
+        let result = tnvm.evaluate::<GRADIENT>(&[0.0; 3]);
+        let unitary = result.get_fn_result().unpack_tensor3d();
+        println!("{:?}", unitary);
     }
 
     // #[test]

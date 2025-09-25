@@ -33,6 +33,10 @@ impl QuditTensor {
         self.indices.len()
     }
 
+    pub fn shape(&self) -> GenerationShape {
+        (&self.indices).into()
+    }
+
     /// Returns a vector of index IDs for all batch legs of the tensor.
     pub fn batch_indices(&self) -> Vec<usize> {
         self.indices.iter()

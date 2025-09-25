@@ -81,19 +81,6 @@ impl TTGTTree {
 
         let left = self;
 
-        if contraction_ids.is_empty() {
-            if left.rank() == shared_ids.len() && right.rank() == left.rank() {
-                return Self {
-                    root: TTGTNode::Hadamard(HadamardProductNode::new(left.root, right.root)),
-                    expressions: left.expressions,
-                };
-            }
-            return Self {
-                root: TTGTNode::Outer(OuterProductNode::new(left.root, right.root)),
-                expressions: left.expressions,
-            };
-        }
-
         // First find the permutation and redirection for left that makes its tensor
         // order (shared_ids [Batch], non_contracted [Output], contracted[Input])
         let left_left_indices = left.indices().iter()
@@ -140,7 +127,15 @@ impl TTGTTree {
         let right_transposed_tree = right.transpose(right_index_transpose, right_index_redirection);
 
         // Contract
-        left_transposed_tree.matmul(right_transposed_tree)
+        if contraction_ids.is_empty() {
+            if left_transposed_tree.rank() == shared_ids.len() && right_transposed_tree.rank() == left_transposed_tree.rank() {
+                left_transposed_tree.hadamard(right_transposed_tree)
+            } else {
+                left_transposed_tree.outer(right_transposed_tree)
+            }
+        } else {
+            left_transposed_tree.matmul(right_transposed_tree)
+        }
     }
 
     pub fn outer(self, right: Self) -> Self {

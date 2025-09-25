@@ -4,6 +4,8 @@ pub use qudit_expr::index::IndexDirection;
 pub use qudit_expr::index::TensorIndex;
 pub use qudit_expr::index::WeightedIndex;
 
+// TODO: Properly assert that local indices being contracted are in sequential order
+// i.e. two CNOTs being contracted but target to control, should first be permuted then contracted
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ContractionIndex {
     pub left_id: usize,

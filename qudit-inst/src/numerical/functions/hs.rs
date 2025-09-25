@@ -196,7 +196,8 @@ impl<R: RealScalar, const D: DifferentiationLevel> Hessian<R> for HSFunction<R, 
 
 impl<R: RealScalar, const D: DifferentiationLevel> ResidualFunction<R> for HSFunction<R, D> {
     fn num_residuals(&self) -> usize {
-        (self.tnvm.out_shape().num_elements() - 1) * 2
+        let out_shape = self.tnvm.out_shape();
+        (out_shape.num_elements() - out_shape.nmats()) * 2
     }
 
     fn residuals_into(&mut self, params: &[R], mut residuals_out: ColMut<R>) {
@@ -244,6 +245,18 @@ impl<R: RealScalar, const D: DifferentiationLevel> Jacobian<R> for HSFunction<R,
     fn residuals_and_jacobian_into(&mut self, params: &[R], mut residuals_out: ColMut<R>, mut jacobian_out: MatMut<R>) {
         let result = self.tnvm.evaluate::<GRADIENT>(params);
         let kraus_ops = result.get_fn_result2().unpack_tensor3d();
+
+        // for k in 0..kraus_ops.dims()[0] {
+        //     let mat = kraus_ops.subtensor_ref(k);
+        //     for (j, col) in mat.col_iter().enumerate() {
+        //         for (i, elem) in col.iter().enumerate() {
+        //             print!("{} ", elem);
+        //         }
+        //         println!("");
+        //     }
+        //     println!("");
+        // }
+        // println!("");
 
         let mut residual_index = 0;
         for k in 0..kraus_ops.dims()[0] {

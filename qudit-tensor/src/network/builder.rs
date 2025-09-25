@@ -242,6 +242,36 @@ impl QuditCircuitTensorNetworkBuilder {
             panic!("Invalid input and output index map for QuditCircuitTensorNetworkBuilder.");
         }
 
+        // Permute tensor and index maps so that indices are sequential
+        // For example, a CNOT applied to (1, 0) will be permuted,
+        // so that a permuted cnot is applied to (0, 1). This makes further processing easier.
+
+        let argsorted_output_index_map = {
+            let mut argsorted_indices = (0..output_index_map.len()).collect::<Vec<_>>();
+            argsorted_indices.sort_by_key(|&i| output_index_map[i]);
+            argsorted_indices 
+        };
+        let argsorted_input_index_map = {
+            let mut argsorted_indices = (0..input_index_map.len()).collect::<Vec<_>>();
+            argsorted_indices.sort_by_key(|&i| input_index_map[i]);
+            argsorted_indices 
+        };
+        let perm = (0..batch_index_map.len()).chain(
+                argsorted_output_index_map.iter()
+                    .cloned()
+                    .map(|idx| idx + batch_index_map.len())
+        ).chain(
+            argsorted_input_index_map.iter()
+                .cloned()
+                .map(|idx| idx + output_index_map.len() + batch_index_map.len())
+        ).collect::<Vec<_>>();
+        let sequential_expr_id = self.expressions.borrow_mut().permute_reshape(tensor.expression, perm, tensor.shape());
+        let sequential_indices = self.expressions.borrow().indices(sequential_expr_id);
+
+        let tensor = QuditTensor::new(sequential_indices, sequential_expr_id, tensor.param_info);
+        let output_index_map = argsorted_output_index_map.into_iter().map(|i| output_index_map[i]).collect::<Vec<_>>();
+        let input_index_map = argsorted_input_index_map.into_iter().map(|i| input_index_map[i]).collect::<Vec<_>>();
+
         // Add Tensor to network
         let tensor_id = self.tensors.len();
         let mut tensor_local_to_network_map = vec![None; tensor.num_indices()];
@@ -444,7 +474,8 @@ impl QuditCircuitTensorNetworkBuilder {
                 // Cannot have empty indices in network, so we need to explicitly add identity.
                 let identity_expression: TensorExpression = UnitaryExpression::identity("Identity", [self.radices[qudit_id]]).into();
                 let identity_indices = identity_expression.indices().to_owned();
-                let identity_expr_id = match expressions.borrow().lookup(&identity_expression) {
+                let lookup_temp = expressions.borrow().lookup(&identity_expression);
+                let identity_expr_id = match lookup_temp {
                     None => expressions.borrow_mut().insert(identity_expression),
                     Some(id) => id,
                 };
