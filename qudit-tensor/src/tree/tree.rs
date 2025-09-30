@@ -195,6 +195,7 @@ impl TTGTTree {
                 .collect::<Vec<TensorIndex>>();
             let new_shape: GenerationShape = (&new_indices).into();
             let new_expr_id = self.expressions.borrow_mut().permute_reshape(expr_id, expr_perm, new_shape);
+            // println!("After permuting in tree transpose, id is {:?}", new_expr_id);
             TTGTNode::Leaf(LeafNode::new(new_expr_id, param_info, new_indices, tensor_to_expr_position_map))
         } else {
             TTGTNode::Transpose(TransposeNode::new(self.root, perm, redirection))

@@ -24,6 +24,7 @@ mod tests {
     use qudit_circuit::QuditCircuit;
     use qudit_circuit::CircuitLocation;
     use qudit_expr::BraSystemExpression;
+    use qudit_expr::KrausOperatorsExpression;
     use qudit_expr::UnitaryExpression;
     use qudit_gates::Gate;
     use qudit_tensor::TNVM;
@@ -94,16 +95,22 @@ mod tests {
 
         circ.zero_initialize([1, 2]);
 
-        for i in 0..1 {
+        for i in 0..4 {
             circ.append_parameterized(Gate::U3(), [i]);
         }
 
-        let block_expr = Gate::CX().generate_expression();
-        circ.append_parameterized(block_expr.clone(), [3, 0]);
-        circ.append_parameterized(block_expr.clone(), [0, 3]);
-        circ.append_parameterized(block_expr.clone(), [3, 0]);
+        let block_expr = Gate::U3().generate_expression().otimes(Gate::U3().generate_expression()).dot(Gate::CX().generate_expression());
+        circ.append_parameterized(block_expr.clone(), [1, 2]);
+        circ.append_parameterized(block_expr.clone(), [0, 1]);
+        circ.append_parameterized(block_expr.clone(), [2, 3]);
 
-        // TODO: Shorten the following block to: circ.z_basis_measure([1, 2], [0, 1]);
+        // circ.zero_initialize([1, 2]);
+        // circ.append_parameterized(Gate::H(2), [1]);
+        // circ.append_parameterized(Gate::CX(), [1, 2]);
+        // circ.append_parameterized(Gate::CX(), [0, 1]);
+        // circ.append_parameterized(Gate::CX(), [2, 3]);
+        // circ.append_parameterized(Gate::H(2), [2]);
+
         let one_qubit_basis_measurement = BraSystemExpression::new("OneQMeasure() {
             [
                 [[ 1, 0, ]],
@@ -114,22 +121,69 @@ mod tests {
         circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement.clone()), ([1], [0]));
         circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement), ([2], [1]));
 
-        // circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement.clone()), ([2], [0]));
-        // circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement), ([3], [1]));
+        let u3_u3 = Gate::U3().generate_expression().otimes(Gate::U3().generate_expression());
+        circ.append_parameterized(Operation::ClassicallyControlledUnitary(UnitaryExpression::classically_multiplex(&[&u3_u3, &u3_u3, &u3_u3, &u3_u3], &[2, 2])), ([0, 3], [0, 1]));
+        // let expr = UnitaryExpression::classically_multiplex(&[&u3_u3, &u3_u3, &u3_u3, &u3_u3], &[2, 2]);
+        // dbg!(expr);
 
-        // TODO: Shorten the following four blocks to:
-        // circ.classically_multiplex(Gate::U3().otimes(Gate::U3()), [0, 3], [0, 1]);
-        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[0], &[2, 2])), ([0], [0, 1]));
-        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[0], &[2, 2])), ([3], [0, 1]));
+        //////// START CNOT TELEPORTATION
+        // circ.zero_initialize([1, 2]);
+        // circ.append_parameterized(Gate::H(2), [1]);
+        // circ.append_parameterized(Gate::CX(), [1, 2]);
+        // circ.append_parameterized(Gate::CX(), [0, 1]);
+        // circ.append_parameterized(Gate::CX(), [2, 3]);
+        // circ.append_parameterized(Gate::H(2), [2]);
 
-        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[1], &[2, 2])), ([0], [0, 1]));
-        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[1], &[2, 2])), ([3], [0, 1]));
+        // let one_qubit_basis_measurement = BraSystemExpression::new("OneQMeasure() {
+        //     [
+        //         [[ 1, 0, ]],
+        //         [[ 0, 1, ]],
+        //     ]
+        // }");
 
-        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[2], &[2, 2])), ([0], [0, 1]));
-        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[2], &[2, 2])), ([3], [0, 1]));
+        // circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement.clone()), ([1], [0]));
+        // circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement), ([2], [1]));
 
-        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[3], &[2, 2])), ([0], [0, 1]));
-        circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::I(2).generate_expression().classically_control(&[3], &[2, 2])), ([3], [0, 1]));
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::X(2).generate_expression().classically_control(&[1], &[2])), ([3], [0]));
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::Z(2).generate_expression().classically_control(&[1], &[2])), ([0], [1]));
+        //////// END CNOT TELEPORTATION
+
+
+        // circ.zero_initialize([1, 2]);
+
+        // for i in 0..4 {
+        //     circ.append_parameterized(Gate::U3(), [i]);
+        // }
+
+        // let block_expr = Gate::U3().generate_expression().otimes(Gate::U3().generate_expression()).dot(Gate::CX().generate_expression());
+        // circ.append_parameterized(block_expr.clone(), [0, 1]);
+        // circ.append_parameterized(block_expr.clone(), [2, 3]);
+        // circ.append_parameterized(block_expr.clone(), [1, 2]);
+
+        // // TODO: Shorten the following block to: circ.z_basis_measure([1, 2], [0, 1]);
+        // let one_qubit_basis_measurement = BraSystemExpression::new("OneQMeasure() {
+        //     [
+        //         [[ 1, 0, ]],
+        //         [[ 0, 1, ]],
+        //     ]
+        // }");
+
+        // circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement.clone()), ([1], [0]));
+        // circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement), ([2], [1]));
+
+        // // TODO: Shorten the following four blocks to:
+        // // circ.classically_multiplex(Gate::U3().otimes(Gate::U3()), [0, 3], [0, 1]);
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[0], &[2, 2])), ([0], [0, 1]));
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[0], &[2, 2])), ([3], [0, 1]));
+
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[1], &[2, 2])), ([0], [0, 1]));
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[1], &[2, 2])), ([3], [0, 1]));
+
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[2], &[2, 2])), ([0], [0, 1]));
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[2], &[2, 2])), ([3], [0, 1]));
+
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[3], &[2, 2])), ([0], [0, 1]));
+        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::U3().generate_expression().classically_control(&[3], &[2, 2])), ([3], [0, 1]));
 
         circ
     }
@@ -147,11 +201,15 @@ mod tests {
         // let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code);
         // let result = tnvm.evaluate::<FUNCTION>(&vec![1.7; circ.num_params()]).get_fn_result().unpack_matrix();
         // let target_utry = UnitaryMatrix::new(circ.radices(), result.to_owned());
+        // let target_utry = UnitaryMatrix::new([2], mat![
+        //     [c64::new(1.0, 0.0), c64::new(0.0, 0.0)],
+        //     [c64::new(0.0, 0.0), c64::new(1.0, 0.0)],
+        // ]);
         let target_utry = UnitaryMatrix::new([2, 2], mat![
             [c64::new(1.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0)],
-            [c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(1.0, 0.0), c64::new(0.0, 0.0)],
             [c64::new(0.0, 0.0), c64::new(1.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0)],
             [c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(1.0, 0.0)],
+            [c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(1.0, 0.0), c64::new(0.0, 0.0)],
         ]);
         let target = InstantiationTarget::UnitaryMatrix(target_utry);
 
@@ -168,11 +226,14 @@ mod tests {
         let result = instantiater.instantiate(&circ, &target, &data);
         let mut success_times = vec![];
         let mut failure_times = vec![];
-        for _ in 0..1 {
+        let n = 1000;
+        for _ in 0..n {
             let now = std::time::Instant::now();
             let result = instantiater.instantiate(&circ, &target, &data);
             let elapsed = now.elapsed();
             if let Some(f) = result.fun {
+                // dbg!(&f);
+                // dbg!(result.message);
                 if f < 1e-4 {
                     success_times.push(elapsed);
                 } else {
@@ -190,7 +251,7 @@ mod tests {
             let average_failure_time = failure_times.iter().cloned().sum::<std::time::Duration>()/(failure_times.len() as u32);
             println!("Average failure time: {:?}", average_failure_time); 
         }
-        let average_time = success_times.iter().chain(failure_times.iter()).cloned().sum::<std::time::Duration>()/1000;
+        let average_time = success_times.iter().chain(failure_times.iter()).cloned().sum::<std::time::Duration>()/n;
         println!("Average overall time: {:?}", average_time); 
         // println!("Instantiation took: {:?}", elapsed/100);
     }

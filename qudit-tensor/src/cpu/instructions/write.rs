@@ -38,7 +38,6 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> WriteStruct<C, D> {
         unsafe {
             let ptr = self.buffer.as_ptr_mut(memory) as *mut C::R;
             (self.write_fns[E - 1])(params.as_ptr(), ptr, self.param_map.as_ptr(), self.output_map.as_ptr(), (self.buffer.unit_memory_size()*2) as u64, self.const_map.as_ptr());
-            let matref = self.buffer.as_matrix_ref(memory);
         }
     }
 

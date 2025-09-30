@@ -111,14 +111,15 @@ pub struct CachedTensorExpression {
     variables: Vec<String>,
     indices: Vec<TensorIndex>,
     expressions: CachedExpressionBody,
-    id_lookup: BTreeMap<ExpressionId, (Vec<usize>, GenerationShape)>
+    id_lookup: BTreeMap<ExpressionId, (Vec<usize>, GenerationShape)>,
+    base_id: ExpressionId,
 }
 
 impl CachedTensorExpression {
-    pub fn new<E: Into<TensorExpression>>(expr: E, id: ExpressionId) -> Self {
+    pub fn new<E: Into<TensorExpression>>(expr: E, base_id: ExpressionId) -> Self {
         let expr = expr.into();
         let mut id_lookup = BTreeMap::new();
-        id_lookup.insert(id, ((0..expr.rank()).collect(), expr.indices().into()));
+        id_lookup.insert(base_id, ((0..expr.rank()).collect(), expr.indices().into()));
         let (name, variables, body, indices) = expr.destruct();
         CachedTensorExpression {
             name,
@@ -126,6 +127,7 @@ impl CachedTensorExpression {
             indices,
             expressions: body.into(),
             id_lookup,
+            base_id,
         }
     }
 
@@ -183,7 +185,7 @@ impl CachedTensorExpression {
         if self.expressions.func.is_some() {
             // println!("Adding {} function to module", self.name.clone() + "_" + "1");
             let unit = CompilableUnit::new(
-                &(self.process_name_for_gen(self.name.clone() + "_" + "1")),
+                &(format!("expr_{}_{}", self.base_id, "1")),
                 self.expressions.func.as_ref().unwrap(),
                 self.variables.clone(),
                 self.expressions.original.len() * 2,
@@ -195,7 +197,7 @@ impl CachedTensorExpression {
         if self.expressions.grad.is_some() {
             // println!("Adding {} function to module", self.name.clone() + "_" + "2");
             let unit = CompilableUnit::new(
-                &(self.process_name_for_gen(self.name.clone() + "_" + "2")),
+                &(format!("expr_{}_{}", self.base_id, "2")),
                 self.expressions.grad.as_ref().unwrap(),
                 self.variables.clone(),
                 self.expressions.original.len() * 2,
@@ -207,7 +209,7 @@ impl CachedTensorExpression {
         if self.expressions.hess.is_some() {
             // println!("Adding {} function to module", self.name.clone() + "_" + "3");
             let unit = CompilableUnit::new(
-                &(self.process_name_for_gen(self.name.clone() + "_" + "3")),
+                &(format!("expr_{}_{}", self.base_id, "3")),
                 self.expressions.grad.as_ref().unwrap(),
                 self.variables.clone(),
                 self.expressions.original.len() * 2,
@@ -269,6 +271,17 @@ impl ExpressionCache {
 
     pub fn new_shared() -> Rc<RefCell<Self>> {
         Rc::new(Self::new().into())
+    }
+
+    pub fn get(&self, expr_id: ExpressionId) -> Option<TensorExpression> {
+        // TODO: do better.
+        let base_id = self.id_lookup.get(&expr_id)
+            .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
+        let cexpr = self.expressions.get(base_id)
+            .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
+        let modifiers = cexpr.id_lookup.get(&expr_id)
+            .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
+        Some(cexpr.form_modified_expression(modifiers))
     }
 
     pub fn lookup(&self, expr: impl AsRef<NamedExpression>) -> Option<ExpressionId> {
@@ -379,16 +392,6 @@ impl ExpressionCache {
         let traced = pairs.iter().map(|(x, y)| format!("{x}_{y}")).collect::<Vec<String>>().join("_");
         let traced_name = format!("traced{traced}_{old_name}");
         
-        if let Some(ids) = self.name_lookup.get(&traced_name) {
-            if ids.len() == 1 {
-                return ids[0];
-            }    
-            // TODO: add some more checks here and handle this case properly
-            unimplemented!("Very unlikely to reach here, if you do please file a report.");
-        }
-
-        self.uncompile();
-
         let base_id = self.id_lookup.get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
         let cexpr = self.expressions.get(base_id)
@@ -399,8 +402,20 @@ impl ExpressionCache {
         let old_expr: TensorExpression = cexpr.form_modified_expression(modifiers);
 
         let mut traced_expr = old_expr.partial_trace(&pairs);
-        traced_expr.set_name(traced_name);
-        
+        traced_expr.set_name(traced_name.clone());
+
+        if let Some(ids) = self.name_lookup.get(&traced_name) {
+            for id in ids {
+                let cexpr_other = self.expressions.get(id)
+                    .unwrap_or_else(|| panic!("Failed to {id} in cache."));
+                
+                if traced_expr.elements() == cexpr_other.elements() {
+                    return *id;
+                }
+            }
+        }
+
+        self.uncompile();
         self.insert(traced_expr)
     }
 
@@ -489,11 +504,15 @@ impl ExpressionCache {
         if !self.is_compiled::<R>() {
             self.compile::<R>();
         }
+
         let module = self._get_module().as_ref().expect("Module should exist due to previous compilation.");
+
+        let base_id = self.id_lookup.get(&expr_id).expect("Unexpected expression id.");
+
         // Safety: will compile for all expressions before getting this function
         unsafe {
             // TODO: ensure diff_level function exists
-            module.get_function_raw(&(self.base_name(expr_id) + "_" + &diff_level.to_string()))
+            module.get_function_raw(&format!("expr_{}_{}", base_id, diff_level))
         }
     }
 

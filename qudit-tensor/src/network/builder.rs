@@ -454,7 +454,13 @@ impl QuditCircuitTensorNetworkBuilder {
         let mut indices = Vec::new();
         let mut builder_to_network_map = HashMap::new();
 
-        for (batch_idx_name, batch_idx_size) in batch_indices.into_iter() {
+        let sorted_batch_indices = {
+            let mut as_vec: Vec<(String, IndexSize)> = batch_indices.into_iter().collect();
+            as_vec.sort();
+            as_vec
+        };
+
+        for (batch_idx_name, batch_idx_size) in sorted_batch_indices.into_iter() {
             let index_id = indices.len();
             indices.push(NetworkIndex::Output(
                 TensorIndex::new(

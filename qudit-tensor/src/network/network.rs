@@ -255,7 +255,7 @@ impl QuditTensorNetwork {
                 // [5, 1, 0, 5, 1, 2] (5 contracted, 1 traced)
                 let mut network_idx_ids = self.local_to_network_index_map[*path_element].clone();
                 // println!("");
-                // println!("New Leaf {}, with network ids {network_idx_ids:?}", self.expressions.borrow().base_name(*expr_id));
+                // println!("New Leaf {} (id={:?}), with network ids {network_idx_ids:?}", self.expressions.borrow().base_name(*expr_id), *expr_id);
 
                 // Perform partial traces if necessary
                 // find any indices that appear twice in indices and are only connected to this

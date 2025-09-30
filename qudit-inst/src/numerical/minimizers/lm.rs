@@ -204,7 +204,7 @@ where
 
             // Damp hessian approximation
             for j in JtJ.diagonal_mut().column_vector_mut().iter_mut() {
-                *j += lambda * *j; // TODO: add min and max?
+                *j += lambda * j.clamp(R::epsilon()*R::from64(10.0), R::from64(10.0));
             }
 
             // Check JTJ for NaN or infinity values

@@ -13,6 +13,7 @@ pub mod constant {
     pub mod i;
     pub mod swap;
     pub mod x;
+    pub mod z;
 }
 pub mod parameterized {
     pub mod p;
@@ -27,6 +28,7 @@ pub mod composed {
 pub use constant::i::IGate;
 pub use constant::h::HGate;
 pub use constant::x::XGate;
+pub use constant::z::ZGate;
 pub use parameterized::p::PGate;
 pub use parameterized::u3::U3Gate;
 pub use composed::control::ControlledGate;
@@ -37,6 +39,7 @@ pub enum Gate {
     HGate(HGate),
     PGate(PGate),
     XGate(XGate),
+    ZGate(ZGate),
     U3Gate(U3Gate),
     Controlled(ControlledGate),
     Expression(UnitaryExpression),
@@ -49,6 +52,7 @@ impl Gate {
             Gate::HGate(_) => "H".to_string(),
             Gate::PGate(_) => "P".to_string(),
             Gate::XGate(_) => "X".to_string(),
+            Gate::ZGate(_) => "Z".to_string(),
             Gate::U3Gate(_) => "U3".to_string(),
             Gate::Controlled(gate) => gate.name().to_string(),
             Gate::Expression(expr) => expr.name().to_string(),
@@ -76,6 +80,11 @@ impl Gate {
     pub fn X(radix: usize) -> Self {
         Gate::XGate(XGate::new(radix))
     }
+    
+    #[allow(non_snake_case)]
+    pub fn Z(radix: usize) -> Self {
+        Gate::ZGate(ZGate::new(radix))
+    }
 
     #[allow(non_snake_case)]
     pub fn CP() -> Self {
@@ -102,6 +111,7 @@ impl ExpressionGenerator for Gate {
             Gate::HGate(gate) => gate.generate_expression(),
             Gate::PGate(gate) => gate.generate_expression(),
             Gate::XGate(gate) => gate.generate_expression(),
+            Gate::ZGate(gate) => gate.generate_expression(),
             Gate::U3Gate(gate) => gate.generate_expression(),
             Gate::Controlled(gate) => gate.generate_expression(),
             Gate::Expression(expr) => expr.clone(),
@@ -115,6 +125,7 @@ impl HasParams for Gate {
             Gate::IGate(_gate) => 0,
             Gate::HGate(_gate) => 0,
             Gate::XGate(_gate) => 0,
+            Gate::ZGate(_gate) => 0,
             Gate::U3Gate(_gate) => 3,
             Gate::PGate(gate) => gate.radix - 1,
             Gate::Controlled(gate) => gate.num_params(),

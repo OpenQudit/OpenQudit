@@ -83,6 +83,50 @@ impl UnitaryExpression {
         self.transpose();
     }
 
+    pub fn classically_multiplex(expressions: &[&UnitaryExpression], new_dim_radices: &[usize]) -> TensorExpression { 
+        let new_dim = new_dim_radices.iter().product();
+        assert!(expressions.len() == new_dim, "Cannot multiplex a number of expressions not equal to the length of new dimension.");
+        assert!(expressions.len() > 0);
+        for expression in expressions {
+            assert_eq!(expression.radices(), expressions[0].radices(), "All expressions must have equal radices.");
+        }
+
+        // construct larger tensor
+        let mut new_expressions = Vec::with_capacity(expressions[0].dimension() * expressions[0].dimension() * new_dim);
+        let mut var_map_number = 0;
+        let mut new_variables = Vec::new();
+        for i in 0..new_dim {
+            // TODO: double clone
+            let mut renamed_expression = expressions[i].clone();
+            renamed_expression.alpha_rename(Some(var_map_number));
+            new_expressions.extend(renamed_expression.elements().iter().cloned());
+            for _ in 0..expressions[i].variables().len() {
+                new_variables.push(format!("alpha_{}", var_map_number));
+                var_map_number += 1;
+            }
+        }
+
+        let new_indices = new_dim_radices.iter().map(|r| (IndexDirection::Batch, *r as usize))
+            .chain(expressions[0].radices().iter().map(|r| (IndexDirection::Output, *r as usize)))
+            .chain(expressions[0].radices().iter().map(|r| (IndexDirection::Input, *r as usize)))
+            .enumerate()
+            .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
+            .collect();
+
+        let name = {
+            // if all expressions have same name: multiplex_name
+            // else: multiplex_name_name_...
+            if expressions.iter().all(|e| e.name() == expressions[0].name()) {
+                format!("Multiplexed_{}", expressions[0].name())
+            } else {
+                "Multiplexed_".to_string() + &expressions.iter().map(|e| e.name()).collect::<Vec<_>>().join("_")
+            }
+        };
+
+        let inner = NamedExpression::new(name, new_variables, new_expressions);
+        TensorExpression::from_raw(new_indices, inner)
+    }
+
     // TODO: better API for user-facing thoughts
     pub fn classically_control(&self, positions: &[usize], new_dim_radices: &[usize]) -> TensorExpression {
         let new_dim = new_dim_radices.iter().product();

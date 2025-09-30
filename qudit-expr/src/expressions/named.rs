@@ -1,5 +1,5 @@
 use itertools::Itertools;
-use std::ops::{Deref, DerefMut};
+use std::{collections::HashMap, ops::{Deref, DerefMut}};
 
 use crate::ComplexExpression;
 
@@ -40,6 +40,12 @@ impl ExpressionBody {
             .sorted_by(|(old_idx_a, _), (old_idx_b, _)| elem_perm[*old_idx_a].cmp(&elem_perm[*old_idx_b]))
             .map(|(_, expr)| expr)
             .collect();
+    }
+
+    pub fn rename(&mut self, var_map: HashMap<String, String>) {
+        for elem in self.body.iter_mut() {
+            *elem = elem.map_var_names(&var_map);
+        }
     }
 }
 
@@ -121,6 +127,26 @@ impl BoundExpressionBody {
 
     pub fn apply_element_permutation(&mut self, elem_perm: &[usize]) {
         self.body.apply_element_permutation(elem_perm);
+    }
+    
+    pub fn alpha_rename(&mut self, starting_number: Option<usize>) {
+        let mut var_id = match starting_number {
+            None => 0,
+            Some(id) => id,
+        };
+
+        let mut var_map = HashMap::new();
+        let mut new_vars = Vec::new();
+
+        for var in self.variables() {
+            let new_var_name = format!("alpha_{}", var_id);
+            new_vars.push(new_var_name.clone());
+            var_map.insert(var.clone(), new_var_name);
+            var_id += 1;
+        }
+
+        self.body.rename(var_map);
+        self.variables = new_vars;
     }
 }
 
