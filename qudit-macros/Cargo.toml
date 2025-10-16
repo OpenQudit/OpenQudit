@@ -1,10 +1,10 @@
 [package]
-name = "qudit-core-proc-macros"
+name = "qudit-macros"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "qudit_core_proc_macros"
+name = "qudit_macros"
 path = "src/lib.rs"
 proc-macro = true
 
@@ -12,5 +12,5 @@ proc-macro = true
 syn = { version = "2.0", features = ["full"] }
 quote = "1.0"
 proc-macro2 = "1.0"
-faer = "0.22.6"
-faer-traits = "0.22.1"
+faer = { workspace = true }
+faer-traits = { workspace = true }

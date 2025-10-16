@@ -14,6 +14,16 @@ pub struct KrausOperatorsExpression {
     num_operators: usize,
 }
 
+impl KrausOperatorsExpression {
+    pub fn num_qudits(&self) -> usize {
+        if self.input_radices == self.output_radices {
+            self.input_radices.num_qudits()
+        } else {
+            panic!("Input and output number of qudits are different for kraus operator.")
+        }
+    }
+}
+
 impl JittableExpression for KrausOperatorsExpression {
     fn generation_shape(&self) -> GenerationShape {
         GenerationShape::Tensor3D(

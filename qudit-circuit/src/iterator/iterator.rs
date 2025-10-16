@@ -35,22 +35,23 @@ impl<'a> Iterator for QuditCircuitFastIterator<'a> {
     type Item = &'a InstructionReference;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.frontier.is_empty() {
-            if self.next_cycle_index >= self.circuit.num_cycles() {
-                return None;
-            }
-            let cycle = self.circuit.get_cycle(self.next_cycle_index);
-            self.next_cycle_index += 1;
+        todo!()
+        // if self.frontier.is_empty() {
+        //     if self.next_cycle_index >= self.circuit.num_cycles() {
+        //         return None;
+        //     }
+        //     let cycle = self.circuit.get_cycle(self.next_cycle_index);
+        //     self.next_cycle_index += 1;
 
-            for (i, inst) in cycle.insts.iter().enumerate() {
-                if cycle.free.contains(&i) {
-                    continue;
-                }
-                self.frontier.push(&inst);
-            }
-        }
+        //     for (i, inst) in cycle.insts.iter().enumerate() {
+        //         if cycle.free.contains(&i) {
+        //             continue;
+        //         }
+        //         self.frontier.push(&inst);
+        //     }
+        // }
 
-        self.frontier.pop()
+        // self.frontier.pop()
     }
 }
 // pub struct QuditCircuitFastIteratorWithCycles<'a, C: ComplexScalar> {
@@ -172,19 +173,20 @@ pub struct QuditCircuitDFIterator<'a> {
 
 impl<'a> QuditCircuitDFIterator<'a> {
     pub fn new(circuit: &'a QuditCircuit) -> Self {
-        let mut iterator = Self {
-            circuit: circuit,
-            frontier: VecDeque::new(),
-            seen: HashSet::new(),
-        };
+        todo!()
+        // let mut iterator = Self {
+        //     circuit: circuit,
+        //     frontier: VecDeque::new(),
+        //     seen: HashSet::new(),
+        // };
 
-        for front_point in circuit.front().values() {
-            iterator
-                .frontier
-                .push_back(iterator.standardize_point(*front_point));
-        }
+        // for front_point in circuit.front().values() {
+        //     iterator
+        //         .frontier
+        //         .push_back(iterator.standardize_point(*front_point));
+        // }
 
-        iterator
+        // iterator
     }
 
     pub fn standardize_point(&self, point: CircuitPoint) -> CircuitPoint {

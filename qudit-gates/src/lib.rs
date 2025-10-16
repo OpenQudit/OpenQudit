@@ -31,6 +31,7 @@ pub use constant::x::XGate;
 pub use constant::z::ZGate;
 pub use parameterized::p::PGate;
 pub use parameterized::u3::U3Gate;
+pub use parameterized::u3::ParameterizedUnitary;
 pub use composed::control::ControlledGate;
 
 #[derive(PartialEq, Eq, Clone, Debug)]

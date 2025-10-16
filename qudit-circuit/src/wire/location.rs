@@ -1,6 +1,15 @@
 use std::collections::HashSet;
 
-use crate::compact::CompactIntegerVector;
+use crate::{compact::CompactIntegerVector, point::Wire};
+
+// use tinyvec::TinyVec;
+
+// #[derive(Hash, PartialEq, Eq, Clone, Debug)]
+// pub struct Wirelist(Vec<Wire>);
+
+// impl WireList {
+
+// }
 
 /// A CircuitLocation describes where an instruction is spatial executed.
 ///
@@ -527,47 +536,15 @@ impl CircuitLocation {
         let dits = self.dits.to_owned();
         CircuitLocation { qudits, dits }
     }
-}
 
-// /// A macro to create a CircuitLocation object.
-// ///
-// /// This macro is used to create CircuitLocation objects in a more
-// /// convenient way. It is used in a similar way to the vec! macro.
-// ///
-// /// # Examples
-// ///
-// /// ```
-// /// use qudit_circuit::CircuitLocation;
-// /// use qudit_circuit::loc;
-// /// let loc = loc![0, 2, 3];
-// /// assert_eq!(loc, CircuitLocation::pure(vec![0, 2, 3]));
-// /// ```
-// ///
-// /// ```
-// /// use qudit_circuit::CircuitLocation;
-// /// use qudit_circuit::loc;
-// /// let loc = loc![0, 2, 3; 1, 2];
-// /// assert_eq!(loc, CircuitLocation::new(vec![0, 2, 3], vec![1, 2]));
-// /// ```
-// ///
-// /// ```
-// /// use qudit_circuit::CircuitLocation;
-// /// use qudit_circuit::loc;
-// /// let loc = loc![; 1, 2];
-// /// assert_eq!(loc, CircuitLocation::classical(vec![1, 2]));
-// /// ```
-// #[macro_export]
-// macro_rules! loc {
-//     ($($x:expr),*;$($y:expr),*) => {
-//         CircuitLocation::new(vec![$($x),*], vec![$($y),*])
-//     };
-//     ($($x:expr),*) => {
-//         CircuitLocation::pure(vec![$($x),*])
-//     };
-//     (;$($x:expr),*) => {
-//         CircuitLocation::classical(vec![$($x),*])
-//     };
-// }
+    pub fn wires(&self) -> Vec<Wire> {
+        self.qudits.iter().map(|q| Wire::quantum(q)).chain(self.dits.iter().map(|c| Wire::classical(c))).collect()
+    }
+
+    pub fn wires_iter(&self) -> impl Iterator<Item = Wire> + '_ {
+        self.qudits.iter().map(|q| Wire::quantum(q)).chain(self.dits.iter().map(|c| Wire::classical(c)))
+    }
+}
 
 pub trait ToLocation {
     fn to_location(self) -> CircuitLocation;
@@ -661,99 +638,3 @@ impl<L: ToLocation> From<L> for CircuitLocation {
     } 
 }
 
-// #[cfg(test)]
-// pub mod strategies {
-//     use proptest::prelude::*;
-
-//     use super::*;
-
-//     impl Arbitrary for CircuitLocation {
-//         type Parameters =
-//             (usize, usize, usize, usize, usize, usize, usize, usize);
-//         type Strategy = BoxedStrategy<CircuitLocation>;
-
-//         fn arbitrary() -> Self::Strategy {
-//             Self::arbitrary_with((0, 5, 0, 5, 0, 5, 0, 2))
-//         }
-
-//         fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
-//             let min_qudit = args.0;
-//             let max_qudit = args.1;
-//             let min_num_qudits = args.2;
-//             let max_num_qudits = args.3;
-//             let min_clbit = args.4;
-//             let max_clbit = args.5;
-//             let min_num_dits = args.6;
-//             let max_num_dits = args.7;
-
-//             (
-//                 prop::collection::vec(
-//                     min_qudit..=max_qudit,
-//                     min_num_qudits..=max_num_qudits,
-//                 ),
-//                 prop::collection::vec(
-//                     min_clbit..=max_clbit,
-//                     min_num_dits..=max_num_dits,
-//                 ),
-//             )
-//                 .prop_map(|(qudits, dits)| {
-//                     CircuitLocation::new(qudits, dits)
-//                 })
-//                 .boxed()
-//         }
-//     }
-// }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::CircuitLocation;
-//     use proptest::prelude::*;
-
-//     proptest! {
-//         /// The union operation is idempotent.
-//         #[test]
-//         fn test_union_self(loc in arbitrary_location(5, 4)) {
-//             assert_eq!(loc.union(&loc), loc);
-//         }
-//     }
-
-//     proptest! {
-//         #[test]
-//         fn test_union_other(loc1 in arbitrary_location(5, 4), loc2 in
-// arbitrary_location(5, 4)) {             let union_loc = loc1.union(&loc2);
-//             assert!(union_loc.len() >= loc1.len());
-//             assert!(union_loc.len() >= loc2.len());
-//             assert!(union_loc.len() <= loc1.len() + loc2.len());
-//             assert!(loc1.iter().all(|x| union_loc.contains(x)));
-//             assert!(loc2.iter().all(|x| union_loc.contains(x)));
-//         }
-//     }
-
-//     proptest! {
-//         /// The intersect operation is idempotent.
-//         #[test]
-//         fn test_intersect_self(loc in arbitrary_location(5, 4)) {
-//             assert_eq!(loc.intersect(&loc), loc);
-//         }
-//     }
-
-//     proptest! {
-//         #[test]
-//         fn test_intersect_other(loc1 in arbitrary_location(5, 4), loc2 in
-// arbitrary_location(5, 4)) {             let intersect_loc =
-// loc1.intersect(&loc2);             assert!(intersect_loc.len() <=
-// loc1.len());             assert!(intersect_loc.len() <= loc2.len());
-//             assert!(intersect_loc.iter().all(|x| loc1.contains(x)));
-//             assert!(intersect_loc.iter().all(|x| loc2.contains(x)));
-//         }
-//     }
-
-//     #[test]
-//     fn test_vec_ops() {
-//         let loc = CircuitLocation::new(vec![2, 3, 4]);
-//         assert_eq!(loc.len(), 3);
-//         assert_eq!(loc[1], 3);
-//         assert_eq!(loc[1..], [3, 4]);
-//         assert_eq!(loc.clone(), loc);
-//     }
-// }

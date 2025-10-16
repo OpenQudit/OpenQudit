@@ -841,3 +841,23 @@ mod tests {
         assert_eq!(rdx.clone(), rdx);
     }
 }
+
+#[cfg(feature = "python")]
+mod python {
+    use super::*;
+    use pyo3::{exceptions::PyTypeError, prelude::*};
+
+    impl<'py> FromPyObject<'py> for QuditRadices {
+        // const INPUT_TYPE: &'static str = "int | typing.Iterable[int]";
+
+        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+            if let Ok(num) = ob.extract::<usize>() {
+                Ok(QuditRadices::new(&[num]))
+            } else if let Ok(nums) = ob.extract::<Vec<usize>>() {
+                Ok(QuditRadices::new(&nums))
+            } else {
+                Err(PyTypeError::new_err("Expected a list of integers for radices."))
+            }
+        }
+    }
+}

@@ -238,7 +238,7 @@ impl Parser {
     fn parse_expr(&mut self) -> ParserResult<Expression> {
         let mut expr = self.parse_term()?;
 
-        while self.current(false)? == Token::Op('+') || self.current(false)? == Token::Op('-') {
+        while self.peek() == Some(&Token::Op('+')) || self.peek() == Some(&Token::Op('-')) {
             let op = self.current(true)?;
             let rhs = self.parse_term()?;
             match op {
@@ -275,7 +275,7 @@ impl Parser {
 
         let mut expr = self.parse_factor()?;
 
-        while self.current(false)? == Token::Op('*') || self.current(false)? == Token::Op('/') {
+        while self.peek() == Some(&Token::Op('*')) || self.peek() == Some(&Token::Op('/')) {
             let op = self.current(true)?;
             let rhs = self.parse_factor()?;
             match op {
@@ -303,7 +303,7 @@ impl Parser {
     fn parse_factor(&mut self) -> ParserResult<Expression> {
         let mut expr = self.parse_primary()?;
 
-        while self.current(false)? == Token::Op('^') {
+        while self.peek() == Some(&Token::Op('^')) {
             self.advance();
             let rhs = self.parse_primary()?;
             expr = Expression::Binary {
@@ -329,8 +329,7 @@ impl Parser {
 
             Token::Ident(ident) => {
                 self.advance();
-                let next = self.current(false)?;
-                if next == Token::LParen {
+                if self.peek() == Some(&Token::LParen) {
                     self.advance();
                     let args = self.parse_exprlist(Token::RParen)?;
                     self.expect(Token::RParen)?;

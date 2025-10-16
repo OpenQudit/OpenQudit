@@ -1,6 +1,7 @@
 use std::collections::{BTreeSet, HashMap};
 use std::ops::{Deref, DerefMut};
 
+use faer::Mat;
 use qudit_core::unitary::UnitaryMatrix;
 use qudit_core::ComplexScalar;
 use qudit_core::QuditRadices;
@@ -66,6 +67,11 @@ impl UnitaryExpression {
             inner,
             radices,
         }
+    }
+
+    pub fn set_radices(&mut self, new_radices: QuditRadices) {
+        assert_eq!(self.radices.dimension(), new_radices.dimension());
+        self.radices = new_radices;
     }
 
     pub fn transpose(&mut self) {
@@ -286,6 +292,22 @@ impl UnitaryExpression {
         }
     }
 
+    pub fn get_arg_map<C: ComplexScalar>(&self, args: &[C::R]) -> HashMap<&str, C::R> {
+        self.variables().iter().zip(args.iter()).map(|(a, b)| (a.as_str(), *b)).collect()
+    }
+
+    pub fn eval<C: ComplexScalar>(&self, args: &[C::R]) -> UnitaryMatrix<C> {
+        let arg_map = self.get_arg_map::<C>(args);
+        let dim = self.radices.dimension();
+        let mut mat = Mat::zeros(dim, dim);
+        for i in 0..dim {
+            for j in 0..dim {
+                *mat.get_mut(i, j) = self[i * self.dimension() + j].eval(&arg_map);
+            }
+        }
+        UnitaryMatrix::new(self.radices.clone(), mat)
+    }
+
 }
 
 impl JittableExpression for UnitaryExpression {
@@ -394,21 +416,6 @@ impl QuditSystem for UnitaryExpression {
     }
 }
 
-//    pub fn get_arg_map<C: ComplexScalar>(&self, args: &[C::R]) -> HashMap<&str, C::R> {
-//        self.variables.iter().zip(args.iter()).map(|(a, b)| (a.as_str(), *b)).collect()
-//    }
-
-//    pub fn eval<C: ComplexScalar>(&self, args: &[C::R]) -> UnitaryMatrix<C> {
-//        let arg_map = self.get_arg_map::<C>(args);
-//        let dim = self.radices.dimension();
-//        let mut mat = Mat::zeros(dim, dim);
-//        for i in 0..dim {
-//            for j in 0..dim {
-//                *mat.get_mut(i, j) = self.body[i][j].eval(&arg_map);
-//            }
-//        }
-//        UnitaryMatrix::new(self.radices.clone(), mat)
-//    }
 
 
 

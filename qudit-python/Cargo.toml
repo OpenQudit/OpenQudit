@@ -8,8 +8,11 @@ name = "openqudit"
 crate-type = ["cdylib"]
 
 [dependencies]
-qudit-core = { path = "../qudit-core" }
+qudit-core = { path = "../qudit-core", features = ["python"] }
 qudit-expr = { path = "../qudit-expr" }
-pyo3 = "0.24.2"
-numpy = "0.24"
-
+qudit-gates = { path = "../qudit-gates" }
+qudit-circuit = { path = "../qudit-circuit", features = ["python"] }
+pyo3 = { workspace = true }
+inventory = { workspace = true }
+numpy = "0.26.0"
+ndarray = "*"

@@ -4,17 +4,19 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-faer = "0.22.6"
-faer-traits = "0.22.1"
+faer = { workspace = true }
+faer-traits = { workspace = true }
+num-traits = { workspace = true }
+num = { workspace = true }
+nano-gemm = { workspace = true }
 aligned-vec = "0.6.1"
 bytemuck = "1.21.0"
 rand = "0.9.2"
-num-traits = "0.2.19"
-num = "0.4.3"
-nano-gemm = "0.1.2"
 coe-rs = "0.1.2"
 bit-set = "0.8.0"
-qudit-core-proc-macros = {path = "./qudit-core-proc-macros"}
+qudit-macros = {path = "../qudit-macros"}
+pyo3 = { workspace = true, optional = true }
+inventory = { workspace = true, optional = true }
 
 [dev-dependencies]
 proptest = "1.2"
@@ -24,3 +26,6 @@ pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
 [[bench]]
 name = "frpr"
 harness = false
+
+[features]
+python = ["dep:pyo3", "dep:inventory"]

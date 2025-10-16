@@ -44,3 +44,19 @@ pub use faer::c64;
 pub use faer::cx128 as c128;
 ////////////////////////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////////////////
+/// Python Register Helpers.
+////////////////////////////////////////////////////////////////////////
+#[cfg(feature = "python")]
+use pyo3::prelude::{Bound, PyModule, PyResult};
+
+/// A trait for objects that can register importables with a PyO3 module.
+#[cfg(feature = "python")]
+pub struct PyRegistrar {
+    /// The registration function
+    pub func: fn(parent_module: &Bound<'_, PyModule>) -> PyResult<()>,
+}
+
+#[cfg(feature = "python")]
+inventory::collect!(PyRegistrar);
+////////////////////////////////////////////////////////////////////////

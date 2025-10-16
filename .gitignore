@@ -28,4 +28,5 @@ __pycache__/
 wheels/
 *.so
 *.pyd
+.env
 

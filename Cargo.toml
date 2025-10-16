@@ -6,8 +6,18 @@ members = [
     "qudit-tensor",
     "qudit-circuit",
     "qudit-inst",
-    # "qudit-python",
+    "qudit-python",
 ]
+
+[workspace.dependencies]
+num = "0.4.3"
+nano-gemm = "0.1.2"
+num-traits = "0.2"
+num-complex = "0.4"
+faer = "0.22.6"
+faer-traits = "0.22.1"
+pyo3 = { version = "0.26.0", features = ["abi3-py39"] }
+inventory = { version = "0.3.21" }
 
 [profile.dev]
 opt-level = 2       # Optimize for speed-ish

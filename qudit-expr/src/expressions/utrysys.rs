@@ -7,13 +7,13 @@ use qudit_core::QuditRadices;
 use qudit_core::QuditSystem;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
-pub struct BraSystemExpression {
+pub struct UnitarySystemExpression {
     inner: NamedExpression,
     radices: QuditRadices,
-    num_states: usize,
+    num_unitaries: usize,
 }
 
-impl BraSystemExpression {
+impl UnitarySystemExpression {
     pub fn new<T: AsRef<str>>(input: T) -> Self {
         TensorExpression::new(input).try_into().unwrap()
     }
@@ -23,25 +23,25 @@ impl BraSystemExpression {
     }
 }
 
-impl JittableExpression for BraSystemExpression {
+impl JittableExpression for UnitarySystemExpression {
     fn generation_shape(&self) -> GenerationShape {
-        GenerationShape::Tensor3D(self.num_states, 1, self.radices.dimension())
+        GenerationShape::Tensor3D(self.num_unitaries, self.radices.dimension(), self.radices.dimension())
     }
 }
 
-impl AsRef<NamedExpression> for BraSystemExpression {
+impl AsRef<NamedExpression> for UnitarySystemExpression {
     fn as_ref(&self) -> &NamedExpression {
         &self.inner
     }
 }
 
-impl From<BraSystemExpression> for NamedExpression {
-    fn from(value: BraSystemExpression) -> Self {
+impl From<UnitarySystemExpression> for NamedExpression {
+    fn from(value: UnitarySystemExpression) -> Self {
         value.inner
     }
 }
 
-impl Deref for BraSystemExpression {
+impl Deref for UnitarySystemExpression {
     type Target = NamedExpression;
 
     fn deref(&self) -> &Self::Target {
@@ -49,7 +49,7 @@ impl Deref for BraSystemExpression {
     }
 }
 
-impl DerefMut for BraSystemExpression {
+impl DerefMut for UnitarySystemExpression {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
@@ -70,11 +70,11 @@ impl DerefMut for BraSystemExpression {
 // }
 
 
-impl From<BraSystemExpression> for TensorExpression {
-    fn from(value: BraSystemExpression) -> Self {
-        let BraSystemExpression { inner, radices, num_states } = value;
+impl From<UnitarySystemExpression> for TensorExpression {
+    fn from(value: UnitarySystemExpression) -> Self {
+        let UnitarySystemExpression { inner, radices, num_unitaries } = value;
         // TODO: add a proper implementation of into_iter for QuditRadices
-        let indices = [num_states].into_iter()
+        let indices = [num_unitaries].into_iter()
             .map(|r| (IndexDirection::Batch, r))
             .chain(radices.into_iter().map(|r| (IndexDirection::Input, *r as usize)))
             .enumerate()
@@ -84,19 +84,19 @@ impl From<BraSystemExpression> for TensorExpression {
     }
 }
 
-impl TryFrom<TensorExpression> for BraSystemExpression {
+impl TryFrom<TensorExpression> for UnitarySystemExpression {
     // TODO: Come up with proper error handling
     type Error = String;
 
     fn try_from(value: TensorExpression) -> Result<Self, Self::Error> {
-        let mut num_states = None;
+        let mut num_unitaries = None;
         let mut radices = vec![];
         for idx in value.indices() {
             match idx.direction() {
                 IndexDirection::Batch => {
-                    match num_states {
+                    match num_unitaries {
                         Some(n) => return Err(String::from("More than one batch index in bra system conversion.")),
-                        None => num_states = Some(idx.index_size()),
+                        None => num_unitaries = Some(idx.index_size()),
                     }
                 }
                 IndexDirection::Input => { radices.push(idx.index_size()); }
@@ -104,10 +104,10 @@ impl TryFrom<TensorExpression> for BraSystemExpression {
             }
         }
         
-        Ok(BraSystemExpression {
+        Ok(UnitarySystemExpression {
             inner: value.into(),
             radices: radices.into(),
-            num_states: num_states.unwrap_or(1),
+            num_unitaries: num_unitaries.unwrap_or(1),
         })
     }
 }

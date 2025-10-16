@@ -14,13 +14,18 @@ qudit-expr = { path = "../qudit-expr" }
 qudit-tensor = { path = "../qudit-tensor" }
 indexmap = "2.6"
 itertools = "0.10"
-num-traits = "0.2"
-num-complex = "0.4"
-faer = "0.22.6"
+num = { workspace = true }
+num-traits = { workspace = true }
+num-complex = { workspace = true }
+faer = { workspace = true }
+pyo3 = { workspace = true, optional = true }
+inventory = { workspace = true, optional = true }
 aligned-vec = "0.6.4"
 bytemuck = "1.23.2"
 anyhow = "1.0.99"
 bit-set = "0.8.0"
+slotmap = "*"
+rustc-hash = "*"
 
 [dev-dependencies]
 proptest = "1.2"
@@ -41,3 +46,10 @@ harness = false
 [[bench]]
 name = "tnvm"
 harness = false
+
+[[bench]]
+name = "compact_vec_bench"
+harness = false
+
+[features]
+python = ["qudit-core/python", "dep:pyo3", "dep:inventory"]

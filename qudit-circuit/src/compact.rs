@@ -1,22 +1,26 @@
 use std::ptr::NonNull;
-// TODO: This entire module is just a prototype for an api, a lot of inefficiencies and potential bugs
 
-pub struct LimitedSizeVec {
-    data: NonNull<usize>,
+pub struct LimitedSizeVec<T> {
+    data: NonNull<T>,
     len: u32,
     capacity: u32,
 }
 
-impl LimitedSizeVec {
+impl<T> LimitedSizeVec<T> {
     pub fn new() -> Self {
         Self::new_with_capacity(8)
     }
 
     #[inline]
     pub fn new_with_capacity(capacity: u32) -> Self {
+        if capacity == 0 {
+            panic!("Cannot reserve zero capacity vector.");
+        }
+
         let ptr = unsafe {
-            std::alloc::alloc(std::alloc::Layout::array::<usize>(capacity as usize).unwrap()) as *mut usize
+            std::alloc::alloc(std::alloc::Layout::array::<T>(capacity as usize).unwrap()) as *mut T
         };
+
         Self {
             data: NonNull::new(ptr).unwrap(),
             len: 0,
@@ -25,24 +29,27 @@ impl LimitedSizeVec {
     }
 
     #[inline]
-    pub fn push(&mut self, value: usize) {
+    pub fn push(&mut self, value: T) {
         if self.len >= self.capacity {
             self.grow();
         }
-        unsafe {
-            self.data.as_ptr().add(self.len as usize).write(value);
-        }
+        unsafe { self.data.as_ptr().add(self.len as usize).write(value); }
         self.len += 1;
     }
 
     fn grow(&mut self) {
-        let new_capacity = self.capacity.saturating_mul(2);
+        let new_capacity = if self.capacity == 0 { 8 } else { self.capacity.saturating_mul(2) };
         unsafe {
-            let new_ptr = std::alloc::alloc(std::alloc::Layout::array::<usize>(new_capacity as usize).unwrap()) as *mut usize;
-            let old_ptr = self.data.as_ptr();
-            std::ptr::copy_nonoverlapping(old_ptr, new_ptr, self.len as usize);
+            let new_ptr = std::alloc::alloc(std::alloc::Layout::array::<T>(new_capacity as usize).unwrap()) as *mut T;
+
+            // Zero capacity only possible with dangling pointer; special case, don't copy/deallocate
+            if self.capacity != 0 {
+                let old_ptr = self.data.as_ptr();
+                std::ptr::copy_nonoverlapping(old_ptr, new_ptr, self.len as usize);
+                std::alloc::dealloc(old_ptr as *mut u8, std::alloc::Layout::array::<T>(self.capacity as usize).unwrap());
+            }
+
             self.data = NonNull::new(new_ptr).unwrap();
-            std::alloc::dealloc(old_ptr as *mut u8, std::alloc::Layout::array::<usize>(self.capacity as usize).unwrap());
         }
         self.capacity = new_capacity;
     }
@@ -51,68 +58,209 @@ impl LimitedSizeVec {
         self.len as usize
     }
 
-    pub fn capacity(&self) -> u32 {
-        self.capacity
+    pub fn capacity(&self) -> usize {
+        self.capacity as usize
     }
 
-    pub fn get(&self, index: usize) -> Option<&usize> {
+    pub fn get(&self, index: usize) -> Option<&T> {
         if index < self.len as usize {
-            unsafe {
-                Some(&*self.data.as_ptr().add(index as usize))
-            }
+            unsafe { Some(&*self.data.as_ptr().add(index as usize)) }
         } else {
             None
         }
     }
 
-    pub fn get_mut(&mut self, index: u32) -> Option<&mut usize> {
-        if index < self.len {
-            unsafe {
-                Some(&mut *self.data.as_ptr().add(index as usize))
-            }
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut T> {
+        if index < self.len as usize {
+            unsafe { Some(&mut *self.data.as_ptr().add(index)) }
         } else {
             None
         }
     }
 
-    pub fn sort(&mut self) {
-        // TODO: if self is large do something else
-        // insertion sort
-        for i in 1..self.len {
-            let key = unsafe { self.data.as_ptr().add(i as usize).read() };
-            let mut j = i;
-            while j > 0 && key < unsafe { self.data.as_ptr().add(j as usize - 1).read() } {
-                unsafe {
-                    self.data.as_ptr().add(j as usize).write(self.data.as_ptr().add(j as usize - 1).read());
-                }
-                j -= 1;
-            }
-            unsafe {
-                self.data.as_ptr().add(j as usize).write(key);
-            }
-        }
+    pub fn sort(&mut self)
+    where
+        T: Ord
+    {
+        let slice = self.as_slice_mut();
+        slice.sort();
     }
 
-    pub fn to_owned(&mut self) -> Self {
+    pub fn take(&mut self) -> Self {
         let cap = self.capacity;
         let len = self.len;
         let ptr = self.data;
+        
+        // Reset self to valid empty state
         self.data = NonNull::dangling();
         self.len = 0;
         self.capacity = 0;
+        
         Self {
             data: ptr,
             len,
             capacity: cap,
         }
     }
+
+    pub fn to_owned(&self) -> Self 
+    where 
+        T: Clone 
+    {
+        self.clone()
+    }
+
+    pub fn as_slice(&self) -> &[T] {
+        unsafe {
+            std::slice::from_raw_parts(self.data.as_ptr(), self.len as usize)
+        }
+    }
+
+    pub fn as_slice_mut(&mut self) -> &mut [T] {
+        unsafe {
+            std::slice::from_raw_parts_mut(self.data.as_ptr(), self.len as usize)
+        }
+    }
 }
 
-impl Drop for LimitedSizeVec {
+impl<T: Clone> Clone for LimitedSizeVec<T> {
+    fn clone(&self) -> Self {
+        if self.len == 0 {
+            return Self::new_with_capacity(self.capacity);
+        }
+
+        let mut new_vec = Self::new_with_capacity(self.capacity);
+        
+        // Clone each element individually for safety
+        for i in 0..self.len {
+            unsafe {
+                let item = &*self.data.as_ptr().add(i as usize);
+                new_vec.push(item.clone());
+            }
+        }
+        
+        new_vec
+    }
+}
+
+impl<T> Default for LimitedSizeVec<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for LimitedSizeVec<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_list()
+            .entries(self.as_slice().iter())
+            .finish()
+    }
+}
+
+impl<T> std::ops::Deref for LimitedSizeVec<T> {
+    type Target = [T];
+
+    fn deref(&self) -> &Self::Target {
+        self.as_slice()
+    }
+}
+
+impl<T> std::ops::DerefMut for LimitedSizeVec<T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.as_slice_mut()
+    }
+}
+
+impl<T> std::ops::Index<usize> for LimitedSizeVec<T> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.as_slice()[index]
+    }
+}
+
+impl<T> std::ops::IndexMut<usize> for LimitedSizeVec<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.as_slice_mut()[index]
+    }
+}
+
+impl<T> AsRef<[T]> for LimitedSizeVec<T> {
+    fn as_ref(&self) -> &[T] {
+        self.as_slice()
+    }
+}
+
+impl<T> AsMut<[T]> for LimitedSizeVec<T> {
+    fn as_mut(&mut self) -> &mut [T] {
+        self.as_slice_mut()
+    }
+}
+
+impl<T> From<Vec<T>> for LimitedSizeVec<T> {
+    fn from(vec: Vec<T>) -> Self {
+        let mut limited_vec = Self::new_with_capacity(vec.len().max(8) as u32);
+        for item in vec {
+            limited_vec.push(item);
+        }
+        limited_vec
+    }
+}
+
+impl<T: Clone> From<&[T]> for LimitedSizeVec<T> {
+    fn from(slice: &[T]) -> Self {
+        let mut limited_vec = Self::new_with_capacity(slice.len().max(8) as u32);
+        for item in slice {
+            limited_vec.push(item.clone());
+        }
+        limited_vec
+    }
+}
+
+impl<T: Clone> From<&Vec<T>> for LimitedSizeVec<T> {
+    fn from(vec: &Vec<T>) -> Self {
+        Self::from(vec.as_slice())
+    }
+}
+
+impl<T> From<Box<[T]>> for LimitedSizeVec<T> {
+    fn from(boxed_slice: Box<[T]>) -> Self {
+        let vec = boxed_slice.into_vec();
+        Self::from(vec)
+    }
+}
+
+impl<T> From<LimitedSizeVec<T>> for Vec<T> {
+    fn from(mut limited_vec: LimitedSizeVec<T>) -> Self {
+        let len = limited_vec.len();
+        let capacity = limited_vec.capacity();
+        let ptr = limited_vec.data.as_ptr();
+        
+        // Prevent limited_vec from dropping the memory by resetting it
+        limited_vec.data = std::ptr::NonNull::dangling();
+        limited_vec.len = 0;
+        limited_vec.capacity = 0;
+        
+        unsafe { 
+            Self::from_raw_parts(ptr, len, capacity)
+        }
+    }
+}
+
+impl<T> Drop for LimitedSizeVec<T> {
     fn drop(&mut self) {
         if self.capacity > 0 {
+            for i in 0..self.len {
+                unsafe {
+                    std::ptr::drop_in_place(self.data.as_ptr().add(i as usize));
+                }
+            }
+            
             unsafe {
-                std::alloc::dealloc(self.data.as_ptr() as *mut u8, std::alloc::Layout::array::<usize>(self.capacity as usize).unwrap());
+                std::alloc::dealloc(
+                    self.data.as_ptr() as *mut u8, 
+                    std::alloc::Layout::array::<T>(self.capacity as usize).unwrap()
+                );
             }
         }
     }
@@ -120,7 +268,7 @@ impl Drop for LimitedSizeVec {
 
 pub enum CompactIntegerVector {
     Array(u8, [u8; 7]),
-    Heap(LimitedSizeVec),
+    Heap(LimitedSizeVec<usize>),
 }
 
 impl CompactIntegerVector {
@@ -244,9 +392,13 @@ impl CompactIntegerVector {
                 out
             }
             Self::Heap(vec) => {
-                Self::Heap(vec.to_owned())
+                Self::Heap(vec.take())
             }
         }
+    }
+
+    pub fn to_cloned(&self) -> Self {
+        self.clone()
     }
 
     pub fn to_vec(&self) -> Vec<usize> {

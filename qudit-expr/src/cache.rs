@@ -13,7 +13,7 @@ use crate::TensorExpression;
 use qudit_core::c32;
 use qudit_core::c64;
 
-pub type ExpressionId = usize;
+pub type ExpressionId = u64;
 
 pub struct CachedExpressionBody {
     original: ExpressionBody,

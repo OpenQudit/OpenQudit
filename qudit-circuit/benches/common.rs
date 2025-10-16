@@ -5,7 +5,7 @@ use std::path::Path;
 
 use criterion::profiler::Profiler;
 use pprof::ProfilerGuard;
-use qudit_circuit::CircuitLocation;
+use qudit_circuit::WireList;
 use qudit_circuit::QuditCircuit;
 use qudit_core::radices;
 use qudit_expr::UnitaryExpression;

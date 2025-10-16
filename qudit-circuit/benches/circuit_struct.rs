@@ -15,6 +15,7 @@ pub fn circuit_struct_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("build_qft");
 
     for num_qudits in [4, 8, 16, 32, 64, 128, 256, 512, 1023].iter() {
+    // for num_qudits in [128].iter() {
         group.bench_with_input(
             BenchmarkId::from_parameter(num_qudits),
             num_qudits,
@@ -27,7 +28,8 @@ pub fn circuit_struct_benchmarks(c: &mut Criterion) {
 
     let mut group = c.benchmark_group("build_dtc");
 
-    for num_qudits in [4, 8, 16, 32, 64, 128].iter() {
+    for num_qudits in [4, 8, 16, 32, 64, 128, 256, 512].iter() {
+    // for num_qudits in [64].iter() {
         group.bench_with_input(
             BenchmarkId::from_parameter(num_qudits),
             num_qudits,

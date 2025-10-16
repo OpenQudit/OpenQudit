@@ -26,6 +26,10 @@ impl KetExpression {
             radices,
         }
     }
+
+    pub fn num_qudits(&self) -> usize {
+        self.radices.num_qudits()
+    }
 }
 
 impl JittableExpression for KetExpression {
