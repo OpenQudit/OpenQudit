@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::{Arc, Mutex}};
 
 // use aligned_vec::CACHELINE_ALIGN;
 // use faer_entity::Entity;
@@ -13,7 +13,7 @@ use super::{BytecodeInstruction, TensorBuffer};
 #[derive(Clone)]
 pub struct Bytecode {
     // pub expressions: Vec<(TensorExpression, Option<ParamIndices>, String)>,
-    pub expressions: Rc<RefCell<ExpressionCache>>,
+    pub expressions: Arc<Mutex<ExpressionCache>>,
     pub const_code: Vec<BytecodeInstruction>,
     pub dynamic_code: Vec<BytecodeInstruction>,
     pub buffers: Vec<TensorBuffer>,

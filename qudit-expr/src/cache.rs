@@ -1,11 +1,12 @@
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use qudit_core::{ComplexScalar, RealScalar};
 
 use crate::analysis::{simplify_expressions, simplify_expressions_iter};
-use crate::codegen::CompilableUnit;
+use crate::codegen::{CompilableUnit, WriteFuncWithLifeTime};
 use crate::expressions::{ExpressionBody, NamedExpression};
 use crate::index::{IndexSize, TensorIndex};
 use crate::{ComplexExpression, DifferentiationLevel, Expression, GenerationShape, Module, ModuleBuilder, WriteFunc, FUNCTION, GRADIENT, HESSIAN};
@@ -269,8 +270,8 @@ impl ExpressionCache {
         }
     }
 
-    pub fn new_shared() -> Rc<RefCell<Self>> {
-        Rc::new(Self::new().into())
+    pub fn new_shared() -> Arc<Mutex<Self>> {
+        Arc::new(Self::new().into())
     }
 
     pub fn get(&self, expr_id: ExpressionId) -> Option<TensorExpression> {
@@ -509,11 +510,8 @@ impl ExpressionCache {
 
         let base_id = self.id_lookup.get(&expr_id).expect("Unexpected expression id.");
 
-        // Safety: will compile for all expressions before getting this function
-        unsafe {
-            // TODO: ensure diff_level function exists
-            module.get_function_raw(&format!("expr_{}_{}", base_id, diff_level))
-        }
+        // TODO: ensure diff_level function exists
+        module.get_function(&format!("expr_{}_{}", base_id, diff_level)).expect("Error retrieving compiled expression.")
     }
 
     pub fn get_output_map<R: RealScalar>(

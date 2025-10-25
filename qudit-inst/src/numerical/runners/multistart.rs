@@ -5,6 +5,7 @@ use super::super::InitialGuessGenerator;
 use super::super::MinimizationAlgorithm;
 use super::super::MinimizationResult;
 
+#[derive(Clone)]
 pub struct MultiStartRunner<M, G> {
     pub minimizer: M,
     pub guess_generator: G,

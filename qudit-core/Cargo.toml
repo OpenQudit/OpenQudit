@@ -14,9 +14,12 @@ bytemuck = "1.21.0"
 rand = "0.9.2"
 coe-rs = "0.1.2"
 bit-set = "0.8.0"
+rand_distr = "0.5"
 qudit-macros = {path = "../qudit-macros"}
 pyo3 = { workspace = true, optional = true }
 inventory = { workspace = true, optional = true }
+num-complex = { workspace = true }
+numpy = { workspace = true }
 
 [dev-dependencies]
 proptest = "1.2"

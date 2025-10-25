@@ -14,6 +14,7 @@ use crate::numerical::Function;
 /// This struct implements the Levenberg-Marquardt algorithm for non-linear
 /// least squares problems. It combines the Gauss-Newton algorithm with
 /// gradient descent.
+#[derive(Clone)]
 pub struct LM<R: RealScalar> {
     /// Maximum number of iterations.
     pub max_iterations: usize,
@@ -148,7 +149,7 @@ where
         }
 
         // Calculate current cost
-        let mut current_cost = Rbuf.squared_norm_l2() * R::new(0.5);
+        let mut current_cost = Rbuf.squared_norm_l2() * R::from64(0.5);
 
         // Check for invalid initial cost
         if current_cost.is_nan() || current_cost.is_infinite() {
@@ -262,7 +263,7 @@ where
                 let param_slice = std::slice::from_raw_parts(x_new.as_ptr(), x_new.nrows());
                 objective.residuals_into(param_slice, Rbuf.as_mut());
             }
-            let new_cost = Rbuf.squared_norm_l2() * R::new(0.5);
+            let new_cost = Rbuf.squared_norm_l2() * R::from64(0.5);
 
             // Check for invalid cost
             if new_cost.is_nan() || new_cost.is_infinite() {
@@ -292,7 +293,8 @@ where
             if gain_ratio > R::zero() {
                 // Step accepted
                 x = x_new;
-                if RealScalar::abs(new_cost - current_cost) <= self.diff_tol_a + self.diff_tol_r * RealScalar::abs(current_cost) {
+                if new_cost.is_close_with_tolerance(current_cost, self.diff_tol_r, self.diff_tol_a) {
+                // if RealScalar::abs(new_cost - current_cost) <= self.diff_tol_a + self.diff_tol_r * RealScalar::abs(current_cost) {
                     return MinimizationResult {
                         params: Vec::from_iter(x.iter().copied()),
                         fun: new_cost,
@@ -372,7 +374,7 @@ where
         // TODO: better result converying the failure
         MinimizationResult {
             params: vec![],
-            fun: R::new(1.0),
+            fun: R::from64(1.0),
             status: 1,
             message: None,
         }

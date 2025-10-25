@@ -11,6 +11,7 @@ mod cycle;
 mod instruction;
 mod param;
 mod circuit;
+// mod iterator;
 // mod compact;
 // mod cycle;
 // mod cyclelist;
@@ -39,7 +40,7 @@ pub use circuit::QuditCircuit;
 
 
 ////////////////////////////////////////////////////////////////////////
-/// Python Register Helpers.
+/// Python Module.
 ////////////////////////////////////////////////////////////////////////
 #[cfg(feature = "python")]
 pub(crate) mod python {
@@ -55,16 +56,16 @@ pub(crate) mod python {
 
     /// Registers the Circuit submodule with the Python module.
     fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
-        let library_submodule = PyModule::new(parent_module.py(), "circuit")?;
+        let submodule = PyModule::new(parent_module.py(), "circuit")?;
 
         for registrar in inventory::iter::<PyCircuitRegistrar> {
-            (registrar.func)(&library_submodule)?;
+            (registrar.func)(&submodule)?;
         }
 
-        parent_module.add_submodule(&library_submodule)?;
+        parent_module.add_submodule(&submodule)?;
         parent_module.py().import("sys")?
             .getattr("modules")?
-            .set_item("openqudit.circuit", library_submodule)?;
+            .set_item("openqudit.circuit", submodule)?;
 
         Ok(())
     }

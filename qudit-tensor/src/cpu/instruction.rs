@@ -1,7 +1,8 @@
+use std::sync::{Arc, Mutex};
 use std::{cell::RefCell, rc::Rc};
 
 use faer::MatMut;
-use qudit_core::{matrix::{MatVecMut, SymSqMatMatMut}, memory::MemoryBuffer, ComplexScalar};
+use qudit_core::{memory::MemoryBuffer, ComplexScalar};
 use qudit_expr::{DifferentiationLevel, ExpressionCache, ExpressionId, Module};
 use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
 
@@ -26,7 +27,7 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVMInstruction<C, D> {
     pub fn new(
         inst: &BytecodeInstruction,
         buffers: &Vec<SizedTensorBuffer<C>>,
-        expressions: Rc<RefCell<ExpressionCache>>,
+        expressions: Arc<Mutex<ExpressionCache>>,
     ) -> Self {
         match inst {
             BytecodeInstruction::FRPR(in_index, shape, perm, out_index) => {
@@ -107,8 +108,8 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVMInstruction<C, D> {
             },
             BytecodeInstruction::Write(expr_id, param_info, buffer_index) => {
                 let out_buffer = buffers[*buffer_index].clone();
-                let write_fns = std::array::from_fn(|i| expressions.borrow_mut().get_fn::<C::R>(*expr_id, i + 1));
-                let output_map = expressions.borrow().get_output_map::<C::R>(
+                let write_fns = std::array::from_fn(|i| expressions.lock().unwrap().get_fn::<C::R>(*expr_id, i + 1));
+                let output_map = expressions.lock().unwrap().get_output_map::<C::R>(
                     *expr_id,
                     out_buffer.row_stride() as u64,
                     out_buffer.col_stride() as u64,

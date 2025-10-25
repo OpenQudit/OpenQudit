@@ -26,6 +26,8 @@ anyhow = "1.0.99"
 bit-set = "0.8.0"
 slotmap = "*"
 rustc-hash = "*"
+numpy = { workspace = true, optional = true }
+ndarray = { workspace = true, optional = true }
 
 [dev-dependencies]
 proptest = "1.2"
@@ -52,4 +54,4 @@ name = "compact_vec_bench"
 harness = false
 
 [features]
-python = ["qudit-core/python", "dep:pyo3", "dep:inventory"]
+python = ["qudit-core/python", "qudit-expr/python", "dep:ndarray", "dep:numpy", "dep:pyo3", "dep:inventory"]

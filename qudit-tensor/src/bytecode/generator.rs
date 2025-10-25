@@ -1,6 +1,7 @@
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet, BTreeSet};
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use super::buffer::TensorBuffer;
 use super::{Bytecode, BytecodeInstruction};
@@ -63,7 +64,7 @@ impl BytecodeGenerator {
         }
     }
 
-    fn parse(&mut self, tree: TTGTNode, expressions: &Rc<RefCell<ExpressionCache>>) -> usize {
+    fn parse(&mut self, tree: TTGTNode, expressions: &Arc<Mutex<ExpressionCache>>) -> usize {
         // TODO: Look out for potential recalculations:
         //  write u3(a, b, c) -> 0
         //  write u3(a, b, c) -> 1
@@ -73,7 +74,7 @@ impl BytecodeGenerator {
 
         match tree {
             TTGTNode::Leaf(LeafNode { expr, param_info, indices, .. } ) => {
-                let shape = expressions.borrow().generation_shape(expr);
+                let shape = expressions.lock().unwrap().generation_shape(expr);
                 let out = self.new_buffer(shape, param_info.num_params());
                 let constant = param_info.is_empty();
                 let inst = BytecodeInstruction::Write(expr, param_info, out.clone());

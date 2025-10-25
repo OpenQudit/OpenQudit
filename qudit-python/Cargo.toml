@@ -9,10 +9,11 @@ crate-type = ["cdylib"]
 
 [dependencies]
 qudit-core = { path = "../qudit-core", features = ["python"] }
-qudit-expr = { path = "../qudit-expr" }
+qudit-expr = { path = "../qudit-expr", features = ["python"] }
 qudit-gates = { path = "../qudit-gates" }
 qudit-circuit = { path = "../qudit-circuit", features = ["python"] }
+qudit-inst = { path = "../qudit-inst/", features = ["python"] }
 pyo3 = { workspace = true }
 inventory = { workspace = true }
-numpy = "0.26.0"
+numpy = { workspace = true }
 ndarray = "*"

@@ -786,49 +786,6 @@ impl From<(Vec<usize>, Vec<usize>)> for WireList {
     }
 }
 
-impl<W: Into<Wire>> From<W> for WireList {
-    fn from(wire: W) -> Self {
-        WireList::from_wires([wire.into()])
-    }
-}
-
-impl<W: Into<Wire>> From<Vec<W>> for WireList {
-    fn from(wires: Vec<W>) -> Self {
-        let converted_wires = wires.into_iter().map(|w| w.into()).collect::<Vec<Wire>>();
-        WireList::from_wires(converted_wires)
-    }
-}
-
-impl<'a, W> From<&'a [W]> for WireList
-where
-    W: Clone + Into<Wire>,
-{
-    fn from(wires: &'a [W]) -> Self {
-        let converted_wires: Vec<Wire> = wires.iter().map(|w_ref| w_ref.clone().into()).collect();
-        WireList::from_wires(converted_wires)
-    }
-}
-
-impl<W, const N: usize> From<[W; N]> for WireList
-where
-    W: Into<Wire>,
-{
-    fn from(wires: [W; N]) -> Self {
-        let converted_wires: Vec<Wire> = wires.into_iter().map(|w| w.into()).collect();
-        WireList::from_wires(converted_wires)
-    }
-}
-
-impl<'a, W, const N: usize> From<&'a [W; N]> for WireList
-where
-    W: Clone + Into<Wire>,
-{
-    fn from(wires: &'a [W; N]) -> Self {
-        let converted_wires: Vec<Wire> = wires.iter().map(|w_ref| w_ref.clone().into()).collect();
-        WireList::from_wires(converted_wires)
-    }
-}
-
 impl<'a, 'b> From<(&'a [usize], &'b [usize])> for WireList {
     fn from(indices: (&'a [usize], &'b [usize])) -> Self {
         WireList::new(indices.0, indices.1)

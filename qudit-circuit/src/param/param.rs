@@ -20,6 +20,18 @@ pub enum Parameter {
     Named(String),
 }
 
+impl Parameter {
+    pub fn is_constant(&self) -> bool {
+        match self {
+            Parameter::Constant32(_) => true,
+            Parameter::Constant64(_) => true,
+            Parameter::ConstantRatio(_) => true,
+            Parameter::Indexed => false,
+            Parameter::Named(_) => false,
+        }
+    }
+}
+
 #[cfg(feature = "python")]
 mod python {
     use super::Parameter;

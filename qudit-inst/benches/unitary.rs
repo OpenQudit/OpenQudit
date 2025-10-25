@@ -11,10 +11,9 @@ use pprof::flamegraph::Options;
 use qudit_inst::*;
 use qudit_core::c32;
 use qudit_core::c64;
-use qudit_core::unitary::UnitaryMatrix;
+use qudit_core::UnitaryMatrix;
 use qudit_core::QuditRadices;
 use qudit_circuit::QuditCircuit;
-use qudit_circuit::CircuitLocation;
 use qudit_expr::UnitaryExpression;
 use qudit_gates::Gate;
 use qudit_tensor::TNVM;
@@ -30,17 +29,16 @@ use qudit_inst::numerical::MinimizingInstantiater;
 use qudit_core::QuditSystem;
 use qudit_expr::ExpressionGenerator;
 use qudit_circuit::Operation;
-use qudit_circuit::ControlState;
 
 pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
     let block_expr = Gate::U3().generate_expression().otimes(&Gate::U3().generate_expression()).dot(&Gate::CX().generate_expression());
     let mut circ = QuditCircuit::pure(vec![2; n]);
     for i in 0..n {
-        circ.append_parameterized(Gate::U3(), [i]);
+        circ.append(Gate::U3(), [i], None);
     }
     for _ in 0..2 {
         for i in 0..(n - 1) {
-            circ.append_parameterized(Gate::Expression(block_expr.clone()), [i, i+1]);
+            circ.append(Gate::Expression(block_expr.clone()), [i, i+1], None);
         }
     }
     circ

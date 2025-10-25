@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
-use crate::matrix::Mat;
 use crate::ToRadices;
 use crate::ToRadix;
+use faer::Mat;
 use faer::mat::AsMatMut;
 use faer::mat::AsMatRef;
 use faer::perm::permute_cols;

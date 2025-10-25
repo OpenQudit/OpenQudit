@@ -11,10 +11,16 @@ qudit-core = { path = "../qudit-core" }
 qudit-expr = { path = "../qudit-expr" }
 qudit-tensor = { path = "../qudit-tensor" }
 qudit-circuit = { path = "../qudit-circuit" }
-num-complex = "0.4.6"
-faer = "0.22.6"
-faer-traits = "0.22.1"
+num-complex = { workspace = true }
+faer = { workspace = true }
+faer-traits = { workspace = true }
 rand = "0.8.5"
+dyn-clone = "1.0"
+
+pyo3 = { workspace = true, optional = true }
+inventory = { workspace = true, optional = true }
+numpy = { workspace = true, optional = true }
+ndarray = { workspace = true, optional = true }
 
 [dev-dependencies]
 qudit-gates = { path = "../qudit-gates" }
@@ -25,3 +31,7 @@ pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
 [[bench]]
 name = "unitary"
 harness = false
+
+[features]
+python = ["qudit-core/python", "qudit-expr/python", "qudit-circuit/python", "dep:ndarray", "dep:numpy", "dep:pyo3", "dep:inventory"]
+

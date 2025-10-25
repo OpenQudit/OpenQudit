@@ -3,6 +3,8 @@ use std::marker::PhantomData;
 use std::marker::PhantomPinned;
 use std::pin::Pin;
 use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use faer::reborrow::ReborrowMut;
 use qudit_expr::DifferentiationLevel;
@@ -20,11 +22,8 @@ use super::buffer::SizedTensorBuffer;
 use super::instruction::TNVMInstruction;
 
 use qudit_core::accel::fused_reshape_permute_reshape_into_impl;
-use qudit_core::matrix::MatVecMut;
-use qudit_core::matrix::MatVecRef;
-use qudit_core::matrix::SymSqMatMatMut;
-use qudit_core::matrix::MatMut;
-use qudit_core::matrix::MatRef;
+use faer::MatMut;
+use faer::MatRef;
 use qudit_core::memory::MemoryBuffer;
 use qudit_core::memory::alloc_zeroed_memory;
 use qudit_core::ComplexScalar;
@@ -49,7 +48,7 @@ pub struct TNVM<C: ComplexScalar, const D: DifferentiationLevel> {
     dynamic_instructions: Vec<TNVMInstruction<C, D>>,
     // #[allow(dead_code)]
     // module: Module<C>,
-    expressions: Rc<RefCell<ExpressionCache>>,
+    expressions: Arc<Mutex<ExpressionCache>>,
     memory: MemoryBuffer<C>,
     // param_buffer: ParamBuffer<C>,
     out_buffer: SizedTensorBuffer<C>,
@@ -80,7 +79,7 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
         let expressions = program.expressions.clone();
 
         // Ensure that all expressions are prepared up to diff_level D.
-        expressions.borrow_mut().prepare(D);
+        expressions.lock().unwrap().prepare(D);
 
         let mut const_instructions = Vec::new();
         for inst in &program.const_code {

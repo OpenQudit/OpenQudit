@@ -18,17 +18,16 @@ use rand::Rng;
 /// This qft implementation does not consider numerical issues and does not
 /// perform the final swap back step in the algorithm. It should only be
 /// used for benchmarking purposes.
-#[allow(dead_code)]
 pub fn build_qft_circuit(n: usize) -> QuditCircuit {
     // TODO: Double check this is actually a QFT
     let mut circ = QuditCircuit::pure(radices![2; n]);
     let h_ref = circ.cache_operation(Gate::H(2));
     let cp_ref = circ.cache_operation(Gate::CP());
     for i in 0..n {
-        circ.append_ref_parameterized(h_ref, [i]);
+        circ.append_by_code::<_, [f64; 0]>(h_ref, [i], []);
         for j in (i + 1)..n {
             let p = PI * (2.0f64.powi((j - i) as i32));
-            circ.append_ref_constant(cp_ref, [i, j], vec![p]);
+            circ.append_by_code(cp_ref, [i, j], [p]);
         }
     }
     circ
@@ -69,65 +68,65 @@ pub fn build_dtc_circuit(n: usize) {
 
     for _ in 0..n {
         for i in 0..n {
-            circ.append_ref_constant(rx_ref, i, vec![g * std::f64::consts::PI]);
+            circ.append_by_code(rx_ref, i, [g * std::f64::consts::PI]);
         }
 
         for i in (0..(n - 1)).step_by(2) {
             let low = PI / 16.0;
             let high = 3.0 * PI / 16.0;
             let phi: f64 = rng.gen_range(low..high);  
-            circ.append_ref_constant(rzz_ref, [i, i + 1], vec![phi]);
+            circ.append_by_code(rzz_ref, [i, i + 1], [phi]);
         }
 
         for i in (1..(n - 1)).step_by(2) {
             let low = PI / 16.0;
             let high = 3.0 * PI / 16.0;
             let phi: f64 = rng.gen_range(low..high);  
-            circ.append_ref_constant(rzz_ref, [i, i + 1], vec![phi]);
+            circ.append_by_code(rzz_ref, [i, i + 1], [phi]);
         }
 
         for i in 0..n {
             let low = -PI;
             let high = PI;
             let phi: f64 = rng.gen_range(low..high);  
-            circ.append_ref_constant(rz_ref, i, vec![phi]);
+            circ.append_by_code(rz_ref, i, [phi]);
         }
     }
 }
 
-#[allow(dead_code)]
-pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
-    let mut circ = QuditCircuit::pure(radices![2; n]);
-    for i in 0..n {
-        circ.append_parameterized(Gate::U3(), [i]);
-    }
-    for _ in 0..n {
-        for i in 0..(n - 1) {
-            circ.append_parameterized(Gate::CX(), [i, i + 1]);
-            circ.append_parameterized(Gate::U3(), [i]);
-            circ.append_parameterized(Gate::U3(), [i + 1]);
-        }
-    }
-    circ
-}
+// #[allow(dead_code)]
+// pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
+//     let mut circ = QuditCircuit::pure(radices![2; n]);
+//     for i in 0..n {
+//         circ.append_parameterized(Gate::U3(), [i]);
+//     }
+//     for _ in 0..n {
+//         for i in 0..(n - 1) {
+//             circ.append_parameterized(Gate::CX(), [i, i + 1]);
+//             circ.append_parameterized(Gate::U3(), [i]);
+//             circ.append_parameterized(Gate::U3(), [i + 1]);
+//         }
+//     }
+//     circ
+// }
 
-#[allow(dead_code)]
-pub fn build_qsearch_thick_step_circuit(n: usize) -> QuditCircuit {
-    let mut circ = QuditCircuit::pure(radices![2; n]);
-    for i in 0..n {
-        circ.append_parameterized(Gate::U3(), [i]);
-    }
-    for _ in 0..n {
-        for i in 0..(n - 1) {
-            for _j in 0..3 {
-                circ.append_parameterized(Gate::CX(), [i, i + 1]);
-                circ.append_parameterized(Gate::U3(), [i]);
-                circ.append_parameterized(Gate::U3(), [i + 1]);
-            }
-        }
-    }
-    circ
-}
+// #[allow(dead_code)]
+// pub fn build_qsearch_thick_step_circuit(n: usize) -> QuditCircuit {
+//     let mut circ = QuditCircuit::pure(radices![2; n]);
+//     for i in 0..n {
+//         circ.append_parameterized(Gate::U3(), [i]);
+//     }
+//     for _ in 0..n {
+//         for i in 0..(n - 1) {
+//             for _j in 0..3 {
+//                 circ.append_parameterized(Gate::CX(), [i, i + 1]);
+//                 circ.append_parameterized(Gate::U3(), [i]);
+//                 circ.append_parameterized(Gate::U3(), [i + 1]);
+//             }
+//         }
+//     }
+//     circ
+// }
 
 use pprof::criterion::{Output, PProfProfiler};
 use pprof::flamegraph::Options;

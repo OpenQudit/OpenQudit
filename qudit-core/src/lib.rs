@@ -12,11 +12,11 @@ mod shape;
 mod quantum;
 
 pub mod accel;
-pub mod matrix;
+// pub mod matrix;
 pub mod memory;
-pub mod unitary;
+// pub mod unitary;
 pub mod array;
-pub mod state;
+// pub mod state;
 
 pub use bitwidth::BitWidthConvertible;
 pub use function::HasBounds;
@@ -35,6 +35,8 @@ pub use shape::TensorShape;
 pub use system::ClassicalSystem;
 pub use system::HybridSystem;
 pub use system::QuditSystem;
+pub use quantum::UnitaryMatrix;
+pub use quantum::Ket;
 
 ////////////////////////////////////////////////////////////////////////
 /// Complex number types.

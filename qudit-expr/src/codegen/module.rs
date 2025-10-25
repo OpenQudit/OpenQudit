@@ -6,18 +6,20 @@ use std::borrow::Cow;
 use std::ffi::{CStr, CString};
 use std::mem::{ManuallyDrop, MaybeUninit};
 use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use inkwell::targets::{InitializationConfig, Target};
 use llvm_sys::core::{LLVMContextCreate, LLVMModuleCreateWithNameInContext};
-use llvm_sys::execution_engine::{LLVMCreateJITCompilerForModule, LLVMDisposeExecutionEngine, LLVMExecutionEngineRef};
+use llvm_sys::execution_engine::{LLVMCreateJITCompilerForModule, LLVMDisposeExecutionEngine, LLVMExecutionEngineRef, LLVMGetExecutionEngineTargetData, LLVMGetFunctionAddress, LLVMLinkInMCJIT};
 use llvm_sys::prelude::LLVMModuleRef;
 
 use inkwell::module::Module as InkwellModule;
 
+use crate::codegen::WriteFuncWithLifeTime;
 use crate::WriteFunc;
 
 use super::builder::DifferentiationLevel;
-use super::{process_name_for_gen, UtryGradFunc, UtryFunc};
+use super::process_name_for_gen;
 
 pub(crate) fn to_c_str(mut s: &str) -> Cow<'_, CStr> {
     if s.is_empty() {
@@ -45,8 +47,8 @@ fn convert_c_string(c_str: *mut i8) -> String {
 
 #[derive(Debug)]
 pub struct Module<R: RealScalar> {
-    engine: Rc<LLVMExecutionEngineRef>,
-    module: LLVMModuleRef,
+    engine: Mutex<LLVMExecutionEngineRef>,
+    module: Mutex<LLVMModuleRef>,
     context: Context,
     phantom: std::marker::PhantomData<R>,
 }
@@ -58,7 +60,7 @@ impl<R: RealScalar> Module<R> {
             
             let c_string = to_c_str(module_name);
             let core_module = LLVMModuleCreateWithNameInContext(c_string.as_ptr(), core_context);
-
+            // LLVMLinkInMCJIT();
             match Target::initialize_native(&InitializationConfig::default()) {
                 Ok(_) => {},
                 Err(string) => panic!("Error initializing native target: {:?}", string),
@@ -78,51 +80,64 @@ impl<R: RealScalar> Module<R> {
                 panic!("Error creating JIT compiler: {:?}", convert_c_string(err_string.assume_init()));
             }
 
-            let execution_engine = Rc::new(execution_engine.assume_init());
+            let execution_engine = execution_engine.assume_init();
 
             Module {
                 context: Context::new(core_context),
-                module: core_module,
-                engine: execution_engine,
+                module: core_module.into(),
+                engine: execution_engine.into(),
                 phantom: std::marker::PhantomData,
             }
         }
     }
 
-    pub fn module<'a>(&'a self) -> ManuallyDrop<InkwellModule<'a>> {
-        unsafe { ManuallyDrop::new(InkwellModule::new(self.module)) }
-    }
-
-    pub fn engine<'a>(&'a self) -> ExecutionEngine<'a> {
-        unsafe { ExecutionEngine::new(self.engine.clone(), true) }
+    pub fn with_module<'a, F, G>(&self, f: F) -> G
+    where
+        F: FnOnce(ManuallyDrop<InkwellModule<'a>>) -> G
+    {
+        let module_ref = self.module.lock().unwrap();
+        let module = unsafe { ManuallyDrop::new(InkwellModule::new(*module_ref)) };
+        f(module)
     }
 
     pub fn context(&self) -> &Context {
         &self.context
     }
 
-    pub fn get_function<'a>(&'a self, name: &str) -> Option<JitFunction<'a, WriteFunc<R>>> {
+    // pub fn get_function<'a>(&'a self, name: &str) -> Option<WriteFuncWithLifeTime<'a, R>> {
+    pub fn get_function<'a>(&'a self, name: &str) -> Option<WriteFunc<R>> {
         let name = process_name_for_gen(name);
-        unsafe { self.engine().get_function(&name).ok() }
-    }
+        let engine_ref = self.engine.lock().unwrap();
 
-    pub unsafe fn get_function_raw(&self, name: &str) -> WriteFunc<R> {
-        let name = process_name_for_gen(name);
-        self.engine().get_function(&name).unwrap().as_raw()
+        assert!(!(*engine_ref).is_null());
+
+        let address = {
+            let c_string = to_c_str(&name);
+            let address = unsafe { LLVMGetFunctionAddress(*engine_ref, c_string.as_ptr()) };
+            if address == 0 {
+                return None
+            }
+            address as usize
+        };
+
+        Some(unsafe { std::mem::transmute_copy(&address) })
     }
 }
 
 impl<R: RealScalar> Drop for Module<R> {
     fn drop(&mut self) {
-        assert_eq!(Rc::strong_count(&self.engine), 1);
+        let engine_ref = self.engine.lock().unwrap();
         unsafe { 
-            LLVMDisposeExecutionEngine(*self.engine);
+            LLVMDisposeExecutionEngine(*engine_ref);
         }
     }
 }
 
 impl<R: RealScalar> std::fmt::Display for Module<R> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.module().print_to_string().to_string().fmt(f)
+        self.with_module(|module| module.print_to_string().to_string().fmt(f))
     }
 }
+
+
+unsafe impl<R: RealScalar> Send for Module<R> {}

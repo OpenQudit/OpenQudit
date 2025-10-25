@@ -9,8 +9,8 @@ use std::collections::VecDeque;
 use std::num::Wrapping;
 
 use super::cartesian_match;
-use crate::matrix::MatMut;
-use crate::matrix::MatRef;
+use faer::MatMut;
+use faer::MatRef;
 
 /// Copies elements of the input to output 0D tensors, even if their strides are different.
 /// Effectively provides a reshaped version of the input.
@@ -1692,8 +1692,8 @@ mod tests {
         unsafe {
             fused_reshape_permute_reshape_into_impl(tensor_in.as_ptr(), tensor_out.as_mut_ptr(), &is, &os, &dim);
         }
-        println!("tensor_in.data: {:?}", tensor_in.data);
-        println!("tensor_out.data: {:?}", tensor_out.data);
+        // println!("tensor_in.data: {:?}", tensor_in.data);
+        // println!("tensor_out.data: {:?}", tensor_out.data);
 
         let correct = Tensor::from_slice(&[0.0,2.0,4.0,6.0,8.0,10.0,12.0,14.0,1.0,3.0,5.0,7.0,9.0,11.0,13.0,15.0,16.0,18.0,20.0,22.0,24.0,26.0,28.0,30.0,17.0,19.0,21.0,23.0,25.0,27.0,29.0,31.0], [2, 4, 4]);
         println!("{:?}", tensor_out);

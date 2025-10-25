@@ -1,7 +1,7 @@
 use qudit_core::{memory::MemoryBuffer, ComplexScalar};
-use qudit_core::matrix::RowRef;
-use qudit_core::matrix::ColRef;
-use qudit_core::matrix::MatRef;
+use faer::RowRef;
+use faer::ColRef;
+use faer::MatRef;
 use qudit_core::array::TensorRef;
 use qudit_core::array::SymSqTensorRef;
 use qudit_expr::GenerationShape;
@@ -88,8 +88,8 @@ impl<'a, C: ComplexScalar> TNVMReturnType2<'a, C> {
 
 pub enum TNVMReturnType<'a, C: ComplexScalar> {
     Scalar(&'a C),
-    Vector(qudit_core::matrix::RowRef<'a, C>),
-    Matrix(qudit_core::matrix::MatRef<'a, C>),
+    Vector(faer::RowRef<'a, C>),
+    Matrix(faer::MatRef<'a, C>),
     Tensor3D(qudit_core::array::TensorRef<'a, C, 3>),
     Tensor4D(qudit_core::array::TensorRef<'a, C, 4>),
     SymSqMatrix(qudit_core::array::SymSqTensorRef<'a, C, 2>),
@@ -106,7 +106,7 @@ impl<'a, C: ComplexScalar> TNVMReturnType<'a, C> {
         }
     }
 
-    pub fn unpack_vector(self) -> qudit_core::matrix::RowRef<'a, C> {
+    pub fn unpack_vector(self) -> faer::RowRef<'a, C> {
         match self {
             TNVMReturnType::Vector(v) => v,
             _ => panic!("cannot unpack a non-row-vector type as a row-vector"),
@@ -121,7 +121,7 @@ impl<'a, C: ComplexScalar> TNVMReturnType<'a, C> {
     //     }
     // }
 
-    pub fn unpack_matrix(self) -> qudit_core::matrix::MatRef<'a, C> {
+    pub fn unpack_matrix(self) -> faer::MatRef<'a, C> {
         match self {
             TNVMReturnType::Matrix(m) => m,
             _ => panic!("cannot unpack a non-matrix type as a matrix"),

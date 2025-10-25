@@ -56,26 +56,13 @@ impl DerefMut for UnitarySystemExpression {
 }
 
 
-// TODO: replace individual From<X> for TensorExpression impls with blanket one
-// pub trait HasIndices {
-//     fn indices(&self) -> &[TensorIndex];
-// }
-
-// impl<T: HasIndices + Into<NamedExpression>> From<T> for TensorExpression {
-//     fn from(value: T) -> Self {
-//         let indices = value.indices().iter().cloned().collect();
-//         let inner = value.into();
-//         TensorExpression::from_raw(indices, inner)
-//     }
-// }
-
-
 impl From<UnitarySystemExpression> for TensorExpression {
     fn from(value: UnitarySystemExpression) -> Self {
         let UnitarySystemExpression { inner, radices, num_unitaries } = value;
         // TODO: add a proper implementation of into_iter for QuditRadices
         let indices = [num_unitaries].into_iter()
             .map(|r| (IndexDirection::Batch, r))
+            .chain(radices.into_iter().map(|r| (IndexDirection::Output, *r as usize)))
             .chain(radices.into_iter().map(|r| (IndexDirection::Input, *r as usize)))
             .enumerate()
             .map(|(i, (d, r))| TensorIndex::new(d, i, r))
@@ -90,24 +77,127 @@ impl TryFrom<TensorExpression> for UnitarySystemExpression {
 
     fn try_from(value: TensorExpression) -> Result<Self, Self::Error> {
         let mut num_unitaries = None;
-        let mut radices = vec![];
+        let mut input_radices = vec![];
+        let mut output_radices = vec![];
         for idx in value.indices() {
             match idx.direction() {
                 IndexDirection::Batch => {
-                    match num_unitaries {
-                        Some(n) => return Err(String::from("More than one batch index in bra system conversion.")),
+                    match &mut num_unitaries {
+                        Some(n) => *n *= idx.index_size(),
                         None => num_unitaries = Some(idx.index_size()),
                     }
                 }
-                IndexDirection::Input => { radices.push(idx.index_size()); }
-                _ => { return Err(String::from("Cannot convert a tensor with non-input or batch indices to a bra system.")); }
+                IndexDirection::Input => { input_radices.push(idx.index_size()); }
+                IndexDirection::Output => { output_radices.push(idx.index_size()); }
+                _ => unreachable!(),
             }
+        }
+
+        if input_radices != output_radices {
+            return Err(String::from("Non-square matrix tensor cannot be converted to a unitary."));
         }
         
         Ok(UnitarySystemExpression {
             inner: value.into(),
-            radices: radices.into(),
+            radices: input_radices.into(),
             num_unitaries: num_unitaries.unwrap_or(1),
         })
     }
+}
+
+#[cfg(feature = "python")]
+mod python {
+    use super::*;
+    use pyo3::prelude::*;
+    use crate::python::PyExpressionRegistrar;
+    use qudit_core::c64;
+    use pyo3::types::PyTuple;
+    use numpy::PyArray3;
+    use numpy::PyArrayMethods;
+    use ndarray::ArrayViewMut3;
+
+
+    #[pyclass]
+    #[pyo3(name = "UnitarySystemExpression")]
+    pub struct PyUnitarySystemExpression {
+        expr: UnitarySystemExpression,
+    }
+
+    #[pymethods]
+    impl PyUnitarySystemExpression {
+        #[new]
+        fn new(expr: String) -> Self {
+            Self {
+                expr: UnitarySystemExpression::new(expr),
+            }
+        }
+
+        fn num_params(&self) -> usize {
+            self.expr.num_params()
+        }
+
+        fn name(&self) -> String {
+            self.expr.name().to_string()
+        }
+
+        fn radices(&self) -> Vec<u8> {
+            self.expr.radices.to_vec()
+        }
+
+        fn num_qudits(&self) -> usize {
+            self.expr.num_qudits()
+        }
+
+        fn num_unitaries(&self) -> usize {
+            self.expr.num_unitaries
+        }
+
+        fn dimension(&self) -> usize {
+            self.expr.radices.dimension()
+        }
+
+        fn __repr__(&self) -> String {
+            format!("UnitarySystemExpression(name='{}', radices={:?}, num_unitaries={}, params={})", 
+                    self.expr.name(), self.expr.radices.to_vec(), self.expr.num_unitaries, self.expr.num_params())
+        }
+    }
+
+    impl From<UnitarySystemExpression> for PyUnitarySystemExpression {
+        fn from(value: UnitarySystemExpression) -> Self {
+            PyUnitarySystemExpression {
+                expr: value,
+            }
+        }
+    }
+
+    impl From<PyUnitarySystemExpression> for UnitarySystemExpression {
+        fn from(value: PyUnitarySystemExpression) -> Self {
+            value.expr
+        }
+    }
+
+    impl<'py> IntoPyObject<'py> for UnitarySystemExpression {
+        type Target = <PyUnitarySystemExpression as IntoPyObject<'py>>::Target;
+        type Output = Bound<'py, Self::Target>;
+        type Error = PyErr;
+
+        fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+            let py_expr = PyUnitarySystemExpression::from(self);
+            Bound::new(py, py_expr)
+        }
+    }
+
+    impl<'py> FromPyObject<'py> for UnitarySystemExpression {
+        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+            let py_expr: PyRef<PyUnitarySystemExpression> = ob.extract()?;
+            Ok(py_expr.expr.clone())
+        }
+    }
+
+    /// Registers the UnitarySystemExpression class with the Python module.
+    fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
+        parent_module.add_class::<PyUnitarySystemExpression>()?;
+        Ok(())
+    }
+    inventory::submit!(PyExpressionRegistrar { func: register });
 }

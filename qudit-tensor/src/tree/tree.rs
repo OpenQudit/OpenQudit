@@ -1,6 +1,8 @@
 
 use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
 use crate::tree::HadamardProductNode;
 use crate::tree::TraceNode;
@@ -49,7 +51,7 @@ pub enum TTGTNode {
 #[derive(Clone)]
 pub struct TTGTTree {
     pub root: TTGTNode,
-    pub expressions: Rc<RefCell<ExpressionCache>>,
+    pub expressions: Arc<Mutex<ExpressionCache>>,
 }
 
 impl TTGTTree {
@@ -71,7 +73,7 @@ impl TTGTTree {
         shared_ids: Vec<IndexId>,
         contraction_ids: Vec<IndexId>,
     ) -> Self {
-        if !Rc::ptr_eq(&self.expressions, &right.expressions) {
+        if !Arc::ptr_eq(&self.expressions, &right.expressions) {
             panic!("Contracting two TTGT trees with different expression caches.");
         }
 
@@ -139,7 +141,7 @@ impl TTGTTree {
     }
 
     pub fn outer(self, right: Self) -> Self {
-        if !Rc::ptr_eq(&self.expressions, &right.expressions) {
+        if !Arc::ptr_eq(&self.expressions, &right.expressions) {
             panic!("Contracting two TTGT trees with different expression caches.");
         }
 
@@ -150,7 +152,7 @@ impl TTGTTree {
     }
 
     pub fn hadamard(self, right: Self) -> Self {
-        if !Rc::ptr_eq(&self.expressions, &right.expressions) {
+        if !Arc::ptr_eq(&self.expressions, &right.expressions) {
             panic!("Contracting two TTGT trees with different expression caches.");
         }
 
@@ -161,7 +163,7 @@ impl TTGTTree {
     }
 
     pub fn matmul(self, right: Self) -> Self {
-        if !Rc::ptr_eq(&self.expressions, &right.expressions) {
+        if !Arc::ptr_eq(&self.expressions, &right.expressions) {
             panic!("Contracting two TTGT trees with different expression caches.");
         }
 
@@ -194,7 +196,7 @@ impl TTGTTree {
                 .map(|(idx, new_direction)| TensorIndex::new(*new_direction, idx.index_id(), idx.index_size()))
                 .collect::<Vec<TensorIndex>>();
             let new_shape: GenerationShape = (&new_indices).into();
-            let new_expr_id = self.expressions.borrow_mut().permute_reshape(expr_id, expr_perm, new_shape);
+            let new_expr_id = self.expressions.lock().unwrap().permute_reshape(expr_id, expr_perm, new_shape);
             // println!("After permuting in tree transpose, id is {:?}", new_expr_id);
             TTGTNode::Leaf(LeafNode::new(new_expr_id, param_info, new_indices, tensor_to_expr_position_map))
         } else {
@@ -207,7 +209,7 @@ impl TTGTTree {
         }
     }
 
-    pub fn leaf(expressions: Rc<RefCell<ExpressionCache>>, expr: ExpressionId, param_info: ParamInfo, indices: Vec<TensorIndex>, tensor_to_expr_position_map: Vec<Vec<usize>>) -> Self {
+    pub fn leaf(expressions: Arc<Mutex<ExpressionCache>>, expr: ExpressionId, param_info: ParamInfo, indices: Vec<TensorIndex>, tensor_to_expr_position_map: Vec<Vec<usize>>) -> Self {
         Self {
             root: TTGTNode::Leaf(LeafNode::new(expr, param_info, indices, tensor_to_expr_position_map)),
             expressions,

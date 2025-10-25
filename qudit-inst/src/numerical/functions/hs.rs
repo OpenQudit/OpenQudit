@@ -1,8 +1,8 @@
 use faer::ColMut;
 use qudit_circuit::QuditCircuit;
-use qudit_core::matrix::MatMut;
-use qudit_core::matrix::Row;
-use qudit_core::matrix::RowMut;
+use faer::MatMut;
+use faer::Row;
+use faer::RowMut;
 use qudit_core::ComplexScalar;
 use qudit_core::RealScalar;
 use qudit_core::BitWidthConvertible;
@@ -29,6 +29,7 @@ use qudit_expr::GRADIENT;
 use qudit_expr::HESSIAN;
 use faer::reborrow::ReborrowMut;
 
+#[derive(Clone)]
 pub struct HSProblem<'a, R: RealScalar> {
     pub circuit: &'a QuditCircuit,
     pub target: &'a InstantiationTarget<R::C>,
@@ -139,7 +140,7 @@ impl<R: RealScalar, const D: DifferentiationLevel> CostFunction<R> for HSFunctio
         let trace = result.get_fn_result().unpack_scalar(); // This isn't a scalar if kraus
         // dimension // TODO: add unpack vector able to handle scalar
         let inner = trace.abs() / self.N;
-        R::new(1.0) - inner
+        R::from64(1.0) - inner
         // (1 - (trace.clone().abs() / self.N).square()).sqrt()
         // TODO: consider using proper norm (might be faster to use for gradient and hessian due
         // not having to compute abs inside for loop, i.e. trade one sqrt for num_params.
@@ -165,16 +166,16 @@ impl<R: RealScalar, const D: DifferentiationLevel> Gradient<R> for HSFunction<R,
             let dem = self.N * trace.abs();
             *out = -(num / dem)
         }
-        R::new(1.0) - (trace.abs() / self.N) 
+        R::from64(1.0) - (trace.abs() / self.N) 
     }
 }
 
 impl<R: RealScalar, const D: DifferentiationLevel> Hessian<R> for HSFunction<R, D> {
-    fn hessian_into(&mut self, params: &[R], hess_out: qudit_core::matrix::MatMut<R>) {
+    fn hessian_into(&mut self, params: &[R], hess_out: faer::MatMut<R>) {
         todo!()
     }
 
-    fn cost_gradient_and_hessian_into(&mut self, params: &[R], grad_out: RowMut<R>, hess_out: qudit_core::matrix::MatMut<R>) -> R {        
+    fn cost_gradient_and_hessian_into(&mut self, params: &[R], grad_out: RowMut<R>, hess_out: faer::MatMut<R>) -> R {        
         let result = self.tnvm.evaluate::<HESSIAN>(params);
         let hess_trace = result.get_hess_result().unpack_symsq_matrix();
         let grad_trace = result.get_grad_result().unpack_vector();

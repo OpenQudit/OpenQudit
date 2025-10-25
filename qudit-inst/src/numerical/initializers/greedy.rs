@@ -3,6 +3,7 @@ use super::super::InitialGuessGenerator;
 use rand::Rng;
 use rand::distributions::Uniform as RandUniform;
 
+#[derive(Clone)]
 pub struct GreedyFurthestPoint<R: RealScalar> {
     lower_bound: R,
     upper_bound: R,
@@ -93,7 +94,7 @@ impl<R: RealScalar> GreedyFurthestPoint<R> {
             for (idx, candidate) in candidates.iter().enumerate() {
                 // Skip if already selected
                 if self.selected_points.iter().any(|selected| {
-                    selected.iter().zip(candidate.iter()).all(|(a, b)| RealScalar::abs(*a - *b) < R::from64(1e-10))
+                    selected.iter().zip(candidate.iter()).all(|(a, b)| (*a).is_close(*b))
                 }) {
                     continue;
                 }

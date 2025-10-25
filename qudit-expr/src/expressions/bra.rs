@@ -17,6 +17,12 @@ pub struct BraExpression {
     radices: QuditRadices,
 }
 
+impl BraExpression {
+    pub fn new<T: AsRef<str>>(input: T) -> Self {
+        TensorExpression::new(input).try_into().unwrap()
+    }
+}
+
 impl JittableExpression for BraExpression {
     fn generation_shape(&self) -> GenerationShape {
         GenerationShape::Vector(self.radices.dimension())
@@ -75,4 +81,103 @@ impl TryFrom<TensorExpression> for BraExpression {
             radices,
         })
     }
+}
+
+impl QuditSystem for BraExpression {
+    fn radices(&self) -> qudit_core::QuditRadices {
+        self.radices.clone()
+    } 
+
+    fn num_qudits(&self) -> usize {
+        self.radices.num_qudits()
+    }
+}
+
+#[cfg(feature = "python")]
+mod python {
+    use super::*;
+    use pyo3::prelude::*;
+    use crate::python::PyExpressionRegistrar;
+    use qudit_core::c64;
+    use pyo3::types::PyTuple;
+    use numpy::PyArray2;
+    use numpy::PyArrayMethods;
+    use ndarray::ArrayViewMut2;
+
+
+    #[pyclass]
+    #[pyo3(name = "BraExpression")]
+    pub struct PyBraExpression {
+        expr: BraExpression,
+    }
+
+    #[pymethods]
+    impl PyBraExpression {
+        #[new]
+        fn new(expr: String) -> Self {
+            Self {
+                expr: BraExpression::new(expr),
+            }
+        }
+
+        fn num_params(&self) -> usize {
+            self.expr.num_params()
+        }
+
+        fn name(&self) -> String {
+            self.expr.name().to_string()
+        }
+
+        fn radices(&self) -> Vec<u8> {
+            self.expr.radices().to_vec()
+        }
+
+        fn dimension(&self) -> usize {
+            self.expr.dimension()
+        }
+
+        fn __repr__(&self) -> String {
+            format!("BraExpression(name='{}', radices={:?}, params={})", 
+                    self.expr.name(), self.expr.radices().to_vec(), self.expr.num_params())
+        }
+    }
+
+    impl From<BraExpression> for PyBraExpression {
+        fn from(value: BraExpression) -> Self {
+            PyBraExpression {
+                expr: value,
+            }
+        }
+    }
+
+    impl From<PyBraExpression> for BraExpression {
+        fn from(value: PyBraExpression) -> Self {
+            value.expr
+        }
+    }
+
+    impl<'py> IntoPyObject<'py> for BraExpression {
+        type Target = <PyBraExpression as IntoPyObject<'py>>::Target;
+        type Output = Bound<'py, Self::Target>;
+        type Error = PyErr;
+
+        fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+            let py_expr = PyBraExpression::from(self);
+            Bound::new(py, py_expr)
+        }
+    }
+
+    impl<'py> FromPyObject<'py> for BraExpression {
+        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+            let py_expr: PyRef<PyBraExpression> = ob.extract()?;
+            Ok(py_expr.expr.clone())
+        }
+    }
+
+    /// Registers the BraExpression class with the Python module.
+    fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
+        parent_module.add_class::<PyBraExpression>()?;
+        Ok(())
+    }
+    inventory::submit!(PyExpressionRegistrar { func: register });
 }

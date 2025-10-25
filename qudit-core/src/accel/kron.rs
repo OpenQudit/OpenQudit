@@ -7,8 +7,8 @@ use faer::reborrow::ReborrowMut;
 use faer_traits::ComplexField;
 
 use super::cartesian_match;
-use crate::matrix::MatMut;
-use crate::matrix::MatRef;
+use faer::MatMut;
+use faer::MatRef;
 use crate::ComplexScalar;
 
 // TODO: Add proper documentation to raw methods and add higher level

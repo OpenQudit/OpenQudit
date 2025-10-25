@@ -103,6 +103,20 @@ impl ArgumentList {
 
         new_variables
     }
+
+
+    /// Returns true if any non-simple arguments exist in the list
+    ///
+    /// A Non-simple argument is one that is not a single constant or single
+    /// parameter (named or unnamed). For example, the expression `"a*b"`
+    /// requires expression modification and is non-simple. This is because
+    /// the multiplication of the two parameters gets folded into the
+    /// expression being invoked with this argument list, and as a result,
+    /// get's modified to accomodate a multiplication of two parameters in
+    /// place of the one in that argument's slot.
+    pub fn requires_expression_modification(&self) -> bool {
+        self.entries.iter().any(|arg| arg.requires_expression_modification())
+    }
 }
 
 impl<E: Into<Argument>> From<Vec<E>> for ArgumentList {

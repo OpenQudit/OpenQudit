@@ -4,7 +4,7 @@ use super::Problem;
 use super::Function;
 use super::MinimizationResult;
 
-pub trait MinimizationAlgorithm<R: RealScalar, P: Problem> {
+pub trait MinimizationAlgorithm<R: RealScalar, P: Problem>: Clone {
     type Func: Function;
 
     fn initialize(&self, problem: &P) -> Self::Func;

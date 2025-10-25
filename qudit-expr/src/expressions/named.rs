@@ -1,4 +1,5 @@
 use itertools::Itertools;
+use qudit_core::{ComplexScalar, RealScalar};
 use std::{collections::HashMap, ops::{Deref, DerefMut}};
 
 use crate::ComplexExpression;
@@ -147,6 +148,10 @@ impl BoundExpressionBody {
 
         self.body.rename(var_map);
         self.variables = new_vars;
+    }
+
+    pub fn get_arg_map<R: RealScalar>(&self, args: &[R]) -> HashMap<&str, R> {
+        self.variables().iter().zip(args.iter()).map(|(a, b)| (a.as_str(), *b)).collect()
     }
 }
 

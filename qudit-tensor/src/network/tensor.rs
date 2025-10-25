@@ -1,4 +1,4 @@
-use qudit_core::unitary::UnitaryMatrix;
+use qudit_core::UnitaryMatrix;
 use qudit_core::ComplexScalar;
 use qudit_core::ParamIndices;
 use qudit_core::ParamInfo;

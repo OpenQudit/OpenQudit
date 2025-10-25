@@ -7,6 +7,7 @@ use qudit_expr::BraSystemExpression;
 use qudit_expr::TensorExpression;
 use qudit_expr::KetExpression;
 use qudit_expr::ExpressionGenerator;
+use qudit_expr::UnitarySystemExpression;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
 pub enum ExpressionOpKind {
@@ -22,7 +23,7 @@ pub enum ExpressionOperation {
     UnitaryGate(UnitaryExpression), // No batch, input = output
     KrausOperators(KrausOperatorsExpression), // batch, input, output
     TerminatingMeasurement(BraSystemExpression), // batch, input, no output
-    ClassicallyControlledUnitary(TensorExpression), // batch, input, output
+    ClassicallyControlledUnitary(UnitarySystemExpression), // batch, input, output
     QuditInitialization(KetExpression), // no batch, no input, only output
 }
 
@@ -32,7 +33,7 @@ impl ExpressionOperation {
             ExpressionOperation::UnitaryGate(e) => e.num_qudits(),
             ExpressionOperation::KrausOperators(e) => e.num_qudits(),
             ExpressionOperation::TerminatingMeasurement(e) => e.num_qudits(),
-            ExpressionOperation::ClassicallyControlledUnitary(e) => todo!(),
+            ExpressionOperation::ClassicallyControlledUnitary(e) => e.num_qudits(),
             ExpressionOperation::QuditInitialization(e) => e.num_qudits(),
         }
     }
@@ -93,5 +94,53 @@ impl From<qudit_gates::Gate> for ExpressionOperation {
 impl From<UnitaryExpression> for ExpressionOperation {
     fn from(value: UnitaryExpression) -> Self {
         ExpressionOperation::UnitaryGate(value)
+    }
+}
+
+impl From<KrausOperatorsExpression> for ExpressionOperation {
+    fn from(value: KrausOperatorsExpression) -> Self {
+        ExpressionOperation::KrausOperators(value)
+    }
+}
+
+impl From<BraSystemExpression> for ExpressionOperation {
+    fn from(value: BraSystemExpression) -> Self {
+        ExpressionOperation::TerminatingMeasurement(value)
+    }
+}
+
+impl From<UnitarySystemExpression> for ExpressionOperation {
+    fn from(value: UnitarySystemExpression) -> Self {
+        ExpressionOperation::ClassicallyControlledUnitary(value)
+    }
+}
+
+impl From<KetExpression> for ExpressionOperation {
+    fn from(value: KetExpression) -> Self {
+        ExpressionOperation::QuditInitialization(value)
+    }
+}
+
+#[cfg(feature = "python")]
+mod python {
+    use super::*;
+    use pyo3::{exceptions::PyTypeError, prelude::*};
+
+    impl FromPyObject<'_> for ExpressionOperation {
+        fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
+            if let Ok(expr) = ob.extract::<UnitaryExpression>() {
+                Ok(ExpressionOperation::UnitaryGate(expr))
+            } else if let Ok(expr) = ob.extract::<KrausOperatorsExpression>() {
+                Ok(ExpressionOperation::KrausOperators(expr))
+            } else if let Ok(expr) = ob.extract::<BraSystemExpression>() {
+                Ok(ExpressionOperation::TerminatingMeasurement(expr))
+            } else if let Ok(expr) = ob.extract::<UnitarySystemExpression>() {
+                Ok(ExpressionOperation::ClassicallyControlledUnitary(expr))
+            } else if let Ok(expr) = ob.extract::<KetExpression>() {
+                Ok(ExpressionOperation::QuditInitialization(expr))
+            } else {
+                return Err(PyTypeError::new_err("Unrecognized operation type."));
+            }
+        }
     }
 }

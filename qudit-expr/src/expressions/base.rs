@@ -267,7 +267,7 @@ impl Expression {
                     panic!("Variable {} not found in arguments", var)
                 }
             }
-            Expression::Constant(c) => R::from_rational(c),
+            Expression::Constant(c) => R::from_ratio(c.clone()).unwrap(),
             Expression::Neg(expr) => -expr.eval(args),
             Expression::Add(lhs, rhs) => lhs.eval(args) + rhs.eval(args),
             Expression::Sub(lhs, rhs) => lhs.eval(args) - rhs.eval(args),

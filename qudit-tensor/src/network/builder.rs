@@ -3,8 +3,10 @@ use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::BTreeMap;
 use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::Mutex;
 
-use qudit_core::unitary::UnitaryMatrix;
+use qudit_core::UnitaryMatrix;
 use qudit_core::ComplexScalar;
 use qudit_core::ParamIndices;
 use qudit_core::ParamInfo;
@@ -64,7 +66,7 @@ pub struct QuditCircuitTensorNetworkBuilder {
     local_to_network_index_map: Vec<Vec<NetworkBuilderIndex>>,
     radices: QuditRadices,
 
-    expressions: Rc<RefCell<ExpressionCache>>,
+    expressions: Arc<Mutex<ExpressionCache>>,
 
     /// Pointer to front (left in math/right in circuit diagram) of the network for each qudit.
     front: Vec<Wire>,
@@ -76,7 +78,7 @@ pub struct QuditCircuitTensorNetworkBuilder {
 }
 
 impl QuditCircuitTensorNetworkBuilder {
-    pub fn new(radices: QuditRadices, expressions: Option<Rc<RefCell<ExpressionCache>>>) -> Self {
+    pub fn new(radices: QuditRadices, expressions: Option<Arc<Mutex<ExpressionCache>>>) -> Self {
         let expressions = match expressions {
             Some(cache) => cache,
             None => ExpressionCache::new_shared(),
@@ -129,9 +131,9 @@ impl QuditCircuitTensorNetworkBuilder {
     }
 
     pub fn expression_get(&mut self, expression: TensorExpression) -> ExpressionId {
-        let result = { self.expressions.borrow().lookup(&expression) };
+        let result = { self.expressions.lock().unwrap().lookup(&expression) };
         match result {
-            None => self.expressions.borrow_mut().insert(expression),
+            None => self.expressions.lock().unwrap().insert(expression),
             Some(id) => id,
         }
     }
@@ -265,8 +267,8 @@ impl QuditCircuitTensorNetworkBuilder {
                 .cloned()
                 .map(|idx| idx + output_index_map.len() + batch_index_map.len())
         ).collect::<Vec<_>>();
-        let sequential_expr_id = self.expressions.borrow_mut().permute_reshape(tensor.expression, perm, tensor.shape());
-        let sequential_indices = self.expressions.borrow().indices(sequential_expr_id);
+        let sequential_expr_id = self.expressions.lock().unwrap().permute_reshape(tensor.expression, perm, tensor.shape());
+        let sequential_indices = self.expressions.lock().unwrap().indices(sequential_expr_id);
 
         let tensor = QuditTensor::new(sequential_indices, sequential_expr_id, tensor.param_info);
         let output_index_map = argsorted_output_index_map.into_iter().map(|i| output_index_map[i]).collect::<Vec<_>>();
@@ -480,9 +482,9 @@ impl QuditCircuitTensorNetworkBuilder {
                 // Cannot have empty indices in network, so we need to explicitly add identity.
                 let identity_expression: TensorExpression = UnitaryExpression::identity("Identity", [self.radices[qudit_id]]).into();
                 let identity_indices = identity_expression.indices().to_owned();
-                let lookup_temp = expressions.borrow().lookup(&identity_expression);
+                let lookup_temp = expressions.lock().unwrap().lookup(&identity_expression);
                 let identity_expr_id = match lookup_temp {
-                    None => expressions.borrow_mut().insert(identity_expression),
+                    None => expressions.lock().unwrap().insert(identity_expression),
                     Some(id) => id,
                 };
                 let identity_tensor = QuditTensor::new(identity_indices, identity_expr_id, ParamInfo::empty());

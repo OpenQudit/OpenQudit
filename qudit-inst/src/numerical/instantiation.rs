@@ -17,6 +17,7 @@ pub trait InstantiationProblem<'a, R: RealScalar>: Problem {
     ) -> Self;
 }
 
+#[derive(Clone)]
 pub struct MinimizingInstantiater<R, P> {
     runner: R,
     _phantom: std::marker::PhantomData<P>,
@@ -41,7 +42,7 @@ where
         &'a self,
         circuit: &'a qudit_circuit::QuditCircuit,
         target: &'a InstantiationTarget<C>,
-        data: &'a std::collections::HashMap<String, Box<dyn std::any::Any>>,
+        data: &'a DataMap,
     ) -> InstantiationResult<C> {
         let problem = P::from_instantiation(circuit, target, data);
         self.runner.run(problem).to_instantiation()
@@ -66,3 +67,31 @@ where
 //         let result = instantiater.instantiate(&circuit, &target, &data);
 //     }
 // }
+//
+
+#[cfg(feature = "python")]
+mod python {
+    use crate::{instantiater::python::{InstantiaterWrapper, BoxedInstantiater}, numerical::{functions::HSProblem, initializers::Uniform, minimizers::LM, runners::MultiStartRunner}};
+
+    use super::*;
+    use pyo3::prelude::*;
+
+    impl<'a> InstantiaterWrapper for MinimizingInstantiater<MultiStartRunner<LM<f64>, Uniform<f64>>, HSProblem<'a, f64>> {}
+    
+    #[pyfunction]
+    fn DefaultInstantiater() -> BoxedInstantiater {
+        let minimizer = LM::default();
+        let initializer = Uniform::default();
+        let runner = MultiStartRunner { minimizer, guess_generator: initializer, num_starts: 16 };
+        let instantiater = MinimizingInstantiater::<_, HSProblem<f64>>::new(runner);
+        BoxedInstantiater { inner: Box::new(instantiater) }
+    }    
+
+//     #[pyfunction]
+//     fn DefaultInstantiater() -> BoxedInstantiater {
+//         let minimizer = LM::default();
+//         let initializer = Uniform::default();
+//         let runner = MultiStartRunner { minimizer, guess_generator: initializer, num_starts: 16 };
+//         let instantiater = MinimizingInstantiater::<_, HSProblem<f64>>::new(runner);
+//     }    
+}

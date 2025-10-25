@@ -7,7 +7,7 @@ mod brasys;
 mod ketsys;
 mod isometry;
 mod unitary;
-// mod utrysys;
+mod utrysys;
 mod kraus;
 mod tensor;
 mod generator;
@@ -32,4 +32,5 @@ pub use isometry::IsometryExpression;
 pub use kraus::KrausOperatorsExpression;
 pub use tensor::TensorExpression;
 pub use generator::ExpressionGenerator;
-// pub use utrysys::UnitarySystemExpression;
+pub use utrysys::UnitarySystemExpression;
+

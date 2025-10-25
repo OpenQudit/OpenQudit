@@ -4,7 +4,7 @@ use crate::{expressions::JittableExpression, index::{IndexDirection, TensorIndex
 
 use super::NamedExpression;
 use super::ComplexExpression;
-use qudit_core::QuditRadices;
+use qudit_core::{ComplexScalar, QuditRadices, RealScalar};
 use qudit_core::QuditSystem;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
@@ -14,6 +14,10 @@ pub struct KetExpression {
 }
 
 impl KetExpression {
+    pub fn new<T: AsRef<str>>(input: T) -> Self {
+        TensorExpression::new(input).try_into().unwrap()
+    }
+
     pub fn zero<R: Into<QuditRadices>>(radices: R) -> Self {
         let name = "zero";
         let radices = radices.into();
@@ -25,10 +29,6 @@ impl KetExpression {
             inner,
             radices,
         }
-    }
-
-    pub fn num_qudits(&self) -> usize {
-        self.radices.num_qudits()
     }
 }
 
@@ -64,6 +64,16 @@ impl DerefMut for KetExpression {
     }
 }
 
+impl QuditSystem for KetExpression {
+    fn radices(&self) -> qudit_core::QuditRadices {
+        self.radices.clone()
+    }
+
+    fn num_qudits(&self) -> usize {
+        self.radices().num_qudits()
+    }
+}
+
 impl From<KetExpression> for TensorExpression {
     fn from(value: KetExpression) -> Self {
         let KetExpression { inner, radices } = value;
@@ -90,4 +100,93 @@ impl TryFrom<TensorExpression> for KetExpression {
             radices,
         })
     }
+}
+
+#[cfg(feature = "python")]
+mod python {
+    use super::*;
+    use pyo3::prelude::*;
+    use crate::python::PyExpressionRegistrar;
+    use qudit_core::c64;
+    use pyo3::types::PyTuple;
+    use numpy::PyArray2;
+    use numpy::PyArrayMethods;
+    use ndarray::ArrayViewMut2;
+
+
+    #[pyclass]
+    #[pyo3(name = "KetExpression")]
+    pub struct PyKetExpression {
+        expr: KetExpression,
+    }
+
+    #[pymethods]
+    impl PyKetExpression {
+        #[new]
+        fn new(expr: String) -> Self {
+            Self {
+                expr: KetExpression::new(expr),
+            }
+        }
+
+        fn num_params(&self) -> usize {
+            self.expr.num_params()
+        }
+
+        fn name(&self) -> String {
+            self.expr.name().to_string()
+        }
+
+        fn radices(&self) -> Vec<u8> {
+            self.expr.radices().to_vec()
+        }
+
+        fn dimension(&self) -> usize {
+            self.expr.dimension()
+        }
+
+        fn __repr__(&self) -> String {
+            format!("KetExpression(name='{}', radices={:?}, params={})", 
+                    self.expr.name(), self.expr.radices().to_vec(), self.expr.num_params())
+        }
+    }
+
+    impl From<KetExpression> for PyKetExpression {
+        fn from(value: KetExpression) -> Self {
+            PyKetExpression {
+                expr: value,
+            }
+        }
+    }
+
+    impl From<PyKetExpression> for KetExpression {
+        fn from(value: PyKetExpression) -> Self {
+            value.expr
+        }
+    }
+
+    impl<'py> IntoPyObject<'py> for KetExpression {
+        type Target = <PyKetExpression as IntoPyObject<'py>>::Target;
+        type Output = Bound<'py, Self::Target>;
+        type Error = PyErr;
+
+        fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+            let py_expr = PyKetExpression::from(self);
+            Bound::new(py, py_expr)
+        }
+    }
+
+    impl<'py> FromPyObject<'py> for KetExpression {
+        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+            let py_expr: PyRef<PyKetExpression> = ob.extract()?;
+            Ok(py_expr.expr.clone())
+        }
+    }
+
+    /// Registers the KetExpression class with the Python module.
+    fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
+        parent_module.add_class::<PyKetExpression>()?;
+        Ok(())
+    }
+    inventory::submit!(PyExpressionRegistrar { func: register });
 }

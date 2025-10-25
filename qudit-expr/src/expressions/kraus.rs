@@ -15,6 +15,10 @@ pub struct KrausOperatorsExpression {
 }
 
 impl KrausOperatorsExpression {
+    pub fn new<T: AsRef<str>>(input: T) -> Self {
+        TensorExpression::new(input).try_into().unwrap()
+    }
+
     pub fn num_qudits(&self) -> usize {
         if self.input_radices == self.output_radices {
             self.input_radices.num_qudits()
@@ -104,4 +108,101 @@ impl TryFrom<TensorExpression> for KrausOperatorsExpression {
             num_operators: num_operators.unwrap_or(1),
         })
     }
+}
+
+#[cfg(feature = "python")]
+mod python {
+    use super::*;
+    use pyo3::prelude::*;
+    use crate::python::PyExpressionRegistrar;
+    use qudit_core::c64;
+    use pyo3::types::PyTuple;
+    use numpy::PyArray3;
+    use numpy::PyArrayMethods;
+    use ndarray::ArrayViewMut3;
+
+
+    #[pyclass]
+    #[pyo3(name = "KrausOperatorsExpression")]
+    pub struct PyKrausOperatorsExpression {
+        expr: KrausOperatorsExpression,
+    }
+
+    #[pymethods]
+    impl PyKrausOperatorsExpression {
+        #[new]
+        fn new(expr: String) -> Self {
+            Self {
+                expr: KrausOperatorsExpression::new(expr),
+            }
+        }
+
+        fn num_params(&self) -> usize {
+            self.expr.num_params()
+        }
+
+        fn name(&self) -> String {
+            self.expr.name().to_string()
+        }
+
+        fn radices(&self) -> Vec<u8> {
+            self.expr.input_radices.to_vec()
+        }
+
+        fn num_qudits(&self) -> usize {
+            self.expr.num_qudits()
+        }
+
+        fn num_operators(&self) -> usize {
+            self.expr.num_operators
+        }
+
+        fn dimension(&self) -> usize {
+            self.expr.input_radices.dimension()
+        }
+
+        fn __repr__(&self) -> String {
+            format!("KrausOperatorsExpression(name='{}', radices={:?}, num_operators={}, params={})", 
+                    self.expr.name(), self.expr.input_radices.to_vec(), self.expr.num_operators, self.expr.num_params())
+        }
+    }
+
+    impl From<KrausOperatorsExpression> for PyKrausOperatorsExpression {
+        fn from(value: KrausOperatorsExpression) -> Self {
+            PyKrausOperatorsExpression {
+                expr: value,
+            }
+        }
+    }
+
+    impl From<PyKrausOperatorsExpression> for KrausOperatorsExpression {
+        fn from(value: PyKrausOperatorsExpression) -> Self {
+            value.expr
+        }
+    }
+
+    impl<'py> IntoPyObject<'py> for KrausOperatorsExpression {
+        type Target = <PyKrausOperatorsExpression as IntoPyObject<'py>>::Target;
+        type Output = Bound<'py, Self::Target>;
+        type Error = PyErr;
+
+        fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+            let py_expr = PyKrausOperatorsExpression::from(self);
+            Bound::new(py, py_expr)
+        }
+    }
+
+    impl<'py> FromPyObject<'py> for KrausOperatorsExpression {
+        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+            let py_expr: PyRef<PyKrausOperatorsExpression> = ob.extract()?;
+            Ok(py_expr.expr.clone())
+        }
+    }
+
+    /// Registers the KrausOperatorsExpression class with the Python module.
+    fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
+        parent_module.add_class::<PyKrausOperatorsExpression>()?;
+        Ok(())
+    }
+    inventory::submit!(PyExpressionRegistrar { func: register });
 }

@@ -3,7 +3,7 @@ use faer::col::AsColRef;
 use crate::ComplexScalar;
 use crate::RealScalar;
 use crate::QuditRadices;
-use crate::matrix::Col;
+use faer::Col;
 use crate::ToRadices;
 
 /// Trait for converting vector representations to a column vector.

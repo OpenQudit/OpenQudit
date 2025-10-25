@@ -15,10 +15,6 @@ mod builder;
 /// * (*const bool): Pointer to constant parameter map
 pub type WriteFunc<R> = unsafe extern "C" fn(*const R, *mut R, *const u64, *const u64, u64, *const bool);
 
-use qudit_core::ComplexScalar;
-pub type UtryFunc<C> = unsafe extern "C" fn(*const <C as ComplexScalar>::R, *mut <C as ComplexScalar>::R);
-pub type UtryGradFunc<C> = unsafe extern "C" fn(*const <C as ComplexScalar>::R, *mut <C as ComplexScalar>::R, *mut <C as ComplexScalar>::R);
-
 pub(self) fn process_name_for_gen(name: &str) -> String {
     name.replace(" ", "_")
         .replace("⊗", "t")
@@ -27,12 +23,18 @@ pub(self) fn process_name_for_gen(name: &str) -> String {
         .replace("⋅", "x")
 }
 
+
 pub(crate) use builder::CompilableUnit;
 pub use builder::DifferentiationLevel;
 pub use builder::{FUNCTION, GRADIENT, HESSIAN};
-// pub use builder::{Function, Gradient, Hessian};
 pub use builder::ModuleBuilder;
 pub use module::Module;
 
 pub use codegen::CodeGenerator;
 
+use qudit_core::RealScalar;
+
+pub struct WriteFuncWithLifeTime<'a, R: RealScalar> {
+    func: WriteFunc<R>,
+    _phantom: std::marker::PhantomData<&'a Module<R>>,
+}

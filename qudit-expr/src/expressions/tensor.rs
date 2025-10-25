@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
-use qudit_core::unitary::UnitaryMatrix;
+use qudit_core::UnitaryMatrix;
 use qudit_core::ComplexScalar;
 use super::ComplexExpression;
 use crate::expressions::JittableExpression;

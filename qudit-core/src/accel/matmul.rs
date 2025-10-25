@@ -7,8 +7,8 @@ use num_traits::Zero;
 
 use crate::c32;
 use crate::c64;
-use crate::matrix::MatMut;
-use crate::matrix::MatRef;
+use faer::MatMut;
+use faer::MatRef;
 use crate::ComplexScalar;
 
 /// Stores a plan for a generalized matrix multiplication (GEMM). Based on the dimensions and underlying

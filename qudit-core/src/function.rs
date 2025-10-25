@@ -234,7 +234,7 @@ impl ParamIndices {
     ///
     /// A `ParamIndices` representing an empty set of parameter indices.
     pub fn constant() -> ParamIndices {
-        ParamIndices::Disjoint(vec![])
+        ParamIndices::Joint(0, 0)
     } 
 
     /// Checks if the `ParamIndices` is empty (contains no parameters).

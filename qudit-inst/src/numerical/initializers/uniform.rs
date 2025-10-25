@@ -3,6 +3,7 @@ use super::super::InitialGuessGenerator;
 use rand::Rng;
 use rand::distributions::Uniform as RandUniform;
 
+#[derive(Clone)]
 pub struct Uniform<R: RealScalar> {
     lower_bound: R,
     upper_bound: R,

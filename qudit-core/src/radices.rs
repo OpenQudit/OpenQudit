@@ -115,6 +115,52 @@ impl QuditRadices {
         }
     }
 
+    pub fn guess(dimension: usize) -> QuditRadices {
+        // A dimension of 1 corresponds to an empty system (product of no radices is 1).
+        // The power-of-two check correctly handles this case by returning `QuditRadices::new(&vec![2; 0])`.
+        // The `new` function panics if any individual radix is 0 or 1.
+        // We assume `dimension` is a valid total dimension, meaning `dimension >= 1`.
+
+        // if dimension is power of two: QuditRadices::new([2; that power])
+        // `dimension > 0` is important as `0 & (0-1)` is 0, and `0.trailing_zeros()` is `usize::BITS`.
+        if dimension > 0 && (dimension & (dimension - 1)) == 0 {
+            let num_qudits = dimension.trailing_zeros() as usize;
+            return QuditRadices::new(&vec![2; num_qudits]);
+        }
+
+        // if dimension is power of three: QuditRadices::new([3; that power])
+        if let Some(num_qudits) = Self::is_power_of_three(dimension) {
+            return QuditRadices::new(&vec![3; num_qudits]);
+        }
+
+        // otherwise: QuditRadices::new([dimension])
+        // This will panic if `dimension` is 0 or 1, but these cases are handled above or
+        // are generally considered invalid for a single qudit radix.
+        QuditRadices::new(&[dimension])
+    }
+
+    /// Helper function to check if a number is a power of three and return the exponent.
+    /// Returns `Some(exponent)` if `n` is `3^exponent`, otherwise `None`.
+    /// `is_power_of_three(1)` returns `Some(0)` (3^0 = 1).
+    /// `is_power_of_three(0)` returns `None`.
+    fn is_power_of_three(mut n: usize) -> Option<usize> {
+        if n == 0 {
+            return None;
+        }
+        if n == 1 {
+            return Some(0); // 3^0 = 1
+        }
+        let mut power = 0;
+        while n > 1 {
+            if n % 3 != 0 {
+                return None; // Not divisible by 3
+            }
+            n /= 3;
+            power += 1;
+        }
+        Some(power)
+    }
+
     /// Constructs a radices object without checking invariants.
     ///
     /// The caller must ensure that the radices are valid, i.e. that

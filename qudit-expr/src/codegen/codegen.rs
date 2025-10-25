@@ -92,7 +92,7 @@ impl<'ctx, R: RealScalar> CodeGenerator<'ctx, R> {
             ptr_type.into()                                     // *const bool
         ];
         let func_type = ret_type.fn_type(&param_types, false);
-        let func = self.context.module().add_function(name, func_type, None);
+        let func = self.context.with_module(|module| module.add_function(name, func_type, None));
         Ok(func)
     }
 
@@ -260,7 +260,7 @@ impl<'ctx, R: RealScalar> CodeGenerator<'ctx, R> {
             None => { panic!("Unsupported builtin function: {}", name); }
         };
 
-        let decl = intr.get_declaration(&self.context.module(), &[self.float_type().into()]);
+        let decl = self.context.with_module(|module| intr.get_declaration(&module, &[self.float_type().into()]));
 
         let fn_value = match decl {
             Some(f) => f,

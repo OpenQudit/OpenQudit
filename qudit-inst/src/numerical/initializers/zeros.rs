@@ -2,7 +2,7 @@ use qudit_core::RealScalar;
 use qudit_core::BitWidthConvertible;
 use super::super::InitialGuessGenerator;
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 pub struct Zeros<R: RealScalar> {
     _phantom: std::marker::PhantomData<R>,
 }

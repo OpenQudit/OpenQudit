@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use qudit_core::matrix::{MatMut, MatRef};
+use faer::{MatMut, MatRef};
 use qudit_core::array::{TensorRef, TensorMut, SymSqTensorMut, SymSqTensorRef};
 use qudit_core::{memory, ComplexScalar, ParamInfo};
 use super::{GradOffsetList, HessOffsetList, cache_grad_offset_list, cache_hess_offset_list};

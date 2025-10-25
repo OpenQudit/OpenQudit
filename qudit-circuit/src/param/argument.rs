@@ -112,6 +112,26 @@ impl Argument {
             }
         }
     }
+
+    /// Returns true if this argument is non-simple.
+    ///
+    /// Non-simple arguments are expressions beyond a simple constant or
+    /// variable. Expressions being invoked with this argument must then
+    /// modify themselves by replacing their internal parameter with the
+    /// expression associated with this argument.
+    pub fn requires_expression_modification(&self) -> bool {
+        match self {
+            Argument::Expression(e) => {
+                match &e {
+                    Expression::Pi => false,
+                    Expression::Constant(_) => false,
+                    Expression::Variable(_) => false,
+                    _ => true,
+                }
+            }
+            _ => false,
+        }
+    }
 }
 
 impl TryFrom<&str> for Argument {

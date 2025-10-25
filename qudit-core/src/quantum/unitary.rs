@@ -16,10 +16,11 @@ use num_traits::Float;
 use crate::bitwidth::BitWidthConvertible;
 use crate::c32;
 use crate::c64;
-use crate::matrix::Mat;
-use crate::matrix::MatMut;
-use crate::matrix::MatRef;
+use faer::Mat;
+use faer::MatMut;
+use faer::MatRef;
 use crate::ComplexScalar;
+use crate::RealScalar;
 use crate::QuditPermutation;
 use crate::QuditRadices;
 use crate::QuditSystem;
@@ -240,7 +241,7 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
         let id: Mat<C> = Mat::identity(mat_ref.nrows(), mat_ref.ncols());
         let product = mat_ref * mat_ref.adjoint().to_owned();
         let error = product - id;
-        error.norm_l2() < C::THRESHOLD
+        C::R::is_close(error.norm_l2(), 0.0)
     }
 
     /// Global-phase-agnostic, psuedo-metric over the space of unitaries.
@@ -292,18 +293,18 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
             panic!("Unitary and matrix must have same shape.");
         }
 
-        let mut acc = C::zero();
+        let mut acc = C::ZERO;
         zip!(self.matrix.as_ref(), mat_ref).for_each(|unzip!(a, b)| {
             acc += *a * b.conj();
         });
         let num = acc.abs();
-        let dem = C::from_real(self.dimension() as f64);
+        let dem = C::R::from64(self.dimension() as f64);
         if num > dem {
             // This shouldn't happen but can due to floating point errors.
             // If it does, we correct it to zero.
-            C::from_real(0.0)
+            C::R::from64(0.0)
         } else {
-            (C::from_real(1.0) - (num / dem).powi(2i32)).sqrt()
+            (C::R::from64(1.0) - (num / dem).powi(2i32)).sqrt()
         }
     }
 
@@ -668,7 +669,7 @@ impl<C: ComplexScalar> PartialEq<Mat<i32>> for UnitaryMatrix<C> {
                 .matrix
                 .col_iter()
                 .zip(other.col_iter())
-                .all(|(a, b)| a.iter().zip(b.iter()).all(|(a, b)| *a == C::from_i32(*b)))
+                .all(|(a, b)| a.iter().zip(b.iter()).all(|(a, b)| *a == C::from(*b).unwrap()))
     }
 }
 
@@ -776,4 +777,88 @@ mod test {
             )
         }
     }
+}
+
+#[cfg(feature = "python")]
+mod python {
+    use super::*;
+    use pyo3::prelude::*;
+    use crate::PyRegistrar;
+    
+    use numpy::{PyArray2, PyReadonlyArray2};
+
+    /// Python wrapper for UnitaryMatrix
+    #[pyclass(name = "UnitaryMatrix")]
+    #[derive(Clone)]
+    pub struct PyUnitaryMatrix {
+        inner: UnitaryMatrix<c64>,
+    }
+
+    #[pymethods]
+    impl PyUnitaryMatrix {
+        /// Create a new unitary matrix from a numpy array
+        #[new]
+        #[pyo3(signature = (radices, matrix))]
+        fn new(radices: Vec<usize>, matrix: PyReadonlyArray2<c64>) -> PyResult<Self> {
+            let array = matrix.as_array();
+            let (nrows, ncols) = array.dim();
+            
+            let mat = Mat::from_fn(nrows, ncols, |i, j| array[[i, j]]);
+            
+            if !UnitaryMatrix::is_unitary(&mat) {
+                return Err(pyo3::exceptions::PyValueError::new_err(
+                    "Matrix is not unitary"
+                ));
+            }
+            
+            Ok(Self {
+                inner: UnitaryMatrix::new(radices, mat),
+            })
+        }
+
+        /// Convert to numpy array
+        fn to_array<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray2<c64>> {
+            let rows: Vec<Vec<c64>> = (0..self.inner.nrows())
+                .map(|i| (0..self.inner.ncols()).map(|j| self.inner[(i, j)]).collect())
+                .collect();
+            PyArray2::from_vec2(py, &rows).unwrap()
+        }
+    }
+
+    // Conversion traits
+    impl From<UnitaryMatrix<c64>> for PyUnitaryMatrix {
+        fn from(inner: UnitaryMatrix<c64>) -> Self {
+            Self { inner }
+        }
+    }
+
+    impl From<PyUnitaryMatrix> for UnitaryMatrix<c64> {
+        fn from(py_unitary: PyUnitaryMatrix) -> Self {
+            py_unitary.inner
+        }
+    }
+
+    impl<'py> IntoPyObject<'py> for UnitaryMatrix<c64> {
+        type Target = PyUnitaryMatrix;
+        type Output = Bound<'py, Self::Target>;
+        type Error = PyErr;
+
+        fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+            Bound::new(py, PyUnitaryMatrix::from(self))
+        }
+    }
+
+    impl<'py> FromPyObject<'py> for UnitaryMatrix<c64> {
+        fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+            let py_unitary: PyRef<PyUnitaryMatrix> = obj.extract()?;
+            Ok(py_unitary.inner.clone())
+        }
+    }
+
+    /// Registers the PyUnitaryMatrix with the Python Module.
+    fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
+        parent_module.add_class::<PyUnitaryMatrix>()?;
+        Ok(())
+    }
+    inventory::submit! { PyRegistrar { func: register } }
 }

@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::{BTreeMap, BTreeSet, HashMap}, hash::Hash, rc::Rc};
+use std::{cell::RefCell, collections::{BTreeMap, BTreeSet, HashMap}, hash::Hash, rc::Rc, sync::{Arc, Mutex}};
 
 use qudit_core::{QuditRadices, TensorShape};
 use qudit_expr::{ExpressionCache, GenerationShape};
@@ -20,7 +20,7 @@ pub type NetworkEdge = (NetworkIndex, BTreeSet<TensorId>);
 
 pub struct QuditTensorNetwork {
     tensors: Vec<QuditTensor>,
-    expressions: Rc<RefCell<ExpressionCache>>,
+    expressions: Arc<Mutex<ExpressionCache>>,
     local_to_network_index_map: Vec<Vec<IndexId>>,
     indices: Vec<NetworkEdge>,
 }
@@ -28,7 +28,7 @@ pub struct QuditTensorNetwork {
 // TODO: handle multiple disjoint (potentially empty) subnetworks
 // TODO: handle partial trace
 impl QuditTensorNetwork {
-    pub fn new(tensors: Vec<QuditTensor>, expressions: Rc<RefCell<ExpressionCache>>, local_to_network_index_map: Vec<Vec<IndexId>>, indices: Vec<NetworkEdge>) -> Self {
+    pub fn new(tensors: Vec<QuditTensor>, expressions: Arc<Mutex<ExpressionCache>>, local_to_network_index_map: Vec<Vec<IndexId>>, indices: Vec<NetworkEdge>) -> Self {
         for (index, edge) in indices.iter() {
             if edge.is_empty() {
                 panic!("Index not attached to any tensor detected. Empty indices, must have explicit identity/copy tensors attached before final network construction.");
@@ -283,8 +283,14 @@ impl QuditTensorNetwork {
                 }
                 // network_idx_ids = [5, 0, 5, 2]
                 
-                let traced_id = self.expressions.borrow_mut().trace(*expr_id, looped_index_pairs);
-                let traced_indices = self.expressions.borrow().indices(traced_id);
+                let (traced_id, traced_indices) = if looped_index_pairs.is_empty() {
+                    (*expr_id, indices.clone())
+                } else {
+                    let mut guard = self.expressions.lock().unwrap();
+                    let id = guard.trace(*expr_id, looped_index_pairs);
+                    let indices = guard.indices(id);
+                    (id, indices)
+                };
                 // traced_indices = ((0, output), (1, output), (2, input), (3, input))
 
                 // need to argsort indices so local indices that correspond to the same network
@@ -298,9 +304,9 @@ impl QuditTensorNetwork {
                 // For now, set generation shape to a vector as the the first time this tensor
                 // is used (either in a contraction, or in output ordering) the tensor indices
                 // will be reshaped again.
-                let traced_nelems = self.expressions.borrow().num_elements(traced_id);
+                let traced_nelems = self.expressions.lock().unwrap().num_elements(traced_id);
                 let new_shape = GenerationShape::Vector(traced_nelems);
-                let tranposed_id = self.expressions.borrow_mut().permute_reshape(traced_id, perm.clone(), new_shape);
+                let tranposed_id = self.expressions.lock().unwrap().permute_reshape(traced_id, perm.clone(), new_shape);
 
                 // group (redimension) indices together that have the same network id
                 let (new_node_indices, tensor_to_expr_position_map) = {

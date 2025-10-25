@@ -1,342 +1,252 @@
 use crate::c32;
 use crate::c64;
 use crate::memory::Memorable;
-use std::ops::Neg;
 
 use faer_traits::ComplexField;
 use faer_traits::RealField;
 use num::bigint::BigInt;
 use num::complex::ComplexFloat;
 use num::rational::Ratio;
+use num::FromPrimitive;
+use num::Signed;
 use num::ToPrimitive;
-use num::Zero;
+use num_traits::real::Real;
+use num_traits::AsPrimitive;
+use num_traits::ConstOne;
+use num_traits::ConstZero;
 use num_traits::Float;
 use num_traits::FloatConst;
-use num_traits::Inv;
 use num_traits::NumAssign;
 use num_traits::NumAssignOps;
+use num_traits::NumAssignRef;
 use num_traits::NumOps;
-use rand::Rng;
+use rand_distr::{Distribution, StandardNormal, Uniform};
 
 use crate::bitwidth::BitWidthConvertible;
 
-/// A real number type that can be used as a scalar in the Qudit-Core library.
 pub trait RealScalar:
-    RealField<Real = Self, Conj = Self>
+    Clone
     + Copy
+    + Sync
+    + Send
     + Sized
+    + std::any::Any
+    + std::fmt::Debug
+    + std::fmt::Display
+    + std::iter::Sum
+    + std::iter::Product
     + Float
     + FloatConst
+    + FromPrimitive
+    + ToPrimitive
+    + AsPrimitive<f32>
+    + AsPrimitive<f64>
     + NumAssign
-    + Memorable
-    + std::iter::Sum
-    + std::fmt::Debug
-    + std::fmt::Display
-    + BitWidthConvertible<Width32 = f32, Width64 = f64>
+    + NumAssignRef
+    + Default
+    + Signed
     + 'static
+    + RealField
+    + ConstOne
+    + ConstZero
+    + Memorable
+    + BitWidthConvertible<Width32 = f32, Width64 = f64>
 {
-    /// Complex number type associated with this real number type.
     type C: ComplexScalar<R = Self>;
 
-    /// Create a new real value
-    fn new(r: impl BitWidthConvertible<Width32 = f32, Width64 = f64>) -> Self;
-
-    /// Compute the square of the real number.
-    #[inline(always)]
-    fn square(self) -> Self {
-        Float::powi(self, 2)
-    }
-
-    /// Compute the absolute value of the real number.
-    #[inline(always)]
-    fn abs(self) -> Self {
-        Float::abs(self)
-    }
-
-    /// Generate a random scalar from the standard normal distribution.
+    /// Convert this scalar to a rational number representation
+    fn into_ratio(self) -> Option<Ratio<BigInt>>;
+    
+    /// Create a scalar from a rational number representation  
+    fn from_ratio(ratio: Ratio<BigInt>) -> Option<Self>;
+    
+    /// Generate a random value from the standard normal distribution (mean=0, std=1)
     fn standard_random() -> Self;
-
-    /// Convert a rational number to the real number type.
-    fn from_rational(r: &Ratio<BigInt>) -> Self;
-
-    /// Raise the real number to an integer power.
-    fn powi(self, n: i32) -> Self;
-}
-
-/// A complex number type that can be used as a scalar in the Qudit-Core library.
-pub trait ComplexScalar:
-    ComplexField<Real = Self::R>
-    + Copy
-    + Sized
-    + NumAssign
-    + Memorable
-    + Neg<Output = Self>
-    + NumAssignOps<Self::R>
-    + ComplexFloat<Real = Self::R>
-    // + NumAssignOps<Self::Conj>
-    + NumOps<Self::R, Self>
-    + std::iter::Sum
-    // + NumOps<Self::Conj, Self>
-    + std::fmt::Debug
-    + std::fmt::Display
-    + BitWidthConvertible<Width32 = c32, Width64 = c64>
-    + 'static
-{
-    /// Real number type that composes this complex number type.
-    type R: RealScalar<C = Self>;
-
-    /// Threshold for comparing two complex numbers.
-    const THRESHOLD: Self::R;
-
-    /// Threshold for gradient correctness evaluation.
-    const GRAD_EPSILON: Self::R;
-
-    /// Imaginary unit.
-    const I: Self;
-
-    /// Create a complex number equal to `e^(i * theta)`.
-    fn cis(theta: Self::R) -> Self;
-
-    /// Compute the sine of the complex number.
-    fn sin(self) -> Self;
-
-    /// Compute the cosine of the complex number.
-    fn cos(self) -> Self;
-
-    // Compute the absolute value of the complex number.
-    // #[inline(always)]
-    // fn abs(self) -> Self::R {
-    //     ComplexFloat::abs(self)
-    // }
-
-    /// Raise the complex number to a non-negative integer power.
-    fn powu(self, n: u32) -> Self;
-
-    /// Raise the complex number to an integer power.
-    fn powi(self, n: i32) -> Self;
-
-    // /// Construct the complex conjugate of the complex number.
-    // fn conj(self) -> Self;
-
-    /// Compute the inverse of the complex number.
-    fn inv(self) -> Self;
-
-    /// Return the real component
-    #[inline(always)]
-    fn real(&self) -> Self::R {
-        self.re()
-    }
-
-    /// Return the imaginary component
-    #[inline(always)]
-    fn imag(&self) -> Self::R {
-        self.im()
-    }
-
-    // TODO: re-evaluate names: from_components, from_real? should use From traits?
-    /// Construct a complex number from two real numbers.
-    fn from_components(re: impl RealScalar, im: impl RealScalar) -> Self;
-
-    /// Convert a real number to the real part of the complex number.
-    fn from_real(re: impl RealScalar) -> Self::R;
-
-    /// Generate a random scalar from the standard normal distribution. 
-    fn standard_random() -> Self;
-
-    /// Construct a complex number from a float number.
-    fn from_f32(re: f32) -> Self {
-        Self::from_components(re, Self::R::zero())
-    }
-
-    /// Construct a complex number from a integer number.
-    fn from_i32(re: i32) -> Self {
-        Self::from_components(re as f32, Self::R::zero()) 
-    }
-}
-
-impl ComplexScalar for c32 {
-    type R = f32;
-
-    const GRAD_EPSILON: Self::R = 1e-2;
-    const THRESHOLD: Self::R = 1e-5;
-    const I: Self = c32 { re: 0.0, im: 1.0 };
-
-    #[inline(always)]
-    fn cis(theta: Self::R) -> Self {
-        c32::new(theta.cos(), theta.sin())
-    }
-
-    #[inline(always)]
-    fn sin(self) -> Self {
-        self.sin()
-    }
-
-    #[inline(always)]
-    fn cos(self) -> Self {
-        self.cos()
-    }
-
-    // #[inline(always)]
-    // fn abs(self) -> Self::R {
-    //     <c32 as ComplexFloat>::abs(self)
-    // }
-
-    #[inline(always)]
-    fn powu(self, n: u32) -> Self {
-        c32::powu(&self, n)
-    }
-
-    #[inline(always)]
-    fn powi(self, n: i32) -> Self {
-        c32::powi(&self, n)
-    }
-
-    // #[inline(always)]
-    // fn conj(mut self) -> Self {
-    //     self.im *= -1.0;
-    //     self
-    // }
-
-    #[inline(always)]
-    fn inv(self) -> Self {
-        <c32 as Inv>::inv(self)
-    }
-
-    #[inline(always)]
-    fn from_components(re: impl RealScalar, im: impl RealScalar) -> Self {
-        c32::new(re.to32(), im.to32())
-    }
-
-    #[inline(always)]
-    fn from_real(re: impl RealScalar) -> Self::R {
-        re.to32()
-    }
-
-    #[inline(always)]
-    fn standard_random() -> Self {
-        c32::new(rand::rng().random(), rand::rng().random())
-    }
-}
-
-impl ComplexScalar for c64 {
-    type R = f64;
-
-    const GRAD_EPSILON: Self::R = 1e-5;
-    const THRESHOLD: Self::R = 1e-10;
-    const I: Self = c64 { re: 0.0, im: 1.0 };
-
-    #[inline(always)]
-    fn cis(theta: Self::R) -> Self {
-        c64::new(theta.cos(), theta.sin())
-    }
-
-    #[inline(always)]
-    fn sin(self) -> Self {
-        self.sin()
-    }
-
-    #[inline(always)]
-    fn cos(self) -> Self {
-        self.cos()
-    }
-
-    // #[inline(always)]
-    // fn abs(self) -> Self::R {
-    //     <c64 as ComplexFloat>::abs(self)
-    // }
-
-    #[inline(always)]
-    fn powu(self, n: u32) -> Self {
-        c64::powu(&self, n)
-    }
-
-    #[inline(always)]
-    fn powi(self, n: i32) -> Self {
-        c64::powi(&self, n)
-    }
-
-    // #[inline(always)]
-    // fn conj(mut self) -> Self {
-    //     self.im *= -1.0;
-    //     self
-    // }
-
-    #[inline(always)]
-    fn inv(self) -> Self {
-        <c64 as Inv>::inv(self)
-    }
-
-    #[inline(always)]
-    fn from_components(re: impl RealScalar, im: impl RealScalar) -> Self {
-        c64::new(re.to64(), im.to64())
-    }
-
-    #[inline(always)]
-    fn from_real(re: impl RealScalar) -> Self::R {
-        re.to64()
-    }
-
-    #[inline(always)]
-    fn standard_random() -> Self {
-        c64::new(rand::rng().random(), rand::rng().random())
-    }
+    
+    /// Generate a random value from a uniform distribution in the given range [min, max)
+    fn uniform_random(min: Self, max: Self) -> Self;
+    
+    /// Check if two values are close using default tolerances
+    fn is_close(self, other: impl RealScalar) -> bool;
+    
+    /// Check if two values are close with custom tolerances
+    /// Uses the formula: abs(a - b) <= (atol + rtol * abs(b))
+    fn is_close_with_tolerance(self, other: impl RealScalar, rtol: Self, atol: Self) -> bool;
 }
 
 impl RealScalar for f32 {
     type C = c32;
 
-    #[inline(always)]
-    fn new(r: impl BitWidthConvertible<Width32 = f32, Width64 = f64>) -> Self {
-        r.to32()
+    fn into_ratio(self) -> Option<Ratio<BigInt>> {
+        Ratio::from_float(self as f64)
     }
-
-//     #[inline(always)]
-//     fn abs(self) -> Self {
-//         Float::abs(self)
-//     }
-
-    #[inline(always)]
+    
+    fn from_ratio(ratio: Ratio<BigInt>) -> Option<Self> {
+        ratio.to_f32()
+    }
+    
     fn standard_random() -> Self {
-        rand::rng().random()
+        let mut rng = rand::rng();
+        StandardNormal.sample(&mut rng)
     }
-
-    #[inline(always)]
-    fn from_rational(r: &Ratio<BigInt>) -> Self {
-        r.to_f32().expect("Failed to convert Rational to f32")
+    
+    fn uniform_random(min: Self, max: Self) -> Self {
+        let mut rng = rand::rng();
+        Uniform::new(min, max).unwrap().sample(&mut rng)
     }
-
-    #[inline(always)]
-    fn powi(self, n: i32) -> Self {
-        f32::powi(self, n)
+    
+    fn is_close(self, other: impl RealScalar) -> bool {
+        self.is_close_with_tolerance(other, 1e-5, 1e-8)
+    }
+    
+    fn is_close_with_tolerance(self, other: impl RealScalar, rtol: Self, atol: Self) -> bool {
+        (self - other.to32()).abs() <= (atol + rtol * other.to32().abs())
     }
 }
 
 impl RealScalar for f64 {
     type C = c64;
 
-    #[inline(always)]
-    fn new(r: impl BitWidthConvertible<Width32 = f32, Width64 = f64>) -> Self {
-        r.to64()
+    fn into_ratio(self) -> Option<Ratio<BigInt>> {
+        Ratio::from_float(self)
     }
-
-    // #[inline(always)]
-    // fn abs(self) -> Self {
-    //     Float::abs(self)
-    // }
-
-    #[inline(always)]
+    
+    fn from_ratio(ratio: Ratio<BigInt>) -> Option<Self> {
+        ratio.to_f64()
+    }
+    
     fn standard_random() -> Self {
-        rand::rng().random()
+        let mut rng = rand::rng();
+        StandardNormal.sample(&mut rng)
     }
-
-    #[inline(always)]
-    fn from_rational(r: &Ratio<BigInt>) -> Self {
-        r.to_f64().expect("Failed to convert Rational to f64")
+    
+    fn uniform_random(min: Self, max: Self) -> Self {
+        let mut rng = rand::rng();
+        Uniform::new(min, max).unwrap().sample(&mut rng)
     }
-
-    #[inline(always)]
-    fn powi(self, n: i32) -> Self {
-        f64::powi(self, n)
+    
+    fn is_close(self, other: impl RealScalar) -> bool {
+        self.is_close_with_tolerance(other, 1e-9, 1e-12)
+    }
+    
+    fn is_close_with_tolerance(self, other: impl RealScalar, rtol: Self, atol: Self) -> bool {
+        (self - other.to64()).abs() <= (atol + rtol * other.to64().abs())
     }
 }
 
+pub trait ComplexScalar:
+    Clone
+    + Copy
+    + Sync
+    + Send
+    + Sized
+    + std::any::Any
+    + std::fmt::Debug
+    + std::fmt::Display
+    + std::iter::Sum
+    + std::iter::Product
+    + NumAssign
+    + NumAssignRef
+    + NumOps<Self::R>
+    + NumAssignOps<Self::R>
+    + Default
+    + 'static
+    + ConstOne
+    + ConstZero
+    + ComplexField<Real = Self::R>
+    + ComplexFloat<Real = Self::R>
+    + Memorable
+    + BitWidthConvertible<Width32 = c32, Width64 = c64>
+{
+    type R: RealScalar<C = Self>;
+    
+    /// Create a complex number from real and imaginary parts
+    fn new(real: impl RealScalar, imag: impl RealScalar) -> Self;
+    
+    /// Create a complex number from just the real part (imaginary = 0)
+    fn from_real(real: impl RealScalar) -> Self;
+
+    /// The real component of the complex number.
+    fn real(&self) -> Self::R;
+
+    /// The imaginary component of the complex number.
+    fn imag(&self) -> Self::R;
+    
+    /// Generate a random complex number with both real and imaginary parts from standard normal
+    fn standard_random() -> Self;
+    
+    /// Generate a random complex number with both parts uniform in given ranges
+    fn uniform_random(real_min: Self::R, real_max: Self::R, imag_min: Self::R, imag_max: Self::R) -> Self;
+
+    /// Calculate the squared norm (|z|²) of the complex number
+    #[inline(always)]
+    fn norm_squared(self) -> Self::R {
+        self.re() * self.re() + self.im() * self.im()
+    }
+}
+
+impl ComplexScalar for c32 {
+    type R = f32;
+    
+    fn new(real: impl RealScalar, imag: impl RealScalar) -> Self {
+        c32::new(real.to32(), imag.to32())
+    }
+    
+    fn from_real(real: impl RealScalar) -> Self {
+        c32::new(real.to32(), 0.0)
+    }
+
+    #[inline(always)]
+    fn real(&self) -> Self::R {
+        self.re
+    }
+
+    #[inline(always)]
+    fn imag(&self) -> Self::R {
+        self.im
+    }
+    
+    fn standard_random() -> Self {
+        c32::new(f32::standard_random(), f32::standard_random())
+    }
+    
+    fn uniform_random(real_min: Self::R, real_max: Self::R, imag_min: Self::R, imag_max: Self::R) -> Self {
+        c32::new(
+            f32::uniform_random(real_min, real_max),
+            f32::uniform_random(imag_min, imag_max)
+        )
+    }
+}
+
+impl ComplexScalar for c64 {
+    type R = f64;
+    
+    fn new(real: impl RealScalar, imag: impl RealScalar) -> Self {
+        c64::new(real.to64(), imag.to64())
+    }
+    
+    fn from_real(real: impl RealScalar) -> Self {
+        c64::new(real.to64(), 0.0)
+    }
+
+    #[inline(always)]
+    fn real(&self) -> Self::R {
+        self.re
+    }
+
+    #[inline(always)]
+    fn imag(&self) -> Self::R {
+        self.im
+    }
+    
+    fn standard_random() -> Self {
+        c64::new(f64::standard_random(), f64::standard_random())
+    }
+    
+    fn uniform_random(real_min: Self::R, real_max: Self::R, imag_min: Self::R, imag_max: Self::R) -> Self {
+        c64::new(
+            f64::uniform_random(real_min, real_max),
+            f64::uniform_random(imag_min, imag_max)
+        )
+    }
+}
