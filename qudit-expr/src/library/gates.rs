@@ -417,7 +417,9 @@ pub fn ParameterizedUnitary(radices: QuditRadices) -> UnitaryExpression {
         acm
     };
 
-    left.dot(right)
+    let mut expression = left.dot(right);
+    expression.set_radices(radices);
+    expression
 }
 
 /// Invert an expression

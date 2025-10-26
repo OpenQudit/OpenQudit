@@ -1,4 +1,3 @@
-.*
 !.gitignore
 
 Thumbs.db
@@ -6,6 +5,8 @@ Thumbs.db
 
 /target/
 **/target/
+
+**/*.ipynb_checkpoints
 
 *.pyc
 __pycache__/

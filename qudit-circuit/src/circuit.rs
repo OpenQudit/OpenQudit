@@ -879,7 +879,7 @@ impl QuditCircuit {
         let code = qudit_tensor::compile_network(network);
         let mut tnvm = qudit_tensor::TNVM::<C, FUNCTION>::new(&code);
         let result = tnvm.evaluate::<FUNCTION>(args);
-        result.get_fn_result().unpack_tensor3d().to_owned()
+        result.get_fn_result2().unpack_tensor3d().to_owned()
     }
 
     /// Convert the circuit to a symbolic tensor network.

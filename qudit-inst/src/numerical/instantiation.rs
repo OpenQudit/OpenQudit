@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use qudit_circuit::QuditCircuit;
 use qudit_core::ComplexScalar;
 use qudit_core::RealScalar;
@@ -9,11 +11,11 @@ use crate::Instantiater;
 use crate::InstantiationResult;
 use crate::InstantiationTarget;
 
-pub trait InstantiationProblem<'a, R: RealScalar>: Problem {
+pub trait InstantiationProblem<R: RealScalar>: Problem {
     fn from_instantiation(
-        circuit: &'a QuditCircuit,
-        target: &'a InstantiationTarget<R::C>,
-        data: &'a DataMap,
+        circuit: Arc<QuditCircuit>,
+        target: Arc<InstantiationTarget<R::C>>,
+        data: Arc<DataMap>,
     ) -> Self;
 }
 
@@ -32,17 +34,17 @@ impl<R, P> MinimizingInstantiater<R, P> {
     }
 }
 
-impl<'a, C, R, P> Instantiater<'a, C> for MinimizingInstantiater<R, P>
+impl<C, R, P> Instantiater<C> for MinimizingInstantiater<R, P>
 where
     C: ComplexScalar,
-    P: InstantiationProblem<'a, C::R>,
+    P: InstantiationProblem<C::R>,
     R: Runner<C::R, P>,
 {
     fn instantiate(
-        &'a self,
-        circuit: &'a qudit_circuit::QuditCircuit,
-        target: &'a InstantiationTarget<C>,
-        data: &'a DataMap,
+        &self,
+        circuit: Arc<QuditCircuit>,
+        target: Arc<InstantiationTarget<C>>,
+        data: Arc<DataMap>,
     ) -> InstantiationResult<C> {
         let problem = P::from_instantiation(circuit, target, data);
         self.runner.run(problem).to_instantiation()
@@ -71,12 +73,12 @@ where
 
 #[cfg(feature = "python")]
 mod python {
-    use crate::{instantiater::python::{InstantiaterWrapper, BoxedInstantiater}, numerical::{functions::HSProblem, initializers::Uniform, minimizers::LM, runners::MultiStartRunner}};
+    use crate::{instantiater::python::{BoxedInstantiater, InstantiaterWrapper}, numerical::{functions::HSProblem, initializers::Uniform, minimizers::LM, runners::MultiStartRunner}, python::PyInstantiationRegistrar};
 
     use super::*;
     use pyo3::prelude::*;
 
-    impl<'a> InstantiaterWrapper for MinimizingInstantiater<MultiStartRunner<LM<f64>, Uniform<f64>>, HSProblem<'a, f64>> {}
+    impl InstantiaterWrapper for MinimizingInstantiater<MultiStartRunner<LM<f64>, Uniform<f64>>, HSProblem<f64>> {}
     
     #[pyfunction]
     fn DefaultInstantiater() -> BoxedInstantiater {
@@ -85,13 +87,12 @@ mod python {
         let runner = MultiStartRunner { minimizer, guess_generator: initializer, num_starts: 16 };
         let instantiater = MinimizingInstantiater::<_, HSProblem<f64>>::new(runner);
         BoxedInstantiater { inner: Box::new(instantiater) }
-    }    
+    }
 
-//     #[pyfunction]
-//     fn DefaultInstantiater() -> BoxedInstantiater {
-//         let minimizer = LM::default();
-//         let initializer = Uniform::default();
-//         let runner = MultiStartRunner { minimizer, guess_generator: initializer, num_starts: 16 };
-//         let instantiater = MinimizingInstantiater::<_, HSProblem<f64>>::new(runner);
-//     }    
+    /// Registers the Instantiaters with the Python module.
+    fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
+        parent_module.add_function(wrap_pyfunction!(DefaultInstantiater, parent_module)?)?;
+        Ok(())
+    }
+    inventory::submit!(PyInstantiationRegistrar { func: register }); 
 }

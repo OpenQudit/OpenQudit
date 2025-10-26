@@ -46,6 +46,7 @@ impl<'a, C: ComplexScalar> TNVMReturnType2<'a, C> {
     }
 
     pub fn unpack_tensor3d(self) -> TensorRef<'a, C, 3> {
+        // println!("{}, {}, {}, {}", self.ntens, self.nmats, self.nrows, self.ncols);
         if self.ntens != 1 {
             if self.nmats != 1 {
                 unsafe {

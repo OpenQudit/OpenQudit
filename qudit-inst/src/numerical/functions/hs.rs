@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use faer::ColMut;
 use qudit_circuit::QuditCircuit;
 use faer::MatMut;
@@ -30,14 +32,14 @@ use qudit_expr::HESSIAN;
 use faer::reborrow::ReborrowMut;
 
 #[derive(Clone)]
-pub struct HSProblem<'a, R: RealScalar> {
-    pub circuit: &'a QuditCircuit,
-    pub target: &'a InstantiationTarget<R::C>,
+pub struct HSProblem<R: RealScalar> {
+    pub circuit: Arc<QuditCircuit>,
+    pub target: Arc<InstantiationTarget<R::C>>,
 }
 
 
-impl<'a, R: RealScalar> HSProblem<'a, R> {
-    pub fn new(circuit: &'a QuditCircuit, target: &'a InstantiationTarget<R::C>) -> Self {
+impl<R: RealScalar> HSProblem<R> {
+    pub fn new(circuit: Arc<QuditCircuit>, target: Arc<InstantiationTarget<R::C>>) -> Self {
         HSProblem {
             circuit,
             target,
@@ -49,7 +51,7 @@ impl<'a, R: RealScalar> HSProblem<'a, R> {
         // TODO: assert target.num_outputs = builder.num_open_outputs
         // TODO: assert target.num_inputs = builder.num_open_inputs
         // TODO: assert target.num_batch = builder.num_batch || target.num_batch = 1
-        match self.target {
+        match &*self.target {
             InstantiationTarget::UnitaryMatrix(u) => {
                 let qudits = builder.open_output_indices();
                 builder = builder.prepend_unitary(u.dagger(), qudits);
@@ -66,7 +68,7 @@ impl<'a, R: RealScalar> HSProblem<'a, R> {
         // TODO: assert target.num_outputs = builder.num_open_outputs
         // TODO: assert target.num_inputs = builder.num_open_inputs
         // TODO: assert target.num_batch = builder.num_batch || target.num_batch = 1
-        match self.target {
+        match &*self.target {
             InstantiationTarget::UnitaryMatrix(u) => {
                 let qudits = builder.open_output_indices();
                 builder = builder.prepend_unitary(u.dagger(), qudits);
@@ -80,23 +82,23 @@ impl<'a, R: RealScalar> HSProblem<'a, R> {
     }
 }
 
-impl<'a, R: RealScalar> InstantiationProblem<'a, R> for HSProblem<'a, R> {
+impl<R: RealScalar> InstantiationProblem<R> for HSProblem<R> {
     fn from_instantiation(
-        circuit: &'a QuditCircuit,
-        target: &'a InstantiationTarget<R::C>,
-        data: &'a crate::DataMap,
+        circuit: Arc<QuditCircuit>,
+        target: Arc<InstantiationTarget<R::C>>,
+        data: Arc<crate::DataMap>,
     ) -> Self {
         Self::new(circuit, target)
     }
 }
 
-impl<'a, R: RealScalar> Problem for HSProblem<'a, R> {
+impl<R: RealScalar> Problem for HSProblem<R> {
     fn num_params(&self) -> usize {
         self.circuit.num_params()
     }
 }
 
-impl<'a, R: RealScalar> ProvidesCostFunction<R> for HSProblem<'a, R> {
+impl<R: RealScalar> ProvidesCostFunction<R> for HSProblem<R> {
     type CostFunction = HSFunction<R, 0>;
 
     fn build_cost_function(&self) -> Self::CostFunction {
@@ -104,7 +106,7 @@ impl<'a, R: RealScalar> ProvidesCostFunction<R> for HSProblem<'a, R> {
     }
 }
 
-impl<'a, R: RealScalar> ProvidesResidualFunction<R> for HSProblem<'a, R> {
+impl<R: RealScalar> ProvidesResidualFunction<R> for HSProblem<R> {
     type ResidualFunction = HSFunction<R, 0>;
 
     fn build_residual_function(&self) -> Self::ResidualFunction {
@@ -112,7 +114,7 @@ impl<'a, R: RealScalar> ProvidesResidualFunction<R> for HSProblem<'a, R> {
     }
 }
 
-impl<'a, R: RealScalar> ProvidesJacobian<R> for HSProblem<'a, R> {
+impl<R: RealScalar> ProvidesJacobian<R> for HSProblem<R> {
     type Jacobian = HSFunction<R, GRADIENT>;
 
     fn build_jacobian(&self) -> Self::Jacobian {

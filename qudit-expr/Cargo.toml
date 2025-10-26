@@ -37,3 +37,4 @@ harness = false
 
 [features]
 python = ["qudit-core/python", "dep:numpy", "dep:ndarray", "dep:pyo3", "dep:inventory"]
+static = ["llvm-sys/force-static"]

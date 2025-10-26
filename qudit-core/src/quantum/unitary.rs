@@ -782,10 +782,10 @@ mod test {
 #[cfg(feature = "python")]
 mod python {
     use super::*;
-    use pyo3::prelude::*;
+    use pyo3::{exceptions::PyTypeError, prelude::*};
     use crate::PyRegistrar;
     
-    use numpy::{PyArray2, PyReadonlyArray2};
+    use numpy::{PyArray2, PyReadonlyArray2, PyUntypedArrayMethods};
 
     /// Python wrapper for UnitaryMatrix
     #[pyclass(name = "UnitaryMatrix")]
@@ -850,8 +850,16 @@ mod python {
 
     impl<'py> FromPyObject<'py> for UnitaryMatrix<c64> {
         fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
-            let py_unitary: PyRef<PyUnitaryMatrix> = obj.extract()?;
-            Ok(py_unitary.inner.clone())
+            if let Ok(py_unitary) = obj.extract::<PyRef<PyUnitaryMatrix>>() {
+                Ok(py_unitary.inner.clone())
+            } else if let Ok(py_unitary) = obj.extract::<PyReadonlyArray2<c64>>() {
+                let shape = py_unitary.shape();
+                let dimension = shape[0];
+                let radices = QuditRadices::guess(dimension);
+                Ok(PyUnitaryMatrix::new(radices.iter().map(|&r| r as usize).collect(), py_unitary).unwrap().inner.clone()) 
+            } else {
+                Err(PyTypeError::new_err("Invalid type for unitary matrix extraction."))
+            }
         }
     }
 

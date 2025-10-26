@@ -64,6 +64,7 @@ mod tests {
     use qudit_tensor::TNVM;
     use qudit_expr::FUNCTION;
     use qudit_expr::GRADIENT;
+    use std::sync::Arc;
     use crate::numerical::functions::HSProblem;
     use crate::numerical::initializers::GreedyFurthestPoint;
     use crate::numerical::runners::MultiStartRunner;
@@ -152,11 +153,11 @@ mod tests {
 
         //////// START CNOT TELEPORTATION
         // circ.zero_initialize([1, 2]);
-        // circ.append_parameterized(Gate::H(2), [1]);
-        // circ.append_parameterized(Gate::CX(), [1, 2]);
-        // circ.append_parameterized(Gate::CX(), [0, 1]);
-        // circ.append_parameterized(Gate::CX(), [2, 3]);
-        // circ.append_parameterized(Gate::H(2), [2]);
+        // circ.append(Gate::H(), [1], None);
+        // circ.append(Gate::CX(), [1, 2], None);
+        // circ.append(Gate::CX(), [0, 1], None);
+        // circ.append(Gate::CX(), [2, 3], None);
+        // circ.append(Gate::H(), [2], None);
 
         // let one_qubit_basis_measurement = BraSystemExpression::new("OneQMeasure() {
         //     [
@@ -168,8 +169,8 @@ mod tests {
         // circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement.clone()), ([1], [0]));
         // circ.append_parameterized(Operation::TerminatingMeasurement(one_qubit_basis_measurement), ([2], [1]));
 
-        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::X(2).generate_expression().classically_control(&[1], &[2])), ([3], [0]));
-        // circ.append_parameterized(Operation::ClassicallyControlledUnitary(Gate::Z(2).generate_expression().classically_control(&[1], &[2])), ([0], [1]));
+        // circ.append(Gate::X(2).generate_expression().classically_control(&[1], &[2]), ([3], [0]), None);
+        // circ.append(Gate::Z(2).generate_expression().classically_control(&[1], &[2]), ([0], [1]), None);
         //////// END CNOT TELEPORTATION
         circ
     }
@@ -209,13 +210,16 @@ mod tests {
         let data = std::collections::HashMap::new();
 
         // call instantiater
-        let result = instantiater.instantiate(&circ, &target, &data);
+        let circ = Arc::new(circ);
+        let target = Arc::new(target);
+        let data = Arc::new(data);
+        let result = instantiater.instantiate(circ.clone(), target.clone(), data.clone());
         let mut success_times = vec![];
         let mut failure_times = vec![];
         let n = 1000;
         for _ in 0..n {
             let now = std::time::Instant::now();
-            let result = instantiater.instantiate(&circ, &target, &data);
+            let result = instantiater.instantiate(circ.clone(), target.clone(), data.clone());
             let elapsed = now.elapsed();
             if let Some(f) = result.fun {
                 // dbg!(&f);

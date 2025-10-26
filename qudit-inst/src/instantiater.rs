@@ -1,5 +1,6 @@
 use std::any::Any;
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use qudit_core::ComplexScalar;
 use qudit_circuit::QuditCircuit;
@@ -10,43 +11,26 @@ use crate::InstantiationTarget;
 
 pub trait DataItem: Any + ToString {}
 
+impl<T: Any + ToString> DataItem for T {}
+
 pub type DataMap = HashMap<String, Box<dyn DataItem>>;
 
-// pub trait Instantiater<C: ComplexScalar> {
-//     fn instantiate(
-//         &self,
-//         circuit: &QuditCircuit<C>,
-//         target: &InstantiationTarget<C>,
-//         data: &DataMap,
-//     ) -> InstantiationResult<C>;
-
-
-//     fn batched_instantiate(
-//         &self,
-//         circuit: &QuditCircuit<C>,
-//         targets: &[&InstantiationTarget<C>],
-//         data: &DataMap,
-//     ) -> Vec<InstantiationResult<C>> {
-//         targets.iter().map(|t| self.instantiate(circuit, t, data)).collect()
-//     }
-// }
-
-pub trait Instantiater<'a, C: ComplexScalar> {
+pub trait Instantiater<C: ComplexScalar> {
     fn instantiate(
-        &'a self,
-        circuit: &'a QuditCircuit,
-        target: &'a InstantiationTarget<C>,
-        data: &'a DataMap,
+        &self,
+        circuit: Arc<QuditCircuit>,
+        target: Arc<InstantiationTarget<C>>,
+        data: Arc<DataMap>,
     ) -> InstantiationResult<C>;
 
 
     fn batched_instantiate(
-        &'a self,
-        circuit: &'a QuditCircuit,
-        targets: &'a[&'a InstantiationTarget<C>],
-        data: &'a DataMap,
+        &self,
+        circuit: Arc<QuditCircuit>,
+        targets: &[Arc<InstantiationTarget<C>>],
+        data: Arc<DataMap>,
     ) -> Vec<InstantiationResult<C>> {
-        targets.iter().map(|t| self.instantiate(circuit, t, data)).collect()
+        targets.iter().map(|t| self.instantiate(circuit.clone(), t.clone(), data.clone())).collect()
     }
 }
 
@@ -57,30 +41,90 @@ pub mod python {
     use qudit_core::c64;
     use crate::python::PyInstantiationRegistrar;
     use dyn_clone::DynClone;
+   
+    fn pydict_to_datamap(py_dict: Option<&Bound<'_, PyDict>>) -> PyResult<Arc<DataMap>> {
+        let mut data_map = HashMap::new();
 
-    pub trait InstantiaterWrapper: for <'a> Instantiater<'a, c64> + Send + Sync + DynClone {}
+        match py_dict {
+            None => Ok(Arc::new(data_map)),
+            Some(py_dict) => {
+                for (key, value) in py_dict.iter() {
+                    let key_str: String = key.extract()?;
+                    let value_str: String = value.extract()?;
+                    data_map.insert(key_str, Box::new(value_str) as Box<dyn DataItem>);
+                }
+                Ok(Arc::new(data_map))
+            }
+        }
+    }
+
+    pub trait InstantiaterWrapper: Instantiater<c64> + Send + Sync + DynClone {}
 
     #[pyclass(name = "NativeInstantiater")]
     pub struct BoxedInstantiater {
         pub inner: Box<dyn InstantiaterWrapper>,
     }
 
-    impl<'a> Instantiater<'a, c64> for BoxedInstantiater {
+    #[pymethods]
+    impl BoxedInstantiater {
+
+        #[pyo3(name = "instantiate")]
+        #[pyo3(signature = (circuit, target, data = None))]
+        fn instantiate_python(
+            &self,
+            circuit: QuditCircuit,
+            target: InstantiationTarget<c64>,
+            data: Option<&Bound<'_, PyDict>>,
+        ) -> PyResult<InstantiationResult<c64>> {
+            let data_map = pydict_to_datamap(data)?;
+            let result = Instantiater::instantiate(
+                self,
+                Arc::new(circuit),
+                Arc::new(target),
+                data_map,
+            );
+            Ok(result)
+        }
+
+        #[pyo3(name = "batched_instantiate")]
+        #[pyo3(signature = (circuit, targets, data = None))]
+        fn batched_instantiate_python(
+            &self,
+            circuit: QuditCircuit,
+            targets: Vec<InstantiationTarget<c64>>,
+            data: Option<&Bound<'_, PyDict>>,
+        ) -> PyResult<Vec<InstantiationResult<c64>>> {
+            let data_map = pydict_to_datamap(data)?;
+            let target_arcs: Vec<Arc<InstantiationTarget<c64>>> = targets
+                .into_iter()
+                .map(Arc::new)
+                .collect();
+            let result = Instantiater::batched_instantiate(
+                self,
+                Arc::new(circuit),
+                &target_arcs,
+                data_map,
+            );
+            Ok(result)
+        }
+    }
+
+    impl Instantiater<c64> for BoxedInstantiater {
         fn instantiate(
-                &'a self,
-                circuit: &'a QuditCircuit,
-                target: &'a InstantiationTarget<c64>,
-                data: &'a DataMap,
-            ) -> InstantiationResult<c64> {
+            &self,
+            circuit: Arc<QuditCircuit>,
+            target: Arc<InstantiationTarget<c64>>,
+            data: Arc<DataMap>,
+        ) -> InstantiationResult<c64> {
             self.inner.instantiate(circuit, target, data)
         }
 
         fn batched_instantiate(
-                &'a self,
-                circuit: &'a QuditCircuit,
-                targets: &'a[&'a InstantiationTarget<c64>],
-                data: &'a DataMap,
-            ) -> Vec<InstantiationResult<c64>> {
+            &self,
+            circuit: Arc<QuditCircuit>,
+            targets: &[Arc<InstantiationTarget<c64>>],
+            data: Arc<DataMap>,
+        ) -> Vec<InstantiationResult<c64>> {
             self.inner.batched_instantiate(circuit, targets, data)
         }
     }
@@ -101,13 +145,13 @@ pub mod python {
         instantiater: Py<PyAny>,
     }
 
-    impl<'a> Instantiater<'a, c64> for PyInstantiaterTrampoline {
+    impl Instantiater<c64> for PyInstantiaterTrampoline {
         fn instantiate(
-                &'a self,
-                circuit: &'a QuditCircuit,
-                target: &'a InstantiationTarget<c64>,
-                data: &'a DataMap,
-            ) -> InstantiationResult<c64> {
+            &self,
+            circuit: Arc<QuditCircuit>,
+            target: Arc<InstantiationTarget<c64>>,
+            data: Arc<DataMap>,
+        ) -> InstantiationResult<c64> {
             // TODO: handle failures by not panicking, and propagating a python error
             Python::attach(|py| {
 
@@ -118,7 +162,7 @@ pub mod python {
 
                 self.instantiater
                     .bind(py)
-                    .call_method("instantiate", (circuit.clone(), target.clone(), py_data), None)
+                    .call_method("instantiate", ((*circuit).clone(), (*target).clone(), py_data), None)
                     .unwrap()
                     .extract()
                     .expect("Invalid return type from instantiate.")
@@ -126,11 +170,11 @@ pub mod python {
         }
 
         fn batched_instantiate(
-                &'a self,
-                circuit: &'a QuditCircuit,
-                targets: &'a[&'a InstantiationTarget<c64>],
-                data: &'a DataMap,
-            ) -> Vec<InstantiationResult<c64>> {
+            &self,
+            circuit: Arc<QuditCircuit>,
+            targets: &[Arc<InstantiationTarget<c64>>],
+            data: Arc<DataMap>,
+        ) -> Vec<InstantiationResult<c64>> {
             // TODO: handle failures by not panicking, and propagating a python error
             Python::attach(|py| {
                 let bound = self.instantiater.bind(py);
@@ -141,14 +185,14 @@ pub mod python {
                 }
 
                 if bound.hasattr("batched_instantiate").is_ok_and(|x| x) {
-                    let py_targets = PyList::new(py, targets.into_iter().map(|&t| t.clone())).unwrap();
-                    bound.call_method("batched_instantiate", (circuit.clone(), py_targets, py_data), None)
+                    let py_targets = PyList::new(py, targets.into_iter().map(|t| (**t).clone())).unwrap();
+                    bound.call_method("batched_instantiate", ((*circuit).clone(), py_targets, py_data), None)
                         .unwrap()
                         .extract()
                         .expect("Invalid return type from batched instantiate.")
                 } else {
-                    let circuit = circuit.clone().into_pyobject(py).unwrap();
-                    targets.iter().map(|&t| bound.call_method("instantiate", (&circuit, t.clone(), &py_data), None)
+                    let circuit = (*circuit).clone().into_pyobject(py).unwrap();
+                    targets.iter().map(|t| bound.call_method("instantiate", (&circuit, (**t).clone(), &py_data), None)
                         .unwrap()
                         .extract()
                         .expect("Invalid return type from instantiate.")
@@ -167,13 +211,13 @@ pub mod python {
         Native(BoxedInstantiater),
     }
 
-    impl<'a> Instantiater<'a, c64> for PyInstantiater {
+    impl Instantiater<c64> for PyInstantiater {
         fn instantiate(
-                &'a self,
-                circuit: &'a QuditCircuit,
-                target: &'a InstantiationTarget<c64>,
-                data: &'a DataMap,
-            ) -> InstantiationResult<c64> {
+            &self,
+            circuit: Arc<QuditCircuit>,
+            target: Arc<InstantiationTarget<c64>>,
+            data: Arc<DataMap>,
+        ) -> InstantiationResult<c64> {
             match self {
                 PyInstantiater::Python(inner) => inner.instantiate(circuit, target, data),
                 PyInstantiater::Native(inner) => inner.instantiate(circuit, target, data),
@@ -181,11 +225,11 @@ pub mod python {
         }
 
         fn batched_instantiate(
-                &'a self,
-                circuit: &'a QuditCircuit,
-                targets: &'a[&'a InstantiationTarget<c64>],
-                data: &'a DataMap,
-            ) -> Vec<InstantiationResult<c64>> { 
+            &self,
+            circuit: Arc<QuditCircuit>,
+            targets: &[Arc<InstantiationTarget<c64>>],
+            data: Arc<DataMap>,
+        ) -> Vec<InstantiationResult<c64>> {
             match self {
                 PyInstantiater::Python(inner) => inner.batched_instantiate(circuit, targets, data),
                 PyInstantiater::Native(inner) => inner.batched_instantiate(circuit, targets, data),
@@ -205,7 +249,6 @@ pub mod python {
                     "Cannot extract an 'Instantiater' during conversion to native code.",
                 )) 
             }
-
         }
     }
 }
