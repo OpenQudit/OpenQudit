@@ -26,7 +26,7 @@ before-all = "brew install llvm@18"
 environment = {
     MACOSX_DEPLOYMENT_TARGET = "11.0",
     CFLAGS = "-mmacosx-version-min=11.0",
-    CXXFLAGS = "-mmacosx-version-min=11.0",
+    CXXFLAGS = "-mmacosx-version-min=11.0"
 }
 
 [tool.cibuildwheel.windows]
