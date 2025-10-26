@@ -18,13 +18,12 @@ container-engine = "podman"
 skip = "*musllinux*"
 
 [tool.cibuildwheel.linux]
-archs = ["x86_64"]
 manylinux-x86_64-image = "manylinux_2_28"
 before-all = "dnf install -y llvm-devel-18.1.8-3.module_el8.10.0+3903+ca21d481 libffi-devel ncurses-devel"
 
 [tool.cibuildwheel.macos]
-archs = ["x86_64", "arm64"]
 before-all = "brew install llvm"
 
 [tool.cibuildwheel.windows]
+archs = ["auto64"]
 before-all = "choco install llvm"
