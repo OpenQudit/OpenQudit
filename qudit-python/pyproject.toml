@@ -26,4 +26,4 @@ before-all = "brew install llvm@18"
 
 [tool.cibuildwheel.windows]
 archs = ["auto64"]
-before-all = "choco install llvm --version=18.1.8"
+before-all = "choco install llvm --version=18.1.8 --allow-downgrade"
