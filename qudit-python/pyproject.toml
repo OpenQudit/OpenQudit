@@ -23,6 +23,7 @@ before-all = "dnf install -y llvm-devel-18.1.8-3.module_el8.10.0+3903+ca21d481 l
 
 [tool.cibuildwheel.macos]
 before-all = "brew install llvm@18"
+environment = { MACOSX_DEPLOYMENT_TARGET = "11.0" }
 
 [tool.cibuildwheel.windows]
 archs = ["auto64"]
