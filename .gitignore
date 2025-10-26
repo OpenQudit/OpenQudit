@@ -30,4 +30,5 @@ wheels/
 *.so
 *.pyd
 .env
+Cargo.lock
 
