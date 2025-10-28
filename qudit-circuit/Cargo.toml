@@ -9,7 +9,6 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 qudit-core = { path = "../qudit-core" }
-qudit-gates = { path = "../qudit-gates" }
 qudit-expr = { path = "../qudit-expr" }
 qudit-tensor = { path = "../qudit-tensor" }
 indexmap = "2.6"

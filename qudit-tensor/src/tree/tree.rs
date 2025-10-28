@@ -24,9 +24,8 @@ use qudit_expr::ExpressionId;
 use qudit_expr::ExpressionCache;
 use qudit_expr::GenerationShape;
 use qudit_expr::TensorExpression;
-use qudit_core::TensorShape;
 use qudit_expr::UnitaryExpression;
-use qudit_core::QuditRadices;
+use qudit_core::Radices;
 use qudit_core::QuditSystem;
 
 // TODO: Rename to TensorTree

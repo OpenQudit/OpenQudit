@@ -22,7 +22,7 @@ const INLINE_CAPACITY: usize = 7;
 /// assert_eq!(vec.len(), 3);
 /// assert!(vec.is_inline());
 /// ```
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash)] // TODO: The HASH derive here is invalid.
 pub enum CompactVec<T: CompactStorage> {
     /// Inline storage for up to INLINE_CAPACITY elements.
     Inline([T::InlineType; INLINE_CAPACITY], u8),
@@ -367,8 +367,7 @@ impl<T: CompactStorage> CompactVec<T> {
                 CompactVec::Heap(vec) => vec.as_slice(),
             }
         } else {
-            // TODO: as_slice should only be implemented for i8 and u8, rather than having the
-            // type check...
+            // TODO: transition to HEAP, then return slice
             panic!("Cannot get slice from inline storage for non-zero-cost types - use iter() instead")
         }
     }

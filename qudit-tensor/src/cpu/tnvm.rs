@@ -10,7 +10,6 @@ use faer::reborrow::ReborrowMut;
 use qudit_expr::DifferentiationLevel;
 use qudit_expr::GenerationShape;
 use qudit_expr::Module;
-use qudit_core::TensorShape;
 use qudit_expr::ModuleBuilder;
 use qudit_expr::ExpressionCache;
 use qudit_expr::FUNCTION;

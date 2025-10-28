@@ -2,7 +2,6 @@
 members = [
     "qudit-core",
     "qudit-expr",
-    "qudit-gates",
     "qudit-tensor",
     "qudit-circuit",
     "qudit-inst",

@@ -2,7 +2,6 @@ use qudit_core::UnitaryMatrix;
 use qudit_core::ComplexScalar;
 use qudit_core::ParamIndices;
 use qudit_core::ParamInfo;
-use qudit_core::TensorShape;
 use qudit_expr::index::IndexSize;
 use qudit_expr::ExpressionId;
 use qudit_expr::GenerationShape;

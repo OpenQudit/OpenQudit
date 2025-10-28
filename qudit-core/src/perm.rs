@@ -1,7 +1,5 @@
 use std::collections::HashSet;
 
-use crate::ToRadices;
-use crate::ToRadix;
 use faer::Mat;
 use faer::mat::AsMatMut;
 use faer::mat::AsMatRef;
@@ -12,8 +10,9 @@ use faer::reborrow::Reborrow;
 use faer::reborrow::ReborrowMut;
 use faer_traits::ComplexField;
 
-use crate::QuditRadices;
+use crate::Radices;
 use crate::QuditSystem;
+use crate::Radix;
 
 // TODO: TEST with FRPR
 // let vec = Mat::from_fn(radices.get_dimension(), 1, |i, _| {
@@ -57,14 +56,14 @@ use crate::QuditSystem;
 /// let index_perm = calc_index_permutation(&radices, &perm);
 /// assert_eq!(index_perm, vec![0, 2, 1, 3]);
 /// ```
-pub fn calc_index_permutation(radices: &QuditRadices, perm: &[usize]) -> Vec<usize> {
+pub fn calc_index_permutation(radices: &Radices, perm: &[usize]) -> Vec<usize> {
     let mut index_perm = Vec::with_capacity(radices.dimension());
     let place_values = radices.place_values();
     let perm_place_values = perm
         .iter()
         .map(|&x| place_values[x])
         .collect::<Vec<usize>>();
-    let perm_radices = perm.iter().map(|&x| radices[x]).collect::<QuditRadices>();
+    let perm_radices = perm.iter().map(|&x| radices[x]).collect::<Radices>();
 
     for i in 0..radices.dimension() {
         let expansion = perm_radices.expand(i);
@@ -90,7 +89,7 @@ pub struct QuditPermutation {
     num_qudits: usize,
 
     /// The radices of the qudit system being permuted.
-    radices: QuditRadices,
+    radices: Radices,
 
     /// The permutation vector in the qudit space.
     perm: Vec<usize>,
@@ -133,8 +132,8 @@ impl QuditPermutation {
     ///
     /// * [`from_qubit_location`] - A convenience constructor for qubit permutations.
     /// * [`from_qudit_location`] - A convenience constructor for qudit permutations.
-    pub fn new<R: ToRadices>(radices: R, perm: &[usize]) -> QuditPermutation {
-        fn __new_impl(radices: QuditRadices, perm: &[usize]) -> QuditPermutation {
+    pub fn new<R: Into<Radices>>(radices: R, perm: &[usize]) -> QuditPermutation {
+        fn __new_impl(radices: Radices, perm: &[usize]) -> QuditPermutation {
             if perm.len() != radices.len() {
                 panic!("Invalid qudit permutation: perm's qudit count doesn't match radices'.");
             }
@@ -164,7 +163,7 @@ impl QuditPermutation {
                 inverse_index_perm,
             }
         }
-        __new_impl(radices.to_radices(), perm)
+        __new_impl(radices.into(), perm)
     }
 
     /// Returns a qubit permutation specifed by `perm`.
@@ -223,9 +222,9 @@ impl QuditPermutation {
     /// * [`new`] - A general constructor for qudit permutations.
     /// * [`from_qubit_location`] - A convenience constructor for qubit permutations.
     #[inline]
-    pub fn from_qudit_location<T: ToRadix>(radix: T, perm: &[usize]) -> QuditPermutation {
-        let qudit_iter = core::iter::repeat(radix.to_radix()).take(perm.len());
-        let rdx = QuditRadices::from_iter(qudit_iter);
+    pub fn from_qudit_location<T: Into<Radix>>(radix: T, perm: &[usize]) -> QuditPermutation {
+        let qudit_iter = core::iter::repeat(radix.into()).take(perm.len());
+        let rdx = Radices::from_iter(qudit_iter);
         QuditPermutation::new(rdx, perm)
     }
 
@@ -278,7 +277,7 @@ impl QuditPermutation {
     /// let hybrid_swap = QuditPermutation::locally_invert_location(radices.clone(), &loc);
     /// assert_eq!(hybrid_swap, QuditPermutation::new(radices, &vec![1, 0]));
     /// ```
-    pub fn locally_invert_location(radices: QuditRadices, loc: &[usize]) -> QuditPermutation {
+    pub fn locally_invert_location(radices: Radices, loc: &[usize]) -> QuditPermutation {
         let mut perm: Vec<usize> = (0..loc.len()).collect();
         perm.sort_by_key(|&i| &loc[i]);
         QuditPermutation::new(radices, &perm)
@@ -314,7 +313,7 @@ impl QuditPermutation {
     /// let qudit_swap = QuditPermutation::new(QuditRadices::new(&vec![2, 3, 4]), &vec![1, 0, 2]);
     /// assert_eq!(qudit_swap.permuted_radices(), QuditRadices::new(&vec![3, 2, 4]));
     /// ```
-    pub fn permuted_radices(&self) -> QuditRadices {
+    pub fn permuted_radices(&self) -> Radices {
         self.perm.iter().map(|&i| self.radices[i]).collect()
     }
 
@@ -998,7 +997,7 @@ impl core::ops::Deref for QuditPermutation {
 /// QuditPermutations permute a qudit system.
 impl QuditSystem for QuditPermutation {
     /// Returns the radices of the system before being permuted.
-    fn radices(&self) -> QuditRadices {
+    fn radices(&self) -> Radices {
         self.radices.clone()
     }
 

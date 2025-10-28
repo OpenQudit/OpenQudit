@@ -2,9 +2,6 @@
 
 //! The qudit-circuit package contains the main circuit data structures for the OpenQudit library.
 
-/// Utils module
-pub mod utils;
-
 mod operation;
 mod wire;
 mod cycle;

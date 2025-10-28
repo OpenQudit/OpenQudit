@@ -1,4 +1,5 @@
-use crate::{utils::CompactVec, wire::Wire};
+use qudit_core::CompactVec;
+use crate::wire::Wire;
 use std::collections::HashSet;
 
 /// A WireList describes where an instruction is spatially executed.

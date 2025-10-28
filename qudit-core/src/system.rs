@@ -1,15 +1,15 @@
 /// A data structure consisting of or operating on a specified number of finite-dimensional qudits.
 ///
 /// This trait assumes that each qudit in the system has a well-defined radix, the number of basis
-/// states or dimensions, and these radices are represented collectively by the [crate::QuditRadices]
+/// states or dimensions, and these radices are represented collectively by the [crate::Radices]
 /// object. Mixed-radix or heterogeneous quantum systems where different qudits may have differing
 /// dimensions are allowed.
 pub trait QuditSystem {
     /// Returns the radices of the qudits in the system.
     ///
     /// # Returns
-    /// A `[QuditRadices]` instance representing the radices of the qudits.
-    fn radices(&self) -> crate::QuditRadices;
+    /// A `[crate::Radices]` instance representing the radices of the qudits.
+    fn radices(&self) -> crate::Radices;
 
     /// Returns the number of qudits in the system.
     ///
@@ -55,7 +55,7 @@ pub trait QuditSystem {
     /// # Returns
     /// `true` if all qudits have the specified radix, otherwise `false`.
     #[inline(always)]
-    fn is_qudit_only<T: crate::radix::ToRadix>(&self, radix: T) -> bool {
+    fn is_qudit_only<T: Into<crate::Radix>>(&self, radix: T) -> bool {
         self.radices().is_qudit_only(radix)
     }
 
@@ -74,8 +74,8 @@ pub trait ClassicalSystem {
     /// Returns the radices of the dits in the system.
     ///
     /// # Returns
-    /// A `[QuditRadices]` instance representing the radices of the dits.
-    fn radices(&self) -> crate::QuditRadices;
+    /// A `[Radices]` instance representing the radices of the dits.
+    fn radices(&self) -> crate::Radices;
 
     /// Returns the number of classical bits in the system.
     ///
@@ -120,7 +120,7 @@ pub trait ClassicalSystem {
     /// # Returns
     /// `true` if all dits have the specified radix, otherwise `false`.
     #[inline(always)]
-    fn is_dit_only<T: crate::radix::ToRadix>(&self, radix: T) -> bool {
+    fn is_dit_only<T: Into<crate::radix::Radix>>(&self, radix: T) -> bool {
         self.radices().is_qudit_only(radix)
     }
 
@@ -141,7 +141,7 @@ pub trait HybridSystem: QuditSystem + ClassicalSystem {
     /// # Returns
     /// A `[QuditRadices]` instance representing the radices of the qudits.
     #[inline(always)]
-    fn qudit_radices(&self) -> crate::QuditRadices {
+    fn qudit_radices(&self) -> crate::Radices {
         QuditSystem::radices(self)
     }
 
@@ -149,7 +149,7 @@ pub trait HybridSystem: QuditSystem + ClassicalSystem {
     ///
     /// # Returns
     /// A `[QuditRadices]` instance representing the radices of the dits.
-    fn dit_radices(&self) -> crate::QuditRadices {
+    fn dit_radices(&self) -> crate::Radices {
         ClassicalSystem::radices(self)
     }
 

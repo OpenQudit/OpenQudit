@@ -1,7 +1,7 @@
 use std::fmt;
 use std::cmp::Ordering;
 
-use crate::utils::CompactStorage;
+use qudit_core::CompactStorage;
 
 /// An index for a quantum or classical wire in a quantum circuit.
 ///

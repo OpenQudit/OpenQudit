@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use qudit_core::array::Tensor;
-use qudit_core::{ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, ParamInfo, QuditSystem, ToRadices};
-use qudit_core::{QuditRadices, RealScalar};
+use qudit_core::{ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, ParamInfo, QuditSystem};
+use qudit_core::{Radices, RealScalar};
 use qudit_expr::index::{IndexDirection, TensorIndex};
 use qudit_expr::{BraSystemExpression, KetExpression, KrausOperatorsExpression, TensorExpression, UnitaryExpression, UnitarySystemExpression, FUNCTION};
 use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
@@ -21,10 +21,10 @@ use crate::{cycle::QuditCycle, cycle::CycleList};
 #[derive(Clone)]
 pub struct QuditCircuit {
     /// The QuditRadices object that describes the quantum dimension of the circuit.
-    qudit_radices: QuditRadices,
+    qudit_radices: Radices,
 
     /// The QuditRadices object that describes the classical dimension of the circuit.
-    dit_radices: QuditRadices,
+    dit_radices: Radices,
 
     /// All instructions in the circuit stored in cycles.
     cycles: CycleList,
@@ -65,7 +65,7 @@ impl QuditCircuit {
     /// let two_qubit_circuit = QuditCircuit::new([2, 2], [2, 2]);
     /// let two_qutrit_circuit = QuditCircuit::new([3, 3], [3, 3]);
     /// ```
-    pub fn new<T1: ToRadices, T2: ToRadices>(qudit_radices: T1, dit_radices: T2) -> QuditCircuit {
+    pub fn new<T1: Into<Radices>, T2: Into<Radices>>(qudit_radices: T1, dit_radices: T2) -> QuditCircuit {
         QuditCircuit::with_capacity(qudit_radices, dit_radices, 1)
     }
 
@@ -85,8 +85,8 @@ impl QuditCircuit {
     /// let two_qutrit_circuit = QuditCircuit::pure([3, 3]);
     /// let hybrid_circuit = QuditCircuit::pure([2, 2, 3, 3]);
     /// ```
-    pub fn pure<T: ToRadices>(qudit_radices: T) -> QuditCircuit {
-        QuditCircuit::with_capacity(qudit_radices, QuditRadices::new::<usize>(&[]), 1)
+    pub fn pure<T: Into<Radices>>(qudit_radices: T) -> QuditCircuit {
+        QuditCircuit::with_capacity(qudit_radices, Radices::from(&[] as &[usize]), 1)
     }
 
     /// Creates a new QuditCircuit object with a given cycle capacity.
@@ -105,13 +105,13 @@ impl QuditCircuit {
     /// use qudit_circuit::QuditCircuit;
     /// let two_qubit_circuit = QuditCircuit::with_capacity([2, 2], [2, 2], 10);
     /// ```
-    pub fn with_capacity<T1: ToRadices, T2: ToRadices>(
+    pub fn with_capacity<T1: Into<Radices>, T2: Into<Radices>>(
         qudit_radices: T1,
         dit_radices: T2,
         capacity: usize,
     ) -> QuditCircuit {
-        let qudit_radices = qudit_radices.to_radices();
-        let dit_radices = dit_radices.to_radices();
+        let qudit_radices = qudit_radices.into();
+        let dit_radices = dit_radices.into();
         QuditCircuit {
             qudit_radices,
             dit_radices,
@@ -543,7 +543,7 @@ impl QuditCircuit {
             }
         };
 
-        let op_code = self.operations.insert_expression_with_dits(subbed_op, &loc.dits().map(|d| self.dit_radices[d] as usize).collect::<Vec<_>>());
+        let op_code = self.operations.insert_expression_with_dits(subbed_op, &loc.dits().map(|d| self.dit_radices[d].into()).collect::<Vec<_>>());
         self._append_ref(op_code, loc, param_indices);
         InstructionId::new(CycleId(0), InstId::null())
     }
@@ -577,7 +577,7 @@ impl QuditCircuit {
     
     pub fn zero_initialize<W: Into<WireList>>(&mut self, wires: W) {
         let wires = wires.into();
-        let location_radices = wires.qudits().map(|q| self.qudit_radices[q] as u8).collect::<Vec<_>>();
+        let location_radices = wires.qudits().map(|q| self.qudit_radices[q]).collect::<Radices>();
         let state = KetExpression::zero(location_radices);
         let op = ExpressionOperation::QuditInitialization(state);
         self.append(op, wires, None::<ArgumentList>);
@@ -926,7 +926,7 @@ impl QuditSystem for QuditCircuit {
         self.qudit_radices.dimension()
     }
 
-    fn radices(&self) -> QuditRadices {
+    fn radices(&self) -> Radices {
         self.qudit_radices.clone()
     }
 }
@@ -939,7 +939,7 @@ impl HasParams for QuditCircuit {
 }
 
 impl ClassicalSystem for QuditCircuit {
-    fn radices(&self) -> qudit_core::QuditRadices {
+    fn radices(&self) -> Radices {
         self.dit_radices.clone()
     }
     

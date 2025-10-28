@@ -5,10 +5,9 @@ use qudit_core::HasPeriods;
 use qudit_core::HasParams;
 use qudit_core::ParamInfo;
 use qudit_core::RealScalar;
-use qudit_core::QuditRadices;
+use qudit_core::Radices;
 use qudit_core::QuditSystem;
 use qudit_core::QuditPermutation;
-use qudit_core::TensorShape;
 use qudit_expr::index::TensorIndex;
 use qudit_expr::GenerationShape;
 

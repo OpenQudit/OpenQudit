@@ -1,9 +1,8 @@
 use std::hash::Hash;
 
 use super::fmt::PrintTree;
-use qudit_core::{ParamIndices, ParamInfo, QuditRadices, RealScalar};
+use qudit_core::{ParamIndices, ParamInfo, Radices, RealScalar};
 use qudit_expr::{index::{IndexDirection, TensorIndex}, ExpressionId, GenerationShape, TensorExpression};
-use qudit_core::TensorShape;
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct LeafNode {

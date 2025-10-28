@@ -1,5 +1,5 @@
 use qudit_core::{ClassicalSystem, HybridSystem, QuditSystem};
-use qudit_core::{HasParams, QuditRadices};
+use qudit_core::{HasParams, Radices};
 
 use slotmap::new_key_type;
 use slotmap::SlotMap;
@@ -10,8 +10,8 @@ use crate::instruction::Instruction;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct CircuitOperation {
-    qudit_radices: QuditRadices,
-    dit_radices: QuditRadices,
+    qudit_radices: Radices,
+    dit_radices: Radices,
     instructions: Vec<Instruction>,
     num_params: usize,
 }
@@ -23,13 +23,13 @@ impl HasParams for CircuitOperation {
 }
 
 impl QuditSystem for CircuitOperation {
-    fn radices(&self) -> QuditRadices {
+    fn radices(&self) -> Radices {
         self.qudit_radices.clone()
     }
 }
 
 impl ClassicalSystem for CircuitOperation {
-    fn radices(&self) -> QuditRadices {
+    fn radices(&self) -> Radices {
         self.dit_radices.clone()
     }
 }

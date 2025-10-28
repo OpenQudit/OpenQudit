@@ -1,6 +1,6 @@
 use crate::ComplexScalar;
 use crate::RealScalar;
-use crate::QuditRadices;
+use crate::Radices;
 use crate::QuditSystem;
 use faer::{Col, Row, Mat};
 use std::ops::Index;
@@ -8,7 +8,7 @@ use num_traits::One;
 use num_complex::ComplexFloat;
 
 pub struct Ket<R: RealScalar> {
-    radices: QuditRadices,
+    radices: Radices,
     vector: Col<R::C>,
 }
 
@@ -39,7 +39,7 @@ impl<R: RealScalar> Ket<R> {
     ///
     #[inline(always)]
     #[track_caller]
-    pub fn new<T: Into<QuditRadices>, V: Into<Self>>(radices: T, vector: V) -> Self {
+    pub fn new<T: Into<Radices>, V: Into<Self>>(radices: T, vector: V) -> Self {
         let guessed_radices_ket = vector.into();
         let radices = radices.into();
         // assert!(Self::is_pure_state(&guessed_radices_ket));
@@ -61,7 +61,7 @@ impl<R: RealScalar> Ket<R> {
     /// use qudit_core::quantum::ket::Ket;
     /// let zero_state: Ket<f64> = Ket::zero([2, 2]);
     /// ```
-    pub fn zero<T: Into<QuditRadices>>(radices: T) -> Self {
+    pub fn zero<T: Into<Radices>>(radices: T) -> Self {
         Self::basis(radices, 0)
     }
 
@@ -82,7 +82,7 @@ impl<R: RealScalar> Ket<R> {
     /// use qudit_core::quantum::ket::Ket;
     /// let state: Ket<f64> = Ket::basis([2, 2], 3); // |11⟩ state
     /// ```
-    pub fn basis<T: Into<QuditRadices>>(radices: T, index: usize) -> Self {
+    pub fn basis<T: Into<Radices>>(radices: T, index: usize) -> Self {
         let radices = radices.into();
         let dimension = radices.dimension();
         assert!(index < dimension, "Index {} out of bounds for dimension {}", index, dimension);
@@ -108,7 +108,7 @@ impl<R: RealScalar> Ket<R> {
     /// use qudit_core::quantum::ket::Ket;
     /// let uniform_state: Ket<f64> = Ket::uniform([2, 2]);
     /// ```
-    pub fn uniform<T: Into<QuditRadices>>(radices: T) -> Self {
+    pub fn uniform<T: Into<Radices>>(radices: T) -> Self {
         let radices = radices.into();
         let dimension = radices.dimension();
         let amplitude = R::C::from_real(R::one() / R::from(dimension).unwrap().sqrt());
@@ -258,7 +258,7 @@ impl<R: RealScalar> Ket<R> {
 }
 
 impl<R: RealScalar> QuditSystem for Ket<R> {
-    fn radices(&self) -> QuditRadices {
+    fn radices(&self) -> Radices {
         self.radices.clone()
     }
 
@@ -300,7 +300,7 @@ impl<R: RealScalar, T: Into<R::C> + Copy> TryFrom<Mat<T>> for Ket<R> {
 
 impl<C: ComplexScalar> From<Col<C>> for Ket<C::R> {
     fn from(value: Col<C>) -> Self {
-        let radices = QuditRadices::guess(value.nrows());
+        let radices = Radices::guess(value.nrows());
         Self {
             radices,
             vector: value
@@ -319,7 +319,7 @@ impl<R: RealScalar, T: Into<R::C> + Copy> From<Row<T>> for Ket<R> {
 
 impl<R: RealScalar, T: Into<R::C> + Copy> From<Vec<T>> for Ket<R> {
     fn from(value: Vec<T>) -> Self {
-        let radices = QuditRadices::guess(value.len());
+        let radices = Radices::guess(value.len());
         Self {
             radices,
             vector: Col::from_fn(value.len(), |i| value[i].into())
@@ -336,7 +336,7 @@ impl<R: RealScalar, T: Into<R::C>> FromIterator<T> for Ket<R> {
 
 impl<R: RealScalar, T: Into<R::C> + Copy> From<&[T]> for Ket<R> {
     fn from(value: &[T]) -> Self {
-        let radices = QuditRadices::guess(value.len());
+        let radices = Radices::guess(value.len());
         Self {
             radices,
             vector: Col::from_fn(value.len(), |i| value[i].into())
@@ -346,7 +346,7 @@ impl<R: RealScalar, T: Into<R::C> + Copy> From<&[T]> for Ket<R> {
 
 impl<R: RealScalar, T: Into<R::C> + Copy, const N: usize> From<&[T; N]> for Ket<R> {
     fn from(value: &[T; N]) -> Self {
-        let radices = QuditRadices::guess(N);
+        let radices = Radices::guess(N);
         Self {
             radices,
             vector: Col::from_fn(N, |i| value[i].into())
@@ -356,7 +356,7 @@ impl<R: RealScalar, T: Into<R::C> + Copy, const N: usize> From<&[T; N]> for Ket<
 
 impl<R: RealScalar, T: Into<R::C> + Copy, const N: usize> From<[T; N]> for Ket<R> {
     fn from(value: [T; N]) -> Self {
-        let radices = QuditRadices::guess(N);
+        let radices = Radices::guess(N);
         Self {
             radices,
             vector: Col::from_fn(N, |i| value[i].into())

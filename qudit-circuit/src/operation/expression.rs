@@ -85,12 +85,6 @@ impl HasParams for ExpressionOperation {
     }
 }
 
-impl From<qudit_gates::Gate> for ExpressionOperation {
-    fn from(value: qudit_gates::Gate) -> Self {
-        ExpressionOperation::UnitaryGate(value.generate_expression())
-    }
-}
-
 impl From<UnitaryExpression> for ExpressionOperation {
     fn from(value: UnitaryExpression) -> Self {
         ExpressionOperation::UnitaryGate(value)

@@ -1,8 +1,7 @@
 use crate::UnitaryExpression;
 use crate::UnitarySystemExpression;
 use qudit_core::QuditSystem;
-use qudit_core::QuditRadices;
-use qudit_core::ToRadix;
+use qudit_core::Radices;
 
 /// The identity or no-op gate.
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
@@ -390,8 +389,8 @@ fn embed_one_larger(unitary: UnitaryExpression) -> UnitaryExpression {
 ///     "Simple factorization of unitary transformations."
 ///     Physical Review A 97.2 (2018): 022328.
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
-#[cfg_attr(feature = "python", pyo3(signature = (radices = QuditRadices::new(&[2]))))]
-pub fn ParameterizedUnitary(radices: QuditRadices) -> UnitaryExpression {
+#[cfg_attr(feature = "python", pyo3(signature = (radices = Radices::new(&[2]))))]
+pub fn ParameterizedUnitary(radices: Radices) -> UnitaryExpression {
     let dimension = radices.dimension();
 
     if dimension < 2 {
@@ -403,7 +402,7 @@ pub fn ParameterizedUnitary(radices: QuditRadices) -> UnitaryExpression {
     }
 
     let right = {
-        let one_smaller = ParameterizedUnitary(QuditRadices::new(&[dimension - 1]));
+        let one_smaller = ParameterizedUnitary(Radices::new(&[dimension - 1]));
         embed_one_larger(one_smaller)
     };
 
@@ -601,17 +600,17 @@ fn cartesian_product(control_levels: Vec<Vec<usize>>) -> Vec<Vec<usize>> {
 ///
 /// * If any level in `control_levels` is not unique.
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
-#[cfg_attr(feature = "python", pyo3(signature = (expr, control_radices = QuditRadices::new(&[2]), control_levels = None)))]
+#[cfg_attr(feature = "python", pyo3(signature = (expr, control_radices = Radices::new(&[2]), control_levels = None)))]
 pub fn Controlled(
     expr: UnitaryExpression,
-    control_radices: QuditRadices,
+    control_radices: Radices,
     control_levels: Option<Vec<Vec<usize>>>,
 ) -> UnitaryExpression {
     let control_levels = match control_levels {
         Some(levels) => levels,
         None => {
             // Generate default control_levels: each control qudit activated by its highest level
-            control_radices.iter().map(|&radix| vec![(radix - 1) as usize]).collect()
+            control_radices.iter().map(|&radix| vec![(radix - 1).into()]).collect()
         }
     };
     
@@ -625,9 +624,9 @@ pub fn Controlled(
 
     if control_levels
         .iter()
-        .map(|levels| levels.into_iter().map(|level| level.to_radix()))
+        .map(|levels| levels.into_iter().copied())
         .zip(control_radices.iter())
-        .any(|(mut levels, radix)| levels.any(|level| level >= *radix))
+        .any(|(mut levels, radix)| levels.any(|level| level >= usize::from(*radix)))
     {
         panic!("Expected control levels to be less than the number of levels.");
     }
@@ -670,17 +669,17 @@ pub fn Controlled(
     expr
 }
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
-#[cfg_attr(feature = "python", pyo3(signature = (expr, control_radices = QuditRadices::new(&[2]), control_levels = None)))]
+#[cfg_attr(feature = "python", pyo3(signature = (expr, control_radices = Radices::new(&[2]), control_levels = None)))]
 pub fn ClassicallyControlled(
     expr: UnitaryExpression,
-    control_radices: QuditRadices,
+    control_radices: Radices,
     control_levels: Option<Vec<Vec<usize>>>,
 ) -> UnitarySystemExpression {
     let control_levels = match control_levels {
         Some(levels) => levels,
         None => {
             // Generate default control_levels: each control qudit activated by its highest level
-            control_radices.iter().map(|&radix| vec![(radix - 1) as usize]).collect()
+            control_radices.iter().map(|&radix| vec![(radix - 1).into()]).collect()
         }
     };
     
@@ -694,9 +693,9 @@ pub fn ClassicallyControlled(
 
     if control_levels
         .iter()
-        .map(|levels| levels.into_iter().map(|level| level.to_radix()))
+        .map(|levels| levels.into_iter().copied())
         .zip(control_radices.iter())
-        .any(|(mut levels, radix)| levels.any(|level| level >= *radix))
+        .any(|(mut levels, radix)| levels.any(|level| level >= usize::from(*radix)))
     {
         panic!("Expected control levels to be less than the number of levels.");
     }
@@ -720,7 +719,7 @@ pub fn ClassicallyControlled(
             .map(|block_idx_expansion| control_radices.compress(&block_idx_expansion))
             .collect();
 
-    let new_radices = control_radices.into_iter().map(|&r| r as usize).collect::<Vec<_>>();
+    let new_radices = control_radices.into_iter().map(|&r| r.into()).collect::<Vec<_>>();
     expr.classically_control(&diagonal_indices, &new_radices)
 }
 

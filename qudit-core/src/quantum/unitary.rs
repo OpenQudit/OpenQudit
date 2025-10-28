@@ -22,16 +22,15 @@ use faer::MatRef;
 use crate::ComplexScalar;
 use crate::RealScalar;
 use crate::QuditPermutation;
-use crate::QuditRadices;
 use crate::QuditSystem;
-use crate::ToRadices;
+use crate::Radices;
 
 /// A unitary matrix over a qudit system.
 ///
 /// This is a thin wrapper around a matrix that ensures it is unitary.
 #[derive(Clone)]
 pub struct UnitaryMatrix<C: ComplexScalar> {
-    radices: QuditRadices,
+    radices: Radices,
     matrix: Mat<C>,
 }
 
@@ -65,11 +64,11 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     /// * [UnitaryMatrix::random] - Create a random unitary matrix.
     #[inline(always)]
     #[track_caller]
-    pub fn new<T: ToRadices>(radices: T, matrix: Mat<C>) -> Self {
+    pub fn new<T: Into<Radices>>(radices: T, matrix: Mat<C>) -> Self {
         assert!(Self::is_unitary(&matrix));
         Self {
             matrix,
-            radices: radices.to_radices(),
+            radices: radices.into(),
         }
     }
 
@@ -102,10 +101,10 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     /// * [UnitaryMatrix::is_unitary] - Check if a matrix is a unitary.
     #[inline(always)]
     #[track_caller]
-    pub fn new_unchecked<T: ToRadices>(radices: T, matrix: Mat<C>) -> Self {
+    pub fn new_unchecked<T: Into<Radices>>(radices: T, matrix: Mat<C>) -> Self {
         Self {
             matrix,
-            radices: radices.to_radices(),
+            radices: radices.into(),
         }
     }
 
@@ -133,8 +132,8 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     ///
     /// * [UnitaryMatrix::new] - Create a unitary matrix.
     /// * [UnitaryMatrix::random] - Create a random unitary matrix.
-    pub fn identity<T: ToRadices>(radices: T) -> Self {
-        let radices = radices.to_radices();
+    pub fn identity<T: Into<Radices>>(radices: T) -> Self {
+        let radices = radices.into();
         let dim = radices.dimension();
         Self::new(radices, Mat::identity(dim, dim))
     }
@@ -165,8 +164,8 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     ///
     /// * [UnitaryMatrix::new] - Create a unitary matrix.
     /// * [UnitaryMatrix::identity] - Create a unitary identity matrix.
-    pub fn random<T: ToRadices>(radices: T) -> Self {
-        let radices = radices.to_radices();
+    pub fn random<T: Into<Radices>>(radices: T) -> Self {
+        let radices = radices.into();
         let n = radices.dimension();
         let standard: Mat<C> =
             Mat::from_fn(n, n, |_, _| C::standard_random() / C::from_real(2.0).sqrt());
@@ -538,7 +537,7 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
 
 impl<C: ComplexScalar> QuditSystem for UnitaryMatrix<C> {
     #[inline(always)]
-    fn radices(&self) -> QuditRadices {
+    fn radices(&self) -> Radices {
         self.radices.clone()
     }
 
@@ -799,7 +798,7 @@ mod python {
         /// Create a new unitary matrix from a numpy array
         #[new]
         #[pyo3(signature = (radices, matrix))]
-        fn new(radices: Vec<usize>, matrix: PyReadonlyArray2<c64>) -> PyResult<Self> {
+        fn new(radices: Radices, matrix: PyReadonlyArray2<c64>) -> PyResult<Self> {
             let array = matrix.as_array();
             let (nrows, ncols) = array.dim();
             
@@ -855,8 +854,8 @@ mod python {
             } else if let Ok(py_unitary) = obj.extract::<PyReadonlyArray2<c64>>() {
                 let shape = py_unitary.shape();
                 let dimension = shape[0];
-                let radices = QuditRadices::guess(dimension);
-                Ok(PyUnitaryMatrix::new(radices.iter().map(|&r| r as usize).collect(), py_unitary).unwrap().inner.clone()) 
+                let radices = Radices::guess(dimension);
+                Ok(PyUnitaryMatrix::new(radices, py_unitary).unwrap().inner.clone()) 
             } else {
                 Err(PyTypeError::new_err("Invalid type for unitary matrix extraction."))
             }

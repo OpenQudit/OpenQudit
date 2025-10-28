@@ -3,14 +3,14 @@ use std::ops::{Deref, DerefMut};
 use crate::{expressions::JittableExpression, index::{IndexDirection, TensorIndex}, GenerationShape, TensorExpression};
 
 use super::NamedExpression;
-use qudit_core::QuditRadices;
+use qudit_core::Radices;
 use qudit_core::QuditSystem;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct IsometryExpression {
     inner: NamedExpression,
-    input_radices: QuditRadices,
-    output_radices: QuditRadices,
+    input_radices: Radices,
+    output_radices: Radices,
 }
 
 impl JittableExpression for IsometryExpression {
@@ -50,8 +50,8 @@ impl From<IsometryExpression> for TensorExpression {
         let IsometryExpression { inner, input_radices, output_radices } = value;
         // TODO: add a proper implementation of into_iter for QuditRadices
         let indices = output_radices.into_iter()
-            .map(|r| (IndexDirection::Output, *r as usize))
-            .chain(input_radices.into_iter().map(|r| (IndexDirection::Input, *r as usize)))
+            .map(|r| (IndexDirection::Output, usize::from(*r)))
+            .chain(input_radices.into_iter().map(|r| (IndexDirection::Input, usize::from(*r))))
             .enumerate()
             .map(|(i, (d, r))| TensorIndex::new(d, i, r))
             .collect();

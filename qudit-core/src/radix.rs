@@ -1,282 +1,105 @@
-/// A primitive data type that can be converted to an unsigned, byte-sized radix.
-pub trait ToRadix: Copy + Sized + core::fmt::Display {
-    /// Convert the value to an unsigned, byte-sized radix.
-    fn to_radix(self) -> u8;
+use num_traits::AsPrimitive;
 
-    /// Check if the value is less than two.
-    fn is_less_than_two(self) -> bool;
-}
+use crate::CompactStorage;
 
-/// A primitive data type that can be built from an unsigned, byte-sized radix.
-pub trait FromRadix: Copy + Sized {
-    /// Convert the unsigned, byte-sized radix to a value.
-    fn from_radix(radix: u8) -> Self;
-}
+#[derive(Default, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, Copy, Clone)]
+#[repr(transparent)]
+pub struct Radix(u8);
 
-impl ToRadix for u8 {
-    #[inline(always)]
-    fn to_radix(self) -> u8 {
-        self
-    }
-
-    #[inline(always)]
-    fn is_less_than_two(self) -> bool {
-        self < 2u8
+impl<T: AsPrimitive<u8> + From<u8> + PartialOrd> From<T> for Radix {
+    fn from(value: T) -> Self {
+        debug_assert!(value > 2u8.into() && value <= 255u8.into());
+        Radix(value.as_())
     }
 }
 
-impl FromRadix for u8 {
+impl CompactStorage for Radix {
+    type InlineType = Radix;
+    const CONVERSION_INFALLIBLE: bool = true;
+    
     #[inline(always)]
-    fn from_radix(radix: u8) -> Self {
-        radix
+    fn to_inline(value: Self) -> Result<Self::InlineType, Self> { Ok(value) }
+
+    #[inline(always)]
+    fn from_inline(value: Self::InlineType) -> Self { value }
+
+    #[inline(always)]
+    fn to_inline_unchecked(value: Self) -> Self::InlineType { value }
+}
+
+impl From<Radix> for usize {
+    #[inline(always)]
+    fn from(value: Radix) -> Self {
+        value.0 as usize
     }
 }
 
-impl ToRadix for u16 {
+impl From<Radix> for u64 {
     #[inline(always)]
-    fn to_radix(self) -> u8 {
-        debug_assert!(self <= 255, "Radix too large: {}", self);
-        self as u8
-    }
-
-    #[inline(always)]
-    fn is_less_than_two(self) -> bool {
-        self < 2u16
+    fn from(value: Radix) -> Self {
+        value.0 as u64
     }
 }
 
-impl FromRadix for u16 {
-    #[inline(always)]
-    fn from_radix(radix: u8) -> Self {
-        radix as u16
+impl std::iter::Product<Radix> for usize {
+    fn product<I: Iterator<Item = Radix>>(iter: I) -> usize {
+        iter.into_iter().map(|r| r.0 as usize).product()
     }
 }
 
-impl ToRadix for u32 {
-    #[inline(always)]
-    fn to_radix(self) -> u8 {
-        debug_assert!(self <= 255, "Radix too large: {}", self);
-        self as u8
-    }
-
-    #[inline(always)]
-    fn is_less_than_two(self) -> bool {
-        self < 2u32
+impl<'a> std::iter::Product<&'a Radix> for usize {
+    fn product<I: Iterator<Item = &'a Radix>>(iter: I) -> usize {
+        iter.into_iter().map(|r| r.0 as usize).product()
     }
 }
 
-impl FromRadix for u32 {
-    #[inline(always)]
-    fn from_radix(radix: u8) -> Self {
-        radix as u32
+impl PartialEq<usize> for Radix {
+    fn eq(&self, other: &usize) -> bool {
+        (self.0 as usize) == *other
     }
 }
 
-impl ToRadix for u64 {
-    #[inline(always)]
-    fn to_radix(self) -> u8 {
-        debug_assert!(self <= 255, "Radix too large: {}", self);
-        self as u8
-    }
-
-    #[inline(always)]
-    fn is_less_than_two(self) -> bool {
-        self < 2u64
+impl std::fmt::Display for Radix {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
     }
 }
 
-impl FromRadix for u64 {
-    #[inline(always)]
-    fn from_radix(radix: u8) -> Self {
-        radix as u64
+impl<T: Into<Radix>> std::ops::Add<T> for Radix {
+    type Output = Self;
+
+    fn add(self, rhs: T) -> Self::Output {
+        Radix(self.0 + rhs.into().0)
     }
 }
 
-impl ToRadix for u128 {
-    #[inline(always)]
-    fn to_radix(self) -> u8 {
-        debug_assert!(self <= 255, "Radix too large: {}", self);
-        self as u8
-    }
+impl<T: Into<Radix>> std::ops::Sub<T> for Radix {
+    type Output = Self;
 
-    #[inline(always)]
-    fn is_less_than_two(self) -> bool {
-        self < 2u128
+    fn sub(self, rhs: T) -> Self::Output {
+        Radix(self.0 - rhs.into().0)
     }
 }
 
-impl FromRadix for u128 {
-    #[inline(always)]
-    fn from_radix(radix: u8) -> Self {
-        radix as u128
-    }
-}
+#[cfg(feature = "python")]
+mod python {
+    use super::*;
+    use pyo3::prelude::*;
 
-impl ToRadix for usize {
-    #[inline(always)]
-    fn to_radix(self) -> u8 {
-        debug_assert!(self <= 255, "Radix too large: {}", self);
-        self as u8
-    }
+    impl<'py> IntoPyObject<'py> for Radix {
+        type Target = <u8 as IntoPyObject<'py>>::Target;
+        type Output = <u8 as IntoPyObject<'py>>::Output;
+        type Error = <u8 as IntoPyObject<'py>>::Error;
 
-    #[inline(always)]
-    fn is_less_than_two(self) -> bool {
-        self < 2usize
-    }
-}
-
-impl FromRadix for usize {
-    #[inline(always)]
-    fn from_radix(radix: u8) -> Self {
-        radix as usize
-    }
-}
-
-impl ToRadix for i8 {
-    #[inline(always)]
-    fn to_radix(self) -> u8 {
-        debug_assert!(self >= 0, "Negative radix: {}", self);
-        self as u8
+        fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+            self.0.into_pyobject(py)
+        }
     }
 
-    #[inline(always)]
-    fn is_less_than_two(self) -> bool {
-        self < 2i8
-    }
-}
-
-impl ToRadix for i16 {
-    #[inline(always)]
-    fn to_radix(self) -> u8 {
-        debug_assert!(self >= 0, "Negative radix: {}", self);
-        debug_assert!(self <= 255, "Radix too large: {}", self);
-        self as u8
-    }
-
-    #[inline(always)]
-    fn is_less_than_two(self) -> bool {
-        self < 2i16
-    }
-}
-
-impl FromRadix for i16 {
-    #[inline(always)]
-    fn from_radix(radix: u8) -> Self {
-        radix as i16
-    }
-}
-
-impl ToRadix for i32 {
-    #[inline(always)]
-    fn to_radix(self) -> u8 {
-        debug_assert!(self >= 0, "Negative radix: {}", self);
-        debug_assert!(self <= 255, "Radix too large: {}", self);
-        self as u8
-    }
-
-    #[inline(always)]
-    fn is_less_than_two(self) -> bool {
-        self < 2i32
-    }
-}
-
-impl FromRadix for i32 {
-    #[inline(always)]
-    fn from_radix(radix: u8) -> Self {
-        radix as i32
-    }
-}
-
-impl ToRadix for i64 {
-    #[inline(always)]
-    fn to_radix(self) -> u8 {
-        debug_assert!(self >= 0, "Negative radix: {}", self);
-        debug_assert!(self <= 255, "Radix too large: {}", self);
-        self as u8
-    }
-
-    #[inline(always)]
-    fn is_less_than_two(self) -> bool {
-        self < 2i64
-    }
-}
-
-impl FromRadix for i64 {
-    #[inline(always)]
-    fn from_radix(radix: u8) -> Self {
-        radix as i64
-    }
-}
-
-impl ToRadix for i128 {
-    #[inline(always)]
-    fn to_radix(self) -> u8 {
-        debug_assert!(self >= 0, "Negative radix: {}", self);
-        debug_assert!(self <= 255, "Radix too large: {}", self);
-        self as u8
-    }
-
-    #[inline(always)]
-    fn is_less_than_two(self) -> bool {
-        self < 2i128
-    }
-}
-
-impl FromRadix for i128 {
-    #[inline(always)]
-    fn from_radix(radix: u8) -> Self {
-        radix as i128
-    }
-}
-
-impl ToRadix for isize {
-    #[inline(always)]
-    fn to_radix(self) -> u8 {
-        debug_assert!(self >= 0, "Negative radix: {}", self);
-        debug_assert!(self <= 255, "Radix too large: {}", self);
-        self as u8
-    }
-
-    #[inline(always)]
-    fn is_less_than_two(self) -> bool {
-        self < 2isize
-    }
-}
-
-impl FromRadix for isize {
-    #[inline(always)]
-    fn from_radix(radix: u8) -> Self {
-        radix as isize
-    }
-}
-
-impl<T: ToRadix> ToRadix for &T {
-    #[inline(always)]
-    fn to_radix(self) -> u8 {
-        (*self).to_radix()
-    }
-
-    #[inline(always)]
-    fn is_less_than_two(self) -> bool {
-        (*self).is_less_than_two()
-    }
-}
-
-impl<T: ToRadix> ToRadix for core::num::Wrapping<T> {
-    #[inline(always)]
-    fn to_radix(self) -> u8 {
-        self.0.to_radix()
-    }
-
-    #[inline(always)]
-    fn is_less_than_two(self) -> bool {
-        self.0.is_less_than_two()
-    }
-}
-
-impl<T: FromRadix> FromRadix for core::num::Wrapping<T> {
-    #[inline(always)]
-    fn from_radix(radix: u8) -> Self {
-        Self(T::from_radix(radix))
+    impl<'py> FromPyObject<'py> for Radix {
+        fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+            let value: u8 = obj.extract()?;
+            Ok(Radix(value))
+        }
     }
 }

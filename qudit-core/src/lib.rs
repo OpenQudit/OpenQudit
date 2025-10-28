@@ -8,15 +8,13 @@ mod radices;
 mod radix;
 mod scalar;
 mod system;
-mod shape;
+// mod shape;
 mod quantum;
+mod utils;
 
 pub mod accel;
-// pub mod matrix;
 pub mod memory;
-// pub mod unitary;
 pub mod array;
-// pub mod state;
 
 pub use bitwidth::BitWidthConvertible;
 pub use function::HasBounds;
@@ -26,17 +24,21 @@ pub use function::ParamIndices;
 pub use function::ParamInfo;
 pub use perm::calc_index_permutation;
 pub use perm::QuditPermutation;
-pub use radices::QuditRadices;
-pub use radices::ToRadices;
-pub use radix::ToRadix;
+pub use radices::Radices;
+// pub use radices::ToRadices;
+// pub use radix::ToRadix;
+pub use radix::Radix;
 pub use scalar::ComplexScalar;
 pub use scalar::RealScalar;
-pub use shape::TensorShape;
+// pub use shape::TensorShape;
 pub use system::ClassicalSystem;
 pub use system::HybridSystem;
 pub use system::QuditSystem;
 pub use quantum::UnitaryMatrix;
 pub use quantum::Ket;
+pub use utils::CompactStorage;
+pub use utils::CompactVec;
+pub use utils::LimitedSizeVec;
 
 ////////////////////////////////////////////////////////////////////////
 /// Complex number types.

@@ -3,13 +3,13 @@ use std::ops::{Deref, DerefMut};
 use crate::{expressions::JittableExpression, index::{IndexDirection, TensorIndex}, GenerationShape, TensorExpression};
 
 use super::NamedExpression;
-use qudit_core::QuditRadices;
+use qudit_core::Radices;
 use qudit_core::QuditSystem;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct BraSystemExpression {
     inner: NamedExpression,
-    radices: QuditRadices,
+    radices: Radices,
     num_states: usize,
 }
 
@@ -76,7 +76,7 @@ impl From<BraSystemExpression> for TensorExpression {
         // TODO: add a proper implementation of into_iter for QuditRadices
         let indices = [num_states].into_iter()
             .map(|r| (IndexDirection::Batch, r))
-            .chain(radices.into_iter().map(|r| (IndexDirection::Input, *r as usize)))
+            .chain(radices.into_iter().map(|r| (IndexDirection::Input, usize::from(*r))))
             .enumerate()
             .map(|(i, (d, r))| TensorIndex::new(d, i, r))
             .collect();
@@ -116,6 +116,7 @@ impl TryFrom<TensorExpression> for BraSystemExpression {
 mod python {
     use super::*;
     use pyo3::prelude::*;
+    use qudit_core::Radix;
     use crate::python::PyExpressionRegistrar;
     use qudit_core::c64;
     use pyo3::types::PyTuple;
@@ -147,7 +148,7 @@ mod python {
             self.expr.name().to_string()
         }
 
-        fn radices(&self) -> Vec<u8> {
+        fn radices(&self) -> Vec<Radix> {
             self.expr.radices.to_vec()
         }
 

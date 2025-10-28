@@ -3,13 +3,13 @@ use std::ops::{Deref, DerefMut};
 use crate::{expressions::JittableExpression, index::{IndexDirection, TensorIndex}, GenerationShape, TensorExpression};
 
 use super::NamedExpression;
-use qudit_core::QuditRadices;
+use qudit_core::Radices;
 use qudit_core::QuditSystem;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct KetSystemExpression {
     inner: NamedExpression,
-    radices: QuditRadices,
+    radices: Radices,
     num_states: usize,
 }
 
@@ -51,7 +51,7 @@ impl From<KetSystemExpression> for TensorExpression {
         // TODO: add a proper implementation of into_iter for QuditRadices
         let indices = [num_states].into_iter()
             .map(|r| (IndexDirection::Batch, r))
-            .chain(radices.into_iter().map(|r| (IndexDirection::Output, *r as usize)))
+            .chain(radices.into_iter().map(|r| (IndexDirection::Output, usize::from(*r))))
             .enumerate()
             .map(|(i, (d, r))| TensorIndex::new(d, i, r))
             .collect();

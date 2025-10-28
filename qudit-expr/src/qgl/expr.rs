@@ -1,6 +1,5 @@
-use qudit_core::TensorShape;
-
 use crate::index::{IndexDirection, TensorIndex};
+use crate::shape::GenerationShape;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
@@ -31,10 +30,10 @@ pub enum Expression {
 
 impl Expression {
 
-    pub fn gen_shape(&self) -> TensorShape {
+    pub fn gen_shape(&self) -> GenerationShape {
         match self {
             Expression::Vector(vec) => {
-                TensorShape::Vector(vec.len())
+                GenerationShape::Vector(vec.len())
             }
             Expression::Matrix(mat) => {
                 let nrows = mat.len();
@@ -44,7 +43,7 @@ impl Expression {
                     assert!(row.len() == ncols, "Matrix has inconsistent row lengths");
                 }
 
-                TensorShape::Matrix(nrows, ncols)
+                GenerationShape::Matrix(nrows, ncols)
             }
             Expression::Tensor(tensor) => {
                 let nmats = tensor.len();
@@ -58,34 +57,34 @@ impl Expression {
                     }
                 }
 
-                TensorShape::Tensor3D(nmats, nrows, ncols)
+                GenerationShape::Tensor3D(nmats, nrows, ncols)
             }
             Expression::Binary { op, lhs, rhs } => {
                 let lhs_shape = lhs.gen_shape();
                 let rhs_shape = rhs.gen_shape();
 
-                if lhs_shape == TensorShape::Scalar {
+                if lhs_shape == GenerationShape::Scalar {
                     rhs_shape
-                } else if rhs_shape == TensorShape::Scalar {
+                } else if rhs_shape == GenerationShape::Scalar {
                     lhs_shape
                 } else {
                     match (lhs_shape, rhs_shape) {
-                        (TensorShape::Vector(l), TensorShape::Vector(r)) => {
+                        (GenerationShape::Vector(l), GenerationShape::Vector(r)) => {
                             assert!(l == r, "Vectors must have same length");
-                            TensorShape::Vector(l)
+                            GenerationShape::Vector(l)
                         }
-                        (TensorShape::Matrix(lrows, lcols), TensorShape::Matrix(rrows, rcols)) => {
+                        (GenerationShape::Matrix(lrows, lcols), GenerationShape::Matrix(rrows, rcols)) => {
                             if op.to_string() == "*" {
                                 assert!(lrows == rcols, "Left matrix columns must match right matrix rows");
-                                TensorShape::Matrix(lrows, rcols)
+                                GenerationShape::Matrix(lrows, rcols)
                             } else {
                                 assert!(lrows == rrows && lcols == rcols, "Matrices must have same dimensions");
-                                TensorShape::Matrix(lrows, lcols)
+                                GenerationShape::Matrix(lrows, lcols)
                             }
                         }
-                        (TensorShape::Tensor3D(lnmats, lnrows, lncols), TensorShape::Tensor3D(rnmats, rnrows, rncols)) => {
+                        (GenerationShape::Tensor3D(lnmats, lnrows, lncols), GenerationShape::Tensor3D(rnmats, rnrows, rncols)) => {
                             assert!(lnmats == rnmats && lnrows == rnrows && lncols == rncols, "Tensors must have same dimensions");
-                            TensorShape::Tensor3D(lnmats, lnrows, lncols)
+                            GenerationShape::Tensor3D(lnmats, lnrows, lncols)
                         }
                         _ => panic!("Incompatible shapes for binary operation"),
                     }
@@ -104,10 +103,10 @@ impl Expression {
                 args[0].gen_shape()
             }
             Expression::Number(_) => {
-                TensorShape::Scalar
+                GenerationShape::Scalar
             }
             Expression::Variable(_) => {
-                TensorShape::Scalar
+                GenerationShape::Scalar
             }
         }
     }
@@ -205,7 +204,7 @@ impl Expression {
                 let rhs_shape = rhs.gen_shape();
 
                 // Two scalar operands: already element-wise
-                if lhs_shape == TensorShape::Scalar && rhs_shape == TensorShape::Scalar {
+                if lhs_shape == GenerationShape::Scalar && rhs_shape == GenerationShape::Scalar {
                     return Expression::Binary {
                         op,
                         lhs: Box::new(lhs),
@@ -249,7 +248,7 @@ impl Expression {
                     }
 
                 // Scalar op Matrix
-                } else if lhs_shape == TensorShape::Scalar {
+                } else if lhs_shape == GenerationShape::Scalar {
                     // if op == '/' {
                     //     panic!("Division by vector, matrix, or tensor not supported")
                     // }
@@ -303,7 +302,7 @@ impl Expression {
                     }
 
                 // Matrix op Scalar
-                } else if rhs_shape == TensorShape::Scalar {
+                } else if rhs_shape == GenerationShape::Scalar {
                     match lhs {
                         Expression::Vector(vec) => {
                             let vec = vec
@@ -485,7 +484,7 @@ impl Expression {
             }
             Expression::Call { fn_name, args } => {
                 assert!(
-                    args.iter().all(|arg| arg.gen_shape() == TensorShape::Scalar),
+                    args.iter().all(|arg| arg.gen_shape() == GenerationShape::Scalar),
                     "Function arguments must be scalars."
                 );
                 let args = args
@@ -504,10 +503,10 @@ impl Expression {
                     "Vector elements must have same shape."
                 );
                 match element_shape {
-                    TensorShape::Scalar => {
+                    GenerationShape::Scalar => {
                         Expression::Vector(element_wise_list)
                     }
-                    TensorShape::Vector(_) => {
+                    GenerationShape::Vector(_) => {
                         let exprs = element_wise_list.into_iter()
                             .map(|elem| {
                                 if let Expression::Vector(vec) = elem {
@@ -519,7 +518,7 @@ impl Expression {
                             .collect::<Vec<Vec<Expression>>>();
                         Expression::Matrix(exprs)
                     }
-                    TensorShape::Matrix(_, _) => {
+                    GenerationShape::Matrix(_, _) => {
                         let exprs = element_wise_list.into_iter()
                             .map(|elem| {
                                 if let Expression::Matrix(mat) = elem {
@@ -550,10 +549,10 @@ impl Expression {
                     "Matrix elements must have same shape."
                 );
                 match element_shape {
-                    TensorShape::Scalar => {
+                    GenerationShape::Scalar => {
                         Expression::Matrix(element_wise_list)
                     }
-                    TensorShape::Vector(_) => {
+                    GenerationShape::Vector(_) => {
                         let exprs = element_wise_list.into_iter()
                             .map(|row| {
                                 row.into_iter()
@@ -587,7 +586,7 @@ impl Expression {
                 assert!(
                     element_wise_list.iter().all(|mat| {
                         mat.iter().all(|row| {
-                            row.iter().all(|elem| elem.gen_shape() == TensorShape::Scalar)
+                            row.iter().all(|elem| elem.gen_shape() == GenerationShape::Scalar)
                         })
                     }),
                     "Tensor elements must all be scalar."
@@ -672,12 +671,12 @@ impl ParsedDefinition {
             Some(radices) => {
                 let prod: usize = radices.iter().product();
                 match shape {
-                    TensorShape::Scalar => self.vector_triple_to_tensor_indices(&[], &[], &[]),
-                    TensorShape::Vector(d) => {
+                    GenerationShape::Scalar => self.vector_triple_to_tensor_indices(&[], &[], &[]),
+                    GenerationShape::Vector(d) => {
                         assert_eq!(d, prod);
                         self.vector_triple_to_tensor_indices(&[], &[], radices)
                     },
-                    TensorShape::Matrix(nrows, ncols) => {
+                    GenerationShape::Matrix(nrows, ncols) => {
                         if nrows == prod && ncols == prod {
                             self.vector_triple_to_tensor_indices(&[], radices, radices)
                         }
@@ -691,7 +690,7 @@ impl ParsedDefinition {
                             panic!("Matrix expression parsed with explicit radices, but no dimension matching what is expected from radices.")
                         }
                     },
-                    TensorShape::Tensor3D(nmats, nrows, ncols) => {
+                    GenerationShape::Tensor3D(nmats, nrows, ncols) => {
                         if nrows == prod && ncols == prod {
                             self.vector_triple_to_tensor_indices(&[nmats], radices, radices)
                         } else if nrows == prod {
@@ -707,14 +706,14 @@ impl ParsedDefinition {
             }
             None => {
                 match shape {
-                    TensorShape::Scalar => self.vector_triple_to_tensor_indices(&[], &[], &[]),
-                    TensorShape::Vector(d) => {
+                    GenerationShape::Scalar => self.vector_triple_to_tensor_indices(&[], &[], &[]),
+                    GenerationShape::Vector(d) => {
                         match get_power_of_two(d) {
                             Some(n) => self.vector_triple_to_tensor_indices(&[], &[], &vec![2; n]),
                             None => self.vector_triple_to_tensor_indices(&[], &[], &[d]),
                         }
                     },
-                    TensorShape::Matrix(nrows, ncols) => {
+                    GenerationShape::Matrix(nrows, ncols) => {
                         if nrows == ncols {
                             match get_power_of_two(nrows) {
                                 Some(n) => self.vector_triple_to_tensor_indices(&[], &vec![2; n], &vec![2; n]),
@@ -729,7 +728,7 @@ impl ParsedDefinition {
                             }
                         }
                     },
-                    TensorShape::Tensor3D(nmats, nrows, ncols) => {
+                    GenerationShape::Tensor3D(nmats, nrows, ncols) => {
                         if nrows == ncols {
                             match get_power_of_two(nrows) {
                                 Some(n) => self.vector_triple_to_tensor_indices(&[nmats], &vec![2; n], &vec![2; n]),
@@ -774,7 +773,7 @@ pub struct ElementWiseDefinition {
     pub dimensions: Vec<usize>,
     pub variables: Vec<String>,
     pub body: Vec<ElementExpression>,
-    pub shape: TensorShape,
+    pub shape: GenerationShape,
 }
 
 impl ElementWiseDefinition {

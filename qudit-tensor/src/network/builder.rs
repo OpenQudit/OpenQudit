@@ -10,7 +10,7 @@ use qudit_core::UnitaryMatrix;
 use qudit_core::ComplexScalar;
 use qudit_core::ParamIndices;
 use qudit_core::ParamInfo;
-use qudit_core::{QuditRadices, TensorShape};
+use qudit_core::Radices;
 use qudit_expr::ExpressionCache;
 use qudit_expr::ExpressionId;
 use qudit_expr::TensorExpression;
@@ -64,7 +64,7 @@ enum NetworkBuilderIndex {
 pub struct QuditCircuitTensorNetworkBuilder {
     tensors: Vec<QuditTensor>,
     local_to_network_index_map: Vec<Vec<NetworkBuilderIndex>>,
-    radices: QuditRadices,
+    radices: Radices,
 
     expressions: Arc<Mutex<ExpressionCache>>,
 
@@ -78,7 +78,7 @@ pub struct QuditCircuitTensorNetworkBuilder {
 }
 
 impl QuditCircuitTensorNetworkBuilder {
-    pub fn new(radices: QuditRadices, expressions: Option<Arc<Mutex<ExpressionCache>>>) -> Self {
+    pub fn new(radices: Radices, expressions: Option<Arc<Mutex<ExpressionCache>>>) -> Self {
         let expressions = match expressions {
             Some(cache) => cache,
             None => ExpressionCache::new_shared(),
@@ -217,7 +217,7 @@ impl QuditCircuitTensorNetworkBuilder {
                 panic!("Qudit id {qudit_id} is out of bounds from tensor's output map");
             }
             assert_eq!(
-                self.radices[*qudit_id] as IndexSize,
+                self.radices[*qudit_id],
                 output_tensor_index_sizes[i],
                 "Tensor index size doesn't match mapped qudit radix.",
             );
@@ -228,7 +228,7 @@ impl QuditCircuitTensorNetworkBuilder {
                 panic!("Qudit id {qudit_id} is out of bounds from tensor's input map");
             }
             assert_eq!(
-                self.radices[*qudit_id] as IndexSize,
+                self.radices[*qudit_id],
                 input_tensor_index_sizes[i],
                 "Tensor index size doesn't match mapped qudit radix.",
             );
@@ -305,7 +305,7 @@ impl QuditCircuitTensorNetworkBuilder {
                         id
                     });
                     
-                    self.contracted_indices[contraction_id].total_dimension *= self.radices[*qudit_id] as IndexSize;
+                    self.contracted_indices[contraction_id].total_dimension *= usize::from(self.radices[*qudit_id]);
                     self.local_to_network_index_map[existing_tensor_id][existing_local_index_id] = NetworkBuilderIndex::Contraction(contraction_id);
                     tensor_local_to_network_map[local_index_id] = Some(NetworkBuilderIndex::Contraction(contraction_id));
                 }
@@ -415,7 +415,7 @@ impl QuditCircuitTensorNetworkBuilder {
                         self.contracted_indices.push(ContractionIndex {
                             left_id: *tid_f,
                             right_id: *tid_r,
-                            total_dimension: self.radices[front_qudit] as IndexSize,
+                            total_dimension: self.radices[front_qudit].into(),
                         });
                         cid
                     })
@@ -499,7 +499,7 @@ impl QuditCircuitTensorNetworkBuilder {
                     TensorIndex::new(
                         IndexDirection::Output,
                         index_id,
-                        self.radices[qudit_id] as IndexSize,
+                        self.radices[qudit_id].into(),
                     )
                 ));
                 builder_to_network_map.insert(
@@ -516,7 +516,7 @@ impl QuditCircuitTensorNetworkBuilder {
                     TensorIndex::new(
                         IndexDirection::Input,
                         index_id,
-                        self.radices[qudit_id] as IndexSize,
+                        self.radices[qudit_id].into(),
                     )
                 ));
                 builder_to_network_map.insert(

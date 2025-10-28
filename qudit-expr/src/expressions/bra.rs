@@ -8,13 +8,13 @@ use crate::GenerationShape;
 use crate::TensorExpression;
 
 use super::NamedExpression;
-use qudit_core::QuditRadices;
+use qudit_core::Radices;
 use qudit_core::QuditSystem;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct BraExpression {
     inner: NamedExpression,
-    radices: QuditRadices,
+    radices: Radices,
 }
 
 impl BraExpression {
@@ -61,7 +61,7 @@ impl From<BraExpression> for TensorExpression {
         // TODO: add a proper implementation of into_iter for QuditRadices
         let indices = radices.into_iter()
             .enumerate()
-            .map(|(i, r)| TensorIndex::new(IndexDirection::Input, i, *r as usize))
+            .map(|(i, r)| TensorIndex::new(IndexDirection::Input, i, usize::from(*r)))
             .collect();
         TensorExpression::from_raw(indices, inner)
     }
@@ -75,7 +75,7 @@ impl TryFrom<TensorExpression> for BraExpression {
         if value.indices().iter().any(|idx| idx.direction() != IndexDirection::Input) {
             return Err(String::from("Cannot convert a tensor with non-input indices to a bra."));
         }
-        let radices = QuditRadices::from_iter(value.indices().iter().map(|idx| idx.index_size()));
+        let radices = Radices::from_iter(value.indices().iter().map(|idx| idx.index_size()));
         Ok(BraExpression {
             inner: value.into(),
             radices,
@@ -84,7 +84,7 @@ impl TryFrom<TensorExpression> for BraExpression {
 }
 
 impl QuditSystem for BraExpression {
-    fn radices(&self) -> qudit_core::QuditRadices {
+    fn radices(&self) -> Radices {
         self.radices.clone()
     } 
 
@@ -97,6 +97,7 @@ impl QuditSystem for BraExpression {
 mod python {
     use super::*;
     use pyo3::prelude::*;
+    use qudit_core::Radix;
     use crate::python::PyExpressionRegistrar;
     use qudit_core::c64;
     use pyo3::types::PyTuple;
@@ -128,7 +129,7 @@ mod python {
             self.expr.name().to_string()
         }
 
-        fn radices(&self) -> Vec<u8> {
+        fn radices(&self) -> Vec<Radix> {
             self.expr.radices().to_vec()
         }
 

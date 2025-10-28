@@ -3,14 +3,14 @@ use std::ops::{Deref, DerefMut};
 use crate::{expressions::JittableExpression, index::{IndexDirection, TensorIndex}, GenerationShape, TensorExpression};
 
 use super::NamedExpression;
-use qudit_core::QuditRadices;
+use qudit_core::Radices;
 use qudit_core::QuditSystem;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct KrausOperatorsExpression {
     inner: NamedExpression,
-    input_radices: QuditRadices,
-    output_radices: QuditRadices,
+    input_radices: Radices,
+    output_radices: Radices,
     num_operators: usize,
 }
 
@@ -70,8 +70,8 @@ impl From<KrausOperatorsExpression> for TensorExpression {
         // TODO: add a proper implementation of into_iter for QuditRadices
         let indices = [num_operators].into_iter()
             .map(|r| (IndexDirection::Batch, r))
-            .chain(output_radices.into_iter().map(|r| (IndexDirection::Output, *r as usize)))
-            .chain(input_radices.into_iter().map(|r| (IndexDirection::Input, *r as usize)))
+            .chain(output_radices.into_iter().map(|r| (IndexDirection::Output, usize::from(*r))))
+            .chain(input_radices.into_iter().map(|r| (IndexDirection::Input, usize::from(*r))))
             .enumerate()
             .map(|(i, (d, r))| TensorIndex::new(d, i, r))
             .collect();
@@ -114,6 +114,7 @@ impl TryFrom<TensorExpression> for KrausOperatorsExpression {
 mod python {
     use super::*;
     use pyo3::prelude::*;
+    use qudit_core::Radix;
     use crate::python::PyExpressionRegistrar;
     use qudit_core::c64;
     use pyo3::types::PyTuple;
@@ -145,7 +146,7 @@ mod python {
             self.expr.name().to_string()
         }
 
-        fn radices(&self) -> Vec<u8> {
+        fn radices(&self) -> Vec<Radix> {
             self.expr.input_radices.to_vec()
         }
 

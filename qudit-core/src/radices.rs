@@ -1,74 +1,43 @@
+// TODO: Change name to Radices
+// TODO: remove all mentions of the old macro radices!
+// TODO: Order mods: implementations; python; strategies; test
+// TODO: Remove ToRadices
+// TODO: Implement Result and Error at the library level, and start returning results
 use std::collections::HashMap;
 
-use crate::radix::{FromRadix, ToRadix};
-use crate::QuditSystem;
+use crate::radix::Radix;
+use crate::{CompactVec, QuditSystem};
 
-/// The size of the statically allocated inline array of radices.
-///
-/// Radices objects with fewer than this number of qudits can avoid heap
-/// allocation by storing the radices in a statically allocated array.
-/// This can be useful for performance in some cases. This size is
-/// determined such that there is no wasted space:
-///
-/// ```rust
-/// use std::mem::size_of;
-/// use qudit_core::QuditRadices;
-///
-/// assert!(size_of::<QuditRadices>() == size_of::<Vec<u8>>());
-/// ```
-///
-/// This is only possible because of rust's enum discriminant optimizations.
-/// In this case, the discriminant is stored in the pointer field of the
-/// vector. Since the null pointer is invalid for a Vec, a null pointer
-/// implies that the enum is a QuditRadices::Array, leaving 16 bytes for
-/// data. This number is one less than that to make room for the length.
-#[cfg(target_pointer_width = "64")]
-const RADICES_INLINE_SIZE: usize = 15;
-
-#[cfg(target_pointer_width = "32")]
-const RADICES_INLINE_SIZE: usize = 7;
-
-/// The number of basis states for each qudit in a qudit system.
+/// The number of basis states for each qudit (or dit) in a quantum system.
 ///
 /// This object represents the radix -- sometimes called the base, level
-/// or ditness -- of each qudit in a qudit system, and is implemented as a
-/// sequence of unsigned, byte-sized integers. A qubit is a two-level
-/// qudit or a qudit with radix two, while a qutrit is a three-level qudit.
-/// Two qutrits together are represented by the [3, 3] radices object.
+/// or ditness -- of each qudit in a qudit system or dit in a classical system,
+/// and is implemented as a sequence of unsigned, byte-sized integers.
+/// A qubit is a two-level qudit or a qudit with radix two, while a
+/// qutrit is a three-level qudit. Two qutrits together are represented
+/// by the [3, 3] radices object.
 ///
-/// No radix can be less than 2, as this would not be a valid qudit system.
-/// While we support upto 8-bytes for the number of qudits (4-bytes on a
-/// 32 bit machine), this implementation does not support individual
-/// radices greater than 255, as this would require a larger data type.
+/// No radix can be less than 2, as this would not be a valid.
+/// As each radix is represented by a byte, this implementation does not
+/// support individual radices greater than 255.
 ///
 /// ## Ordering and Endianness
 ///
-/// Qudit indices are counted left to right, for example a [2, 3]
+/// Indices are counted left to right, for example a [2, 3] qudit
 /// radices is interpreted as a qubit as the first qudit and a qutrit as
-/// the second one. Openqudit uses big-endian ordering, so the qubit in
+/// the second one. OpenQudit uses big-endian ordering, so the qubit in
 /// the previous example is the most significant qudit and the qutrit is
 /// the least significant qudit. For example, in the same system, a state
 /// |10> would be represented by the decimal number 3.
 #[derive(Hash, PartialEq, Eq, Clone)]
-pub enum QuditRadices {
-    /// Small systems are stored on the stack in a fixed-size array.
-    /// This can avoid heap allocation for small systems and the size of
-    /// the array is determined such that there is no wasted space, see
-    /// the [RADICES_INLINE_SIZE] constant for more information.
-    /// The array is always fully initialized, and the number of qudits
-    /// is stored in the first byte.
-    Array(u8, [u8; RADICES_INLINE_SIZE]),
+pub struct Radices(CompactVec<Radix>);
 
-    /// Large systems are stored on the heap in a standard Vec.
-    Heap(Vec<u8>),
-}
-
-impl QuditRadices {
-    /// Constructs a radices object from the given vector.
+impl Radices {
+    /// Constructs a Radices object from the given input.
     ///
     /// # Arguments
     ///
-    /// * `radices` - A vector detailing the radices of a qudit system.
+    /// * `radices` - A slice detailing the radices of a qudit system.
     ///
     /// # Panics
     ///
@@ -82,83 +51,8 @@ impl QuditRadices {
     /// let three_qubits = QuditRadices::new(&vec![2; 3]);
     /// let qubit_qutrit = QuditRadices::new(&vec![2, 3]);
     /// ```
-    ///
-    /// # Note
-    ///
-    /// This function is usually not necessary, at least directly. Instead, use
-    /// the shorthand [`radices!`] macro to create a QuditRadices object.
-    pub fn new<T: ToRadix>(radices: &[T]) -> QuditRadices {
-        if radices.len() < RADICES_INLINE_SIZE {
-            let mut array = [0; RADICES_INLINE_SIZE];
-            for (i, r) in radices.iter().enumerate() {
-                if r.is_less_than_two() {
-                    panic!(
-                        "Qudit radix in position {} is invalid since it is < 2: {}",
-                        i, *r
-                    );
-                }
-                array[i] = r.to_radix();
-            }
-            QuditRadices::Array(radices.len() as u8, array)
-        } else {
-            let mut heap = Vec::with_capacity(radices.len());
-            for (i, r) in radices.iter().enumerate() {
-                if r.is_less_than_two() {
-                    panic!(
-                        "Qudit radix in position {} is invalid since it is < 2: {}",
-                        i, *r
-                    );
-                }
-                heap.push(r.to_radix());
-            }
-            QuditRadices::Heap(heap)
-        }
-    }
-
-    pub fn guess(dimension: usize) -> QuditRadices {
-        // A dimension of 1 corresponds to an empty system (product of no radices is 1).
-        // The power-of-two check correctly handles this case by returning `QuditRadices::new(&vec![2; 0])`.
-        // The `new` function panics if any individual radix is 0 or 1.
-        // We assume `dimension` is a valid total dimension, meaning `dimension >= 1`.
-
-        // if dimension is power of two: QuditRadices::new([2; that power])
-        // `dimension > 0` is important as `0 & (0-1)` is 0, and `0.trailing_zeros()` is `usize::BITS`.
-        if dimension > 0 && (dimension & (dimension - 1)) == 0 {
-            let num_qudits = dimension.trailing_zeros() as usize;
-            return QuditRadices::new(&vec![2; num_qudits]);
-        }
-
-        // if dimension is power of three: QuditRadices::new([3; that power])
-        if let Some(num_qudits) = Self::is_power_of_three(dimension) {
-            return QuditRadices::new(&vec![3; num_qudits]);
-        }
-
-        // otherwise: QuditRadices::new([dimension])
-        // This will panic if `dimension` is 0 or 1, but these cases are handled above or
-        // are generally considered invalid for a single qudit radix.
-        QuditRadices::new(&[dimension])
-    }
-
-    /// Helper function to check if a number is a power of three and return the exponent.
-    /// Returns `Some(exponent)` if `n` is `3^exponent`, otherwise `None`.
-    /// `is_power_of_three(1)` returns `Some(0)` (3^0 = 1).
-    /// `is_power_of_three(0)` returns `None`.
-    fn is_power_of_three(mut n: usize) -> Option<usize> {
-        if n == 0 {
-            return None;
-        }
-        if n == 1 {
-            return Some(0); // 3^0 = 1
-        }
-        let mut power = 0;
-        while n > 1 {
-            if n % 3 != 0 {
-                return None; // Not divisible by 3
-            }
-            n /= 3;
-            power += 1;
-        }
-        Some(power)
+    pub fn new<T: Into<Radices>>(radices: T) -> Self {
+        radices.into()
     }
 
     /// Constructs a radices object without checking invariants.
@@ -171,21 +65,38 @@ impl QuditRadices {
     // TODO: Maybe make unchecked u8 only... because have to specify type or default to i32
     // or maybe make i32 conversion print debug message/warning
     // make sure macro uses u8; put in temp with size u8
-    pub unsafe fn new_unchecked<T: ToRadix>(radices: &[T]) -> QuditRadices {
-        if radices.len() < RADICES_INLINE_SIZE {
-            let mut array = [0; RADICES_INLINE_SIZE];
-            for (i, r) in radices.iter().enumerate() {
-                array[i] = r.to_radix();
-            }
-            QuditRadices::Array(radices.len() as u8, array)
-        } else {
-            let mut heap = Vec::with_capacity(radices.len());
-            for r in radices {
-                heap.push(r.to_radix());
-            }
-            QuditRadices::Heap(heap)
-        }
+    pub unsafe fn new_unchecked<T: Into<Radix>>(radices: &[T]) -> Self {
+        todo!()
     }
+
+    /// Attempts to determine the radices for a qudit system with given dimension.
+    ///
+    /// It first tries powers of two, failing that powers of three. If neither
+    /// then it will return a QuditRadices with only one qudit of dimension
+    /// equal to the input.
+    pub fn guess(dimension: usize) -> Radices {
+        if dimension < 2 {
+            panic!("Invalid dimension in QuditRadices");
+        }
+
+        // Is a power of two?
+        if dimension & (dimension - 1) == 0 {
+            let num_qudits = dimension.trailing_zeros() as usize;
+            return vec![2; num_qudits].into();
+        }
+
+        let mut n = dimension;
+        let mut power = 0;
+        while n > 1 {
+            if n % 3 != 0 {
+                return [dimension].into();
+            }
+            n /= 3;
+            power += 1;
+        }
+        return vec![3; power].into();
+    }
+
 
     /// Construct the expanded form of an index in this numbering system.
     ///
@@ -227,7 +138,8 @@ impl QuditRadices {
     ///
     /// * [`compress`] - The inverse of this function.
     /// * [`place_values`] - The place values for each position in the expansion.
-    pub fn expand(&self, mut index: usize) -> Vec<u8> {
+    #[track_caller]
+    pub fn expand(&self, mut index: usize) -> Vec<usize> {
         if index >= self.dimension() {
             panic!(
                 "Provided index {} is too large for this system with radices: {:#?}",
@@ -235,14 +147,14 @@ impl QuditRadices {
             );
         }
 
-        let mut expansion = vec![0u8; self.num_qudits()];
+        let mut expansion = vec![0; self.num_qudits()];
 
         for (idx, radix) in self.iter().enumerate().rev() {
-            let casted_radix = *radix as usize;
-            let coef = index % casted_radix;
+            let casted_radix: usize = (*radix).into();
+            let coef: usize = index % casted_radix;
             index = index - coef;
             index = index / casted_radix;
-            expansion[idx] = coef as u8;
+            expansion[idx] = coef;
         }
 
         expansion
@@ -281,17 +193,16 @@ impl QuditRadices {
     ///
     /// * [`expand`] - The inverse of this function.
     /// * [`place_values`] - The place values for each position in the expansion.
-    // TODO: use track_caller in user-facing code (any pub fn)
-    pub fn compress<T: ToRadix>(&self, expansion: &[T]) -> usize {
+    #[track_caller]
+    pub fn compress(&self, expansion: &[usize]) -> usize {
         if self.len() != expansion.len() {
             panic!("Invalid expansion: incorrect number of qudits.")
         }
-        assert_eq!(self.len(), expansion.len(), "msg here"); // TODO: Use Sarah's crate: equator
 
         if expansion
             .iter()
             .enumerate()
-            .any(|(index, coef)| coef.to_radix() >= self[index])
+            .any(|(index, coef)| *coef >= usize::from(self[index]))
         {
             panic!("Invalid expansion: mismatch in qudit radices.")
         }
@@ -300,20 +211,19 @@ impl QuditRadices {
             return 0;
         }
 
-        let mut acm_val = expansion[self.num_qudits() - 1].to_radix() as usize;
-        let mut acm_base = self[self.num_qudits() - 1] as usize;
+        let mut acm_val = expansion[self.num_qudits() - 1];
+        let mut acm_base = usize::from(self[self.num_qudits() - 1]);
 
         for coef_index in (0..expansion.len() - 1).rev() {
             let coef = expansion[coef_index];
-            acm_val += (coef.to_radix() as usize) * acm_base;
-            acm_base *= self[coef_index] as usize;
+            acm_val += coef * acm_base;
+            acm_base *= usize::from(self[coef_index]);
         }
 
         acm_val
     }
 
     /// Calculate the value for each expansion position in this numbering system.
-    ///
     ///
     /// # Examples
     ///
@@ -339,7 +249,7 @@ impl QuditRadices {
         let mut acm = 1;
         for (idx, r) in self.iter().enumerate().rev() {
             place_values[idx] = acm;
-            acm *= *r as usize;
+            acm *= usize::from(*r);
         }
         place_values
     }
@@ -367,8 +277,8 @@ impl QuditRadices {
     /// assert_eq!(hybrid_system.concat(&two_qutrits), five_qudits);
     /// ```
     #[inline(always)]
-    pub fn concat(&self, other: &QuditRadices) -> QuditRadices {
-        self.iter().chain(other.iter()).collect()
+    pub fn concat(&self, other: &Radices) -> Radices {
+        self.iter().chain(other.iter()).copied().collect()
     }
 
     /// Returns the number of each radix in the system.
@@ -394,7 +304,7 @@ impl QuditRadices {
     /// expected_counts.insert(3, 2);
     /// assert_eq!(counts, expected_counts);
     /// ```
-    pub fn counts(&self) -> HashMap<u8, usize> {
+    pub fn counts(&self) -> HashMap<Radix, usize> {
         let mut counts = HashMap::new();
         for radix in self.iter() {
             *counts.entry(*radix).or_insert(0) += 1;
@@ -414,12 +324,12 @@ impl QuditRadices {
     }
 }
 
-impl crate::QuditSystem for QuditRadices {
+impl crate::QuditSystem for Radices {
     /// Returns the radices of the system.
     ///
     /// See [`QuditSystem`] for more information.
     #[inline(always)]
-    fn radices(&self) -> QuditRadices {
+    fn radices(&self) -> Radices {
         self.clone()
     }
 
@@ -443,7 +353,7 @@ impl crate::QuditSystem for QuditRadices {
     /// ```
     #[inline(always)]
     fn dimension(&self) -> usize {
-        self.iter().map(|&x| x as usize).product::<usize>()
+        self.iter().product::<usize>()
     }
 
     /// Returns the number of qudits represented by these radices.
@@ -469,10 +379,7 @@ impl crate::QuditSystem for QuditRadices {
     /// ```
     #[inline(always)]
     fn num_qudits(&self) -> usize {
-        match &self {
-            QuditRadices::Array(len, _) => *len as usize,
-            QuditRadices::Heap(vec) => vec.len(),
-        }
+        self.0.len()
     }
 
     /// Returns true if these radices describe a qubit-only system.
@@ -543,8 +450,9 @@ impl crate::QuditSystem for QuditRadices {
     /// assert!(!mixed_qudits.is_qudit_only(3));
     /// ```
     #[inline(always)]
-    fn is_qudit_only<T: ToRadix>(&self, radix: T) -> bool {
-        self.iter().all(|r| *r == radix.to_radix())
+    fn is_qudit_only<T: Into<Radix>>(&self, radix: T) -> bool {
+        let radix = radix.into();
+        self.iter().all(|r| *r == radix)
     }
 
     /// Returns true if these radices describe a homogenous system.
@@ -568,7 +476,7 @@ impl crate::QuditSystem for QuditRadices {
     }
 }
 
-impl<T: ToRadix> core::iter::FromIterator<T> for QuditRadices {
+impl<T: Into<Radix>> core::iter::FromIterator<T> for Radices {
     /// Creates a new QuditRadices object from an iterator.
     ///
     /// # Arguments
@@ -595,133 +503,68 @@ impl<T: ToRadix> core::iter::FromIterator<T> for QuditRadices {
     /// // Ten qubits then ten qutrits
     /// let mixed_system = QuditRadices::from_iter(vec![2; 10].iter()
     ///                         .chain(vec![3; 10].iter()));
+    ///
+    /// // TODO: Example with .collect
     /// ```
     ///
     /// # Note
     ///
     /// This will attempt to avoid an allocation when possible.
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let iter = iter.into_iter();
-        let size_hint = iter.size_hint().0;
-
-        if size_hint > RADICES_INLINE_SIZE {
-            let mut vec = Vec::with_capacity(size_hint);
-            for (i, r) in iter.enumerate() {
-                if r.is_less_than_two() {
-                    panic!(
-                        "Qudit radix in position {} is invalid since it is < 2: {}",
-                        i, r
-                    );
-                }
-                vec.push(r.to_radix());
-            }
-
-            // The size hint may not be correct; however, in this case,
-            // returning a heap-allocated vector is still valid, but may
-            // not be the most efficient. Since we have already allocated
-            // the vector, we might as well use it.
-            return QuditRadices::Heap(vec);
-        }
-
-        // Attempt to drain the iterator into an inline array without allocation.
-        let mut array = [0u8; RADICES_INLINE_SIZE];
-        let mut len = 0;
-        let mut enum_iter = iter.enumerate();
-        let mut overflow_option = None;
-
-        while let Some((i, r)) = enum_iter.next() {
-            if i == RADICES_INLINE_SIZE {
-                overflow_option = Some(enum_iter);
-                break;
-            }
-
-            if r.is_less_than_two() {
-                panic!(
-                    "Qudit radix in position {} is invalid since it is < 2: {}",
-                    i, r
-                );
-            }
-
-            array[i] = r.to_radix();
-            len += 1;
-        }
-
-        // If we spill over into the heap, we need to allocate a new
-        // vector and copy the data into it.
-        if let Some(overflow_iter) = overflow_option {
-            let mut vec: Vec<u8> = Vec::with_capacity(RADICES_INLINE_SIZE * 2);
-            vec.extend_from_slice(&array);
-            for (i, r) in overflow_iter {
-                if r.is_less_than_two() {
-                    panic!(
-                        "Qudit radix in position {} is invalid since it is < 2: {}",
-                        i, r
-                    );
-                }
-                vec.push(r.to_radix());
-            }
-            return QuditRadices::Heap(vec);
-        }
-
-        QuditRadices::Array(len, array)
+        let vec: CompactVec<Radix> = iter.into_iter().map(|r| r.into()).collect();
+        Radices(vec)
     }
 }
 
-impl core::ops::Deref for QuditRadices {
-    type Target = [u8];
+impl core::ops::Deref for Radices {
+    type Target = [Radix];
 
     #[inline(always)]
-    fn deref(&self) -> &[u8] {
-        match self {
-            QuditRadices::Array(len, array) => &array[0..*len as usize],
-            QuditRadices::Heap(vec) => &vec,
-        }
+    fn deref(&self) -> &[Radix] {
+        // Safety Radix is a transparent wrapper around u8
+        unsafe { std::mem::transmute(std::mem::transmute::<_, &CompactVec<u8>>(&self.0).deref()) }
     }
 }
 
-impl core::ops::Add for QuditRadices {
-    type Output = QuditRadices;
-
+impl<T: Into<Radix>> From<Vec<T>> for Radices {
     #[inline(always)]
-    fn add(self, other: QuditRadices) -> QuditRadices {
-        self.concat(&other)
+    fn from(value: Vec<T>) -> Self {
+        todo!()
     }
 }
 
-impl<'a, 'b> core::ops::Add<&'b QuditRadices> for &'a QuditRadices {
-    type Output = QuditRadices;
-
+impl<T: Into<Radix>> From<&[T]> for Radices {
     #[inline(always)]
-    fn add(self, other: &'b QuditRadices) -> QuditRadices {
-        self.concat(other)
+    fn from(value: &[T]) -> Self { 
+        todo!()
     }
 }
 
-impl<T: ToRadix> From<Vec<T>> for QuditRadices {
+impl<T: Into<Radix>, const N: usize> From<[T; N]> for Radices {
     #[inline(always)]
-    fn from(radices: Vec<T>) -> QuditRadices {
-        QuditRadices::new(&radices)
+    fn from(value: [T; N]) -> Self { 
+        todo!()
     }
 }
 
-impl<T: ToRadix> From<&[T]> for QuditRadices {
+impl<'a, T: Into<Radix>, const N: usize> From<&'a [T; N]> for Radices {
     #[inline(always)]
-    fn from(radices: &[T]) -> QuditRadices {
-        QuditRadices::new(radices)
+    fn from(value: &'a [T; N]) -> Self { 
+        todo!()
     }
 }
 
-impl core::fmt::Debug for QuditRadices {
+impl core::fmt::Debug for Radices {
     /// Formats the radices as a string.
     ///
     /// See Display for more information.
     #[inline(always)]
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> std::fmt::Result {
-        <QuditRadices as core::fmt::Display>::fmt(self, f)
+        <Radices as core::fmt::Display>::fmt(self, f)
     }
 }
 
-impl core::fmt::Display for QuditRadices {
+impl core::fmt::Display for Radices {
     /// Formats the radices as a string.
     ///
     /// # Examples
@@ -750,80 +593,6 @@ impl core::fmt::Display for QuditRadices {
 
         write!(f, "]")?;
         Ok(())
-    }
-}
-
-/// A macro to create a QuditRadices object from a list of radices.
-///
-/// # Examples
-///
-/// ```
-/// use qudit_core::radices;
-/// use qudit_core::QuditRadices;
-/// use qudit_core::QuditSystem;
-///
-/// // Similar to the vec! macro, we can use a comma separated list:
-/// let two_qubits = radices![2, 2];
-/// assert_eq!(two_qubits.dimension(), 4);
-/// assert_eq!(two_qubits, QuditRadices::new(&vec![2, 2]));
-///
-/// let two_qutrits = radices![3, 3];
-/// assert_eq!(two_qutrits.dimension(), 9);
-/// assert_eq!(two_qutrits, QuditRadices::new(&vec![3, 3]));
-///
-/// let hybrid_system = radices![3, 2, 3];
-/// assert_eq!(hybrid_system.dimension(), 18);
-/// assert_eq!(hybrid_system, QuditRadices::new(&vec![3, 2, 3]));
-///
-/// // We can also use a single radix and a count to create a radices object:
-/// let ten_qubits = radices![2; 10]; // 2 qubits repeated 10 times
-/// assert_eq!(ten_qubits.dimension(), 1024);
-/// assert_eq!(ten_qubits, QuditRadices::new(&vec![2; 10]));
-/// ```
-#[macro_export]
-macro_rules! radices {
-    ($($e:expr),*) => {
-        QuditRadices::new(&vec![$($e),*])
-    };
-    ($elem:expr; $n:expr) => {
-        QuditRadices::new(&vec![$elem; $n])
-    };
-}
-
-/// An iterable that can be converted into a QuditRadices object.
-pub trait ToRadices {
-    /// Convert the iterable into a QuditRadices object.
-    fn to_radices(self) -> QuditRadices;
-}
-
-impl ToRadices for QuditRadices {
-    #[inline(always)]
-    fn to_radices(self) -> QuditRadices {
-        self
-    }
-}
-
-impl<'a> ToRadices for &'a QuditRadices {
-    #[inline(always)]
-    fn to_radices(self) -> QuditRadices {
-        self.clone()
-    }
-}
-
-impl<T: ToRadix, I: IntoIterator<Item = T>> ToRadices for I {
-    #[inline(always)]
-    fn to_radices(self) -> QuditRadices {
-        QuditRadices::from_iter(self)
-    }
-}
-
-impl<T: FromRadix> From<QuditRadices> for Vec<T> {
-    #[inline(always)]
-    fn from(value: QuditRadices) -> Self {
-        match value {
-            QuditRadices::Array(len, array) => array[0..len as usize].into_iter().map(|r| T::from_radix(*r)).collect(),
-            QuditRadices::Heap(vec) => vec.into_iter().map(|r| T::from_radix(r)).collect(),
-        }
     }
 }
 
@@ -893,14 +662,14 @@ mod python {
     use super::*;
     use pyo3::{exceptions::PyTypeError, prelude::*};
 
-    impl<'py> FromPyObject<'py> for QuditRadices {
+    impl<'py> FromPyObject<'py> for Radices {
         // const INPUT_TYPE: &'static str = "int | typing.Iterable[int]";
 
         fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
             if let Ok(num) = ob.extract::<usize>() {
-                Ok(QuditRadices::new(&[num]))
+                Ok(Radices::new(&[num]))
             } else if let Ok(nums) = ob.extract::<Vec<usize>>() {
-                Ok(QuditRadices::new(&nums))
+                Ok(Radices::new(nums))
             } else {
                 Err(PyTypeError::new_err("Expected a list of integers for radices."))
             }

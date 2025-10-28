@@ -1,5 +1,6 @@
 use qudit_core::{HasParams, ParamIndices, ParamInfo, RealScalar};
-use crate::{utils::{CompactVec, LimitedSizeVec}, OpCode, Wire, WireList};
+use crate::{OpCode, Wire, WireList};
+use qudit_core::{CompactVec, LimitedSizeVec};
 
 /// Compact storage for parameter indices within instruction memory layout.
 #[derive(Clone, Copy, Debug)]

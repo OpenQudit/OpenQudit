@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use super::{codegen::CodeGenerator, module::Module};
 use num::traits::real::Real;
-use qudit_core::{ComplexScalar, ParamIndices, QuditSystem, RealScalar, TensorShape};
+use qudit_core::{ComplexScalar, ParamIndices, QuditSystem, RealScalar};
 
 use crate::{analysis::{simplify_expressions, simplify_matrix_and_matvec}, Expression, expressions::JittableExpression, TensorExpression, UnitaryExpression, GenerationShape};
 

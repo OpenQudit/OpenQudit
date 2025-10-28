@@ -4,13 +4,13 @@ use crate::{expressions::JittableExpression, index::{IndexDirection, TensorIndex
 
 use super::NamedExpression;
 use super::ComplexExpression;
-use qudit_core::{ComplexScalar, QuditRadices, RealScalar};
+use qudit_core::{ComplexScalar, Radices, RealScalar};
 use qudit_core::QuditSystem;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct KetExpression {
     inner: NamedExpression,
-    radices: QuditRadices,
+    radices: Radices,
 }
 
 impl KetExpression {
@@ -18,7 +18,7 @@ impl KetExpression {
         TensorExpression::new(input).try_into().unwrap()
     }
 
-    pub fn zero<R: Into<QuditRadices>>(radices: R) -> Self {
+    pub fn zero<R: Into<Radices>>(radices: R) -> Self {
         let name = "zero";
         let radices = radices.into();
         let mut body = vec![ComplexExpression::zero(); radices.dimension()];
@@ -65,7 +65,7 @@ impl DerefMut for KetExpression {
 }
 
 impl QuditSystem for KetExpression {
-    fn radices(&self) -> qudit_core::QuditRadices {
+    fn radices(&self) -> Radices {
         self.radices.clone()
     }
 
@@ -80,7 +80,7 @@ impl From<KetExpression> for TensorExpression {
         // TODO: add a proper implementation of into_iter for QuditRadices
         let indices = radices.into_iter()
             .enumerate()
-            .map(|(i, r)| TensorIndex::new(IndexDirection::Output, i, *r as usize))
+            .map(|(i, r)| TensorIndex::new(IndexDirection::Output, i, usize::from(*r)))
             .collect();
         TensorExpression::from_raw(indices, inner)
     }
@@ -94,7 +94,7 @@ impl TryFrom<TensorExpression> for KetExpression {
         if value.indices().iter().any(|idx| idx.direction() != IndexDirection::Output) {
             return Err(String::from("Cannot convert a tensor with non-output indices to a ket."));
         }
-        let radices = QuditRadices::from_iter(value.indices().iter().map(|idx| idx.index_size()));
+        let radices = Radices::from_iter(value.indices().iter().map(|idx| idx.index_size()));
         Ok(KetExpression {
             inner: value.into(),
             radices,
@@ -106,6 +106,7 @@ impl TryFrom<TensorExpression> for KetExpression {
 mod python {
     use super::*;
     use pyo3::prelude::*;
+    use qudit_core::Radix;
     use crate::python::PyExpressionRegistrar;
     use qudit_core::c64;
     use pyo3::types::PyTuple;
@@ -137,7 +138,7 @@ mod python {
             self.expr.name().to_string()
         }
 
-        fn radices(&self) -> Vec<u8> {
+        fn radices(&self) -> Vec<Radix> {
             self.expr.radices().to_vec()
         }
 

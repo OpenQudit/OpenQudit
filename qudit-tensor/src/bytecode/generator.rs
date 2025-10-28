@@ -10,7 +10,6 @@ use qudit_expr::index::TensorIndex;
 use crate::tree::{TTGTTree, TTGTNode, LeafNode, TraceNode, TransposeNode};
 use qudit_expr::{ExpressionCache, GenerationShape, TensorExpression, UnitaryExpression};
 use qudit_core::QuditSystem;
-use qudit_core::TensorShape;
 
 #[derive(Default)]
 pub struct BytecodeGenerator {

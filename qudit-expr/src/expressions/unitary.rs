@@ -4,9 +4,8 @@ use std::ops::{Deref, DerefMut};
 use faer::Mat;
 use qudit_core::UnitaryMatrix;
 use qudit_core::ComplexScalar;
-use qudit_core::QuditRadices;
+use qudit_core::Radices;
 use qudit_core::QuditSystem;
-use qudit_core::ToRadices;
 
 use crate::{ComplexExpression, UnitarySystemExpression};
 use crate::{expressions::JittableExpression, index::{IndexDirection, TensorIndex}, GenerationShape, TensorExpression};
@@ -17,7 +16,7 @@ use super::NamedExpression;
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct UnitaryExpression {
     inner: NamedExpression,
-    radices: QuditRadices,
+    radices: Radices,
 }
 
 // pub trait ExpressionContainer {
@@ -48,8 +47,8 @@ impl UnitaryExpression {
     }
 
     // TODO: Change ToRadices by implementing appropriate Froms
-    pub fn identity<S: Into<String>, T: ToRadices>(name: S, radices: T) -> Self {
-        let radices = radices.to_radices();
+    pub fn identity<S: Into<String>, T: Into<Radices>>(name: S, radices: T) -> Self {
+        let radices = radices.into();
         let dim = radices.dimension();
         let mut body = Vec::with_capacity(dim*dim);
         for i in 0..dim {
@@ -69,7 +68,7 @@ impl UnitaryExpression {
         }
     }
 
-    pub fn set_radices(&mut self, new_radices: QuditRadices) {
+    pub fn set_radices(&mut self, new_radices: Radices) {
         assert_eq!(self.radices.dimension(), new_radices.dimension());
         self.radices = new_radices;
     }
@@ -113,8 +112,8 @@ impl UnitaryExpression {
         }
 
         let new_indices = new_dim_radices.iter().map(|r| (IndexDirection::Batch, *r as usize))
-            .chain(expressions[0].radices().iter().map(|r| (IndexDirection::Output, *r as usize)))
-            .chain(expressions[0].radices().iter().map(|r| (IndexDirection::Input, *r as usize)))
+            .chain(expressions[0].radices().iter().map(|r| (IndexDirection::Output, usize::from(*r))))
+            .chain(expressions[0].radices().iter().map(|r| (IndexDirection::Input, usize::from(*r))))
             .enumerate()
             .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
             .collect();
@@ -166,8 +165,8 @@ impl UnitaryExpression {
         }
 
         let new_indices = new_dim_radices.iter().map(|r| (IndexDirection::Batch, *r as usize))
-            .chain(self.radices.iter().map(|r| (IndexDirection::Output, *r as usize)))
-            .chain(self.radices.iter().map(|r| (IndexDirection::Input, *r as usize)))
+            .chain(self.radices.iter().map(|r| (IndexDirection::Output, usize::from(*r))))
+            .chain(self.radices.iter().map(|r| (IndexDirection::Input, usize::from(*r))))
             .enumerate()
             .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
             .collect();
@@ -352,8 +351,8 @@ impl From<UnitaryExpression> for TensorExpression {
     fn from(value: UnitaryExpression) -> Self {
         let UnitaryExpression { inner, radices } = value;
         let indices = radices.iter()
-            .map(|r| (IndexDirection::Output, *r as usize))
-            .chain(radices.into_iter().map(|r| (IndexDirection::Input, *r as usize)))
+            .map(|r| (IndexDirection::Output, usize::from(*r)))
+            .chain(radices.into_iter().map(|r| (IndexDirection::Input, usize::from(*r))))
             .enumerate()
             .map(|(i, (d, r))| TensorIndex::new(d, i, r))
             .collect();
@@ -411,7 +410,7 @@ impl<C: ComplexScalar> From<UnitaryMatrix<C>> for UnitaryExpression {
 }
 
 impl QuditSystem for UnitaryExpression {
-    fn radices(&self) -> qudit_core::QuditRadices {
+    fn radices(&self) -> Radices {
         self.radices.clone()
     }
 }
@@ -421,6 +420,7 @@ impl QuditSystem for UnitaryExpression {
 mod python {
     use super::*;
     use pyo3::prelude::*;
+    use qudit_core::Radix;
     use crate::python::PyExpressionRegistrar;
     use qudit_core::c64;
     use pyo3::types::PyTuple;
@@ -480,7 +480,7 @@ mod python {
             self.expr.name().to_string()
         }
 
-        fn radices(&self) -> Vec<u8> {
+        fn radices(&self) -> Vec<Radix> {
             self.expr.radices().to_vec()
         }
 
