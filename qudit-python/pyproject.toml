@@ -13,8 +13,8 @@ classifiers = [
 ]
 
 [tool.cibuildwheel]
-build = "cp39-* cp310-* cp311-* cp312-*"
-container-engine = "podman"
+build = "cp39-*"
+# container-engine = "podman"
 skip = "*musllinux*"
 
 [tool.cibuildwheel.linux]
@@ -22,10 +22,14 @@ manylinux-x86_64-image = "manylinux_2_28"
 before-all = "dnf install -y llvm-devel-18.1.8-3.module_el8.10.0+3903+ca21d481 libffi-devel ncurses-devel"
 
 [tool.cibuildwheel.macos]
-before-all = "echo ${MACOSX_DEPLOYMENT_TARGET} && brew install llvm@18"
+before-all = """
+    brew install llvm@18
+    export PATH="$(brew --prefix llvm@18)/bin:$PATH"
+"""
+
 
 [tool.cibuildwheel.macos.environment]
-MACOSX_DEPLOYMENT_TARGET = "11"
+MACOSX_DEPLOYMENT_TARGET = "11.0"
 
 [tool.cibuildwheel.windows]
 archs = ["auto64"]
