@@ -27,10 +27,13 @@ before-all = """
     export PATH="$(brew --prefix llvm@18)/bin:$PATH"
 """
 
-
 [tool.cibuildwheel.macos.environment]
 MACOSX_DEPLOYMENT_TARGET = "11.0"
 
 [tool.cibuildwheel.windows]
 archs = ["auto64"]
 before-all = "choco install llvm --version=18.1.8 --allow-downgrade"
+
+[tool.cibuildwheel.windows.environment]
+LLVM_SYS_181_PREFIX = "C:\\Program Files\\LLVM"
+PATH = "C:\\Program Files\\LLVM\\bin;{env:PATH}"
