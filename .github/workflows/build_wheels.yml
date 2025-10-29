@@ -51,11 +51,15 @@ jobs:
         id: vcpkg
         with:
           pkgs: libxml2 
-          triplet: x64-windows-release
+          triplet: x64-windows-static
           token: ${{ github.token }}
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.1
+        env:
+          CIBW_ENVIRONMENT_WINDOWS: >-
+              LIB=${{ steps.vcpkg.outputs.vcpkg-root }}\installed\x64-windows-static\lib
+              RUSTFLAGS=-L native=${{ steps.vcpkg.outputs.vcpkg-root }}\installed\x64-windows-static\lib
         with:
           package-dir: qudit-python
 
