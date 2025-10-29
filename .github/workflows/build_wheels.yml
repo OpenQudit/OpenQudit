@@ -27,7 +27,6 @@ jobs:
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
-          # --- 1. Set up LLVM Environment ---
           $LLVM_VERSION = "18.1.8"
           $LLVM_INSTALL_DIR = Join-Path $env:GITHUB_WORKSPACE "llvm-install"
           $LLVM_URL = "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-pc-windows-msvc.tar.xz"
@@ -42,19 +41,9 @@ jobs:
 
           Write-Output "Finding extracted directory..."
           $LLVM_SUBDIR = (Get-ChildItem -Path $LLVM_INSTALL_DIR -Directory | Select-Object -First 1).FullName
-
-          Write-Output "Setting LLVM_DIR to $LLVM_SUBDIR"
-          $env:LLVM_DIR = $LLVM_SUBDIR
-
-          Write-Output "Setting LLVM_SYS_181_PREFIX to $LLVM_SUBDIR"
-          $env:LLVM_SYS_181_PREFIX = $LLVM_SUBDIR
-
-          $LLVM_BIN_DIR = Join-Path $LLVM_SUBDIR "bin"
-          Write-Output "Adding $LLVM_BIN_DIR to PATH"
-          $env:PATH = "$LLVM_BIN_DIR;$env:PATH"
-
-          Write-Output "Verifying clang version..."
-          & clang --version
+          
+          Write-Output "Exporting LLVM_SYS_181_PREFIX=$LLVM_SUBDIR"
+          echo "LLVM_SYS_181_PREFIX=$LLVM_SUBDIR" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.1
