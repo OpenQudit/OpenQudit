@@ -45,6 +45,14 @@ jobs:
           Write-Output "Exporting LLVM_SYS_181_PREFIX=$LLVM_SUBDIR"
           echo "LLVM_SYS_181_PREFIX=$LLVM_SUBDIR" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
+      - name: vcpkg build
+        uses: johnwason/vcpkg-action@v7
+        id: vcpkg
+        with:
+          pkgs: libxml2 
+          triplet: x64-windows-release
+          token: ${{ github.token }}
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.1
         with:
