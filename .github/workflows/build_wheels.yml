@@ -23,6 +23,12 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Install LLVM
+        if: contains(matrix.os, 'windows')
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "18.1.8"
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.1
         with:
