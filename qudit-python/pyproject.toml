@@ -32,11 +32,7 @@ MACOSX_DEPLOYMENT_TARGET = "11.0"
 
 [tool.cibuildwheel.windows]
 archs = ["auto64"]
-before-all = """
-    choco install llvm --version=18.1.8 --allow-downgrade
-    ls C:\\Program Files
-    ls C:\\Program Files\\LLVM
-"""
+before-all = """choco install llvm --version=18.1.8 --allow-downgrade"""
 
 [tool.cibuildwheel.windows.environment]
-LLVM_SYS_181_PREFIX = "C:\\Program Files\\LLVM"
+LLVM_SYS_181_PREFIX = "C:\\ProgramData\\chocolatey\\lib\\llvm\\tools"
