@@ -32,6 +32,7 @@ MACOSX_DEPLOYMENT_TARGET = "11.0"
 
 [tool.cibuildwheel.windows]
 archs = ["auto64"]
+before-all = "echo %LLVM_SYS_181_PREFIX%"
 # before-all = """
 #     choco install llvm --version=18.1.8 --allow-downgrade
     
