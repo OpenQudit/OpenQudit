@@ -18,3 +18,5 @@ inventory = { workspace = true }
 numpy = { workspace = true }
 ndarray = "*"
 
+[target.'cfg(target_vendor = "apple")'.dependencies]
+zstd = "0.13"
