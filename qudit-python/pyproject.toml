@@ -25,6 +25,7 @@ before-all = "dnf install -y llvm-devel-18.1.8-3.module_el8.10.0+3903+ca21d481 l
 before-all = """
     brew install llvm@18
     export PATH="$(brew --prefix llvm@18)/bin:$PATH"
+    rm $(brew --prefix llvm@18)/lib/libunwind.dylib
 """
 
 [tool.cibuildwheel.macos.environment]
