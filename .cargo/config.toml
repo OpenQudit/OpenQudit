@@ -1,14 +1,14 @@
 [target.x86_64-apple-darwin]
 rustflags = [
-  "-C", "link-arg=-undefined",
-  "-C", "link-arg=dynamic_lookup",
+    "-C", "link-arg=-undefined",
+    "-C", "link-arg=dynamic_lookup",
+    "-l", "static=unwind",
 ]
-rustc-link-lib = ["static=unwind"]
 
 [target.aarch64-apple-darwin]
 rustflags = [
-  "-C", "link-arg=-undefined",
-  "-C", "link-arg=dynamic_lookup",
+    "-C", "link-arg=-undefined",
+    "-C", "link-arg=dynamic_lookup",
+    "-l", "static=unwind",
 ]
-rustc-link-lib = ["static=unwind"]
 
