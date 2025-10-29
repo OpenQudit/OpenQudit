@@ -23,11 +23,6 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build wheels
-        uses: pypa/cibuildwheel@v3.2.1
-        with:
-          package-dir: qudit-python
-
       - name: Build Windows wheels
         if: matrix.os == 'windows-latest'
         shell: pwsh
@@ -60,6 +55,11 @@ jobs:
 
           Write-Output "Verifying clang version..."
           & clang --version
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v3.2.1
+        with:
+          package-dir: qudit-python
 
       - uses: actions/upload-artifact@v4
         with:
