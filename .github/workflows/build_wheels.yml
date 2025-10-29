@@ -28,6 +28,39 @@ jobs:
         with:
           package-dir: qudit-python
 
+      - name: Build Windows wheels
+        if: matrix.os == 'windows-latest'
+        shell: pwsh
+        run: |
+          # --- 1. Set up LLVM Environment ---
+          $LLVM_VERSION = "18.1.8"
+          $LLVM_INSTALL_DIR = Join-Path $env:GITHUB_WORKSPACE "llvm-install"
+          $LLVM_URL = "https://github.com/llvm/llvm-project/releases/download/llvmorg-$LLVM_VERSION/clang+llvm-$LLVM_VERSION-x86_64-pc-windows-msvc.tar.xz"
+          $LLVM_ARCHIVE = "llvm.tar.xz"
+
+          Write-Output "Downloading LLVM from $LLVM_URL"
+          Invoke-WebRequest -Uri $LLVM_URL -OutFile $LLVM_ARCHIVE
+
+          Write-Output "Extracting to $LLVM_INSTALL_DIR"
+          New-Item -ItemType Directory -Path $LLVM_INSTALL_DIR -ErrorAction SilentlyContinue | Out-Null
+          & 7z x $LLVM_ARCHIVE -so | & 7z x -si -ttar -o"$LLVM_INSTALL_DIR"
+
+          Write-Output "Finding extracted directory..."
+          $LLVM_SUBDIR = (Get-ChildItem -Path $LLVM_INSTALL_DIR -Directory | Select-Object -First 1).FullName
+
+          Write-Output "Setting LLVM_DIR to $LLVM_SUBDIR"
+          $env:LLVM_DIR = $LLVM_SUBDIR
+
+          Write-Output "Setting LLVM_SYS_181_PREFIX to $LLVM_SUBDIR"
+          $env:LLVM_SYS_181_PREFIX = $LLVM_SUBDIR
+
+          $LLVM_BIN_DIR = Join-Path $LLVM_SUBDIR "bin"
+          Write-Output "Adding $LLVM_BIN_DIR to PATH"
+          $env:PATH = "$LLVM_BIN_DIR;$env:PATH"
+
+          Write-Output "Verifying clang version..."
+          & clang --version
+
       - uses: actions/upload-artifact@v4
         with:
           name: cibw-wheels-${{ matrix.os }}-${{ strategy.job-index }}
