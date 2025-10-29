@@ -22,7 +22,6 @@ manylinux-x86_64-image = "manylinux_2_28"
 before-all = "dnf install -y llvm-devel-18.1.8-3.module_el8.10.0+3903+ca21d481 libffi-devel ncurses-devel"
 
 [tool.cibuildwheel.macos]
-config-settings = "--features=static"
 before-all = """
     brew install llvm@18
     export PATH="$(brew --prefix llvm@18)/bin:$PATH"
@@ -33,7 +32,11 @@ MACOSX_DEPLOYMENT_TARGET = "11.0"
 
 [tool.cibuildwheel.windows]
 archs = ["auto64"]
-before-all = "choco install llvm --version=18.1.8 --allow-downgrade"
+before-all = """
+    choco install llvm --version=18.1.8 --allow-downgrade
+    ls C:\\Program Files
+    ls C:\\Program Files\\LLVM
+"""
 
 [tool.cibuildwheel.windows.environment]
-LLVM_SYS_181_PREFIX = "C:\\Program Files\\LLVM"
+LLVM_SYS_181_PREFIX = "C:\\Program Files\\LLVM\\"
