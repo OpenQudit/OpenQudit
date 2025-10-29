@@ -3,6 +3,7 @@ rustflags = [
     "-C", "link-arg=-undefined",
     "-C", "link-arg=dynamic_lookup",
     "-l", "static=unwind",
+    "-L", "/usr/local/opt/llvm@18/lib"
 ]
 
 [target.aarch64-apple-darwin]
@@ -10,5 +11,6 @@ rustflags = [
     "-C", "link-arg=-undefined",
     "-C", "link-arg=dynamic_lookup",
     "-l", "static=unwind",
+    "-L", "/opt/homebrew/opt/llvm@18/lib"
 ]
 
