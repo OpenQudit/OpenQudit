@@ -34,7 +34,7 @@ MACOSX_DEPLOYMENT_TARGET = "11.0"
 archs = ["auto64"]
 before-all = """
     set "LLVM_VERSION=18.1.8"
-    set "LLVM_INSTALL_DIR=%GITHUB_WORKSPACE%\llvm-install"
+    set "LLVM_INSTALL_DIR=%GITHUB_WORKSPACE%\\llvm-install"
     set "LLVM_URL=https://github.com/llvm/llvm-project/releases/download/llvmorg-%LLVM_VERSION%/clang+llvm-%LLVM_VERSION%-x86_64-pc-windows-msvc.tar.xz"
     set "LLVM_ARCHIVE=llvm.tar.xz"
 
@@ -46,7 +46,7 @@ before-all = """
     7z x %LLVM_ARCHIVE% -so | 7z x -si -ttar -o"%LLVM_INSTALL_DIR%"
 
     echo "Finding extracted directory..."
-    FOR /D %%i IN ("%LLVM_INSTALL_DIR%\*") DO set "LLVM_SUBDIR=%%i"
+    FOR /D %%i IN ("%LLVM_INSTALL_DIR%\\*") DO set "LLVM_SUBDIR=%%i"
 
     echo "Setting LLVM_DIR to %LLVM_SUBDIR%"
     set "LLVM_DIR=%LLVM_SUBDIR%"
