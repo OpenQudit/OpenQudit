@@ -37,5 +37,5 @@ archs = ["auto64"]
     
 # """
 
-[tool.cibuildwheel.windows.environment]
-LLVM_SYS_181_PREFIX = "C:\\Program Files\\LLVM"
+# [tool.cibuildwheel.windows.environment]
+# LLVM_SYS_181_PREFIX = "C:\\Program Files\\LLVM"

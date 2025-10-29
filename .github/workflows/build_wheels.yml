@@ -28,6 +28,12 @@ jobs:
         uses: KyleMayes/install-llvm-action@v2
         with:
           version: "18.1.8"
+          directory: ${{ runner.temp }}/llvm
+
+      - name: Set LLVM_SYS_181_PREFIX Environment Variable
+        if: contains(matrix.os, 'windows')
+        run: echo "LLVM_SYS_181_PREFIX=${{ runner.temp }}\llvm" >> $env:GITHUB_ENV
+        shell: pwsh
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.1
