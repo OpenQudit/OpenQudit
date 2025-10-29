@@ -33,13 +33,28 @@ MACOSX_DEPLOYMENT_TARGET = "11.0"
 [tool.cibuildwheel.windows]
 archs = ["auto64"]
 before-all = """
-    echo %LLVM_SYS_181_PREFIX%
-    set "PATH=%LLVM_SYS_181_PREFIX%\\bin;%PATH%"
-"""
-# before-all = """
-#     choco install llvm --version=18.1.8 --allow-downgrade
-    
-# """
+    set "LLVM_VERSION=18.1.8"
+    set "LLVM_INSTALL_DIR=%GITHUB_WORKSPACE%\llvm-install"
+    set "LLVM_URL=https://github.com/llvm/llvm-project/releases/download/llvmorg-%LLVM_VERSION%/clang+llvm-%LLVM_VERSION%-x86_64-pc-windows-msvc.tar.xz"
+    set "LLVM_ARCHIVE=llvm.tar.xz"
 
-# [tool.cibuildwheel.windows.environment]
-# LLVM_SYS_181_PREFIX = "C:\\Program Files\\LLVM"
+    echo "Downloading LLVM from %LLVM_URL%"
+    curl -L -o %LLVM_ARCHIVE% %LLVM_URL%
+
+    echo "Extracting to %LLVM_INSTALL_DIR%"
+    mkdir %LLVM_INSTALL_DIR%
+    7z x %LLVM_ARCHIVE% -so | 7z x -si -ttar -o"%LLVM_INSTALL_DIR%"
+
+    echo "Finding extracted directory..."
+    FOR /D %%i IN ("%LLVM_INSTALL_DIR%\*") DO set "LLVM_SUBDIR=%%i"
+
+    echo "Setting LLVM_DIR to %LLVM_SUBDIR%"
+    set "LLVM_DIR=%LLVM_SUBDIR%"
+
+    echo "Setting LLVM_SYS_181_PREFIX to %LLVM_SUBDIR%"
+    set "LLVM_SYS_181_PREFIX=%LLVM_SUBDIR%"
+
+    echo "Adding %LLVM_SUBDIR%\\bin to PATH"
+    set "PATH=%LLVM_SUBDIR%\\bin;%PATH%"
+"""
+
