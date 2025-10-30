@@ -23,7 +23,7 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build Windows wheels
+      - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest'
         shell: pwsh
         run: |
@@ -45,19 +45,33 @@ jobs:
           Write-Output "Exporting LLVM_SYS_181_PREFIX=$LLVM_SUBDIR"
           echo "LLVM_SYS_181_PREFIX=$LLVM_SUBDIR" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
 
-      - name: vcpkg build
+      - name: Install libxml2 (Windows)
         if: matrix.os == 'windows-latest'
         uses: johnwason/vcpkg-action@v7
         id: vcpkg
         with:
           pkgs: libxml2 
           triplet: x64-windows-static
+          cache-key: ${{ matrix.os }}
           token: ${{ github.token }}
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.1
         env:
-          CIBW_ENVIRONMENT_WINDOWS: 'LIB="${{ env.LIB }}" INCLUDE="${{ env.INCLUDE }}"'
+          CIBW_BEFORE_ALL_WINDOWS: |
+            echo "--- CIBW_BEFORE_ALL_WINDOWS Debug (cmd.exe) ---"
+            echo "--- Printing Environment Variables ---"
+            echo "LIB: %LIB%"
+            echo "RUSTFLAGS: %RUSTFLAGS%"
+            
+            echo "--- Listing vcpkg install directories ---"
+            echo "Checking for 'x64-windows-static' (what we want):"
+            dir ${{ steps.vcpkg.outputs.vcpkg-root }}\installed\x64-windows-static\lib
+            
+            echo "Checking for 'x64-windows-release' (what you might have):"
+            dir ${{ steps.vcpkg.outputs.vcpkg-root }}\installed\x64-windows-release\lib
+            
+            echo "--- End of CIBW_BEFORE_ALL_WINDOWS ---"
         with:
           package-dir: qudit-python
 
