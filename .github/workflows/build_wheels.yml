@@ -57,18 +57,6 @@ jobs:
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.1
-        env:
-          CIBW_BEFORE_ALL_WINDOWS: |
-            echo "--- CIBW_BEFORE_ALL_WINDOWS Debug (cmd.exe) ---" &
-            echo "--- Printing Environment Variables ---" &
-            echo "LIB: %LIB%" &
-            echo "RUSTFLAGS: %RUSTFLAGS%" &
-            echo "--- Listing vcpkg install directories ---" &
-            echo "Checking for 'x64-windows-static' (what we want):" &
-            dir ${{ github.workspace }}\vcpkg\installed\x64-windows-static\lib &
-            echo "Checking for 'x64-windows-release' (what you might have):" &
-            dir ${{ github.workspace }}\vcpkg\installed\x64-windows-release\lib &
-            echo "--- End of CIBW_BEFORE_ALL_WINDOWS ---" &
         with:
           package-dir: qudit-python
 
