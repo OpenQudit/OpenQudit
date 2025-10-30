@@ -51,16 +51,14 @@ pub(crate) mod python {
 mod tests {
     use super::*;
     use faer::mat;
-    use qudit_core::radices;
     use qudit_core::c32;
     use qudit_core::c64;
     use qudit_core::UnitaryMatrix;
-    use qudit_core::QuditRadices;
+    use qudit_core::Radices;
     use qudit_circuit::QuditCircuit;
     use qudit_expr::BraSystemExpression;
     use qudit_expr::KrausOperatorsExpression;
     use qudit_expr::UnitaryExpression;
-    use qudit_gates::Gate;
     use qudit_tensor::TNVM;
     use qudit_expr::FUNCTION;
     use qudit_expr::GRADIENT;
@@ -75,12 +73,16 @@ mod tests {
     use qudit_core::QuditSystem;
     use qudit_expr::ExpressionGenerator;
     use qudit_circuit::Operation;
+    use qudit_expr::library::U3Gate;
+    use qudit_expr::library::Controlled;
+    use qudit_expr::library::XGate;
+    use qudit_expr::library::PGate;
 
     pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
-        let block_expr = Gate::U3().generate_expression().otimes(&Gate::U3().generate_expression()).dot(&Gate::CX().generate_expression());
+        let block_expr = U3Gate().otimes(&U3Gate()).dot(&Controlled(XGate(2), [2].into(), None));
         let mut circ = QuditCircuit::pure(vec![2; n]);
         for i in 0..n {
-            circ.append(Gate::U3(), [i], None);
+            circ.append(U3Gate(), [i], None);
         }
         for _ in 0..2 {
             for i in 0..(n - 1) {
@@ -90,35 +92,29 @@ mod tests {
         circ
     } 
 
-    struct CSUM {}
-    impl ExpressionGenerator for CSUM {
-        type ExpressionType = UnitaryExpression;
-        fn generate_expression(&self) -> Self::ExpressionType {    
-            UnitaryExpression::new("CSUM() {
-                [
-                    [ 1, 0, 0, 0, 0, 0, 0, 0, 0 ],
-                    [ 0, 1, 0, 0, 0, 0, 0, 0, 0 ],
-                    [ 0, 0, 1, 0, 0, 0, 0, 0, 0 ],
-                    [ 0, 0, 0, 0, 0, 1, 0, 0, 0 ],
-                    [ 0, 0, 0, 1, 0, 0, 0, 0, 0 ],
-                    [ 0, 0, 0, 0, 1, 0, 0, 0, 0 ],
-                    [ 0, 0, 0, 0, 0, 0, 0, 1, 0 ],
-                    [ 0, 0, 0, 0, 0, 0, 0, 0, 1 ],
-                    [ 0, 0, 0, 0, 0, 0, 1, 0, 0 ],
-                ]
-            }")
-        }
-    }
-
     pub fn build_qutrit_thin_step_circuit(n: usize) -> QuditCircuit {
-        let block_expr = Gate::P(3).generate_expression().otimes(&Gate::P(3).generate_expression()).dot(CSUM{}.generate_expression());
+        let csum = UnitaryExpression::new("CSUM() {
+            [
+                [ 1, 0, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 1, 0, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 1, 0, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 1, 0, 0, 0 ],
+                [ 0, 0, 0, 1, 0, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 1, 0, 0, 0, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 1, 0 ],
+                [ 0, 0, 0, 0, 0, 0, 0, 0, 1 ],
+                [ 0, 0, 0, 0, 0, 0, 1, 0, 0 ],
+            ]
+        }");
+
+        let block_expr = PGate(3).otimes(&PGate(3)).dot(&csum);
         let mut circ = QuditCircuit::pure(vec![3; n]);
         for i in 0..n {
-            circ.append(Gate::P(3), [i], None);
+            circ.append(PGate(3), [i], None);
         }
         for _ in 0..2 {
             for i in 0..(n - 1) {
-                circ.append(Gate::Expression(block_expr.clone()), [i, i+1], None);
+                circ.append(block_expr.clone(), [i, i+1], None);
             }
         }
         circ
@@ -133,7 +129,7 @@ mod tests {
             circ.append(qudit_expr::library::U3Gate(), [i], None);
         }
 
-        let block_expr = Gate::U3().generate_expression().otimes(Gate::U3().generate_expression()).dot(Gate::CX().generate_expression());
+        let block_expr = U3Gate().otimes(U3Gate()).dot(Controlled(XGate(2), [2].into(), None));
         circ.append(block_expr.clone(), [1, 2], None);
         circ.append(block_expr.clone(), [0, 1], None);
         circ.append(block_expr.clone(), [2, 3], None);
@@ -148,7 +144,7 @@ mod tests {
         circ.append(one_qubit_basis_measurement.clone(), ([1], [0]), None);
         circ.append(one_qubit_basis_measurement, ([2], [1]), None);
 
-        let u3_u3 = Gate::U3().generate_expression().otimes(Gate::U3().generate_expression());
+        let u3_u3 = U3Gate().otimes(U3Gate());
         circ.append(UnitaryExpression::classically_multiplex(&[&u3_u3, &u3_u3, &u3_u3, &u3_u3], &[2, 2]), ([0, 3], [0, 1]), None);
 
         //////// START CNOT TELEPORTATION

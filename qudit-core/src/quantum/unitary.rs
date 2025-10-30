@@ -770,7 +770,7 @@ mod test {
         pub fn assert_close_to(&self, x: impl AsMatRef<T = C, Rows = usize, Cols = usize>) {
             let dist = self.get_distance_from(x);
             assert!(
-                dist < C::real(5e-7),
+                C::R::is_close(dist, 0.0),
                 "Distance between unitaries is {:?}",
                 dist
             )

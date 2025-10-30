@@ -610,7 +610,7 @@ pub fn Controlled(
         Some(levels) => levels,
         None => {
             // Generate default control_levels: each control qudit activated by its highest level
-            control_radices.iter().map(|&radix| vec![(radix - 1).into()]).collect()
+            control_radices.iter().map(|&radix| vec![(usize::from(radix) - 1)]).collect()
         }
     };
     
@@ -679,7 +679,7 @@ pub fn ClassicallyControlled(
         Some(levels) => levels,
         None => {
             // Generate default control_levels: each control qudit activated by its highest level
-            control_radices.iter().map(|&radix| vec![(radix - 1).into()]).collect()
+            control_radices.iter().map(|&radix| vec![(usize::from(radix) - 1)]).collect()
         }
     };
     

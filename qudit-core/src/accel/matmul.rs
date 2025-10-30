@@ -361,9 +361,10 @@ pub fn matmul_unchecked<C: ComplexScalar>(lhs: MatRef<C>, rhs: MatRef<C>, out: M
 
 #[cfg(test)]
 mod tests {
-    use super::matmul_unchecked;
+    use super::*;
     use crate::{c32, c64};
-    use crate::matrix::{Mat, mat};
+    use faer::Mat;
+    use faer::mat;
     use num_traits::Zero;
 
     #[test]

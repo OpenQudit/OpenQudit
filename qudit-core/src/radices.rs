@@ -1,12 +1,9 @@
-// TODO: Change name to Radices
 // TODO: remove all mentions of the old macro radices!
 // TODO: Order mods: implementations; python; strategies; test
-// TODO: Remove ToRadices
-// TODO: Implement Result and Error at the library level, and start returning results
 use std::collections::HashMap;
 
 use crate::radix::Radix;
-use crate::{CompactVec, QuditSystem};
+use crate::{CompactStorage, CompactVec, QuditSystem};
 
 /// The number of basis states for each qudit (or dit) in a quantum system.
 ///
@@ -47,26 +44,12 @@ impl Radices {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::QuditRadices;
-    /// let three_qubits = QuditRadices::new(&vec![2; 3]);
-    /// let qubit_qutrit = QuditRadices::new(&vec![2, 3]);
+    /// # use qudit_core::Radices;
+    /// let three_qubits = Radices::new([2; 3]);
+    /// let qubit_qutrit = Radices::new([2, 3]);
     /// ```
     pub fn new<T: Into<Radices>>(radices: T) -> Self {
         radices.into()
-    }
-
-    /// Constructs a radices object without checking invariants.
-    ///
-    /// The caller must ensure that the radices are valid, i.e. that
-    /// they are all greater than 1.
-    ///
-    /// See [`new`] for a safe constructor or more information.
-    ///
-    // TODO: Maybe make unchecked u8 only... because have to specify type or default to i32
-    // or maybe make i32 conversion print debug message/warning
-    // make sure macro uses u8; put in temp with size u8
-    pub unsafe fn new_unchecked<T: Into<Radix>>(radices: &[T]) -> Self {
-        todo!()
     }
 
     /// Attempts to determine the radices for a qudit system with given dimension.
@@ -97,7 +80,6 @@ impl Radices {
         return vec![3; power].into();
     }
 
-
     /// Construct the expanded form of an index in this numbering system.
     ///
     /// # Arguments
@@ -118,19 +100,18 @@ impl Radices {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::radices;
-    /// use qudit_core::QuditRadices;
+    /// # use qudit_core::Radices;
     ///
-    /// let hybrid_system = radices![2, 3];
+    /// let hybrid_system = Radices::new([2, 3]);
     /// assert_eq!(hybrid_system.expand(3), vec![1, 0]);
     ///
-    /// let four_qubits = radices![2, 2, 2, 2];
+    /// let four_qubits = Radices::new([2, 2, 2, 2]);
     /// assert_eq!(four_qubits.expand(7), vec![0, 1, 1, 1]);
     ///
-    /// let two_qutrits = radices![3, 3];
+    /// let two_qutrits = Radices::new([3, 3]);
     /// assert_eq!(two_qutrits.expand(7), vec![2, 1]);
     ///
-    /// let hybrid_system = radices![3, 2, 3];
+    /// let hybrid_system = Radices::new([3, 2, 3]);
     /// assert_eq!(hybrid_system.expand(17), vec![2, 1, 2]);
     /// ```
     ///
@@ -173,19 +154,18 @@ impl Radices {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::radices;
-    /// use qudit_core::QuditRadices;
+    /// # use qudit_core::Radices;
     ///
-    /// let hybrid_system = radices![2, 3];
+    /// let hybrid_system = Radices::new([2, 3]);
     /// assert_eq!(hybrid_system.compress(&vec![1, 0]), 3);
     ///
-    /// let four_qubits = radices![2, 2, 2, 2];
+    /// let four_qubits = Radices::new([2, 2, 2, 2]);
     /// assert_eq!(four_qubits.compress(&vec![0, 1, 1, 1]), 7);
     ///
-    /// let two_qutrits = radices![3, 3];
+    /// let two_qutrits = Radices::new([3, 3]);
     /// assert_eq!(two_qutrits.compress(&vec![2, 1]), 7);
     ///
-    /// let hybrid_system = radices![3, 2, 3];
+    /// let hybrid_system = Radices::new([3, 2, 3]);
     /// assert_eq!(hybrid_system.compress(&vec![2, 1, 2]), 17);
     /// ```
     ///
@@ -228,16 +208,15 @@ impl Radices {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::radices;
-    /// use qudit_core::QuditRadices;
+    /// # use qudit_core::Radices;
     ///
-    /// let two_qubits = radices![2, 2];
+    /// let two_qubits = Radices::new([2, 2]);
     /// assert_eq!(two_qubits.place_values(), vec![2, 1]);
     ///
-    /// let two_qutrits = radices![3, 3];
+    /// let two_qutrits = Radices::new([3, 3]);
     /// assert_eq!(two_qutrits.place_values(), vec![3, 1]);
     ///
-    /// let hybrid_system = radices![3, 2, 3];
+    /// let hybrid_system = Radices::new([3, 2, 3]);
     /// assert_eq!(hybrid_system.place_values(), vec![6, 3, 1]);
     /// ```
     ///
@@ -263,17 +242,16 @@ impl Radices {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::radices;
-    /// use qudit_core::QuditRadices;
+    /// # use qudit_core::Radices;
     ///
-    /// let two_qubits = radices![2, 2];
-    /// let two_qutrits = radices![3, 3];
-    /// let four_qudits = radices![2, 2, 3, 3];
+    /// let two_qubits = Radices::new([2, 2]);
+    /// let two_qutrits = Radices::new([3, 3]);
+    /// let four_qudits = Radices::new([2, 2, 3, 3]);
     /// assert_eq!(two_qubits.concat(&two_qutrits), four_qudits);
     ///
-    /// let hybrid_system = radices![3, 2, 3];
-    /// let two_qutrits = radices![3, 3];
-    /// let five_qudits = radices![3, 2, 3, 3, 3];
+    /// let hybrid_system = Radices::new([3, 2, 3]);
+    /// let two_qutrits = Radices::new([3, 3]);
+    /// let five_qudits = Radices::new([3, 2, 3, 3, 3]);
     /// assert_eq!(hybrid_system.concat(&two_qutrits), five_qudits);
     /// ```
     #[inline(always)]
@@ -286,18 +264,17 @@ impl Radices {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::radices;
-    /// use qudit_core::QuditRadices;
-    /// use std::collections::HashMap;
-    /// let two_qubits = radices![2, 2];
+    /// # use qudit_core::Radices;
+    /// # use std::collections::HashMap;
+    /// let two_qubits = Radices::new([2, 2]);
     /// let counts = two_qubits.counts();
     /// assert_eq!(counts.get(&2), Some(&2));
     ///
-    /// let two_qutrits = radices![3, 3];
+    /// let two_qutrits = Radices::new([3, 3]);
     /// let counts = two_qutrits.counts();
     /// assert_eq!(counts.get(&3), Some(&2));
     ///
-    /// let hybrid_system = radices![3, 2, 3];
+    /// let hybrid_system = Radices::new([3, 2, 3]);
     /// let counts = hybrid_system.counts();
     /// let mut expected_counts = HashMap::new();
     /// expected_counts.insert(2, 1);
@@ -311,7 +288,6 @@ impl Radices {
         }
         counts
     }
-
 
     /// Returns the length of the radices object.
     pub fn len(&self) -> usize {
@@ -338,17 +314,16 @@ impl crate::QuditSystem for Radices {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::radices;
-    /// use qudit_core::QuditRadices;
-    /// use qudit_core::QuditSystem;
+    /// # use qudit_core::Radices;
+    /// # use qudit_core::QuditSystem;
     ///
-    /// let two_qubits = radices![2, 2];
+    /// let two_qubits = Radices::new([2, 2]);
     /// assert_eq!(two_qubits.dimension(), 4);
     ///
-    /// let two_qutrits = radices![3, 3];
+    /// let two_qutrits = Radices::new([3, 3]);
     /// assert_eq!(two_qutrits.dimension(), 9);
     ///
-    /// let hybrid_system = radices![3, 2, 3];
+    /// let hybrid_system = Radices::new([3, 2, 3]);
     /// assert_eq!(hybrid_system.dimension(), 18);
     /// ```
     #[inline(always)]
@@ -361,20 +336,19 @@ impl crate::QuditSystem for Radices {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::radices;
-    /// use qudit_core::QuditRadices;
-    /// use qudit_core::QuditSystem;
+    /// # use qudit_core::Radices;
+    /// # use qudit_core::QuditSystem;
     ///
-    /// let two_qubits = radices![2, 2];
+    /// let two_qubits = Radices::new([2, 2]);
     /// assert_eq!(two_qubits.num_qudits(), 2);
     ///
-    /// let two_qutrits = radices![3, 3];
+    /// let two_qutrits = Radices::new([3, 3]);
     /// assert_eq!(two_qutrits.num_qudits(), 2);
     ///
-    /// let hybrid_system = radices![3, 2, 3];
+    /// let hybrid_system = Radices::new([3, 2, 3]);
     /// assert_eq!(hybrid_system.num_qudits(), 3);
     ///
-    /// let ten_qubits = radices![2; 10];
+    /// let ten_qubits = Radices::new(vec![2; 10]);
     /// assert_eq!(ten_qubits.num_qudits(), 10);
     /// ```
     #[inline(always)]
@@ -387,17 +361,16 @@ impl crate::QuditSystem for Radices {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::radices;
-    /// use qudit_core::QuditRadices;
-    /// use qudit_core::QuditSystem;
+    /// # use qudit_core::Radices;
+    /// # use qudit_core::QuditSystem;
     ///
-    /// let two_qubits = radices![2, 2];
+    /// let two_qubits = Radices::new([2, 2]);
     /// assert!(two_qubits.is_qubit_only());
     ///
-    /// let qubit_qutrit = radices![2, 3];
+    /// let qubit_qutrit = Radices::new([2, 3]);
     /// assert!(!qubit_qutrit.is_qubit_only());
     ///
-    /// let two_qutrits = radices![3, 3];
+    /// let two_qutrits = Radices::new([3, 3]);
     /// assert!(!two_qutrits.is_qubit_only());
     /// ```
     #[inline(always)]
@@ -410,17 +383,16 @@ impl crate::QuditSystem for Radices {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::radices;
-    /// use qudit_core::QuditRadices;
-    /// use qudit_core::QuditSystem;
+    /// # use qudit_core::Radices;
+    /// # use qudit_core::QuditSystem;
     ///
-    /// let two_qubits = radices![2, 2];
+    /// let two_qubits = Radices::new([2, 2]);
     /// assert!(!two_qubits.is_qutrit_only());
     ///
-    /// let qubit_qutrit = radices![2, 3];
+    /// let qubit_qutrit = Radices::new([2, 3]);
     /// assert!(!qubit_qutrit.is_qutrit_only());
     ///
-    /// let two_qutrits = radices![3, 3];
+    /// let two_qutrits = Radices::new([3, 3]);
     /// assert!(two_qutrits.is_qutrit_only());
     /// ```
     #[inline(always)]
@@ -437,15 +409,14 @@ impl crate::QuditSystem for Radices {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::radices;
-    /// use qudit_core::QuditRadices;
-    /// use qudit_core::QuditSystem;
+    /// # use qudit_core::Radices;
+    /// # use qudit_core::QuditSystem;
     ///
-    /// let two_qubits = radices![2, 2];
+    /// let two_qubits = Radices::new([2, 2]);
     /// assert!(two_qubits.is_qudit_only(2));
     /// assert!(!two_qubits.is_qudit_only(3));
     ///
-    /// let mixed_qudits = radices![2, 3];
+    /// let mixed_qudits = Radices::new([2, 3]);
     /// assert!(!mixed_qudits.is_qudit_only(2));
     /// assert!(!mixed_qudits.is_qudit_only(3));
     /// ```
@@ -460,14 +431,13 @@ impl crate::QuditSystem for Radices {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::radices;
-    /// use qudit_core::QuditRadices;
-    /// use qudit_core::QuditSystem;
+    /// # use qudit_core::Radices;
+    /// # use qudit_core::QuditSystem;
     ///
-    /// let two_qubits = radices![2, 2];
+    /// let two_qubits = Radices::new([2, 2]);
     /// assert!(two_qubits.is_homogenous());
     ///
-    /// let mixed_qudits = radices![2, 3];
+    /// let mixed_qudits = Radices::new([2, 3]);
     /// assert!(!mixed_qudits.is_homogenous());
     /// ```
     #[inline(always)]
@@ -491,26 +461,28 @@ impl<T: Into<Radix>> core::iter::FromIterator<T> for Radices {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::radices;
-    /// use qudit_core::QuditRadices;
+    /// # use qudit_core::Radices;
     ///
-    /// let qubit_qutrit = QuditRadices::from_iter(2..4);
-    /// assert_eq!(qubit_qutrit, radices![2, 3]);
+    /// let qubit_qutrit = Radices::from_iter(2..4);
+    /// assert_eq!(qubit_qutrit, Radices::new([2, 3]));
     ///
-    /// let two_qutrits = QuditRadices::from_iter(vec![3, 3]);
-    /// assert_eq!(two_qutrits, radices![3, 3]);
+    /// let two_qutrits = Radices::from_iter(vec![3, 3]);
+    /// assert_eq!(two_qutrits, Radices::new([3, 3]));
     ///
     /// // Ten qubits then ten qutrits
-    /// let mixed_system = QuditRadices::from_iter(vec![2; 10].iter()
+    /// let mixed_system = Radices::from_iter(vec![2; 10].iter()
     ///                         .chain(vec![3; 10].iter()));
     ///
-    /// // TODO: Example with .collect
+    /// // Using .collect()
+    /// let from_collect: Radices = (2..5).collect();
+    /// assert_eq!(from_collect, Radices::new([2, 3, 4]));
     /// ```
     ///
     /// # Note
     ///
     /// This will attempt to avoid an allocation when possible.
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        
         let vec: CompactVec<Radix> = iter.into_iter().map(|r| r.into()).collect();
         Radices(vec)
     }
@@ -526,31 +498,52 @@ impl core::ops::Deref for Radices {
     }
 }
 
-impl<T: Into<Radix>> From<Vec<T>> for Radices {
+impl<T: Into<Radix> + CompactStorage> From<CompactVec<T>> for Radices {
     #[inline(always)]
-    fn from(value: Vec<T>) -> Self {
-        todo!()
+    fn from(value: CompactVec<T>) -> Self { 
+        value.into_iter().map(|x| x.into()).collect()
     }
 }
 
-impl<T: Into<Radix>> From<&[T]> for Radices {
+impl<T: Into<Radix> + 'static> From<Vec<T>> for Radices {
+    #[inline(always)]
+    fn from(value: Vec<T>) -> Self {
+        let vec = if std::any::TypeId::of::<T>() == std::any::TypeId::of::<Radix>() {
+            // If T is radix, then doing CompactVec::from will provide move semantics efficiently
+            // Safety: T == Radix, so Vec<T> == Vec<Radix>
+            CompactVec::<Radix>::from(unsafe { std::mem::transmute::<_, Vec<Radix>>(value) })
+        } else {
+            value.into_iter().map(|x| x.into()).collect()
+        };
+
+        Radices(vec)
+    }
+}
+
+impl<T: Into<Radix> + Copy> From<&[T]> for Radices {
     #[inline(always)]
     fn from(value: &[T]) -> Self { 
-        todo!()
+        value.iter().copied().collect()
     }
 }
 
 impl<T: Into<Radix>, const N: usize> From<[T; N]> for Radices {
     #[inline(always)]
     fn from(value: [T; N]) -> Self { 
-        todo!()
+        value.into_iter().collect()
     }
 }
 
-impl<'a, T: Into<Radix>, const N: usize> From<&'a [T; N]> for Radices {
+impl<'a, T: Into<Radix> + Copy, const N: usize> From<&'a [T; N]> for Radices {
     #[inline(always)]
     fn from(value: &'a [T; N]) -> Self { 
-        todo!()
+        value.iter().copied().collect()
+    }
+}
+
+impl From<Radix> for Radices {
+    fn from(value: Radix) -> Self {
+        [value].into()
     }
 }
 
@@ -570,11 +563,10 @@ impl core::fmt::Display for Radices {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::radices;
-    /// use qudit_core::QuditRadices;
-    /// let two_qubits = radices![2, 2];
-    /// let two_qutrits = radices![3, 3];
-    /// let qubit_qutrit = radices![2, 3];
+    /// # use qudit_core::Radices;
+    /// let two_qubits = Radices::new([2, 2]);
+    /// let two_qutrits = Radices::new([3, 3]);
+    /// let qubit_qutrit = Radices::new([2, 3]);
     ///
     /// assert_eq!(format!("{}", two_qubits), "[2, 2]");
     /// assert_eq!(format!("{}", two_qutrits), "[3, 3]");
@@ -602,11 +594,11 @@ pub mod strategies {
 
     use super::*;
 
-    impl Arbitrary for QuditRadices {
+    impl Arbitrary for Radices {
         type Parameters = (core::ops::Range<u8>, core::ops::Range<usize>);
         type Strategy = BoxedStrategy<Self>;
 
-        /// Generate a random QuditRadices object.
+        /// Generate a random Radices object.
         ///
         /// By default, the number of radices is chosen randomly between
         /// 1 and 4, and the radices themselves are chosen randomly
@@ -615,7 +607,7 @@ pub mod strategies {
             Self::arbitrary_with((2..5u8, 1..5))
         }
 
-        /// Generate a random QuditRadices object with the given parameters.
+        /// Generate a random Radices object with the given parameters.
         ///
         /// # Arguments
         ///
@@ -625,35 +617,9 @@ pub mod strategies {
         ///           themselves.
         fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
             prop::collection::vec(args.0, args.1)
-                .prop_map(|v| QuditRadices::new(&v))
+                .prop_map(|v| Radices::new(v))
                 .boxed()
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use proptest::prelude::*;
-
-    proptest! {
-        /// An expansion should compress to the same value.
-        #[test]
-        fn test_expand_compress(radices in any::<QuditRadices>()) {
-            for index in 0..radices.dimension() {
-                let exp = radices.expand(index);
-                assert_eq!(radices.compress(&exp), index);
-            }
-        }
-    }
-
-    #[test]
-    fn test_slice_ops() {
-        let rdx = QuditRadices::new(&vec![2, 3, 4usize]);
-        assert_eq!(rdx.len(), 3);
-        assert_eq!(rdx[1], 3);
-        assert_eq!(rdx[1..], [3, 4]);
-        assert_eq!(rdx.clone(), rdx);
     }
 }
 
@@ -674,5 +640,31 @@ mod python {
                 Err(PyTypeError::new_err("Expected a list of integers for radices."))
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use proptest::prelude::*;
+
+    proptest! {
+        /// An expansion should compress to the same value.
+        #[test]
+        fn test_expand_compress(radices in any::<Radices>()) {
+            for index in 0..radices.dimension() {
+                let exp = radices.expand(index);
+                assert_eq!(radices.compress(&exp), index);
+            }
+        }
+    }
+
+    #[test]
+    fn test_slice_ops() {
+        let rdx = Radices::new(vec![2, 3, 4usize]);
+        assert_eq!(rdx.len(), 3);
+        assert_eq!(rdx[1], 3);
+        assert_eq!(rdx[1..], [3, 4]);
+        assert_eq!(rdx.clone(), rdx);
     }
 }

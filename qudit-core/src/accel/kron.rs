@@ -373,10 +373,11 @@ pub fn kron_add<C: ComplexScalar>(lhs: MatRef<C>, rhs: MatRef<C>, dst: MatMut<C>
 
 #[cfg(test)]
 mod kron_tests {
-    use crate::accel::{kron, kron_add};
-    use crate::matrix::{mat, Mat};
+    use super::*;
+    use faer::Mat;
+    use faer::mat;
     use crate::c64;
-    use qudit_core_proc_macros::complex_mat;
+    use qudit_macros::complex_mat;
 
     #[test]
     fn kron_add_test() {

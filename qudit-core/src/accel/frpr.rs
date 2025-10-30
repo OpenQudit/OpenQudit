@@ -1382,7 +1382,7 @@ pub fn fused_reshape_permute_reshape_into<E: Copy>(
 mod tests {
     use super::*;
     use crate::array::Tensor;
-    use crate::matrix::Mat;
+    use faer::Mat;
     use crate::accel::frpr::{__reshape_kernel_2_impl, __reshape_kernel_0};
     use crate::c64;
 
@@ -1609,39 +1609,39 @@ mod tests {
         let intermediate_tensor_shape = [2, 2, 2, 2, 2];
         let intermediate_tensor_transposition = [0, 1, 2, 3, 4];
 
-        let mut tensor_in = Tensor::zeros(&[a_in, b_in, c_in]);
+        let mut tensor_in: Tensor<f64, 3> = Tensor::zeros([a_in, b_in, c_in]);
         let mut i = 1.0;
         for a_iter in 0..a_in {
             for b_iter in 0..b_in {
                 for c_iter in 0..c_in {
-                    *tensor_in.at_mut([a_iter, b_iter, c_iter]) = i;
+                    *&mut tensor_in[[a_iter, b_iter, c_iter]] = i;
                     i += 1.0;
                 }
             }
         }
 
-        let mut tensor_out = Tensor::zeros(&[a_out, b_out, c_out]);
+        let mut tensor_out = Tensor::zeros([a_out, b_out, c_out]);
         
         let in_strides_isize: Vec<isize> = tensor_in.strides().iter().map(|&s| s as isize).collect();
         let out_strides_isize: Vec<isize> = tensor_out.strides().iter().map(|&s| s as isize).collect();
         let (is, os, dim) = tensor_fused_reshape_permute_reshape_into_prepare(
-            tensor_in.shape(),
+            tensor_in.dims(),
             &in_strides_isize,
-            tensor_out.shape(),
+            tensor_out.dims(),
             &out_strides_isize,
             &intermediate_tensor_shape,
             &intermediate_tensor_transposition,
         );
         
         unsafe {
-            fused_reshape_permute_reshape_into_impl(tensor_in.as_ptr(), tensor_out.as_mut_ptr(), &is, &os, &dim);
+            fused_reshape_permute_reshape_into_impl(tensor_in.as_ptr(), tensor_out.as_ptr_mut(), &is, &os, &dim);
         }
 
         let mut i = 1.0;
         for a_iter in 0..a_out {
             for b_iter in 0..b_out {
                 for c_iter in 0..c_out {
-                    assert_eq!(*tensor_out.at([a_iter, b_iter, c_iter]), i);
+                    assert_eq!(*&mut tensor_out[[a_iter, b_iter, c_iter]], i);
                     i += 1.0;
                 }
             }
@@ -1657,12 +1657,12 @@ mod tests {
         let intermediate_tensor_shape = [2, 2, 2, 2, 2];
         let intermediate_tensor_transposition = [0, 4, 1, 2, 3];
 
-        let mut tensor_in = Tensor::zeros_with_strides(&[a_in, b_in, c_in], &input_strides);
+        let mut tensor_in: Tensor<f64, 3> = Tensor::zeros_with_strides(&[a_in, b_in, c_in], &input_strides);
         let mut i = 0.0;
         for a_iter in 0..a_in {
             for b_iter in 0..b_in {
                 for c_iter in 0..c_in {
-                    *tensor_in.at_mut([a_iter, b_iter, c_iter]) = i;
+                    *&mut tensor_in[[a_iter, b_iter, c_iter]] = i;
                     i += 1.0;
                 }
             }
@@ -1677,9 +1677,9 @@ mod tests {
         let out_strides_isize: Vec<isize> = tensor_out.strides().iter().map(|&s| s as isize).collect();
         println!("out_strides_isize: {:?}", out_strides_isize);
         let (is, os, dim) = tensor_fused_reshape_permute_reshape_into_prepare(
-            tensor_in.shape(),
+            tensor_in.dims(),
             &in_strides_isize,
-            tensor_out.shape(),
+            tensor_out.dims(),
             &out_strides_isize,
             &intermediate_tensor_shape,
             &intermediate_tensor_transposition,
@@ -1690,7 +1690,7 @@ mod tests {
         println!("cis: {:?}, cos: {:?}, cdim: {:?}", cis, cos, cdim);
         
         unsafe {
-            fused_reshape_permute_reshape_into_impl(tensor_in.as_ptr(), tensor_out.as_mut_ptr(), &is, &os, &dim);
+            fused_reshape_permute_reshape_into_impl(tensor_in.as_ptr(), tensor_out.as_ptr_mut(), &is, &os, &dim);
         }
         // println!("tensor_in.data: {:?}", tensor_in.data);
         // println!("tensor_out.data: {:?}", tensor_out.data);
@@ -1702,7 +1702,7 @@ mod tests {
         for a_iter in 0..a_out {
             for b_iter in 0..b_out {
                 for c_iter in 0..c_out {
-                    assert_eq!(*tensor_out.at([a_iter, b_iter, c_iter]), *correct.at([a_iter, b_iter, c_iter]));
+                    assert_eq!(tensor_out[[a_iter, b_iter, c_iter]], correct[[a_iter, b_iter, c_iter]]);
                 }
             }
         }
