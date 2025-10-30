@@ -31,4 +31,5 @@ wheels/
 *.pyd
 .env
 Cargo.lock
+scratch/
 
