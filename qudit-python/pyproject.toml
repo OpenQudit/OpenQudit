@@ -33,5 +33,6 @@ MACOSX_DEPLOYMENT_TARGET = "11.0"
 
 [tool.cibuildwheel.windows]
 archs = ["auto64"]
-before-all = "dir D:\\a\\OpenQudit\\OpenQudit\\vcpkg\\installed\\x64-windows-static\\lib\\"
+# before-all = "dir D:\\a\\OpenQudit\\OpenQudit\\vcpkg\\installed\\x64-windows-static\\lib\\"
+environment = { LIB='D:\\a\\OpenQudit\\OpenQudit\\vcpkg\\installed\\x64-windows-static\\lib\\;$LIB' }
 
