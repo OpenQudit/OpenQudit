@@ -36,3 +36,7 @@ archs = ["auto64"]
 # before-all = "dir D:\\a\\OpenQudit\\OpenQudit\\vcpkg\\installed\\x64-windows-static\\lib\\"
 environment = { LIB='D:\\a\\OpenQudit\\OpenQudit\\vcpkg\\installed\\x64-windows-static\\lib\\;$LIB' }
 
+# Run delvewheel
+before-build = "pip install delvewheel"
+repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
+
