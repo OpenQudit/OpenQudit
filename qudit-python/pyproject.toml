@@ -33,14 +33,5 @@ MACOSX_DEPLOYMENT_TARGET = "11.0"
 
 [tool.cibuildwheel.windows]
 archs = ["auto64"]
-before-all = "echo %LIB%"
-# echo "--- CIBW_BEFORE_ALL_WINDOWS Debug (cmd.exe) ---" &
-# echo "--- Printing Environment Variables ---" &
-# echo "RUSTFLAGS: %RUSTFLAGS%" &
-# echo "--- Listing vcpkg install directories ---" &
-# echo "Checking for 'x64-windows-static' (what we want):" &
-# dir ${{ github.workspace }}\vcpkg\installed\x64-windows-static\lib &
-# echo "Checking for 'x64-windows-release' (what you might have):" &
-# dir ${{ github.workspace }}\vcpkg\installed\x64-windows-release\lib &
-# echo "--- End of CIBW_BEFORE_ALL_WINDOWS ---" &
+before-all = "dir"
 
