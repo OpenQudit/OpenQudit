@@ -699,11 +699,11 @@ fn tensor_fused_reshape_permute_reshape_into_prepare_helper(
                 true_shape_accumulator *= in_shape[in_shape_index];
 
                 // End of merge
-                if (accumulator == 1 ||
+                if accumulator == 1 ||
                 // Non-contiguous axes
                 in_strides[in_shape_index] != in_strides[in_shape_index + 1] * (in_shape[in_shape_index + 1] as isize) ||
                 // Not column-major
-                in_strides[in_shape_index] < in_strides[in_shape_index + 1])
+                in_strides[in_shape_index] < in_strides[in_shape_index + 1]
                 {
                     tensor_in_strides.push(in_strides[in_shape_index]);
                     true_shape.push(true_shape_accumulator);
