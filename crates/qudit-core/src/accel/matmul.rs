@@ -139,7 +139,7 @@ impl<C: ComplexScalar> MatMulPlan<C> {
         lhs_cs: isize,
         rhs_rs: isize,
         rhs_cs: isize,
-    ) {
+    ) { unsafe {
         self.plan.execute_unchecked(
             self.m,
             self.n,
@@ -158,7 +158,7 @@ impl<C: ComplexScalar> MatMulPlan<C> {
             false,
             false,
         );
-    }
+    }}
 
     /// Executes the milikernel of the plan, for matrix multiplication followed by addition.
     /// (`alpha = 1`, `beta = 1`) We do not perform comprehensive checks.
@@ -243,7 +243,7 @@ impl<C: ComplexScalar> MatMulPlan<C> {
         lhs_cs: isize,
         rhs_rs: isize,
         rhs_cs: isize,
-    ) {
+    ) { unsafe {
         self.plan.execute_unchecked(
             self.m,
             self.n,
@@ -262,7 +262,7 @@ impl<C: ComplexScalar> MatMulPlan<C> {
             false,
             false,
         );
-    }
+    }}
 }
 
 /// Performs matrix-matrix multiplication. (`alpha = 0`, `beta = 1`)

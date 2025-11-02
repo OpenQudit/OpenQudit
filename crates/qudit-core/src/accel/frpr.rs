@@ -584,7 +584,7 @@ unsafe fn reshape_outer_kernel<E: Copy>(
     in_strides: &[isize],
     out_strides: &[isize],
     dims: &[usize],
-) {
+) { unsafe {
     let ndims = dims.len();
     assert!(ndims >= kernel_size);
     if ndims == kernel_size {
@@ -635,7 +635,7 @@ unsafe fn reshape_outer_kernel<E: Copy>(
         // Reset `current_axis` to the innermost outer axis.
         current_axis = ndims - 1 - kernel_size;
     }
-}
+}}
 
 fn tensor_fused_reshape_permute_reshape_into_prepare_helper(
     in_shape: &[usize],
@@ -1295,7 +1295,7 @@ pub unsafe fn fused_reshape_permute_reshape_into_impl<E: Copy>(
     sorted_perm_in_strides: &[isize],
     sorted_out_strides: &[isize],
     sorted_perm_shape: &[usize],
-) {
+) { unsafe {
     // TODO: Investigate PodStack
     let ndims = sorted_perm_in_strides.len();
     let mut state = vec![0usize; ndims]; // TODO: Change to stack/heap vec
@@ -1367,7 +1367,7 @@ pub unsafe fn fused_reshape_permute_reshape_into_impl<E: Copy>(
             sorted_perm_shape,
         );
     }
-}
+}}
 
 /// Perform a fused reshape, permute, and reshape operation.
 ///

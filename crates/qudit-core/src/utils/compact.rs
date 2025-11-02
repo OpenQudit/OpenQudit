@@ -271,12 +271,12 @@ impl<T: CompactStorage> CompactVec<T> {
     /// }
     /// ```
     #[inline]
-    pub unsafe fn get_unchecked(&self, index: usize) -> T {
+    pub unsafe fn get_unchecked(&self, index: usize) -> T { unsafe {
         match self {
             CompactVec::Inline(storage, _) => T::from_inline(*storage.get_unchecked(index)),
             CompactVec::Heap(vec) => *vec.get_unchecked(index),
         }
-    }
+    }}
 
     /// Returns `true` if the vector is currently using inline storage.
     ///
@@ -710,7 +710,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// }
     /// ```
     #[inline]
-    pub unsafe fn get_mut_unchecked(&mut self, index: usize) -> &mut T {
+    pub unsafe fn get_mut_unchecked(&mut self, index: usize) -> &mut T { unsafe {
         // Check if T and T::InlineType are the same type (zero-cost conversion)
         match self {
             CompactVec::Inline(storage, _) => {
@@ -724,7 +724,7 @@ impl<T: CompactStorage> CompactVec<T> {
             }
             CompactVec::Heap(vec) => vec.get_mut_unchecked(index),
         }
-    }
+    }}
 
     /// Returns the vector's contents as a mutable slice.
     ///

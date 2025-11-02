@@ -28,7 +28,7 @@ pub unsafe fn kron_kernel_raw<C: Mul<Output = C> + Copy>(
     rhs_ncols: usize,
     rhs_rs: isize,
     rhs_cs: isize,
-) {
+) { unsafe {
     for lhs_j in 0..lhs_ncols {
         for lhs_i in 0..lhs_nrows {
             let lhs_val = *lhs.offset(lhs_i as isize * lhs_rs + lhs_j as isize * lhs_cs);
@@ -50,7 +50,7 @@ pub unsafe fn kron_kernel_raw<C: Mul<Output = C> + Copy>(
             }
         }
     }
-}
+}}
 
 /// Perform a kroneckor product between two matrix buffers and add the result to the output.
 pub unsafe fn kron_kernel_add_raw<C: Mul<Output = C> + Copy + AddAssign>(
@@ -67,7 +67,7 @@ pub unsafe fn kron_kernel_add_raw<C: Mul<Output = C> + Copy + AddAssign>(
     rhs_ncols: usize,
     rhs_rs: isize,
     rhs_cs: isize,
-) {
+) { unsafe {
     for lhs_j in 0..lhs_ncols {
         for lhs_i in 0..lhs_nrows {
             let lhs_val = *lhs.offset(lhs_i as isize * lhs_rs + lhs_j as isize * lhs_cs);
@@ -89,7 +89,7 @@ pub unsafe fn kron_kernel_add_raw<C: Mul<Output = C> + Copy + AddAssign>(
             }
         }
     }
-}
+}}
 
 /// The inner kernel that performs the Kronecker product of two matrices
 /// without checking assumptions.
@@ -110,7 +110,7 @@ unsafe fn kron_kernel<C: ComplexField>(
     lhs_cols: usize,
     rhs_rows: usize,
     rhs_cols: usize,
-) {
+) { unsafe {
     for lhs_j in 0..lhs_cols {
         for lhs_i in 0..lhs_rows {
             let lhs_val = lhs.get_unchecked(lhs_i, lhs_j);
@@ -127,7 +127,7 @@ unsafe fn kron_kernel<C: ComplexField>(
             }
         }
     }
-}
+}}
 
 /// Performs the Kronecker product of two matrices and adds this to the destination
 /// without checking assumptions.
@@ -151,7 +151,7 @@ unsafe fn kron_kernel_add<C: ComplexScalar>(
     lhs_cols: usize,
     rhs_rows: usize,
     rhs_cols: usize,
-) {
+) { unsafe {
     for lhs_j in 0..lhs_cols {
         for lhs_i in 0..lhs_rows {
             let lhs_val = lhs.get_unchecked(lhs_i, lhs_j);
@@ -169,7 +169,7 @@ unsafe fn kron_kernel_add<C: ComplexScalar>(
             }
         }
     }
-}
+}}
 
 /// Performs the Kronecker product of two matrices without checking assumptions.
 ///
@@ -181,7 +181,7 @@ unsafe fn kron_kernel_add<C: ComplexScalar>(
 ///
 /// * [`kron`] for a safe version of this function.
 ///
-pub unsafe fn kron_unchecked<C: ComplexField>(dst: MatMut<C>, lhs: MatRef<C>, rhs: MatRef<C>) {
+pub unsafe fn kron_unchecked<C: ComplexField>(dst: MatMut<C>, lhs: MatRef<C>, rhs: MatRef<C>) { unsafe {
     let lhs_rows = lhs.nrows();
     let lhs_cols = lhs.ncols();
     let rhs_rows = rhs.nrows();
@@ -195,7 +195,7 @@ pub unsafe fn kron_unchecked<C: ComplexField>(dst: MatMut<C>, lhs: MatRef<C>, rh
             ((2, 3, 4, _), ((2, 3, 4, _), ((2, 3, 4, _), ())))
         )
     );
-}
+}}
 
 /// Performs the Kronecker product of two square matrices without checking assumptions.
 ///
@@ -208,7 +208,7 @@ pub unsafe fn kron_unchecked<C: ComplexField>(dst: MatMut<C>, lhs: MatRef<C>, rh
 ///
 /// * [`kron`] for a safe version of this function.
 ///
-pub unsafe fn kron_sq_unchecked<C: ComplexField>(dst: MatMut<C>, lhs: MatRef<C>, rhs: MatRef<C>) {
+pub unsafe fn kron_sq_unchecked<C: ComplexField>(dst: MatMut<C>, lhs: MatRef<C>, rhs: MatRef<C>) { unsafe {
     let lhs_dim = lhs.nrows();
     let rhs_dim = rhs.nrows();
 
@@ -220,7 +220,7 @@ pub unsafe fn kron_sq_unchecked<C: ComplexField>(dst: MatMut<C>, lhs: MatRef<C>,
             ((2, 3, 4, 6, 8, 9, 16, 27, 32, 64, 81, _), ())
         )
     );
-}
+}}
 
 /// Kronecker product of two matrices.
 ///
