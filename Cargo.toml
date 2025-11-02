@@ -1,11 +1,11 @@
 [workspace]
 members = [
-    "qudit-core",
-    "qudit-expr",
-    "qudit-tensor",
-    "qudit-circuit",
-    "qudit-inst",
-    "qudit-python",
+    "crates/qudit-core",
+    "crates/qudit-expr",
+    "crates/qudit-tensor",
+    "crates/qudit-circuit",
+    "crates/qudit-inst",
+    "crates/qudit-python",
 ]
 
 [workspace.dependencies]

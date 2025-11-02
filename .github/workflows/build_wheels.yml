@@ -62,7 +62,7 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.2.1
         with:
-          package-dir: qudit-python
+          package-dir: crates/qudit-python
 
       - uses: actions/upload-artifact@v4
         with:
