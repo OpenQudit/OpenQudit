@@ -1,13 +1,13 @@
 //! Implements the tensor struct and associated methods for the Openqudit library.
 
-use std::fmt::{self, Debug, Display, Formatter, Write};
+use std::fmt::{self, Debug, Display, Formatter};
 use std::ptr::NonNull;
 use faer::{MatMut, MatRef, RowMut, RowRef};
 
 use crate::memory::{alloc_zeroed_memory, Memorable, MemoryBuffer};
 use super::check_bounds;
 
-// Helper for flat index calculation
+/// Helper for flat index calculation from multi-dimensional indices.
 #[inline(always)]
 fn calculate_flat_index<const D: usize>(indices: &[usize; D], strides: &[usize; D]) -> usize {
     let mut flat_idx = 0;
@@ -21,11 +21,25 @@ fn calculate_flat_index<const D: usize>(indices: &[usize; D], strides: &[usize; 
 pub struct Tensor<C: Memorable, const D: usize> {
     /// The data buffer containing the tensor elements.
     data: MemoryBuffer<C>,
+    /// The dimensions of the tensor (size of each axis).
     dims: [usize; D],
+    /// The strides for each dimension.
     strides: [usize; D],
 } 
 
 impl<C: Memorable, const D: usize> Tensor<C, D> {
+    /// Creates a new tensor from a memory buffer with specified dimensions and strides.
+    /// 
+    /// # Arguments
+    /// 
+    /// * `data` - The memory buffer containing the tensor data
+    /// * `dims` - Array specifying the size of each dimension
+    /// * `strides` - Array specifying the stride for each dimension
+    /// 
+    /// # Panics
+    /// 
+    /// * If any dimension or stride is zero
+    /// * If the data buffer is not large enough for the specified dimensions and strides
     pub fn new(data: MemoryBuffer<C>, dims: [usize; D], strides: [usize; D]) -> Self {
         assert!(dims.iter().all(|&d| d != 0), "Cannot have a zero-length dimension.");
         assert!(strides.iter().all(|&d| d != 0), "Cannot have a zero-length stride.");
@@ -110,14 +124,14 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
     }
 
     /// Returns an immutable reference to the tensor.
-    pub fn as_ref(&self) -> TensorRef<C, D> {
+    pub fn as_ref(&self) -> TensorRef<'_, C, D> {
         unsafe {
             TensorRef::from_raw_parts(self.data.as_ptr(), self.dims, self.strides)
         }
     }
 
     /// Returns a mutable reference to the tensor.
-    pub fn as_mut(&mut self) -> TensorMut<C, D> {
+    pub fn as_mut(&mut self) -> TensorMut<'_, C, D> {
         unsafe {
             TensorMut::from_raw_parts(self.data.as_mut_ptr(), self.dims, self.strides)
         }
@@ -343,7 +357,7 @@ impl<'a, C: Display> Debug for TensorDataDebugHelper<'a, C> {
             if self.current_dim_idx == self.dimensions.len() - 1 {
                 write!(f, "{}[", indent)?;
             } else {
-                write!(f, "{}[\n", indent)?;
+                writeln!(f, "{}[", indent)?;
             }
             for i in 0..dim_size {
                 let next_offset = self.current_flat_offset + i * dim_stride;
@@ -406,12 +420,19 @@ impl<'a, C: Display + Debug + Memorable, const D: usize> Debug for TensorRef<'a,
 
 // TODO: add iterators for subtensors
 
-/// A view struct of a tensor. It holds a reference to the underlying data.
+/// An immutable view into tensor data.
+/// 
+/// This struct provides read-only access to tensor data without owning the underlying memory.
+/// It holds a reference to the data along with dimension and stride information.
 #[derive(Clone, Copy)]
 pub struct TensorRef<'a, C: Memorable, const D: usize> {
+    /// Non-null pointer to the tensor data.
     data: NonNull<C>,
+    /// The dimensions of the tensor (size of each axis).
     dims: [usize; D],
+    /// The strides for each dimension.
     strides: [usize; D],
+    /// Phantom data to enforce lifetime constraints.
     __marker: std::marker::PhantomData<&'a C>,
 }
 
@@ -525,10 +546,18 @@ impl<'a, C: Memorable, const D: usize> std::ops::Index<[usize; D]> for TensorRef
 }
 
 
+/// A mutable view into tensor data.
+/// 
+/// This struct provides read-write access to tensor data without owning the underlying memory.
+/// It holds a mutable reference to the data along with dimension and stride information.
 pub struct TensorMut<'a, C: Memorable, const D: usize> {
+    /// Non-null pointer to the tensor data.
     data: NonNull<C>,
+    /// The dimensions of the tensor (size of each axis).
     dims: [usize; D],
+    /// The strides for each dimension.
     strides: [usize; D],
+    /// Phantom data to enforce lifetime constraints.
     __marker: std::marker::PhantomData<&'a mut C>,
 }
 
@@ -661,98 +690,115 @@ impl<'a, C: Memorable, const D: usize> std::ops::IndexMut<[usize; D]> for Tensor
 
 // TODO add some documentation plus a todo tag on relevant rust issues
 impl<C: Memorable> Tensor<C, 4> {
-    pub fn subtensor_ref(&self, m: usize) -> TensorRef<C, 3> {
+    /// Returns an immutable view of a 3D subtensor at the given index.
+    pub fn subtensor_ref(&self, m: usize) -> TensorRef<'_, C, 3> {
         check_bounds(&[m, 0, 0, 0], &self.dims);
         // Safety: bounds have been checked.
         unsafe { self.subtensor_ref_unchecked(m) }
     }
 
-    pub fn subtensor_mut(&mut self, m: usize) -> TensorMut<C, 3> {
+    /// Returns a mutable view of a 3D subtensor at the given index.
+    pub fn subtensor_mut(&mut self, m: usize) -> TensorMut<'_, C, 3> {
         check_bounds(&[m, 0, 0, 0], &self.dims);
         // Safety: bounds have been checked.
         unsafe { self.subtensor_mut_unchecked(m) }
     }
 
     #[inline(always)]
-    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> TensorRef<C, 3> {
+    /// Returns an immutable view of a 3D subtensor at the given index without bounds checking.
+    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> TensorRef<'_, C, 3> {
         TensorRef::from_raw_parts(self.ptr_at(&[m, 0, 0, 0]), [self.dims[1], self.dims[2], self.dims[3]], [self.strides[1], self.strides[2], self.strides[3]])
     }
 
     #[inline(always)]
-    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> TensorMut<C, 3> {
+    /// Returns a mutable view of a 3D subtensor at the given index without bounds checking.
+    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> TensorMut<'_, C, 3> {
         TensorMut::from_raw_parts(self.ptr_at_mut(&[m, 0, 0, 0]), [self.dims[1], self.dims[2], self.dims[3]], [self.strides[1], self.strides[2], self.strides[3]])
     }
 }
 
 impl<C: Memorable> Tensor<C, 3> {
-    pub fn subtensor_ref(&self, m: usize) -> MatRef<C> {
+    /// Returns an immutable matrix view of a 2D subtensor at the given index.
+    pub fn subtensor_ref(&self, m: usize) -> MatRef<'_, C> {
         check_bounds(&[m, 0, 0], &self.dims);
         // Safety: bounds have been checked.
         unsafe { self.subtensor_ref_unchecked(m) }
     }
 
-    pub fn subtensor_mut(&mut self, m: usize) -> MatMut<C> {
+    /// Returns a mutable matrix view of a 2D subtensor at the given index.
+    pub fn subtensor_mut(&mut self, m: usize) -> MatMut<'_, C> {
         check_bounds(&[m, 0, 0], &self.dims);
         // Safety: bounds have been checked.
         unsafe { self.subtensor_mut_unchecked(m) }
     }
 
     #[inline(always)]
-    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> MatRef<C> {
+    /// Returns an immutable matrix view of a 2D subtensor at the given index without bounds checking.
+    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> MatRef<'_, C> {
         MatRef::from_raw_parts(self.ptr_at(&[m, 0, 0]), self.dims[1], self.dims[2], self.strides[1] as isize, self.strides[2] as isize)
     }
 
     #[inline(always)]
-    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> MatMut<C> {
+    /// Returns a mutable matrix view of a 2D subtensor at the given index without bounds checking.
+    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> MatMut<'_, C> {
         MatMut::from_raw_parts_mut(self.ptr_at_mut(&[m, 0, 0]), self.dims[1], self.dims[2], self.strides[1] as isize, self.strides[2] as isize)
     }
 }
 
 impl<C: Memorable> Tensor<C, 2> {
-    pub fn subtensor_ref(&self, m: usize) -> RowRef<C> {
+    /// Returns an immutable row view of a 1D subtensor at the given index.
+    pub fn subtensor_ref(&self, m: usize) -> RowRef<'_, C> {
         check_bounds(&[m, 0], &self.dims);
         // Safety: bounds have been checked.
         unsafe { self.subtensor_ref_unchecked(m) }
     }
 
-    pub fn subtensor_mut(&mut self, m: usize) -> RowMut<C> {
+    /// Returns a mutable row view of a 1D subtensor at the given index.
+    pub fn subtensor_mut(&mut self, m: usize) -> RowMut<'_, C> {
         check_bounds(&[m, 0], &self.dims);
         // Safety: bounds have been checked.
         unsafe { self.subtensor_mut_unchecked(m) }
     }
 
     #[inline(always)]
-    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> RowRef<C> {
+    /// Returns an immutable row view of a 1D subtensor at the given index without bounds checking.
+    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> RowRef<'_, C> {
         RowRef::from_raw_parts(self.ptr_at(&[m, 0]), self.dims[1], self.strides[1] as isize)
     }
 
     #[inline(always)]
-    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> RowMut<C> {
+    /// Returns a mutable row view of a 1D subtensor at the given index without bounds checking.
+    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> RowMut<'_, C> {
         RowMut::from_raw_parts_mut(self.ptr_at_mut(&[m, 0]), self.dims[1], self.strides[1] as isize)
     }
 }
 
 impl<C: Memorable> Tensor<C, 1> {
+    /// Returns an immutable reference to an element at the given index.
     pub fn subtensor_ref(&self, m: usize) -> &C {
         self.get(&[m])
     }
 
+    /// Returns a mutable reference to an element at the given index.
     pub fn subtensor_mut(&mut self, m: usize) -> &mut C {
         self.get_mut(&[m])
     }
 
     #[inline(always)]
+    /// Returns an immutable reference to an element at the given index without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> &C {
         self.get_unchecked(&[m])
     }
 
     #[inline(always)]
+    /// Returns a mutable reference to an element at the given index without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> &mut C {
         self.get_mut_unchecked(&[m])
     }
 }
 
 impl<'a, C: Memorable> TensorRef<'a, C, 4> {
+    /// Returns an immutable view of a 3D subtensor at the given index.
     pub fn subtensor_ref(&self, m: usize) -> TensorRef<'a, C, 3> {
         check_bounds(&[m, 0, 0, 0], &self.dims);
         // Safety: bounds have been checked.
@@ -760,12 +806,14 @@ impl<'a, C: Memorable> TensorRef<'a, C, 4> {
     }
 
     #[inline(always)]
+    /// Returns an immutable view of a 3D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> TensorRef<'a, C, 3> {
         TensorRef::from_raw_parts(self.ptr_at(&[m, 0, 0, 0]), [self.dims[1], self.dims[2], self.dims[3]], [self.strides[1], self.strides[2], self.strides[3]])
     }
 }
 
 impl<'a, C: Memorable> TensorRef<'a, C, 3> {
+    /// Returns an immutable matrix view of a 2D subtensor at the given index.
     pub fn subtensor_ref(&self, m: usize) -> MatRef<'a, C> {
         check_bounds(&[m, 0, 0], &self.dims);
         // Safety: bounds have been checked.
@@ -773,12 +821,14 @@ impl<'a, C: Memorable> TensorRef<'a, C, 3> {
     }
 
     #[inline(always)]
+    /// Returns an immutable matrix view of a 2D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> MatRef<'a, C> {
         MatRef::from_raw_parts(self.ptr_at(&[m, 0, 0]), self.dims[1], self.dims[2], self.strides[1] as isize, self.strides[2] as isize)
     }
 }
 
 impl<'a, C: Memorable> TensorRef<'a, C, 2> {
+    /// Returns an immutable row view of a 1D subtensor at the given index.
     pub fn subtensor_ref(&self, m: usize) -> RowRef<'a, C> {
         check_bounds(&[m, 0], &self.dims);
         // Safety: bounds have been checked.
@@ -786,29 +836,34 @@ impl<'a, C: Memorable> TensorRef<'a, C, 2> {
     }
 
     #[inline(always)]
+    /// Returns an immutable row view of a 1D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> RowRef<'a, C> {
         RowRef::from_raw_parts(self.ptr_at(&[m, 0]), self.dims[1], self.strides[1] as isize)
     }
 }
 
 impl<'a, C: Memorable> TensorRef<'a, C, 1> {
+    /// Returns an immutable reference to an element at the given index.
     pub fn subtensor_ref(&self, m: usize) -> &C {
         self.get(&[m])
     }
 
     #[inline(always)]
+    /// Returns an immutable reference to an element at the given index without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> &C {
         self.get_unchecked(&[m])
     }
 }
 
 impl<'a, C: Memorable> TensorMut<'a, C, 4> {
+    /// Returns an immutable view of a 3D subtensor at the given index.
     pub fn subtensor_ref(&self, m: usize) -> TensorRef<'a, C, 3> {
         check_bounds(&[m, 0, 0, 0], &self.dims);
         // Safety: bounds have been checked.
         unsafe { self.subtensor_ref_unchecked(m) }
     }
 
+    /// Returns a mutable view of a 3D subtensor at the given index.
     pub fn subtensor_mut(&mut self, m: usize) -> TensorMut<'a, C, 3> {
         check_bounds(&[m, 0, 0, 0], &self.dims);
         // Safety: bounds have been checked.
@@ -816,23 +871,27 @@ impl<'a, C: Memorable> TensorMut<'a, C, 4> {
     }
 
     #[inline(always)]
+    /// Returns an immutable view of a 3D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> TensorRef<'a, C, 3> {
         TensorRef::from_raw_parts(self.ptr_at(&[m, 0, 0, 0]), [self.dims[1], self.dims[2], self.dims[3]], [self.strides[1], self.strides[2], self.strides[3]])
     }
 
     #[inline(always)]
+    /// Returns a mutable view of a 3D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> TensorMut<'a, C, 3> {
         TensorMut::from_raw_parts(self.ptr_at_mut(&[m, 0, 0, 0]), [self.dims[1], self.dims[2], self.dims[3]], [self.strides[1], self.strides[2], self.strides[3]])
     }
 }
 
 impl<'a, C: Memorable> TensorMut<'a, C, 3> {
+    /// Returns an immutable matrix view of a 2D subtensor at the given index.
     pub fn subtensor_ref(&self, m: usize) -> MatRef<'a, C> {
         check_bounds(&[m, 0, 0], &self.dims);
         // Safety: bounds have been checked.
         unsafe { self.subtensor_ref_unchecked(m) }
     }
 
+    /// Returns a mutable matrix view of a 2D subtensor at the given index.
     pub fn subtensor_mut(&mut self, m: usize) -> MatMut<'a, C> {
         check_bounds(&[m, 0, 0], &self.dims);
         // Safety: bounds have been checked.
@@ -840,23 +899,27 @@ impl<'a, C: Memorable> TensorMut<'a, C, 3> {
     }
 
     #[inline(always)]
+    /// Returns an immutable matrix view of a 2D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> MatRef<'a, C> {
         MatRef::from_raw_parts(self.ptr_at(&[m, 0, 0]), self.dims[1], self.dims[2], self.strides[1] as isize, self.strides[2] as isize)
     }
 
     #[inline(always)]
+    /// Returns a mutable matrix view of a 2D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> MatMut<'a, C> {
         MatMut::from_raw_parts_mut(self.ptr_at_mut(&[m, 0, 0]), self.dims[1], self.dims[2], self.strides[1] as isize, self.strides[2] as isize)
     }
 }
 
 impl<'a, C: Memorable> TensorMut<'a, C, 2> {
+    /// Returns an immutable row view of a 1D subtensor at the given index.
     pub fn subtensor_ref(&self, m: usize) -> RowRef<'a, C> {
         check_bounds(&[m, 0], &self.dims);
         // Safety: bounds have been checked.
         unsafe { self.subtensor_ref_unchecked(m) }
     }
 
+    /// Returns a mutable row view of a 1D subtensor at the given index.
     pub fn subtensor_mut(&mut self, m: usize) -> RowMut<'a, C> {
         check_bounds(&[m, 0], &self.dims);
         // Safety: bounds have been checked.
@@ -864,31 +927,37 @@ impl<'a, C: Memorable> TensorMut<'a, C, 2> {
     }
 
     #[inline(always)]
+    /// Returns an immutable row view of a 1D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> RowRef<'a, C> {
         RowRef::from_raw_parts(self.ptr_at(&[m, 0]), self.dims[1], self.strides[1] as isize)
     }
 
     #[inline(always)]
+    /// Returns a mutable row view of a 1D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> RowMut<'a, C> {
         RowMut::from_raw_parts_mut(self.ptr_at_mut(&[m, 0]), self.dims[1], self.strides[1] as isize)
     }
 }
 
 impl<'a, C: Memorable> TensorMut<'a, C, 1> {
+    /// Returns an immutable reference to an element at the given index.
     pub fn subtensor_ref(&self, m: usize) -> &C {
         self.get(&[m])
     }
 
+    /// Returns a mutable reference to an element at the given index.
     pub fn subtensor_mut(&mut self, m: usize) -> &mut C {
         self.get_mut(&[m])
     }
 
     #[inline(always)]
+    /// Returns an immutable reference to an element at the given index without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> &C {
         self.get_unchecked(&[m])
     }
 
     #[inline(always)]
+    /// Returns a mutable reference to an element at the given index without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> &mut C {
         self.get_mut_unchecked(&[m])
     }

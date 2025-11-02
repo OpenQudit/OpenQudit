@@ -12,7 +12,7 @@ use qudit_core::accel::fused_reshape_permute_reshape_into_impl;
 use qudit_core::accel::fused_reshape_permute_reshape_into_prepare;
 use qudit_core::accel::tensor_fused_reshape_permute_reshape_into_prepare;
 use qudit_core::c64;
-use qudit_core::matrix::{Mat, MatMut, MatRef};
+use faer::{Mat, MatMut, MatRef};
 use qudit_core::memory::{alloc_zeroed_memory, calc_col_stride};
 
 pub fn frpr_benchmarks(c: &mut Criterion) {

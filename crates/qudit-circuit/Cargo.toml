@@ -21,7 +21,6 @@ pyo3 = { workspace = true, optional = true }
 inventory = { workspace = true, optional = true }
 aligned-vec = "0.6.4"
 bytemuck = "1.23.2"
-anyhow = "1.0.99"
 bit-set = "0.8.0"
 slotmap = "*"
 rustc-hash = "*"

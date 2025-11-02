@@ -10,7 +10,6 @@ use num::rational::Ratio;
 use num::FromPrimitive;
 use num::Signed;
 use num::ToPrimitive;
-use num_traits::real::Real;
 use num_traits::AsPrimitive;
 use num_traits::ConstOne;
 use num_traits::ConstZero;
@@ -24,6 +23,7 @@ use rand_distr::{Distribution, StandardNormal, Uniform};
 
 use crate::bitwidth::BitWidthConvertible;
 
+/// A generic real number within the OpenQudit library.
 pub trait RealScalar:
     Clone
     + Copy
@@ -52,6 +52,7 @@ pub trait RealScalar:
     + Memorable
     + BitWidthConvertible<Width32 = f32, Width64 = f64>
 {
+    /// The complex number type associated with this real number.
     type C: ComplexScalar<R = Self>;
 
     /// Convert this scalar to a rational number representation
@@ -134,6 +135,7 @@ impl RealScalar for f64 {
     }
 }
 
+/// A generic complex number within the OpenQudit library.
 pub trait ComplexScalar:
     Clone
     + Copy
@@ -158,6 +160,7 @@ pub trait ComplexScalar:
     + Memorable
     + BitWidthConvertible<Width32 = c32, Width64 = c64>
 {
+    /// The real number type associated with this complex number.
     type R: RealScalar<C = Self>;
     
     /// Create a complex number from real and imaginary parts

@@ -838,7 +838,7 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
   
     // Finds the optimal strides and dimensions for the reshaped and permuted tensor.
     // The output format is `(permuted_input_tensor_strides, tensor_out_strides, permuted_shape)`
-    let candidate_outputs1 = {
+    let _candidate_outputs1 = {
         // Instead of sorting, leave the strides and shape of the permuted tensor as is.
         let sorted_perm_in_strides = permuted_input_tensor_strides.clone();
         let sorted_out_strides = tensor_out_strides.clone();
@@ -959,18 +959,12 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
     };
     
     // The output with the least amount of non-contiguous axes is returned.
-    // Nope: having output contiguous for writes is a net win...
+    // Nope: - having output contiguous for writes is a net win...
+    //       - leaving code/comments for documentation
+    candidate_outputs2
     // if candidate_outputs2.0.len() < candidate_outputs1.0.len() {
-        // println!("Candidate2");
-        // println!("sorted_perm_in_strides: {:?}", candidate_outputs2.0);
-        // println!("sorted_out_strides:     {:?}", candidate_outputs2.1);
-        // println!("sorted_perm_shape:      {:?}\n", candidate_outputs2.2);
-        candidate_outputs2
+    //     candidate_outputs2
     // } else {
-    //     // println!("Candidate1");
-    //     println!("sorted_perm_in_strides: {:?}", candidate_outputs1.0);
-    //     println!("sorted_out_strides:     {:?}", candidate_outputs1.1);
-    //     println!("sorted_perm_shape:      {:?}\n", candidate_outputs1.2);
     //     candidate_outputs1
     // }
 }

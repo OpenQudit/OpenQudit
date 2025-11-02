@@ -1,6 +1,6 @@
+//! Qudit-Core is the core package in the OpenQudit library.
 #![warn(missing_docs)]
 
-//! Qudit-Core is the core package in the OpenQudit library.
 mod bitwidth;
 mod function;
 mod perm;
@@ -8,7 +8,6 @@ mod radices;
 mod radix;
 mod scalar;
 mod system;
-// mod shape;
 mod quantum;
 mod utils;
 
@@ -21,16 +20,12 @@ pub use function::HasBounds;
 pub use function::HasParams;
 pub use function::HasPeriods;
 pub use function::ParamIndices;
-pub use function::ParamInfo;
 pub use perm::calc_index_permutation;
 pub use perm::QuditPermutation;
 pub use radices::Radices;
-// pub use radices::ToRadices;
-// pub use radix::ToRadix;
 pub use radix::Radix;
 pub use scalar::ComplexScalar;
 pub use scalar::RealScalar;
-// pub use shape::TensorShape;
 pub use system::ClassicalSystem;
 pub use system::HybridSystem;
 pub use system::QuditSystem;

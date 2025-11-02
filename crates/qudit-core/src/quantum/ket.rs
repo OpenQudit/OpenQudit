@@ -7,6 +7,7 @@ use std::ops::Index;
 use num_traits::One;
 use num_complex::ComplexFloat;
 
+/// Represents a quantum state vector as a Ket.
 pub struct Ket<R: RealScalar> {
     radices: Radices,
     vector: Col<R::C>,

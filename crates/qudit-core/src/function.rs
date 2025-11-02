@@ -49,158 +49,6 @@ impl Hash for ParamIndices {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ParamInfo {
-    indices: ParamIndices,
-    constant: Vec<bool>, // TODO: change to bitmap
-}
-
-impl ParamInfo {
-    pub fn new(indices: impl Into<ParamIndices>, constant: Vec<bool>) -> ParamInfo {
-        ParamInfo {
-            indices: indices.into(),
-            constant,
-        }
-    }
-
-    pub fn parameterized(indices: impl Into<ParamIndices>) -> ParamInfo {
-        let indices = indices.into();
-        let num_params = indices.num_params();
-        ParamInfo {
-            indices,
-            constant: vec![false; num_params],
-        }
-    }
-
-    /// Returns a new `ParamInfo` with its parameter indices sorted.
-    ///
-    /// If the `ParamIndices` are `Disjoint`, the internal vector is sorted.
-    /// If the `ParamIndices` are `Joint`, they remain `Joint` as their order is inherently sorted.
-    /// The `constant` vector is reordered to match the new order of indices.
-    pub fn to_sorted(&self) -> ParamInfo {
-        // Create a map from each parameter index to its 'constant' status.
-        let index_to_constant_map: std::collections::HashMap<usize, bool> = self.indices.iter()
-            .zip(self.constant.iter().cloned())
-            .collect();
-
-        // Get the sorted parameter indices. This will preserve the `Joint` variant if applicable.
-        let new_indices = self.indices.sorted();
-
-        // Build the new `constant` vector by iterating through the `new_indices`
-        // and looking up their constant status in the map.
-        let new_constant: Vec<bool> = new_indices.iter()
-            .map(|index| *index_to_constant_map.get(&index).unwrap_or(&false))
-            .collect();
-
-        ParamInfo {
-            indices: new_indices,
-            constant: new_constant,
-        }
-    }
-
-    pub fn concat(&self, other: &ParamInfo) -> ParamInfo {
-        let combined_indices = self.indices.concat(&other.indices);
-
-        let self_index_to_constant: std::collections::HashMap<usize, bool> = self.indices.iter()
-            .zip(self.constant.iter().cloned())
-            .collect();
-
-        let other_index_to_constant: std::collections::HashMap<usize, bool> = other.indices.iter()
-            .zip(other.constant.iter().cloned())
-            .collect();
-
-        let mut new_constant = Vec::new();
-        for index in combined_indices.iter() {
-            if let Some(&c) = self_index_to_constant.get(&index) {
-                if let Some(&c_other) = other_index_to_constant.get(&index) {
-                    assert_eq!(c, c_other);
-                }
-                new_constant.push(c);
-            } else if let Some(&c) = other_index_to_constant.get(&index) {
-                new_constant.push(c);
-            } else {
-                unreachable!();
-            };
-        }
-
-        ParamInfo {
-            indices: combined_indices,
-            constant: new_constant,
-        }
-    }
-
-    pub fn intersect(&self, other: &ParamInfo) -> ParamInfo {
-        let combined_indices = self.indices.intersect(&other.indices);
-
-        let self_index_to_constant: std::collections::HashMap<usize, bool> = self.indices.iter()
-            .zip(self.constant.iter().cloned())
-            .collect();
-
-        let other_index_to_constant: std::collections::HashMap<usize, bool> = other.indices.iter()
-            .zip(other.constant.iter().cloned())
-            .collect();
-
-        let mut new_constant = Vec::new();
-        for index in combined_indices.iter() {
-            let c_self = self_index_to_constant.get(&index);
-            let c_other = other_index_to_constant.get(&index);
-
-            // An index in combined_indices must exist in both self and other ParamInfo
-            match (c_self, c_other) {
-                (Some(&s_const), Some(&o_const)) => {
-                    // Their constant status must be the same for the common index
-                    assert_eq!(s_const, o_const, "Constant status mismatch for common index {}", index);
-                    new_constant.push(s_const);
-                },
-                _ => unreachable!("Intersected index {} not found in both original ParamInfos", index),
-            }
-        }
-
-        ParamInfo {
-            indices: combined_indices,
-            constant: new_constant,
-        }
-    }
-
-    pub fn num_params(&self) -> usize {
-        self.indices.num_params()
-    }
-
-    pub fn get_param_map(&self) -> Vec<u64> {
-        self.indices.iter().map(|x| x as u64).collect()
-    }
-
-    pub fn get_const_map(&self) -> Vec<bool> {
-        self.constant.clone()
-    }
-
-    pub fn empty() -> ParamInfo {
-        ParamInfo {
-            indices: vec![].into(),
-            constant: vec![],
-        }
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.len() == 0
-    }
-
-    pub fn len(&self) -> usize {
-        self.constant.len()
-    }
-
-    pub fn sorted_non_constant(&self) -> Vec<usize> {
-        let mut non_constant_indices = Vec::new();
-        for (index, &is_constant) in self.indices.iter().zip(self.constant.iter()) {
-            if !is_constant {
-                non_constant_indices.push(index);
-            }
-        }
-        non_constant_indices.sort();
-        non_constant_indices
-    }
-}
-
 impl ParamIndices {
     /// Converts the `ParamIndices` to a `BitSet`.
     ///
@@ -491,10 +339,20 @@ impl ParamIndices {
         }
     }
 
-    pub fn to_vec(&self) -> Vec<usize> {
+    /// Convert the indices to a vector
+    pub fn to_vec(self) -> Vec<usize> {
+        match self {
+            ParamIndices::Joint(_, _) => self.iter().collect(),
+            ParamIndices::Disjoint(vec) => vec,
+        }
+    }
+
+    /// Convert the indices to a vector without consuming the indices object.
+    pub fn as_vec(&self) -> Vec<usize> {
         self.iter().collect()
     }
     
+    /// Returns the number of indices tracked by this object; alias for num_params()
     pub fn len(&self) -> usize {
         match self {
             ParamIndices::Joint(_, length) => *length,
@@ -549,18 +407,6 @@ impl<'a> Iterator for ParamIndicesIter<'a> {
         }
     }
 }
-
-// impl From<Range<usize>> for ParamIndices {
-//     fn from(index: Range<usize>) -> Self {
-//         ParamIndices::Joint(index.start, index.end - index.start)
-//     }
-// }
-
-// impl From<usize> for ParamIndices {
-//     fn from(index: usize) -> Self {
-//         ParamIndices::Joint(index, 1)
-//     }
-// }
 
 impl<T: AsRef<[usize]>> From<T> for ParamIndices {
     fn from(indices: T) -> Self {
