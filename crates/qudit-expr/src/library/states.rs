@@ -25,8 +25,8 @@ pub fn ZeroState(radix: usize) -> KetExpression {
 #[cfg(feature = "python")]
 mod python {
     use super::*;
-    use pyo3::prelude::*;
     use crate::python::PyExpressionRegistrar;
+    use pyo3::prelude::*;
 
     /// Registers the measurement library with the Python module.
     fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {

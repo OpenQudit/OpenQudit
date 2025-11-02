@@ -66,5 +66,4 @@ pub unsafe fn hadamard_kernel_add_raw<C: Mul<Output = C> + Copy>(
             current_rhs_ptr = current_rhs_ptr.offset(rhs_cs);
         }
     }
-
 }

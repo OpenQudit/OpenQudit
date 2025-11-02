@@ -1,11 +1,11 @@
 //! Implements the tensor struct and associated methods for the Openqudit library.
 
+use faer::{MatMut, MatRef, RowMut, RowRef};
 use std::fmt::{self, Debug, Display, Formatter};
 use std::ptr::NonNull;
-use faer::{MatMut, MatRef, RowMut, RowRef};
 
-use crate::memory::{alloc_zeroed_memory, Memorable, MemoryBuffer};
 use super::check_bounds;
+use crate::memory::{alloc_zeroed_memory, Memorable, MemoryBuffer};
 
 /// Helper for flat index calculation from multi-dimensional indices.
 #[inline(always)]
@@ -25,24 +25,30 @@ pub struct Tensor<C: Memorable, const D: usize> {
     dims: [usize; D],
     /// The strides for each dimension.
     strides: [usize; D],
-} 
+}
 
 impl<C: Memorable, const D: usize> Tensor<C, D> {
     /// Creates a new tensor from a memory buffer with specified dimensions and strides.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `data` - The memory buffer containing the tensor data
     /// * `dims` - Array specifying the size of each dimension
     /// * `strides` - Array specifying the stride for each dimension
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// * If any dimension or stride is zero
     /// * If the data buffer is not large enough for the specified dimensions and strides
     pub fn new(data: MemoryBuffer<C>, dims: [usize; D], strides: [usize; D]) -> Self {
-        assert!(dims.iter().all(|&d| d != 0), "Cannot have a zero-length dimension.");
-        assert!(strides.iter().all(|&d| d != 0), "Cannot have a zero-length stride.");
+        assert!(
+            dims.iter().all(|&d| d != 0),
+            "Cannot have a zero-length dimension."
+        );
+        assert!(
+            strides.iter().all(|&d| d != 0),
+            "Cannot have a zero-length stride."
+        );
 
         let mut max_element = [0; D];
         for (i, d) in dims.iter().enumerate() {
@@ -50,7 +56,10 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
         }
         let max_flat_index = calculate_flat_index(&max_element, &strides);
 
-        assert!(data.len() >= max_flat_index, "Data buffer is not large enough.");
+        assert!(
+            data.len() >= max_flat_index,
+            "Data buffer is not large enough."
+        );
 
         Self {
             data,
@@ -61,26 +70,26 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
 
     /// Creates a new tensor with all elements initialized to zero,
     /// with specified shape.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `dims` - A slice of `usize` containing the size of each dimension.
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// * An new tensor with specified shape, filled with zeros.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// * If the length of `dims` is not equal to the number of
     ///     dimensions of the tensor.
-    /// 
+    ///
     /// # Examples
     /// ```
     /// # use qudit_core::array::Tensor;
-    /// 
+    ///
     /// let test_tensor = Tensor::<f64, 2>::zeros([3, 4]);
-    /// 
+    ///
     /// for i in 0..3 {
     ///     for j in 0..4 {
     ///         assert_eq!(test_tensor.get(&[i, j]), &0.0);
@@ -125,16 +134,12 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
 
     /// Returns an immutable reference to the tensor.
     pub fn as_ref(&self) -> TensorRef<'_, C, D> {
-        unsafe {
-            TensorRef::from_raw_parts(self.data.as_ptr(), self.dims, self.strides)
-        }
+        unsafe { TensorRef::from_raw_parts(self.data.as_ptr(), self.dims, self.strides) }
     }
 
     /// Returns a mutable reference to the tensor.
     pub fn as_mut(&mut self) -> TensorMut<'_, C, D> {
-        unsafe {
-            TensorMut::from_raw_parts(self.data.as_mut_ptr(), self.dims, self.strides)
-        }
+        unsafe { TensorMut::from_raw_parts(self.data.as_mut_ptr(), self.dims, self.strides) }
     }
 
     /// Returns a reference to an element at the given indices.
@@ -277,18 +282,18 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
 
     /// Creates a new tensor with all elements initialized to zero,
     /// with specified shape and strides.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `dims` - A slice of `usize` containing the size of each dimension
     /// * `strides` - A slice of `usize` containing the stride for each dimension.
-    /// 
+    ///
     /// # Returns
-    /// 
+    ///
     /// * A new tensor with specified shape and strides, filled with zeros.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// * If the length of `dims` or `strides` is not equal to the number of
     ///     dimensions of the tensor.
     /// * If the size of any dimension is zero but the corresponding stride is non-zero.
@@ -297,7 +302,7 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
     /// # Examples
     /// ```
     /// # use qudit_core::array::Tensor;
-    /// 
+    ///
     /// let test_tensor = Tensor::<f64, 2>::zeros_with_strides(&[3, 4], &[4, 1]);
     ///
     /// for i in 0..3 {
@@ -345,9 +350,7 @@ impl<'a, C: Display> Debug for TensorDataDebugHelper<'a, C> {
             // SAFETY: The `current_flat_offset` is calculated based on the tensor's
             // dimensions and strides. It is assumed to be within the bounds of the
             // allocated data, as guaranteed by the `Tensor` and `TensorRef` structures.
-            unsafe {
-                write!(f, "{}", &*self.data_ptr.add(self.current_flat_offset))
-            }
+            unsafe { write!(f, "{}", &*self.data_ptr.add(self.current_flat_offset)) }
         } else {
             // Recursive case: We are at an intermediate dimension.
             // Print this dimension as a list of sub-tensors/elements.
@@ -363,18 +366,21 @@ impl<'a, C: Display> Debug for TensorDataDebugHelper<'a, C> {
             for i in 0..dim_size {
                 let next_offset = self.current_flat_offset + i * dim_stride;
 
-                write!(f, "{:?}", TensorDataDebugHelper {
-                    data_ptr: self.data_ptr,
-                    dimensions: self.dimensions,
-                    strides: self.strides,
-                    current_dim_idx: self.current_dim_idx + 1,
-                    current_flat_offset: next_offset,
-                })?;
+                write!(
+                    f,
+                    "{:?}",
+                    TensorDataDebugHelper {
+                        data_ptr: self.data_ptr,
+                        dimensions: self.dimensions,
+                        strides: self.strides,
+                        current_dim_idx: self.current_dim_idx + 1,
+                        current_flat_offset: next_offset,
+                    }
+                )?;
 
                 if self.current_dim_idx == self.dimensions.len() - 1 && i != dim_size - 1 {
                     write!(f, ", ")?;
                 }
-
             }
             if self.current_dim_idx == self.dimensions.len() - 1 {
                 write!(f, "],\n",)
@@ -392,13 +398,16 @@ impl<C: Display + Debug + Memorable, const D: usize> Debug for Tensor<C, D> {
         f.debug_struct("Tensor")
             .field("dimensions", &self.dims)
             .field("strides", &self.strides)
-            .field("data", &TensorDataDebugHelper {
-                data_ptr: self.data.as_ptr(), // Pointer to the start of the data buffer
-                dimensions: &self.dims,
-                strides: &self.strides,
-                current_dim_idx: 0, // Start formatting from the first dimension (index 0)
-                current_flat_offset: 0, // Start from offset 0 in the flat data buffer
-            })
+            .field(
+                "data",
+                &TensorDataDebugHelper {
+                    data_ptr: self.data.as_ptr(), // Pointer to the start of the data buffer
+                    dimensions: &self.dims,
+                    strides: &self.strides,
+                    current_dim_idx: 0, // Start formatting from the first dimension (index 0)
+                    current_flat_offset: 0, // Start from offset 0 in the flat data buffer
+                },
+            )
             .finish()
     }
 }
@@ -408,13 +417,16 @@ impl<'a, C: Display + Debug + Memorable, const D: usize> Debug for TensorRef<'a,
         f.debug_struct("TensorRef")
             .field("dimensions", &self.dims)
             .field("strides", &self.strides)
-            .field("data", &TensorDataDebugHelper {
-                data_ptr: self.data.as_ptr(), // `self.data` is already a `*const C` for `TensorRef`
-                dimensions: &self.dims,
-                strides: &self.strides,
-                current_dim_idx: 0,
-                current_flat_offset: 0,
-            })
+            .field(
+                "data",
+                &TensorDataDebugHelper {
+                    data_ptr: self.data.as_ptr(), // `self.data` is already a `*const C` for `TensorRef`
+                    dimensions: &self.dims,
+                    strides: &self.strides,
+                    current_dim_idx: 0,
+                    current_flat_offset: 0,
+                },
+            )
             .finish()
     }
 }
@@ -422,7 +434,7 @@ impl<'a, C: Display + Debug + Memorable, const D: usize> Debug for TensorRef<'a,
 // TODO: add iterators for subtensors
 
 /// An immutable view into tensor data.
-/// 
+///
 /// This struct provides read-only access to tensor data without owning the underlying memory.
 /// It holds a reference to the data along with dimension and stride information.
 #[derive(Clone, Copy)]
@@ -449,11 +461,7 @@ impl<'a, C: Memorable, const D: usize> TensorRef<'a, C, D> {
     /// - The memory is accessible by the pointer.
     /// - No mutable aliasing occurs. No mutable references to the tensor data
     ///  exist when the `MatVecRef` is alive.
-    pub unsafe fn from_raw_parts(
-        data: *const C,
-        dims: [usize; D],
-        strides: [usize; D],
-    ) -> Self {
+    pub unsafe fn from_raw_parts(data: *const C, dims: [usize; D], strides: [usize; D]) -> Self {
         // SAFETY: The pointer is never used in an mutable context.
         let ptr = unsafe { NonNull::new_unchecked(data as *mut C) };
 
@@ -546,9 +554,8 @@ impl<'a, C: Memorable, const D: usize> std::ops::Index<[usize; D]> for TensorRef
     }
 }
 
-
 /// A mutable view into tensor data.
-/// 
+///
 /// This struct provides read-write access to tensor data without owning the underlying memory.
 /// It holds a mutable reference to the data along with dimension and stride information.
 pub struct TensorMut<'a, C: Memorable, const D: usize> {
@@ -708,13 +715,21 @@ impl<C: Memorable> Tensor<C, 4> {
     #[inline(always)]
     /// Returns an immutable view of a 3D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> TensorRef<'_, C, 3> {
-        TensorRef::from_raw_parts(self.ptr_at(&[m, 0, 0, 0]), [self.dims[1], self.dims[2], self.dims[3]], [self.strides[1], self.strides[2], self.strides[3]])
+        TensorRef::from_raw_parts(
+            self.ptr_at(&[m, 0, 0, 0]),
+            [self.dims[1], self.dims[2], self.dims[3]],
+            [self.strides[1], self.strides[2], self.strides[3]],
+        )
     }
 
     #[inline(always)]
     /// Returns a mutable view of a 3D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> TensorMut<'_, C, 3> {
-        TensorMut::from_raw_parts(self.ptr_at_mut(&[m, 0, 0, 0]), [self.dims[1], self.dims[2], self.dims[3]], [self.strides[1], self.strides[2], self.strides[3]])
+        TensorMut::from_raw_parts(
+            self.ptr_at_mut(&[m, 0, 0, 0]),
+            [self.dims[1], self.dims[2], self.dims[3]],
+            [self.strides[1], self.strides[2], self.strides[3]],
+        )
     }
 }
 
@@ -736,13 +751,25 @@ impl<C: Memorable> Tensor<C, 3> {
     #[inline(always)]
     /// Returns an immutable matrix view of a 2D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> MatRef<'_, C> {
-        MatRef::from_raw_parts(self.ptr_at(&[m, 0, 0]), self.dims[1], self.dims[2], self.strides[1] as isize, self.strides[2] as isize)
+        MatRef::from_raw_parts(
+            self.ptr_at(&[m, 0, 0]),
+            self.dims[1],
+            self.dims[2],
+            self.strides[1] as isize,
+            self.strides[2] as isize,
+        )
     }
 
     #[inline(always)]
     /// Returns a mutable matrix view of a 2D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> MatMut<'_, C> {
-        MatMut::from_raw_parts_mut(self.ptr_at_mut(&[m, 0, 0]), self.dims[1], self.dims[2], self.strides[1] as isize, self.strides[2] as isize)
+        MatMut::from_raw_parts_mut(
+            self.ptr_at_mut(&[m, 0, 0]),
+            self.dims[1],
+            self.dims[2],
+            self.strides[1] as isize,
+            self.strides[2] as isize,
+        )
     }
 }
 
@@ -770,7 +797,11 @@ impl<C: Memorable> Tensor<C, 2> {
     #[inline(always)]
     /// Returns a mutable row view of a 1D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> RowMut<'_, C> {
-        RowMut::from_raw_parts_mut(self.ptr_at_mut(&[m, 0]), self.dims[1], self.strides[1] as isize)
+        RowMut::from_raw_parts_mut(
+            self.ptr_at_mut(&[m, 0]),
+            self.dims[1],
+            self.strides[1] as isize,
+        )
     }
 }
 
@@ -809,7 +840,11 @@ impl<'a, C: Memorable> TensorRef<'a, C, 4> {
     #[inline(always)]
     /// Returns an immutable view of a 3D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> TensorRef<'a, C, 3> {
-        TensorRef::from_raw_parts(self.ptr_at(&[m, 0, 0, 0]), [self.dims[1], self.dims[2], self.dims[3]], [self.strides[1], self.strides[2], self.strides[3]])
+        TensorRef::from_raw_parts(
+            self.ptr_at(&[m, 0, 0, 0]),
+            [self.dims[1], self.dims[2], self.dims[3]],
+            [self.strides[1], self.strides[2], self.strides[3]],
+        )
     }
 }
 
@@ -824,7 +859,13 @@ impl<'a, C: Memorable> TensorRef<'a, C, 3> {
     #[inline(always)]
     /// Returns an immutable matrix view of a 2D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> MatRef<'a, C> {
-        MatRef::from_raw_parts(self.ptr_at(&[m, 0, 0]), self.dims[1], self.dims[2], self.strides[1] as isize, self.strides[2] as isize)
+        MatRef::from_raw_parts(
+            self.ptr_at(&[m, 0, 0]),
+            self.dims[1],
+            self.dims[2],
+            self.strides[1] as isize,
+            self.strides[2] as isize,
+        )
     }
 }
 
@@ -874,13 +915,21 @@ impl<'a, C: Memorable> TensorMut<'a, C, 4> {
     #[inline(always)]
     /// Returns an immutable view of a 3D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> TensorRef<'a, C, 3> {
-        TensorRef::from_raw_parts(self.ptr_at(&[m, 0, 0, 0]), [self.dims[1], self.dims[2], self.dims[3]], [self.strides[1], self.strides[2], self.strides[3]])
+        TensorRef::from_raw_parts(
+            self.ptr_at(&[m, 0, 0, 0]),
+            [self.dims[1], self.dims[2], self.dims[3]],
+            [self.strides[1], self.strides[2], self.strides[3]],
+        )
     }
 
     #[inline(always)]
     /// Returns a mutable view of a 3D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> TensorMut<'a, C, 3> {
-        TensorMut::from_raw_parts(self.ptr_at_mut(&[m, 0, 0, 0]), [self.dims[1], self.dims[2], self.dims[3]], [self.strides[1], self.strides[2], self.strides[3]])
+        TensorMut::from_raw_parts(
+            self.ptr_at_mut(&[m, 0, 0, 0]),
+            [self.dims[1], self.dims[2], self.dims[3]],
+            [self.strides[1], self.strides[2], self.strides[3]],
+        )
     }
 }
 
@@ -902,13 +951,25 @@ impl<'a, C: Memorable> TensorMut<'a, C, 3> {
     #[inline(always)]
     /// Returns an immutable matrix view of a 2D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> MatRef<'a, C> {
-        MatRef::from_raw_parts(self.ptr_at(&[m, 0, 0]), self.dims[1], self.dims[2], self.strides[1] as isize, self.strides[2] as isize)
+        MatRef::from_raw_parts(
+            self.ptr_at(&[m, 0, 0]),
+            self.dims[1],
+            self.dims[2],
+            self.strides[1] as isize,
+            self.strides[2] as isize,
+        )
     }
 
     #[inline(always)]
     /// Returns a mutable matrix view of a 2D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> MatMut<'a, C> {
-        MatMut::from_raw_parts_mut(self.ptr_at_mut(&[m, 0, 0]), self.dims[1], self.dims[2], self.strides[1] as isize, self.strides[2] as isize)
+        MatMut::from_raw_parts_mut(
+            self.ptr_at_mut(&[m, 0, 0]),
+            self.dims[1],
+            self.dims[2],
+            self.strides[1] as isize,
+            self.strides[2] as isize,
+        )
     }
 }
 
@@ -936,7 +997,11 @@ impl<'a, C: Memorable> TensorMut<'a, C, 2> {
     #[inline(always)]
     /// Returns a mutable row view of a 1D subtensor at the given index without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> RowMut<'a, C> {
-        RowMut::from_raw_parts_mut(self.ptr_at_mut(&[m, 0]), self.dims[1], self.strides[1] as isize)
+        RowMut::from_raw_parts_mut(
+            self.ptr_at_mut(&[m, 0]),
+            self.dims[1],
+            self.strides[1] as isize,
+        )
     }
 }
 

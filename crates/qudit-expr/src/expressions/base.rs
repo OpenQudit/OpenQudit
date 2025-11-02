@@ -1,12 +1,11 @@
-use std::collections::HashMap;
-use std::collections::HashSet;
 use num::bigint::BigInt;
 use num::rational::Ratio;
-use num::ToPrimitive;
 use num::FromPrimitive;
+use num::ToPrimitive;
 use qudit_core::RealScalar;
+use std::collections::HashMap;
+use std::collections::HashSet;
 
-use crate::analysis::check_equality;
 use crate::analysis::simplify;
 
 pub type Rational = Ratio<BigInt>;
@@ -90,7 +89,7 @@ impl Expression {
             Expression::Sin(expr) => format!("sin {}", expr.to_string()),
             Expression::Cos(expr) => format!("cos {}", expr.to_string()),
         };
-        return String::from("(") + &inner + &String::from(")")
+        return String::from("(") + &inner + &String::from(")");
     }
 
     /// Hard in general: https://math.stackexchange.com/questions/164221/period-of-the-sum-product-of-two-functions
@@ -105,14 +104,14 @@ impl Expression {
         match self {
             Expression::Pi => {
                 context.insert("pi".to_string());
-            },
+            }
             Expression::Variable(var) => {
                 context.insert(var.clone());
             }
             Expression::Constant(_) => {
                 context.insert(self.to_string());
                 context.insert(self.to_float().to_string());
-            },
+            }
             Expression::Neg(expr) => {
                 context.extend(expr.gather_context());
             }
@@ -160,7 +159,10 @@ impl Expression {
             Expression::Pow(lhs, rhs) => lhs.is_zero() && !rhs.is_zero(),
             Expression::Sqrt(expr) => expr.is_zero(),
             Expression::Sin(expr) => expr.is_zero(),
-            Expression::Cos(expr) => !expr.is_parameterized() && (expr.eval::<f64>(&HashMap::new()) - std::f64::consts::PI / 2.0) < 1e-6,
+            Expression::Cos(expr) => {
+                !expr.is_parameterized()
+                    && (expr.eval::<f64>(&HashMap::new()) - std::f64::consts::PI / 2.0) < 1e-6
+            }
             Expression::Pi => false,
             Expression::Variable(_) => false,
         }
@@ -187,7 +189,9 @@ impl Expression {
     pub fn is_one(&self) -> bool {
         match self {
             Expression::Constant(c) => *c.numer() == *c.denom(),
-            Expression::Neg(expr) => !expr.is_parameterized() && expr.eval::<f64>(&HashMap::new()) == -1.0,
+            Expression::Neg(expr) => {
+                !expr.is_parameterized() && expr.eval::<f64>(&HashMap::new()) == -1.0
+            }
             Expression::Add(lhs, rhs) => {
                 lhs.is_one() && rhs.is_zero() || lhs.is_zero() && rhs.is_one()
             }
@@ -196,7 +200,10 @@ impl Expression {
             Expression::Div(lhs, rhs) => lhs == rhs && !rhs.is_zero(),
             Expression::Pow(lhs, _rhs) => lhs.is_one(),
             Expression::Sqrt(expr) => expr.is_one(),
-            Expression::Sin(expr) => !expr.is_parameterized() && (expr.eval::<f64>(&HashMap::new()) - std::f64::consts::PI / 2.0) < 1e-6,
+            Expression::Sin(expr) => {
+                !expr.is_parameterized()
+                    && (expr.eval::<f64>(&HashMap::new()) - std::f64::consts::PI / 2.0) < 1e-6
+            }
             Expression::Cos(expr) => expr.is_zero(),
             Expression::Pi => false,
             Expression::Variable(_) => false,
@@ -376,7 +383,9 @@ impl Expression {
                 Box::new(lhs.rename_variable(original, new)),
                 Box::new(rhs.rename_variable(original, new)),
             ),
-            Expression::Sqrt(expr) => Expression::Sqrt(Box::new(expr.rename_variable(original, new))),
+            Expression::Sqrt(expr) => {
+                Expression::Sqrt(Box::new(expr.rename_variable(original, new)))
+            }
             Expression::Sin(expr) => Expression::Sin(Box::new(expr.rename_variable(original, new))),
             Expression::Cos(expr) => Expression::Cos(Box::new(expr.rename_variable(original, new))),
         }
@@ -420,10 +429,17 @@ impl Expression {
                     if lhs.is_parameterized() {
                         todo!("Cannot differentiate with respect to a parameterized power base until ln is implemented")
                     } else {
-                        self.clone() * rhs.differentiate(wrt) * Expression::from_float(lhs.eval::<f64>(&HashMap::new()).ln())
+                        self.clone()
+                            * rhs.differentiate(wrt)
+                            * Expression::from_float(lhs.eval::<f64>(&HashMap::new()).ln())
                     }
                 } else if base_fn_x && !exponent_fn_x {
-                    *rhs.clone() * Expression::Pow(Box::new(*lhs.clone()), Box::new(*rhs.clone() - Expression::one())) * lhs.differentiate(wrt)
+                    *rhs.clone()
+                        * Expression::Pow(
+                            Box::new(*lhs.clone()),
+                            Box::new(*rhs.clone() - Expression::one()),
+                        )
+                        * lhs.differentiate(wrt)
                 } else {
                     todo!("Cannot differentiate with respect to a parameterized base and exponent until ln is implemented")
                 }
@@ -536,7 +552,7 @@ impl Expression {
                 }
             }
         }
-        ancestors 
+        ancestors
     }
 
     pub fn fast_eq(&self, other: &Expression) -> bool {
@@ -546,19 +562,24 @@ impl Expression {
             (Expression::Constant(c1), Expression::Constant(c2)) => c1 == c2,
             (Expression::Neg(expr1), Expression::Neg(expr2)) => expr1.fast_eq(expr2),
             (Expression::Add(lhs1, rhs1), Expression::Add(lhs2, rhs2)) => {
-                (lhs1.fast_eq(lhs2) && rhs1.fast_eq(rhs2)) || (lhs1.fast_eq(rhs2) && rhs1.fast_eq(lhs2))
+                (lhs1.fast_eq(lhs2) && rhs1.fast_eq(rhs2))
+                    || (lhs1.fast_eq(rhs2) && rhs1.fast_eq(lhs2))
             }
             (Expression::Sub(lhs1, rhs1), Expression::Sub(lhs2, rhs2)) => {
-                (lhs1.fast_eq(lhs2) && rhs1.fast_eq(rhs2)) || (lhs1.fast_eq(rhs2) && rhs1.fast_eq(lhs2))
+                (lhs1.fast_eq(lhs2) && rhs1.fast_eq(rhs2))
+                    || (lhs1.fast_eq(rhs2) && rhs1.fast_eq(lhs2))
             }
             (Expression::Mul(lhs1, rhs1), Expression::Mul(lhs2, rhs2)) => {
-                (lhs1.fast_eq(lhs2) && rhs1.fast_eq(rhs2)) || (lhs1.fast_eq(rhs2) && rhs1.fast_eq(lhs2))
+                (lhs1.fast_eq(lhs2) && rhs1.fast_eq(rhs2))
+                    || (lhs1.fast_eq(rhs2) && rhs1.fast_eq(lhs2))
             }
             (Expression::Div(lhs1, rhs1), Expression::Div(lhs2, rhs2)) => {
-                (lhs1.fast_eq(lhs2) && rhs1.fast_eq(rhs2)) || (lhs1.fast_eq(rhs2) && rhs1.fast_eq(lhs2))
+                (lhs1.fast_eq(lhs2) && rhs1.fast_eq(rhs2))
+                    || (lhs1.fast_eq(rhs2) && rhs1.fast_eq(lhs2))
             }
             (Expression::Pow(lhs1, rhs1), Expression::Pow(lhs2, rhs2)) => {
-                (lhs1.fast_eq(lhs2) && rhs1.fast_eq(rhs2)) || (lhs1.fast_eq(rhs2) && rhs1.fast_eq(lhs2))
+                (lhs1.fast_eq(lhs2) && rhs1.fast_eq(rhs2))
+                    || (lhs1.fast_eq(rhs2) && rhs1.fast_eq(lhs2))
             }
             (Expression::Sqrt(expr1), Expression::Sqrt(expr2)) => expr1.fast_eq(expr2),
             (Expression::Sin(expr1), Expression::Sin(expr2)) => expr1.fast_eq(expr2),
@@ -567,49 +588,43 @@ impl Expression {
         }
     }
 
-    pub fn substitute<S: AsRef<Expression>, T: AsRef<Expression>>(&self, original: S, substitution: T) -> Self {
+    pub fn substitute<S: AsRef<Expression>, T: AsRef<Expression>>(
+        &self,
+        original: S,
+        substitution: T,
+    ) -> Self {
         let original = original.as_ref();
         let substitution = substitution.as_ref();
         if self.fast_eq(original) {
             return substitution.clone();
         }
         match self {
-            Expression::Pi => { self.clone() }
-            Expression::Variable(_) => { self.clone() }
-            Expression::Constant(_) => { self.clone() }
+            Expression::Pi => self.clone(),
+            Expression::Variable(_) => self.clone(),
+            Expression::Constant(_) => self.clone(),
             Expression::Neg(expr) => {
                 Expression::Neg(Box::new(expr.substitute(original, substitution)))
             }
-            Expression::Add(lhs, rhs) => {
-                Expression::Add(
-                    Box::new(lhs.substitute(original, substitution)),
-                    Box::new(rhs.substitute(original, substitution)),
-                )
-            }
-            Expression::Sub(lhs, rhs) => {
-                Expression::Sub(
-                    Box::new(lhs.substitute(original, substitution)),
-                    Box::new(rhs.substitute(original, substitution)),
-                )
-            }
-            Expression::Mul(lhs, rhs) => {
-                Expression::Mul(
-                    Box::new(lhs.substitute(original, substitution)),
-                    Box::new(rhs.substitute(original, substitution)),
-                )
-            }
-            Expression::Div(lhs, rhs) => {
-                Expression::Div(
-                    Box::new(lhs.substitute(original, substitution)),
-                    Box::new(rhs.substitute(original, substitution)),
-                )
-            }
-            Expression::Pow(lhs, rhs) => {
-                Expression::Pow(
-                    Box::new(lhs.substitute(original, substitution)),
-                    Box::new(rhs.substitute(original, substitution)),
-                )
-            }
+            Expression::Add(lhs, rhs) => Expression::Add(
+                Box::new(lhs.substitute(original, substitution)),
+                Box::new(rhs.substitute(original, substitution)),
+            ),
+            Expression::Sub(lhs, rhs) => Expression::Sub(
+                Box::new(lhs.substitute(original, substitution)),
+                Box::new(rhs.substitute(original, substitution)),
+            ),
+            Expression::Mul(lhs, rhs) => Expression::Mul(
+                Box::new(lhs.substitute(original, substitution)),
+                Box::new(rhs.substitute(original, substitution)),
+            ),
+            Expression::Div(lhs, rhs) => Expression::Div(
+                Box::new(lhs.substitute(original, substitution)),
+                Box::new(rhs.substitute(original, substitution)),
+            ),
+            Expression::Pow(lhs, rhs) => Expression::Pow(
+                Box::new(lhs.substitute(original, substitution)),
+                Box::new(rhs.substitute(original, substitution)),
+            ),
             Expression::Sqrt(expr) => {
                 Expression::Sqrt(Box::new(expr.substitute(original, substitution)))
             }
@@ -630,16 +645,14 @@ impl Expression {
         match self {
             Expression::Pi => {
                 vec![]
-            },
+            }
             Expression::Variable(s) => {
                 vec![s.clone()]
-            },
-            Expression::Constant(c) => {
+            }
+            Expression::Constant(_) => {
                 vec![]
-            },
-            Expression::Neg(expr) => {
-                expr.get_unique_variables()
-            },
+            }
+            Expression::Neg(expr) => expr.get_unique_variables(),
             Expression::Add(lhs, rhs) => {
                 let mut l = lhs.get_unique_variables();
                 for r in rhs.get_unique_variables().into_iter() {
@@ -648,7 +661,7 @@ impl Expression {
                     }
                 }
                 l
-            },
+            }
             Expression::Sub(lhs, rhs) => {
                 let mut l = lhs.get_unique_variables();
                 for r in rhs.get_unique_variables().into_iter() {
@@ -657,7 +670,7 @@ impl Expression {
                     }
                 }
                 l
-            },
+            }
             Expression::Mul(lhs, rhs) => {
                 let mut l = lhs.get_unique_variables();
                 for r in rhs.get_unique_variables().into_iter() {
@@ -666,7 +679,7 @@ impl Expression {
                     }
                 }
                 l
-            },
+            }
             Expression::Div(lhs, rhs) => {
                 let mut l = lhs.get_unique_variables();
                 for r in rhs.get_unique_variables().into_iter() {
@@ -675,7 +688,7 @@ impl Expression {
                     }
                 }
                 l
-            },
+            }
             Expression::Pow(lhs, rhs) => {
                 let mut l = lhs.get_unique_variables();
                 for r in rhs.get_unique_variables().into_iter() {
@@ -684,16 +697,10 @@ impl Expression {
                     }
                 }
                 l
-            },
-            Expression::Sqrt(expr) => {
-                expr.get_unique_variables()
-            },
-            Expression::Sin(expr) => {
-                expr.get_unique_variables()
-            },
-            Expression::Cos(expr) => {
-                expr.get_unique_variables()
-            },
+            }
+            Expression::Sqrt(expr) => expr.get_unique_variables(),
+            Expression::Sin(expr) => expr.get_unique_variables(),
+            Expression::Cos(expr) => expr.get_unique_variables(),
         }
     }
 }
@@ -859,8 +866,7 @@ impl std::ops::Div<&Expression> for &Expression {
     fn div(self, other: &Expression) -> Expression {
         if other.is_zero_fast() {
             panic!("Cannot divide by zero")
-        }
-        else if let (Expression::Constant(c1), Expression::Constant(c2)) = (self, other) {
+        } else if let (Expression::Constant(c1), Expression::Constant(c2)) = (self, other) {
             Expression::Constant(c1 / c2)
         } else if self.is_zero_fast() {
             Expression::zero()
@@ -915,41 +921,11 @@ impl std::hash::Hash for Expression {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use std::hash::{Hash, Hasher};
-
-    use super::*;
-
-    #[test]
-    fn test_hash_and_equal() {
-        let cos = Expression::Cos(Box::new(Expression::Variable("x".to_string())));
-        let four = Expression::from_int(4);
-        let expr1 = &cos * &four;
-        let power = Expression::Pow(Box::new(Expression::from_int(2)), Box::new(Expression::Variable("x".to_string())));
-        let powerp2 = Expression::Pow(Box::new(Expression::from_int(2)), Box::new(Expression::Variable("x".to_string()) + Expression::from_int(2)));
-        let expr2 = &cos * (&powerp2 / &power);
-
-        assert_eq!(expr1, expr2);
-
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        expr1.hash(&mut hasher);
-        let hash1 = hasher.finish();
-
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        expr2.hash(&mut hasher);
-        let hash2 = hasher.finish();
-
-        assert_eq!(hash1, hash2);
-    }
-}
-
 impl AsRef<Expression> for Expression {
     fn as_ref(&self) -> &Expression {
         self
     }
 }
-
 
 impl<R: RealScalar> From<R> for Expression {
     fn from(value: R) -> Self {

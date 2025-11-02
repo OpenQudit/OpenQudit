@@ -1,17 +1,16 @@
 mod base;
-mod complex;
-mod named;
 mod bra;
-mod ket;
 mod brasys;
-mod ketsys;
+mod complex;
+mod generator;
 mod isometry;
+mod ket;
+mod ketsys;
+mod kraus;
+mod named;
+mod tensor;
 mod unitary;
 mod utrysys;
-mod kraus;
-mod tensor;
-mod generator;
-
 
 #[allow(dead_code)]
 pub trait JittableExpression: Into<NamedExpression> {
@@ -20,18 +19,16 @@ pub trait JittableExpression: Into<NamedExpression> {
 
 pub use base::Constant;
 pub use base::Expression;
-pub use complex::ComplexExpression;
-pub use named::ExpressionBody;
-pub use named::BoundExpressionBody;
-pub use named::NamedExpression;
-pub use ket::KetExpression;
 pub use bra::BraExpression;
-pub use ketsys::KetSystemExpression;
 pub use brasys::BraSystemExpression;
-pub use unitary::UnitaryExpression;
-pub use isometry::IsometryExpression;
-pub use kraus::KrausOperatorsExpression;
-pub use tensor::TensorExpression;
+pub use complex::ComplexExpression;
 pub use generator::ExpressionGenerator;
+pub use isometry::IsometryExpression;
+pub use ket::KetExpression;
+pub use ketsys::KetSystemExpression;
+pub use kraus::KrausOperatorsExpression;
+pub use named::ExpressionBody;
+pub use named::NamedExpression;
+pub use tensor::TensorExpression;
+pub use unitary::UnitaryExpression;
 pub use utrysys::UnitarySystemExpression;
-

@@ -8,8 +8,8 @@ use crate::GenerationShape;
 use crate::TensorExpression;
 
 use super::NamedExpression;
-use qudit_core::Radices;
 use qudit_core::QuditSystem;
+use qudit_core::Radices;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct BraExpression {
@@ -59,7 +59,8 @@ impl From<BraExpression> for TensorExpression {
     fn from(value: BraExpression) -> Self {
         let BraExpression { inner, radices } = value;
         // TODO: add a proper implementation of into_iter for QuditRadices
-        let indices = radices.into_iter()
+        let indices = radices
+            .into_iter()
             .enumerate()
             .map(|(i, r)| TensorIndex::new(IndexDirection::Input, i, usize::from(*r)))
             .collect();
@@ -72,8 +73,14 @@ impl TryFrom<TensorExpression> for BraExpression {
     type Error = String;
 
     fn try_from(value: TensorExpression) -> Result<Self, Self::Error> {
-        if value.indices().iter().any(|idx| idx.direction() != IndexDirection::Input) {
-            return Err(String::from("Cannot convert a tensor with non-input indices to a bra."));
+        if value
+            .indices()
+            .iter()
+            .any(|idx| idx.direction() != IndexDirection::Input)
+        {
+            return Err(String::from(
+                "Cannot convert a tensor with non-input indices to a bra.",
+            ));
         }
         let radices = Radices::from_iter(value.indices().iter().map(|idx| idx.index_size()));
         Ok(BraExpression {
@@ -86,7 +93,7 @@ impl TryFrom<TensorExpression> for BraExpression {
 impl QuditSystem for BraExpression {
     fn radices(&self) -> Radices {
         self.radices.clone()
-    } 
+    }
 
     fn num_qudits(&self) -> usize {
         self.radices.num_qudits()
@@ -96,15 +103,14 @@ impl QuditSystem for BraExpression {
 #[cfg(feature = "python")]
 mod python {
     use super::*;
-    use pyo3::prelude::*;
-    use qudit_core::Radix;
     use crate::python::PyExpressionRegistrar;
-    use qudit_core::c64;
-    use pyo3::types::PyTuple;
+    use ndarray::ArrayViewMut2;
     use numpy::PyArray2;
     use numpy::PyArrayMethods;
-    use ndarray::ArrayViewMut2;
-
+    use pyo3::prelude::*;
+    use pyo3::types::PyTuple;
+    use qudit_core::c64;
+    use qudit_core::Radix;
 
     #[pyclass]
     #[pyo3(name = "BraExpression")]
@@ -138,16 +144,18 @@ mod python {
         }
 
         fn __repr__(&self) -> String {
-            format!("BraExpression(name='{}', radices={:?}, params={})", 
-                    self.expr.name(), self.expr.radices().to_vec(), self.expr.num_params())
+            format!(
+                "BraExpression(name='{}', radices={:?}, params={})",
+                self.expr.name(),
+                self.expr.radices().to_vec(),
+                self.expr.num_params()
+            )
         }
     }
 
     impl From<BraExpression> for PyBraExpression {
         fn from(value: BraExpression) -> Self {
-            PyBraExpression {
-                expr: value,
-            }
+            PyBraExpression { expr: value }
         }
     }
 

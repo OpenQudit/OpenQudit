@@ -1,18 +1,18 @@
-use std::any::TypeId;
-use std::hash::Hash;
 use super::storage::CompactStorage;
 use super::LimitedSizeVec;
+use std::any::TypeId;
+use std::hash::Hash;
 
 const INLINE_CAPACITY: usize = 7;
 
 /// A space-efficient vector that stores small collections inline and transitions to heap allocation when needed.
-/// 
+///
 /// `CompactVec` optimizes memory usage by storing up to INLINE_CAPACITY elements directly inline without heap allocation,
 /// automatically transitioning to heap storage when the capacity is exceeded or when inline storage
 /// cannot represent certain values.
-/// 
+///
 /// # Examples
-/// 
+///
 /// ```
 /// # use qudit_core::CompactVec;
 /// let mut vec: CompactVec<i8> = CompactVec::new();
@@ -33,12 +33,12 @@ pub enum CompactVec<T: CompactStorage> {
 
 impl<T: CompactStorage> CompactVec<T> {
     /// Creates a new empty `CompactVec` using inline storage.
-    /// 
+    ///
     /// The vector starts with inline storage and can hold up to INLINE_CAPACITY elements
     /// before transitioning to heap allocation.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let vec: CompactVec<i8> = CompactVec::new();
@@ -49,13 +49,13 @@ impl<T: CompactStorage> CompactVec<T> {
     pub fn new() -> Self {
         CompactVec::Inline([T::InlineType::default(); INLINE_CAPACITY], 0)
     }
-    
+
     /// Transitions the vector from inline storage to heap storage.
-    /// 
+    ///
     /// This method converts all inline-stored elements to their full representation
     /// and moves them to a heap-allocated vector. It's called automatically when
     /// inline storage is insufficient (either due to capacity or representation limits).
-    /// 
+    ///
     /// Returns a mutable reference to the heap vector for immediate use.
     #[inline]
     fn transition_to_heap(&mut self) -> &mut LimitedSizeVec<T> {
@@ -74,20 +74,20 @@ impl<T: CompactStorage> CompactVec<T> {
             CompactVec::Heap(vec) => vec,
         }
     }
-    
+
     /// Fast push for types where conversion is infallible (i8, u8)
     /// Appends an element to the back of the collection without checking conversion validity.
-    /// 
+    ///
     /// This method provides optimal performance for types with infallible inline conversions
     /// (such as `i8` and `u8`) by skipping runtime conversion checks.
-    /// 
+    ///
     /// # Safety
-    /// 
+    ///
     /// This method should only be used with types where `T::CONVERSION_INFALLIBLE` is true.
     /// Using it with other types may cause debug assertions to fail.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
@@ -97,8 +97,11 @@ impl<T: CompactStorage> CompactVec<T> {
     /// ```
     #[inline]
     pub fn push_unchecked(&mut self, value: T) {
-        debug_assert!(T::CONVERSION_INFALLIBLE, "push_unchecked only valid for infallible types");
-        
+        debug_assert!(
+            T::CONVERSION_INFALLIBLE,
+            "push_unchecked only valid for infallible types"
+        );
+
         match self {
             CompactVec::Inline(storage, length) => {
                 if (*length as usize) < INLINE_CAPACITY {
@@ -113,14 +116,14 @@ impl<T: CompactStorage> CompactVec<T> {
             }
         }
     }
-    
+
     /// Appends an element to the back of the collection.
-    /// 
+    ///
     /// If the vector is using inline storage and has capacity, the element is stored inline.
     /// If inline storage cannot represent the value or is full, the vector transitions to heap storage.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
@@ -135,7 +138,7 @@ impl<T: CompactStorage> CompactVec<T> {
             self.push_unchecked(value);
             return;
         }
-        
+
         match self {
             CompactVec::Inline(storage, length) => {
                 if (*length as usize) < INLINE_CAPACITY {
@@ -145,11 +148,11 @@ impl<T: CompactStorage> CompactVec<T> {
                             *length += 1;
                         }
                         Err(original_value) => {
-                              self.transition_to_heap().push(original_value);
+                            self.transition_to_heap().push(original_value);
                         }
                     }
                 } else {
-                      self.transition_to_heap().push(value);
+                    self.transition_to_heap().push(value);
                 }
             }
             CompactVec::Heap(vec) => {
@@ -157,11 +160,11 @@ impl<T: CompactStorage> CompactVec<T> {
             }
         }
     }
-    
+
     /// Removes the last element from the vector and returns it, or `None` if empty.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
@@ -185,11 +188,11 @@ impl<T: CompactStorage> CompactVec<T> {
             CompactVec::Heap(vec) => vec.pop(),
         }
     }
-    
+
     /// Returns the number of elements in the vector.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
@@ -204,11 +207,11 @@ impl<T: CompactStorage> CompactVec<T> {
             CompactVec::Heap(vec) => vec.len(),
         }
     }
-    
+
     /// Returns `true` if the vector contains no elements.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
@@ -220,11 +223,11 @@ impl<T: CompactStorage> CompactVec<T> {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
-    
+
     /// Returns a copy of the element at the given index, or `None` if the index is out of bounds.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
@@ -247,18 +250,18 @@ impl<T: CompactStorage> CompactVec<T> {
             CompactVec::Heap(vec) => vec.get(index).copied(),
         }
     }
-    
+
     /// Returns a copy of the element at the given index without bounds checking.
-    /// 
+    ///
     /// This provides optimal performance when the caller can guarantee the index is valid.
-    /// 
+    ///
     /// # Safety
-    /// 
+    ///
     /// Calling this method with an out-of-bounds index is undefined behavior,
     /// even with a safe type `T`.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
@@ -270,31 +273,29 @@ impl<T: CompactStorage> CompactVec<T> {
     #[inline]
     pub unsafe fn get_unchecked(&self, index: usize) -> T {
         match self {
-            CompactVec::Inline(storage, _) => {
-                T::from_inline(*storage.get_unchecked(index))
-            }
+            CompactVec::Inline(storage, _) => T::from_inline(*storage.get_unchecked(index)),
             CompactVec::Heap(vec) => *vec.get_unchecked(index),
         }
     }
-    
+
     /// Returns `true` if the vector is currently using inline storage.
-    /// 
+    ///
     /// This can be useful for performance-sensitive code that needs to know
     /// whether operations will involve heap allocation or inline array access.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// assert!(vec.is_inline());
-    /// 
+    ///
     /// // Still inline after adding elements
     /// for i in 0..7 {
     ///     vec.push(i);
     /// }
     /// assert!(vec.is_inline());
-    /// 
+    ///
     /// // Transitions to heap when capacity is exceeded
     /// vec.push(7);
     /// assert!(!vec.is_inline());
@@ -303,19 +304,19 @@ impl<T: CompactStorage> CompactVec<T> {
     pub fn is_inline(&self) -> bool {
         matches!(self, CompactVec::Inline(_, _))
     }
-    
+
     /// Returns the total capacity of the vector.
-    /// 
+    ///
     /// For inline storage, this is always INLINE_CAPACITY. For heap storage, this returns
     /// the current heap capacity which may be larger than the length.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let vec: CompactVec<i8> = CompactVec::new();
     /// assert_eq!(vec.capacity(), 7);
-    /// 
+    ///
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// for i in 0..8 {  // Force transition to heap
     ///     vec.push(i);
@@ -329,20 +330,20 @@ impl<T: CompactStorage> CompactVec<T> {
             CompactVec::Heap(vec) => vec.capacity(),
         }
     }
-    
+
     /// Returns the vector's contents as a slice.
-    /// 
+    ///
     /// This method provides zero-cost slice access for types where `T` and `T::InlineType`
     /// are the same (such as `i8` and `u8`). For other types, it panics since the
     /// inline storage cannot be directly interpreted as a slice of `T`.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if `T` and `T::InlineType` are different types, as conversion would be required.
     /// Use `iter()` instead for such types.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
@@ -368,10 +369,12 @@ impl<T: CompactStorage> CompactVec<T> {
             }
         } else {
             // TODO: transition to HEAP, then return slice
-            panic!("Cannot get slice from inline storage for non-zero-cost types - use iter() instead")
+            panic!(
+                "Cannot get slice from inline storage for non-zero-cost types - use iter() instead"
+            )
         }
     }
-    
+
     /// Removes and returns the element at position `index`, shifting all elements after it to the left.
     ///
     /// # Panics
@@ -379,9 +382,13 @@ impl<T: CompactStorage> CompactVec<T> {
     #[inline]
     pub fn remove(&mut self, index: usize) -> T {
         if index >= self.len() {
-            panic!("removal index (is {}) should be < len (is {})", index, self.len());
+            panic!(
+                "removal index (is {}) should be < len (is {})",
+                index,
+                self.len()
+            );
         }
-        
+
         match self {
             CompactVec::Inline(storage, length) => {
                 let result = T::from_inline(storage[index]);
@@ -395,7 +402,7 @@ impl<T: CompactStorage> CompactVec<T> {
             CompactVec::Heap(vec) => vec.remove(index),
         }
     }
-    
+
     /// Inserts an element at position `index`, shifting all elements after it to the right.
     ///
     /// # Panics
@@ -403,9 +410,13 @@ impl<T: CompactStorage> CompactVec<T> {
     #[inline]
     pub fn insert(&mut self, index: usize, element: T) {
         if index > self.len() {
-            panic!("insertion index (is {}) should be <= len (is {})", index, self.len());
+            panic!(
+                "insertion index (is {}) should be <= len (is {})",
+                index,
+                self.len()
+            );
         }
-        
+
         match self {
             CompactVec::Inline(storage, length) => {
                 if (*length as usize) >= INLINE_CAPACITY || T::to_inline(element.clone()).is_err() {
@@ -422,7 +433,7 @@ impl<T: CompactStorage> CompactVec<T> {
             CompactVec::Heap(vec) => vec.insert(index, element),
         }
     }
-    
+
     /// Shortens the vector, keeping the first `len` elements and dropping the rest.
     ///
     /// If `len` is greater than the vector's current length, this has no effect.
@@ -437,7 +448,7 @@ impl<T: CompactStorage> CompactVec<T> {
             CompactVec::Heap(vec) => vec.truncate(len),
         }
     }
-    
+
     /// Resizes the vector to the given length.
     ///
     /// If `new_len` is greater than `len`, the vector is extended with clones of `value`.
@@ -453,22 +464,22 @@ impl<T: CompactStorage> CompactVec<T> {
             self.truncate(new_len);
         }
     }
-    
+
     /// Extends the vector by cloning elements from a slice.
-    /// 
+    ///
     /// All elements from the slice are appended to the vector in order.
     /// If the vector is using inline storage and the additional elements
     /// cause it to exceed capacity or cannot be represented inline,
     /// it will transition to heap storage automatically.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.extend_from_slice(&[1, 2, 3]);
     /// assert_eq!(vec.len(), 3);
-    /// 
+    ///
     /// vec.extend_from_slice(&[4, 5]);
     /// assert_eq!(vec.len(), 5);
     /// ```
@@ -478,16 +489,16 @@ impl<T: CompactStorage> CompactVec<T> {
             self.push(item.clone());
         }
     }
-    
+
     /// Reserves capacity for at least `additional` more elements.
     ///
     /// For inline storage, this will transition to heap if the requested
     /// additional capacity would exceed the inline capacity of INLINE_CAPACITY elements.
     /// For heap storage, this forwards the call to the underlying vector's
     /// reserve method.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
@@ -512,15 +523,15 @@ impl<T: CompactStorage> CompactVec<T> {
             CompactVec::Heap(vec) => vec.reserve(additional),
         }
     }
-    
+
     /// Clears the vector, removing all elements but keeping allocated capacity.
-    /// 
+    ///
     /// For inline storage, this resets the length to 0 without changing the storage mode.
     /// For heap storage, this forwards the call to the underlying vector, which clears
     /// all elements but preserves the allocated heap capacity.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
@@ -528,7 +539,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// vec.push(2);
     /// vec.push(3);
     /// assert_eq!(vec.len(), 3);
-    /// 
+    ///
     /// vec.clear();
     /// assert_eq!(vec.len(), 0);
     /// assert!(vec.is_empty());
@@ -594,7 +605,9 @@ impl<T: CompactStorage> CompactVec<T> {
     {
         match self {
             CompactVec::Inline(storage, length) => {
-                if *length <= 1 { return; }
+                if *length <= 1 {
+                    return;
+                }
 
                 for i in 1..*length {
                     let mut j = i as usize;
@@ -607,19 +620,19 @@ impl<T: CompactStorage> CompactVec<T> {
             CompactVec::Heap(vec) => vec.sort(),
         }
     }
-    
+
     /// Takes ownership of the vector's contents, leaving the original empty.
-    /// 
+    ///
     /// This is equivalent to `std::mem::replace(self, CompactVec::new())` but more explicit.
     /// The original vector is left in a new, empty state (using inline storage).
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.extend_from_slice(&[1, 2, 3]);
-    /// 
+    ///
     /// let taken = vec.take();
     /// assert_eq!(taken.len(), 3);
     /// assert_eq!(vec.len(), 0);
@@ -629,22 +642,22 @@ impl<T: CompactStorage> CompactVec<T> {
     pub fn take(&mut self) -> Self {
         std::mem::replace(self, Self::new())
     }
-    
+
     /// Returns a mutable reference to the element at the given index, or `None` if out of bounds.
-    /// 
+    ///
     /// For inline storage with non-zero-cost type conversions, this method will transition
     /// the vector to heap storage to provide mutable access. For zero-cost conversions
     /// (where `T` and `T::InlineType` are the same), it provides direct mutable access
     /// to the inline storage.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.push(10);
     /// vec.push(20);
-    /// 
+    ///
     /// if let Some(elem) = vec.get_mut(1) {
     ///     *elem = 25;
     /// }
@@ -673,7 +686,7 @@ impl<T: CompactStorage> CompactVec<T> {
             CompactVec::Heap(vec) => vec.get_mut(index),
         }
     }
-    
+
     /// Returns a mutable reference to an element without bounds checking.
     ///
     /// For inline storage with non-zero-cost type conversions, this method will transition
@@ -681,12 +694,12 @@ impl<T: CompactStorage> CompactVec<T> {
     /// it provides direct unsafe mutable access to the inline storage.
     ///
     /// # Safety
-    /// 
+    ///
     /// Calling this method with an out-of-bounds index is undefined behavior,
     /// even with a safe type `T`.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
@@ -712,21 +725,21 @@ impl<T: CompactStorage> CompactVec<T> {
             CompactVec::Heap(vec) => vec.get_mut_unchecked(index),
         }
     }
-    
+
     /// Returns the vector's contents as a mutable slice.
-    /// 
+    ///
     /// For inline storage with non-zero-cost type conversions, this method will transition
     /// the vector to heap storage to provide mutable slice access. For zero-cost conversions
     /// (where `T` and `T::InlineType` are the same), it provides direct mutable access
     /// to the inline storage as a slice.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.extend_from_slice(&[1, 2, 3]);
-    /// 
+    ///
     /// let slice = vec.as_slice_mut();
     /// slice[1] = 10;
     /// assert_eq!(vec.get(1), Some(10));
@@ -749,22 +762,22 @@ impl<T: CompactStorage> CompactVec<T> {
             CompactVec::Heap(vec) => vec.as_mut(),
         }
     }
-    
+
     /// Returns an iterator over the vector's elements.
-    /// 
+    ///
     /// This iterator is optimized for inline storage, avoiding heap allocations
     /// and providing efficient element access for small collections.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.extend_from_slice(&[1, 2, 3]);
-    /// 
+    ///
     /// let sum: i8 = vec.iter().sum();
     /// assert_eq!(sum, 6);
-    /// 
+    ///
     /// for (i, value) in vec.iter().enumerate() {
     ///     println!("Element {}: {}", i, value);
     /// }
@@ -772,19 +785,15 @@ impl<T: CompactStorage> CompactVec<T> {
     #[inline]
     pub fn iter(&self) -> CompactVecIter<'_, T> {
         match self {
-            CompactVec::Inline(storage, length) => {
-                CompactVecIter::Inline(storage, 0, *length)
-            }
-            CompactVec::Heap(vec) => {
-                CompactVecIter::Heap(vec.iter())
-            }
+            CompactVec::Inline(storage, length) => CompactVecIter::Inline(storage, 0, *length),
+            CompactVec::Heap(vec) => CompactVecIter::Heap(vec.iter()),
         }
     }
 }
 
 impl<T: CompactStorage> Default for CompactVec<T> {
     /// Creates an empty `CompactVec<T>`.
-    /// 
+    ///
     /// This is equivalent to `CompactVec::new()`.
     #[inline]
     fn default() -> Self {
@@ -793,13 +802,13 @@ impl<T: CompactStorage> Default for CompactVec<T> {
 }
 
 /// An iterator over the elements of a `CompactVec`.
-/// 
+///
 /// This iterator is optimized to handle both inline and heap storage modes efficiently.
 /// It's created by calling `iter()` on a `CompactVec`.
 #[derive(Debug, Clone)]
 pub enum CompactVecIter<'a, T: CompactStorage> {
     /// Iterator over inline storage elements.
-    /// 
+    ///
     /// Contains: (storage reference, current index, total length)
     Inline(&'a [T::InlineType; INLINE_CAPACITY], u8, u8),
     /// Iterator over heap storage elements.
@@ -808,7 +817,7 @@ pub enum CompactVecIter<'a, T: CompactStorage> {
 
 impl<'a, T: CompactStorage> Iterator for CompactVecIter<'a, T> {
     type Item = T;
-    
+
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -824,7 +833,7 @@ impl<'a, T: CompactStorage> Iterator for CompactVecIter<'a, T> {
             CompactVecIter::Heap(iter) => iter.next().copied(),
         }
     }
-    
+
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         match self {
@@ -844,7 +853,7 @@ where
     T: CompactStorage,
 {
     /// Returns a mutable slice of the vector's contents.
-    /// 
+    ///
     /// This delegates to `as_slice_mut()`.
     #[inline]
     fn as_mut(&mut self) -> &mut [T] {
@@ -858,13 +867,13 @@ where
     T: CompactStorage,
 {
     /// Creates a `CompactVec` from a standard `Vec`.
-    /// 
+    ///
     /// All elements are moved from the source vector. If the vector has INLINE_CAPACITY or fewer
     /// elements and they can all be represented inline, the result will use inline storage.
     /// Otherwise, it will use heap storage.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let vec = vec![1i8, 2, 3];
@@ -892,9 +901,9 @@ where
     T: CompactStorage,
 {
     /// Creates a `CompactVec` from a fixed-size array.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let array = [1i8, 2, 3, 4, 5];
@@ -917,9 +926,9 @@ where
     T: CompactStorage,
 {
     /// Creates a `CompactVec` from a fixed-size array.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let array = [1i8, 2, 3, 4, 5];
@@ -942,9 +951,9 @@ where
     T: CompactStorage + Clone,
 {
     /// Creates a `CompactVec` from a slice by cloning all elements.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let slice = &[1i8, 2, 3];
@@ -967,7 +976,7 @@ where
     T: CompactStorage + Clone,
 {
     /// Creates a `CompactVec` from a vector reference by cloning all elements.
-    /// 
+    ///
     /// This delegates to the `&[T]` implementation.
     #[inline]
     fn from(vec: &Vec<T>) -> Self {
@@ -981,17 +990,17 @@ where
     T: CompactStorage,
 {
     /// Creates a standard `Vec` from a `CompactVec`.
-    /// 
+    ///
     /// For inline storage, a new vector is allocated and all elements are copied.
     /// For heap storage, the underlying vector is returned directly when possible.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut compact: CompactVec<i8> = CompactVec::new();
     /// compact.extend_from_slice(&[1, 2, 3]);
-    /// 
+    ///
     /// let vec: Vec<i8> = compact.into();
     /// assert_eq!(vec, vec![1, 2, 3]);
     /// ```
@@ -1029,7 +1038,7 @@ impl<T: CompactStorage + Eq> Eq for CompactVec<T> {}
 /// Like `CompactVecIter`, it's optimized to handle both inline and heap storage modes.
 pub enum CompactVecIntoIter<T: CompactStorage> {
     /// Iterator that moves out of inline storage elements.
-    /// 
+    ///
     /// Contains: (storage array, current index, total length)
     Inline([T::InlineType; INLINE_CAPACITY], u8, u8),
     /// Iterator that moves out of heap storage elements.
@@ -1038,7 +1047,7 @@ pub enum CompactVecIntoIter<T: CompactStorage> {
 
 impl<T: CompactStorage> Iterator for CompactVecIntoIter<T> {
     type Item = T;
-    
+
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
         match self {
@@ -1054,7 +1063,7 @@ impl<T: CompactStorage> Iterator for CompactVecIntoIter<T> {
             CompactVecIntoIter::Heap(iter) => iter.next(),
         }
     }
-    
+
     #[inline]
     fn size_hint(&self) -> (usize, Option<usize>) {
         match self {
@@ -1083,7 +1092,10 @@ impl<T: CompactStorage> FromIterator<T> for CompactVec<T> {
                 if T::CONVERSION_INFALLIBLE {
                     let mut storage = [T::InlineType::default(); INLINE_CAPACITY];
                     for i in 0..len {
-                        storage[i] = T::to_inline_unchecked(iter.next().expect("iterator should have enough elements based on size hint"));
+                        storage[i] = T::to_inline_unchecked(
+                            iter.next()
+                                .expect("iterator should have enough elements based on size hint"),
+                        );
                     }
                     return CompactVec::Inline(storage, len as u8);
                 }
@@ -1124,26 +1136,22 @@ where
     type IntoIter = CompactVecIntoIter<T>;
 
     /// Creates an owning iterator that consumes the vector.
-    /// 
+    ///
     /// # Examples
-    /// 
+    ///
     /// ```
     /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.extend_from_slice(&[1, 2, 3]);
-    /// 
+    ///
     /// let doubled: Vec<i8> = vec.into_iter().map(|x| x * 2).collect();
     /// assert_eq!(doubled, vec![2, 4, 6]);
     /// ```
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
         match self {
-            CompactVec::Inline(storage, length) => {
-                CompactVecIntoIter::Inline(storage, 0, length)
-            }
-            CompactVec::Heap(vec) => {
-                CompactVecIntoIter::Heap(vec.into_iter())
-            }
+            CompactVec::Inline(storage, length) => CompactVecIntoIter::Inline(storage, 0, length),
+            CompactVec::Heap(vec) => CompactVecIntoIter::Heap(vec.into_iter()),
         }
     }
 }
@@ -1156,7 +1164,7 @@ where
     type IntoIter = CompactVecIter<'a, T>;
 
     /// Creates an iterator over references to the vector's elements.
-    /// 
+    ///
     /// This delegates to `iter()`.
     #[inline]
     fn into_iter(self) -> Self::IntoIter {
@@ -1172,7 +1180,7 @@ where
     type IntoIter = std::slice::IterMut<'a, T>;
 
     /// Creates an iterator over mutable references to the vector's elements.
-    /// 
+    ///
     /// For inline storage with non-zero-cost conversions, this will transition
     /// the vector to heap storage.
     #[inline]
@@ -1184,46 +1192,42 @@ where
 // Specialized implementations for zero-cost conversions (T == T::InlineType)
 // These provide optimal performance for i8 and u8 types.
 /// Enables treating `CompactVec<i8>` as a slice through the `Deref` trait.
-/// 
+///
 /// This implementation is only available for `i8` because it has zero-cost
 /// conversion with its inline type.
 impl std::ops::Deref for CompactVec<i8> {
     type Target = [i8];
 
     /// Returns a slice view of the vector's contents.
-    /// 
+    ///
     /// This provides zero-cost access to the underlying storage.
     #[inline]
     fn deref(&self) -> &Self::Target {
         match self {
-            CompactVec::Inline(storage, length) => {
-                unsafe {
-                    std::slice::from_raw_parts(storage.as_ptr(), *length as usize)
-                }
-            }
+            CompactVec::Inline(storage, length) => unsafe {
+                std::slice::from_raw_parts(storage.as_ptr(), *length as usize)
+            },
             CompactVec::Heap(vec) => vec.as_slice(),
         }
     }
 }
 
 /// Enables treating `CompactVec<u8>` as a slice through the `Deref` trait.
-/// 
+///
 /// This implementation is only available for `u8` because it has zero-cost
 /// conversion with its inline type.
 impl std::ops::Deref for CompactVec<u8> {
     type Target = [u8];
 
     /// Returns a slice view of the vector's contents.
-    /// 
+    ///
     /// This provides zero-cost access to the underlying storage.
     #[inline]
     fn deref(&self) -> &Self::Target {
         match self {
-            CompactVec::Inline(storage, length) => {
-                unsafe {
-                    std::slice::from_raw_parts(storage.as_ptr(), *length as usize)
-                }
-            }
+            CompactVec::Inline(storage, length) => unsafe {
+                std::slice::from_raw_parts(storage.as_ptr(), *length as usize)
+            },
             CompactVec::Heap(vec) => vec.as_slice(),
         }
     }
@@ -1234,16 +1238,19 @@ impl std::ops::Index<usize> for CompactVec<i8> {
     type Output = i8;
 
     /// Returns a reference to the element at the given index.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if the index is out of bounds.
     #[inline]
     fn index(&self, index: usize) -> &Self::Output {
         match self {
             CompactVec::Inline(storage, length) => {
                 if index >= *length as usize {
-                    panic!("index out of bounds: the len is {} but the index is {}", *length, index);
+                    panic!(
+                        "index out of bounds: the len is {} but the index is {}",
+                        *length, index
+                    );
                 }
                 &storage[index]
             }
@@ -1257,16 +1264,19 @@ impl std::ops::Index<usize> for CompactVec<u8> {
     type Output = u8;
 
     /// Returns a reference to the element at the given index.
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if the index is out of bounds.
     #[inline]
     fn index(&self, index: usize) -> &Self::Output {
         match self {
             CompactVec::Inline(storage, length) => {
                 if index >= *length as usize {
-                    panic!("index out of bounds: the len is {} but the index is {}", *length, index);
+                    panic!(
+                        "index out of bounds: the len is {} but the index is {}",
+                        *length, index
+                    );
                 }
                 &storage[index]
             }
@@ -1280,7 +1290,7 @@ impl AsRef<[i8]> for CompactVec<i8> {
     /// Returns a slice view of the vector's contents.
     #[inline]
     fn as_ref(&self) -> &[i8] {
-            self.as_slice()
+        self.as_slice()
     }
 }
 
@@ -1289,10 +1299,9 @@ impl AsRef<[u8]> for CompactVec<u8> {
     /// Returns a slice view of the vector's contents.
     #[inline]
     fn as_ref(&self) -> &[u8] {
-            self.as_slice()
+        self.as_slice()
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -1327,7 +1336,7 @@ mod tests {
     #[test]
     fn test_push_inline() {
         let mut vec: CompactVec<i8> = CompactVec::new();
-        
+
         // Test pushing elements within inline capacity
         for i in 0..INLINE_CAPACITY as i8 {
             vec.push(i);
@@ -1335,7 +1344,7 @@ mod tests {
             assert!(vec.is_inline());
             assert_eq!(vec.get(i as usize), Some(i));
         }
-        
+
         assert_eq!(vec.len(), INLINE_CAPACITY);
         assert!(vec.is_inline());
     }
@@ -1343,19 +1352,19 @@ mod tests {
     #[test]
     fn test_push_transition_to_heap() {
         let mut vec: CompactVec<i8> = CompactVec::new();
-        
+
         // Fill inline storage
         for i in 0..INLINE_CAPACITY as i8 {
             vec.push(i);
         }
         assert!(vec.is_inline());
-        
+
         // This should trigger transition to heap
         vec.push(INLINE_CAPACITY as i8);
         assert!(!vec.is_inline());
         assert_eq!(vec.len(), INLINE_CAPACITY + 1);
         assert!(vec.capacity() >= INLINE_CAPACITY + 1);
-        
+
         // Verify all elements are still accessible
         for i in 0..=INLINE_CAPACITY as i8 {
             assert_eq!(vec.get(i as usize), Some(i));
@@ -1365,10 +1374,10 @@ mod tests {
     #[test]
     fn test_push_unchecked() {
         let mut vec: CompactVec<i8> = CompactVec::new();
-        
+
         vec.push_unchecked(42);
         vec.push_unchecked(-10);
-        
+
         assert_eq!(vec.len(), 2);
         assert_eq!(vec.get(0), Some(42));
         assert_eq!(vec.get(1), Some(-10));
@@ -1377,15 +1386,15 @@ mod tests {
     #[test]
     fn test_pop() {
         let mut vec: CompactVec<i8> = CompactVec::new();
-        
+
         // Pop from empty vector
         assert_eq!(vec.pop(), None);
-        
+
         // Push some elements and pop them
         vec.push(1);
         vec.push(2);
         vec.push(3);
-        
+
         assert_eq!(vec.pop(), Some(3));
         assert_eq!(vec.len(), 2);
         assert_eq!(vec.pop(), Some(2));
@@ -1397,7 +1406,7 @@ mod tests {
     #[test]
     fn test_get_and_bounds() {
         let vec = test_vec_with_elements(&[1i8, 2, 3]);
-        
+
         assert_eq!(vec.get(0), Some(1));
         assert_eq!(vec.get(1), Some(2));
         assert_eq!(vec.get(2), Some(3));
@@ -1408,7 +1417,7 @@ mod tests {
     #[test]
     fn test_get_unchecked() {
         let vec = test_vec_with_elements(&[42i8, -10, 100]);
-        
+
         unsafe {
             assert_eq!(vec.get_unchecked(0), 42);
             assert_eq!(vec.get_unchecked(1), -10);
@@ -1420,13 +1429,13 @@ mod tests {
     fn test_capacity() {
         let mut vec: CompactVec<i8> = CompactVec::new();
         assert_eq!(vec.capacity(), INLINE_CAPACITY);
-        
+
         // Fill to capacity
         for i in 0..INLINE_CAPACITY as i8 {
             vec.push(i);
         }
         assert_eq!(vec.capacity(), INLINE_CAPACITY);
-        
+
         // Transition to heap
         vec.push(INLINE_CAPACITY as i8);
         assert!(vec.capacity() >= INLINE_CAPACITY + 1);
@@ -1435,17 +1444,17 @@ mod tests {
     #[test]
     fn test_remove() {
         let mut vec = test_vec_with_elements(&[1i8, 2, 3, 4, 5]);
-        
+
         // Remove from middle
         assert_eq!(vec.remove(2), 3);
         assert_eq!(vec.len(), 4);
         assert_eq!(vec.get(2), Some(4));
-        
+
         // Remove first element
         assert_eq!(vec.remove(0), 1);
         assert_eq!(vec.len(), 3);
         assert_eq!(vec.get(0), Some(2));
-        
+
         // Remove last element
         assert_eq!(vec.remove(2), 5);
         assert_eq!(vec.len(), 2);
@@ -1461,7 +1470,7 @@ mod tests {
     #[test]
     fn test_insert() {
         let mut vec = test_vec_with_elements(&[1i8, 3, 4]);
-        
+
         // Insert at middle
         vec.insert(1, 2);
         assert_eq!(vec.len(), 4);
@@ -1469,12 +1478,12 @@ mod tests {
         assert_eq!(vec.get(1), Some(2));
         assert_eq!(vec.get(2), Some(3));
         assert_eq!(vec.get(3), Some(4));
-        
+
         // Insert at beginning
         vec.insert(0, 0);
         assert_eq!(vec.len(), 5);
         assert_eq!(vec.get(0), Some(0));
-        
+
         // Insert at end
         vec.insert(5, 5);
         assert_eq!(vec.len(), 6);
@@ -1491,16 +1500,16 @@ mod tests {
     #[test]
     fn test_truncate() {
         let mut vec = test_vec_with_elements(&[1i8, 2, 3, 4, 5]);
-        
+
         vec.truncate(3);
         assert_eq!(vec.len(), 3);
         assert_eq!(vec.get(2), Some(3));
         assert_eq!(vec.get(3), None);
-        
+
         // Truncate to larger size should have no effect
         vec.truncate(10);
         assert_eq!(vec.len(), 3);
-        
+
         // Truncate to 0
         vec.truncate(0);
         assert_eq!(vec.len(), 0);
@@ -1510,13 +1519,13 @@ mod tests {
     #[test]
     fn test_resize() {
         let mut vec = test_vec_with_elements(&[1i8, 2, 3]);
-        
+
         // Resize larger
         vec.resize(5, 42);
         assert_eq!(vec.len(), 5);
         assert_eq!(vec.get(3), Some(42));
         assert_eq!(vec.get(4), Some(42));
-        
+
         // Resize smaller
         vec.resize(2, 99);
         assert_eq!(vec.len(), 2);
@@ -1527,13 +1536,13 @@ mod tests {
     #[test]
     fn test_extend_from_slice() {
         let mut vec = test_vec_with_elements(&[1i8, 2]);
-        
+
         vec.extend_from_slice(&[3, 4, 5]);
         assert_eq!(vec.len(), 5);
         assert_eq!(vec.get(2), Some(3));
         assert_eq!(vec.get(3), Some(4));
         assert_eq!(vec.get(4), Some(5));
-        
+
         // Extend to force heap transition
         vec.extend_from_slice(&[6, 7, 8]);
         assert_eq!(vec.len(), 8);
@@ -1543,11 +1552,11 @@ mod tests {
     #[test]
     fn test_reserve() {
         let mut vec: CompactVec<i8> = CompactVec::new();
-        
+
         // Reserve within inline capacity
         vec.reserve(5);
         assert!(vec.is_inline());
-        
+
         // Reserve beyond inline capacity
         vec.reserve(10);
         assert!(!vec.is_inline());
@@ -1558,7 +1567,7 @@ mod tests {
     fn test_clear() {
         let mut vec = test_vec_with_elements(&[1i8, 2, 3, 4, 5]);
         let was_inline = vec.is_inline();
-        
+
         vec.clear();
         assert_eq!(vec.len(), 0);
         assert!(vec.is_empty());
@@ -1582,7 +1591,7 @@ mod tests {
     #[test]
     fn test_sort() {
         let mut vec = test_vec_with_elements(&[3i8, 1, 4, 1, 5]);
-        
+
         vec.sort();
         assert_eq!(vec.get(0), Some(1));
         assert_eq!(vec.get(1), Some(1));
@@ -1594,7 +1603,7 @@ mod tests {
     #[test]
     fn test_take() {
         let mut vec = test_vec_with_elements(&[1i8, 2, 3]);
-        
+
         let taken = vec.take();
         assert_eq!(taken.len(), 3);
         assert_eq!(vec.len(), 0);
@@ -1612,7 +1621,7 @@ mod tests {
     #[test]
     fn test_get_mut_i8() {
         let mut vec = test_vec_with_elements(&[10i8, 20, 30]);
-        
+
         if let Some(elem) = vec.get_mut(1) {
             *elem = 25;
         }
@@ -1622,7 +1631,7 @@ mod tests {
     #[test]
     fn test_get_mut_unchecked_i8() {
         let mut vec = test_vec_with_elements(&[42i8]);
-        
+
         unsafe {
             *vec.get_mut_unchecked(0) = 100;
         }
@@ -1632,7 +1641,7 @@ mod tests {
     #[test]
     fn test_as_slice_mut_i8() {
         let mut vec = test_vec_with_elements(&[1i8, 2, 3]);
-        
+
         let slice = vec.as_slice_mut();
         slice[1] = 10;
         assert_eq!(vec.get(1), Some(10));
@@ -1641,10 +1650,10 @@ mod tests {
     #[test]
     fn test_iter() {
         let vec = test_vec_with_elements(&[1i8, 2, 3, 4, 5]);
-        
+
         let collected: Vec<i8> = vec.iter().collect();
         assert_eq!(collected, vec![1, 2, 3, 4, 5]);
-        
+
         let sum: i8 = vec.iter().sum();
         assert_eq!(sum, 15);
     }
@@ -1653,7 +1662,7 @@ mod tests {
     fn test_iter_size_hint() {
         let vec = test_vec_with_elements(&[1i8, 2, 3]);
         let mut iter = vec.iter();
-        
+
         assert_eq!(iter.size_hint(), (3, Some(3)));
         iter.next();
         assert_eq!(iter.size_hint(), (2, Some(2)));
@@ -1662,7 +1671,7 @@ mod tests {
     #[test]
     fn test_into_iter() {
         let vec = test_vec_with_elements(&[1i8, 2, 3]);
-        
+
         let collected: Vec<i8> = vec.into_iter().collect();
         assert_eq!(collected, vec![1, 2, 3]);
     }
@@ -1670,7 +1679,7 @@ mod tests {
     #[test]
     fn test_into_iter_ref() {
         let vec = test_vec_with_elements(&[1i8, 2, 3]);
-        
+
         let collected: Vec<i8> = (&vec).into_iter().collect();
         assert_eq!(collected, vec![1, 2, 3]);
         assert_eq!(vec.len(), 3); // Original should still exist
@@ -1679,11 +1688,11 @@ mod tests {
     #[test]
     fn test_into_iter_mut() {
         let mut vec = test_vec_with_elements(&[1i8, 2, 3]);
-        
+
         for elem in &mut vec {
             *elem *= 2;
         }
-        
+
         assert_eq!(vec.get(0), Some(2));
         assert_eq!(vec.get(1), Some(4));
         assert_eq!(vec.get(2), Some(6));
@@ -1693,7 +1702,7 @@ mod tests {
     fn test_from_vec() {
         let vec = vec![1i8, 2, 3, 4, 5];
         let compact: CompactVec<i8> = vec.into();
-        
+
         assert_eq!(compact.len(), 5);
         assert!(compact.is_inline());
         assert_eq!(compact.get(0), Some(1));
@@ -1704,7 +1713,7 @@ mod tests {
     fn test_from_array() {
         let array = [1i8, 2, 3, 4, 5];
         let compact: CompactVec<i8> = array.into();
-        
+
         assert_eq!(compact.len(), 5);
         assert_eq!(compact.get(0), Some(1));
         assert_eq!(compact.get(4), Some(5));
@@ -1714,7 +1723,7 @@ mod tests {
     fn test_from_array_ref() {
         let array = [1i8, 2, 3, 4, 5];
         let compact: CompactVec<i8> = (&array).into();
-        
+
         assert_eq!(compact.len(), 5);
         assert_eq!(compact.get(0), Some(1));
         assert_eq!(compact.get(4), Some(5));
@@ -1724,7 +1733,7 @@ mod tests {
     fn test_from_slice() {
         let slice = &[1i8, 2, 3];
         let compact: CompactVec<i8> = slice.into();
-        
+
         assert_eq!(compact.len(), 3);
         assert_eq!(compact.get(0), Some(1));
         assert_eq!(compact.get(2), Some(3));
@@ -1734,7 +1743,7 @@ mod tests {
     fn test_into_vec() {
         let compact = test_vec_with_elements(&[1i8, 2, 3]);
         let vec: Vec<i8> = compact.into();
-        
+
         assert_eq!(vec, vec![1, 2, 3]);
     }
 
@@ -1742,14 +1751,14 @@ mod tests {
     fn test_deref_i8() {
         let vec = test_vec_with_elements(&[1i8, 2, 3]);
         let slice: &[i8] = &vec; // Uses Deref
-        
+
         assert_eq!(slice, &[1, 2, 3]);
     }
 
     #[test]
     fn test_index_i8() {
         let vec = test_vec_with_elements(&[10i8, 20, 30]);
-        
+
         assert_eq!(vec[0], 10);
         assert_eq!(vec[1], 20);
         assert_eq!(vec[2], 30);
@@ -1766,7 +1775,7 @@ mod tests {
     fn test_as_ref_i8() {
         let vec = test_vec_with_elements(&[1i8, 2, 3]);
         let slice: &[i8] = vec.as_ref();
-        
+
         assert_eq!(slice, &[1, 2, 3]);
     }
 
@@ -1774,7 +1783,7 @@ mod tests {
     fn test_as_mut_trait() {
         let mut vec = test_vec_with_elements(&[1i8, 2, 3]);
         let slice: &mut [i8] = vec.as_mut();
-        
+
         slice[1] = 42;
         assert_eq!(vec.get(1), Some(42));
     }
@@ -1782,22 +1791,22 @@ mod tests {
     #[test]
     fn test_heap_operations() {
         let mut vec: CompactVec<i8> = CompactVec::new();
-        
+
         // Fill beyond inline capacity to force heap
         for i in 0..10 {
             vec.push(i);
         }
-        
+
         assert!(!vec.is_inline());
         assert_eq!(vec.len(), 10);
-        
+
         // Test operations on heap storage
         assert_eq!(vec.pop(), Some(9));
         assert_eq!(vec.get(5), Some(5));
-        
+
         vec.insert(5, 42);
         assert_eq!(vec.get(5), Some(42));
-        
+
         let removed = vec.remove(5);
         assert_eq!(removed, 42);
     }
@@ -1805,12 +1814,12 @@ mod tests {
     #[test]
     fn test_empty_operations() {
         let mut vec: CompactVec<i8> = CompactVec::new();
-        
+
         assert_eq!(vec.pop(), None);
         assert_eq!(vec.get(0), None);
         assert!(vec.is_empty());
         assert_eq!(vec.len(), 0);
-        
+
         let iter_count = vec.iter().count();
         assert_eq!(iter_count, 0);
     }
@@ -1819,10 +1828,10 @@ mod tests {
     fn test_clone() {
         let vec = test_vec_with_elements(&[1i8, 2, 3]);
         let cloned = vec.clone();
-        
+
         assert_eq!(vec.len(), cloned.len());
         assert_eq!(vec.is_inline(), cloned.is_inline());
-        
+
         for i in 0..vec.len() {
             assert_eq!(vec.get(i), cloned.get(i));
         }
@@ -1832,14 +1841,14 @@ mod tests {
     fn test_u8_specialization() {
         let mut vec: CompactVec<u8> = CompactVec::new();
         vec.extend_from_slice(&[1u8, 2, 3]);
-        
+
         // Test u8 specific deref
         let slice: &[u8] = &vec;
         assert_eq!(slice, &[1u8, 2, 3]);
-        
+
         // Test u8 indexing
         assert_eq!(vec[1], 2u8);
-        
+
         // Test u8 as_ref
         let slice: &[u8] = vec.as_ref();
         assert_eq!(slice, &[1u8, 2, 3]);
@@ -1849,7 +1858,7 @@ mod tests {
     fn test_debug() {
         let vec = test_vec_with_elements(&[1i8, 2, 3]);
         let debug_str = format!("{:?}", vec);
-        
+
         // Just ensure it doesn't panic and produces some output
         assert!(!debug_str.is_empty());
     }
@@ -1869,17 +1878,17 @@ mod tests {
     #[test]
     fn test_transition_preserves_order() {
         let mut vec: CompactVec<i8> = CompactVec::new();
-        
+
         // Add elements that will fill inline storage
         for i in 0..INLINE_CAPACITY {
             vec.push((i * 10) as i8);
         }
         assert!(vec.is_inline());
-        
+
         // Force transition to heap
         vec.push((INLINE_CAPACITY * 10) as i8);
         assert!(!vec.is_inline());
-        
+
         // Verify all elements are in correct order
         for i in 0..=INLINE_CAPACITY {
             assert_eq!(vec.get(i), Some((i as i8) * 10));

@@ -1,6 +1,9 @@
 use itertools::Itertools;
-use qudit_core::{ComplexScalar, RealScalar};
-use std::{collections::HashMap, ops::{Deref, DerefMut}};
+use qudit_core::RealScalar;
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+};
 
 use crate::ComplexExpression;
 
@@ -36,9 +39,12 @@ impl ExpressionBody {
         // TODO: do physical element permutation in place via transpositions
         let mut swap_vec = vec![];
         std::mem::swap(&mut swap_vec, &mut self.body);
-        self.body = swap_vec.into_iter()
+        self.body = swap_vec
+            .into_iter()
             .enumerate()
-            .sorted_by(|(old_idx_a, _), (old_idx_b, _)| elem_perm[*old_idx_a].cmp(&elem_perm[*old_idx_b]))
+            .sorted_by(|(old_idx_a, _), (old_idx_b, _)| {
+                elem_perm[*old_idx_a].cmp(&elem_perm[*old_idx_b])
+            })
             .map(|(_, expr)| expr)
             .collect();
     }
@@ -90,7 +96,10 @@ pub struct BoundExpressionBody {
 
 impl BoundExpressionBody {
     pub fn new<B: Into<ExpressionBody>>(variables: Vec<String>, body: B) -> Self {
-        Self { variables, body: body.into() }
+        Self {
+            variables,
+            body: body.into(),
+        }
     }
 
     pub fn num_params(&self) -> usize {
@@ -129,7 +138,7 @@ impl BoundExpressionBody {
     pub fn apply_element_permutation(&mut self, elem_perm: &[usize]) {
         self.body.apply_element_permutation(elem_perm);
     }
-    
+
     pub fn alpha_rename(&mut self, starting_number: Option<usize>) {
         let mut var_id = match starting_number {
             None => 0,
@@ -151,7 +160,11 @@ impl BoundExpressionBody {
     }
 
     pub fn get_arg_map<R: RealScalar>(&self, args: &[R]) -> HashMap<&str, R> {
-        self.variables().iter().zip(args.iter()).map(|(a, b)| (a.as_str(), *b)).collect()
+        self.variables()
+            .iter()
+            .zip(args.iter())
+            .map(|(a, b)| (a.as_str(), *b))
+            .collect()
     }
 }
 
@@ -182,18 +195,19 @@ pub struct NamedExpression {
 }
 
 impl NamedExpression {
-    pub fn new<S: Into<String>, B: Into<ExpressionBody>>(name: S, variables: Vec<String>, body: B) -> Self {
+    pub fn new<S: Into<String>, B: Into<ExpressionBody>>(
+        name: S,
+        variables: Vec<String>,
+        body: B,
+    ) -> Self {
         Self {
             name: name.into(),
-            body: BoundExpressionBody::new(variables, body)
+            body: BoundExpressionBody::new(variables, body),
         }
     }
 
     pub fn from_body_with_name(name: String, body: BoundExpressionBody) -> Self {
-        Self {
-            name,
-            body,
-        }
+        Self { name, body }
     }
 
     pub fn name(&self) -> &str {

@@ -1,10 +1,9 @@
 use std::collections::HashMap;
-use std::collections::HashSet;
 
 use qudit_core::ComplexScalar;
 
-use crate::expressions::Expression;
 use crate::expressions::Constant;
+use crate::expressions::Expression;
 use crate::qgl::parse_scalar;
 use crate::qgl::Expression as CiscExpression;
 
@@ -300,14 +299,14 @@ impl ComplexExpression {
     pub fn conjugate_in_place(&mut self) {
         self.imag = Expression::Neg(Box::new(self.imag.clone()));
     }
-    
+
     pub fn differentiate(&self, wrt: &str) -> Self {
         ComplexExpression {
             real: self.real.differentiate(wrt),
             imag: self.imag.differentiate(wrt),
         }
     }
-    
+
     pub fn simplify(&self) -> Self {
         ComplexExpression {
             real: self.real.simplify(),
@@ -327,11 +326,19 @@ impl ComplexExpression {
         ancestors
     }
 
-    pub fn substitute<S: AsRef<Expression>, T: AsRef<Expression>>(&self, original: S, substitution: T) -> Self {
+    pub fn substitute<S: AsRef<Expression>, T: AsRef<Expression>>(
+        &self,
+        original: S,
+        substitution: T,
+    ) -> Self {
         // TODO: Allow ComplexExpression substitution
         ComplexExpression {
-            real: self.real.substitute(original.as_ref(), substitution.as_ref()),
-            imag: self.imag.substitute(original.as_ref(), substitution.as_ref()),
+            real: self
+                .real
+                .substitute(original.as_ref(), substitution.as_ref()),
+            imag: self
+                .imag
+                .substitute(original.as_ref(), substitution.as_ref()),
         }
     }
 
@@ -582,4 +589,3 @@ impl<C: ComplexScalar> From<C> for ComplexExpression {
         }
     }
 }
-

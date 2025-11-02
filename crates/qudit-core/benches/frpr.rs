@@ -5,14 +5,14 @@ use criterion::Criterion;
 
 mod common;
 use common::FlamegraphProfiler;
-use pprof::criterion::{PProfProfiler, Output};
+use pprof::criterion::{Output, PProfProfiler};
 use pprof::flamegraph::Options;
 
+use faer::{Mat, MatMut, MatRef};
 use qudit_core::accel::fused_reshape_permute_reshape_into_impl;
 use qudit_core::accel::fused_reshape_permute_reshape_into_prepare;
 use qudit_core::accel::tensor_fused_reshape_permute_reshape_into_prepare;
 use qudit_core::c64;
-use faer::{Mat, MatMut, MatRef};
 use qudit_core::memory::{alloc_zeroed_memory, calc_col_stride};
 
 pub fn frpr_benchmarks(c: &mut Criterion) {
@@ -44,10 +44,22 @@ pub fn frpr_benchmarks(c: &mut Criterion) {
         println!("{:?}, {:?}, {:?}", is, os, dims);
 
         group.bench_function(
-            BenchmarkId::new("frpr_impl", format!("{}x{} as {:?} -> {:?} -> {}x{}", in_nrows, in_ncols, shape, perm, out_nrows, out_ncols)),
+            BenchmarkId::new(
+                "frpr_impl",
+                format!(
+                    "{}x{} as {:?} -> {:?} -> {}x{}",
+                    in_nrows, in_ncols, shape, perm, out_nrows, out_ncols
+                ),
+            ),
             |b| {
                 b.iter(|| unsafe {
-                    fused_reshape_permute_reshape_into_impl(memory_in.as_ptr(), memory_out.as_mut_ptr(), &is, &os, &dims);
+                    fused_reshape_permute_reshape_into_impl(
+                        memory_in.as_ptr(),
+                        memory_out.as_mut_ptr(),
+                        &is,
+                        &os,
+                        &dims,
+                    );
                 });
             },
         );
@@ -78,10 +90,22 @@ pub fn frpr_benchmarks(c: &mut Criterion) {
         println!("{:?}, {:?}, {:?}", is, os, dims);
 
         group.bench_function(
-            BenchmarkId::new("frpr_impl", format!("{}x{} as {:?} -> {:?} -> {}x{}", in_nrows, in_ncols, shape, perm, out_nrows, out_ncols)),
+            BenchmarkId::new(
+                "frpr_impl",
+                format!(
+                    "{}x{} as {:?} -> {:?} -> {}x{}",
+                    in_nrows, in_ncols, shape, perm, out_nrows, out_ncols
+                ),
+            ),
             |b| {
                 b.iter(|| unsafe {
-                    fused_reshape_permute_reshape_into_impl(memory_in.as_ptr(), memory_out.as_mut_ptr(), &is, &os, &dims);
+                    fused_reshape_permute_reshape_into_impl(
+                        memory_in.as_ptr(),
+                        memory_out.as_mut_ptr(),
+                        &is,
+                        &os,
+                        &dims,
+                    );
                 });
             },
         );

@@ -1,7 +1,7 @@
+use std::alloc::{alloc, dealloc, Layout};
+use std::fmt;
 use std::hash::Hash;
 use std::ptr::NonNull;
-use std::fmt;
-use std::alloc::{alloc, dealloc, Layout};
 
 /// A vector-like container with 32-bit length and capacity limits.
 ///
@@ -104,12 +104,11 @@ impl<T> LimitedSizeVec<T> {
             Self::zero_capacity_panic();
         }
 
-        let layout = Layout::array::<T>(capacity as usize)
-            .unwrap_or_else(|_| Self::layout_error_panic());
-        
+        let layout =
+            Layout::array::<T>(capacity as usize).unwrap_or_else(|_| Self::layout_error_panic());
+
         let ptr = unsafe { alloc(layout) as *mut T };
-        let non_null = NonNull::new(ptr)
-            .unwrap_or_else(|| Self::allocation_failed_panic());
+        let non_null = NonNull::new(ptr).unwrap_or_else(|| Self::allocation_failed_panic());
 
         Self {
             data: non_null,
@@ -161,7 +160,9 @@ impl<T> LimitedSizeVec<T> {
         if self.len >= self.capacity {
             self.grow();
         }
-        unsafe { self.data.as_ptr().add(self.len as usize).write(value); }
+        unsafe {
+            self.data.as_ptr().add(self.len as usize).write(value);
+        }
         self.len += 1;
     }
 
@@ -170,16 +171,16 @@ impl<T> LimitedSizeVec<T> {
     /// Doubles the current capacity, with a minimum of 8 elements.
     /// This method is called automatically when needed by `push()`.
     fn grow(&mut self) {
-        let new_capacity = if self.capacity == 0 { 
-            DEFAULT_CAPACITY 
-        } else { 
-            self.capacity.saturating_mul(2) 
+        let new_capacity = if self.capacity == 0 {
+            DEFAULT_CAPACITY
+        } else {
+            self.capacity.saturating_mul(2)
         };
-        
+
         unsafe {
             let new_layout = Layout::array::<T>(new_capacity as usize).unwrap();
             let new_ptr = alloc(new_layout) as *mut T;
-            
+
             if new_ptr.is_null() {
                 Self::allocation_failed_panic();
             }
@@ -202,11 +203,11 @@ impl<T> LimitedSizeVec<T> {
         if new_capacity <= self.capacity {
             return;
         }
-        
+
         unsafe {
             let new_layout = Layout::array::<T>(new_capacity as usize).unwrap();
             let new_ptr = alloc(new_layout) as *mut T;
-            
+
             if new_ptr.is_null() {
                 Self::allocation_failed_panic();
             }
@@ -233,7 +234,7 @@ impl<T> LimitedSizeVec<T> {
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// assert_eq!(vec.len(), 0);
-    /// 
+    ///
     /// vec.push("hello");
     /// assert_eq!(vec.len(), 1);
     /// ```
@@ -266,7 +267,7 @@ impl<T> LimitedSizeVec<T> {
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// assert!(vec.is_empty());
-    /// 
+    ///
     /// vec.push(42);
     /// assert!(!vec.is_empty());
     /// ```
@@ -287,7 +288,7 @@ impl<T> LimitedSizeVec<T> {
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push("hello");
-    /// 
+    ///
     /// assert_eq!(vec.get(0), Some(&"hello"));
     /// assert_eq!(vec.get(1), None);
     /// ```
@@ -312,7 +313,7 @@ impl<T> LimitedSizeVec<T> {
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(String::from("hello"));
-    /// 
+    ///
     /// if let Some(element) = vec.get_mut(0) {
     ///     element.push_str(" world");
     /// }
@@ -343,14 +344,19 @@ impl<T> LimitedSizeVec<T> {
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push("hello");
-    /// 
+    ///
     /// unsafe {
     ///     assert_eq!(vec.get_unchecked(0), &"hello");
     /// }
     /// ```
     #[inline]
     pub unsafe fn get_unchecked(&self, index: usize) -> &T {
-        debug_assert!(index < self.len as usize, "index out of bounds: {} >= {}", index, self.len);
+        debug_assert!(
+            index < self.len as usize,
+            "index out of bounds: {} >= {}",
+            index,
+            self.len
+        );
         &*self.data.as_ptr().add(index)
     }
 
@@ -370,7 +376,7 @@ impl<T> LimitedSizeVec<T> {
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(String::from("hello"));
-    /// 
+    ///
     /// unsafe {
     ///     vec.get_mut_unchecked(0).push_str(" world");
     /// }
@@ -378,7 +384,12 @@ impl<T> LimitedSizeVec<T> {
     /// ```
     #[inline]
     pub unsafe fn get_mut_unchecked(&mut self, index: usize) -> &mut T {
-        debug_assert!(index < self.len as usize, "index out of bounds: {} >= {}", index, self.len);
+        debug_assert!(
+            index < self.len as usize,
+            "index out of bounds: {} >= {}",
+            index,
+            self.len
+        );
         &mut *self.data.as_ptr().add(index)
     }
 
@@ -392,7 +403,7 @@ impl<T> LimitedSizeVec<T> {
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(1);
     /// vec.push(2);
-    /// 
+    ///
     /// assert_eq!(vec.pop(), Some(2));
     /// assert_eq!(vec.pop(), Some(1));
     /// assert_eq!(vec.pop(), None);
@@ -401,9 +412,7 @@ impl<T> LimitedSizeVec<T> {
     pub fn pop(&mut self) -> Option<T> {
         if self.len > 0 {
             self.len -= 1;
-            unsafe {
-                Some(std::ptr::read(self.data.as_ptr().add(self.len as usize)))
-            }
+            unsafe { Some(std::ptr::read(self.data.as_ptr().add(self.len as usize))) }
         } else {
             None
         }
@@ -423,26 +432,29 @@ impl<T> LimitedSizeVec<T> {
     /// vec.push("a");
     /// vec.push("b");
     /// vec.push("c");
-    /// 
+    ///
     /// assert_eq!(vec.remove(1), "b");
     /// assert_eq!(vec.as_slice(), ["a", "c"]);
     /// ```
     #[inline]
     pub fn remove(&mut self, index: usize) -> T {
         if index >= self.len as usize {
-            panic!("removal index (is {}) should be < len (is {})", index, self.len);
+            panic!(
+                "removal index (is {}) should be < len (is {})",
+                index, self.len
+            );
         }
-        
+
         unsafe {
             let ptr = self.data.as_ptr().add(index);
             let ret = std::ptr::read(ptr);
-            
+
             // Shift elements left
             let remaining = self.len as usize - index - 1;
             if remaining > 0 {
                 std::ptr::copy(ptr.add(1), ptr, remaining);
             }
-            
+
             self.len -= 1;
             ret
         }
@@ -461,29 +473,32 @@ impl<T> LimitedSizeVec<T> {
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push("a");
     /// vec.push("c");
-    /// 
+    ///
     /// vec.insert(1, "b");
     /// assert_eq!(vec.as_slice(), ["a", "b", "c"]);
     /// ```
     #[inline]
     pub fn insert(&mut self, index: usize, element: T) {
         if index > self.len as usize {
-            panic!("insertion index (is {}) should be <= len (is {})", index, self.len);
+            panic!(
+                "insertion index (is {}) should be <= len (is {})",
+                index, self.len
+            );
         }
-        
+
         if self.len >= self.capacity {
             self.grow();
         }
-        
+
         unsafe {
             let ptr = self.data.as_ptr().add(index);
-            
+
             // Shift elements right
             let remaining = self.len as usize - index;
             if remaining > 0 {
                 std::ptr::copy(ptr, ptr.add(1), remaining);
             }
-            
+
             std::ptr::write(ptr, element);
             self.len += 1;
         }
@@ -503,7 +518,7 @@ impl<T> LimitedSizeVec<T> {
     /// vec.push(2);
     /// vec.push(3);
     /// vec.push(4);
-    /// 
+    ///
     /// vec.truncate(2);
     /// assert_eq!(vec.as_slice(), [1, 2]);
     /// ```
@@ -534,16 +549,16 @@ impl<T> LimitedSizeVec<T> {
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(1);
-    /// 
+    ///
     /// vec.resize(3, 0);
     /// assert_eq!(vec.as_slice(), [1, 0, 0]);
-    /// 
+    ///
     /// vec.resize(1, 2);
     /// assert_eq!(vec.as_slice(), [1]);
     /// ```
     #[inline]
-    pub fn resize(&mut self, new_len: usize, value: T) 
-    where 
+    pub fn resize(&mut self, new_len: usize, value: T)
+    where
         T: Clone,
     {
         let current_len = self.len as usize;
@@ -566,13 +581,13 @@ impl<T> LimitedSizeVec<T> {
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(1);
-    /// 
+    ///
     /// vec.extend_from_slice(&[2, 3, 4]);
     /// assert_eq!(vec.as_slice(), [1, 2, 3, 4]);
     /// ```
     #[inline]
-    pub fn extend_from_slice(&mut self, other: &[T]) 
-    where 
+    pub fn extend_from_slice(&mut self, other: &[T])
+    where
         T: Clone,
     {
         self.reserve(other.len());
@@ -620,7 +635,12 @@ impl<T> LimitedSizeVec<T> {
     /// ```
     #[inline]
     pub unsafe fn push_unchecked(&mut self, value: T) {
-        debug_assert!(self.len < self.capacity, "capacity exceeded: {} >= {}", self.len, self.capacity);
+        debug_assert!(
+            self.len < self.capacity,
+            "capacity exceeded: {} >= {}",
+            self.len,
+            self.capacity
+        );
         self.data.as_ptr().add(self.len as usize).write(value);
         self.len += 1;
     }
@@ -635,10 +655,10 @@ impl<T> LimitedSizeVec<T> {
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(1);
     /// vec.push(2);
-    /// 
+    ///
     /// let old_capacity = vec.capacity();
     /// vec.clear();
-    /// 
+    ///
     /// assert_eq!(vec.len(), 0);
     /// assert_eq!(vec.capacity(), old_capacity);
     /// ```
@@ -669,14 +689,14 @@ impl<T> LimitedSizeVec<T> {
     /// vec.push(3);
     /// vec.push(1);
     /// vec.push(2);
-    /// 
+    ///
     /// vec.sort();
     /// assert_eq!(vec.as_slice(), [1, 2, 3]);
     /// ```
     #[inline]
     pub fn sort(&mut self)
     where
-        T: Ord
+        T: Ord,
     {
         let slice = self.as_slice_mut();
         slice.sort();
@@ -694,7 +714,7 @@ impl<T> LimitedSizeVec<T> {
     /// let mut vec1 = LimitedSizeVec::new();
     /// vec1.push(1);
     /// vec1.push(2);
-    /// 
+    ///
     /// let vec2 = vec1.take();
     /// assert_eq!(vec1.len(), 0);
     /// assert_eq!(vec2.len(), 2);
@@ -704,12 +724,12 @@ impl<T> LimitedSizeVec<T> {
         let cap = self.capacity;
         let len = self.len;
         let ptr = self.data;
-        
+
         // Reset self to valid empty state
         self.data = NonNull::dangling();
         self.len = 0;
         self.capacity = 0;
-        
+
         Self {
             data: ptr,
             len,
@@ -728,15 +748,15 @@ impl<T> LimitedSizeVec<T> {
     ///
     /// let mut vec1 = LimitedSizeVec::new();
     /// vec1.push("hello".to_string());
-    /// 
+    ///
     /// let vec2 = vec1.to_owned();
     /// assert_eq!(vec1.len(), 1);
     /// assert_eq!(vec2.len(), 1);
     /// ```
     #[inline]
-    pub fn to_owned(&self) -> Self 
-    where 
-        T: Clone 
+    pub fn to_owned(&self) -> Self
+    where
+        T: Clone,
     {
         self.clone()
     }
@@ -751,15 +771,13 @@ impl<T> LimitedSizeVec<T> {
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(1);
     /// vec.push(2);
-    /// 
+    ///
     /// let slice = vec.as_slice();
     /// assert_eq!(slice, [1, 2]);
     /// ```
     #[inline(always)]
     pub fn as_slice(&self) -> &[T] {
-        unsafe {
-            std::slice::from_raw_parts(self.data.as_ptr(), self.len as usize)
-        }
+        unsafe { std::slice::from_raw_parts(self.data.as_ptr(), self.len as usize) }
     }
 
     /// Returns the vector's contents as a mutable slice.
@@ -772,16 +790,14 @@ impl<T> LimitedSizeVec<T> {
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(1);
     /// vec.push(2);
-    /// 
+    ///
     /// let slice = vec.as_slice_mut();
     /// slice[0] = 10;
     /// assert_eq!(vec[0], 10);
     /// ```
     #[inline(always)]
     pub fn as_slice_mut(&mut self) -> &mut [T] {
-        unsafe {
-            std::slice::from_raw_parts_mut(self.data.as_ptr(), self.len as usize)
-        }
+        unsafe { std::slice::from_raw_parts_mut(self.data.as_ptr(), self.len as usize) }
     }
 }
 
@@ -798,7 +814,7 @@ impl<T: Clone> Clone for LimitedSizeVec<T> {
     ///
     /// let mut vec1 = LimitedSizeVec::new();
     /// vec1.push("hello".to_string());
-    /// 
+    ///
     /// let vec2 = vec1.clone();
     /// assert_eq!(vec1.len(), vec2.len());
     /// assert_eq!(vec1[0], vec2[0]);
@@ -809,7 +825,7 @@ impl<T: Clone> Clone for LimitedSizeVec<T> {
         }
 
         let mut new_vec = Self::new_with_capacity(self.capacity);
-        
+
         // Clone each element individually for safety
         for i in 0..self.len {
             unsafe {
@@ -817,7 +833,7 @@ impl<T: Clone> Clone for LimitedSizeVec<T> {
                 new_vec.push(item.clone());
             }
         }
-        
+
         new_vec
     }
 }
@@ -833,9 +849,7 @@ impl<T> Default for LimitedSizeVec<T> {
 impl<T: fmt::Debug> fmt::Debug for LimitedSizeVec<T> {
     /// Formats the vector for debugging output.
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_list()
-            .entries(self.as_slice().iter())
-            .finish()
+        f.debug_list().entries(self.as_slice().iter()).finish()
     }
 }
 
@@ -913,7 +927,7 @@ impl<T> From<Vec<T>> for LimitedSizeVec<T> {
         if capacity > u32::MAX as usize {
             panic!("Vector capacity exceeds maximum allowed for LimitedSizeVec (u32::MAX)");
         }
-        
+
         // Prevent `vec` from dropping its contents
         let mut temp_vec = std::mem::ManuallyDrop::new(vec);
 
@@ -933,7 +947,8 @@ impl<T> From<Vec<T>> for LimitedSizeVec<T> {
 impl<T: Clone> From<&[T]> for LimitedSizeVec<T> {
     /// Converts a slice into a `LimitedSizeVec<T>` by cloning elements.
     fn from(slice: &[T]) -> Self {
-        let mut limited_vec = Self::new_with_capacity(slice.len().max(DEFAULT_CAPACITY as usize) as u32);
+        let mut limited_vec =
+            Self::new_with_capacity(slice.len().max(DEFAULT_CAPACITY as usize) as u32);
         for item in slice {
             limited_vec.push(item.clone());
         }
@@ -953,16 +968,14 @@ impl<T> FromIterator<T> for LimitedSizeVec<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
         let iter = iter.into_iter();
         let (lower_bound, _) = iter.size_hint();
-        let mut vec = LimitedSizeVec::new_with_capacity(
-            lower_bound.max(DEFAULT_CAPACITY as usize) as u32
-        );
+        let mut vec =
+            LimitedSizeVec::new_with_capacity(lower_bound.max(DEFAULT_CAPACITY as usize) as u32);
         for item in iter {
             vec.push(item);
         }
         vec
     }
 }
-
 
 impl<T> From<LimitedSizeVec<T>> for Vec<T> {
     /// Converts a `LimitedSizeVec<T>` into a `Vec<T>` without copying elements.
@@ -972,15 +985,13 @@ impl<T> From<LimitedSizeVec<T>> for Vec<T> {
         let len = limited_vec.len();
         let capacity = limited_vec.capacity();
         let ptr = limited_vec.data.as_ptr();
-        
+
         // Prevent limited_vec from dropping the memory by resetting it
         limited_vec.data = NonNull::dangling();
         limited_vec.len = 0;
         limited_vec.capacity = 0;
-        
-        unsafe { 
-            Self::from_raw_parts(ptr, len, capacity)
-        }
+
+        unsafe { Self::from_raw_parts(ptr, len, capacity) }
     }
 }
 
@@ -1035,13 +1046,13 @@ impl<T> Drop for IntoIter<T> {
     fn drop(&mut self) {
         // Drop any remaining elements
         for _ in &mut *self {}
-        
+
         // Deallocate memory if we have capacity
         if self.capacity > 0 {
             unsafe {
                 dealloc(
                     self.data.as_ptr() as *mut u8,
-                    Layout::array::<T>(self.capacity as usize).unwrap()
+                    Layout::array::<T>(self.capacity as usize).unwrap(),
                 );
             }
         }
@@ -1076,12 +1087,12 @@ impl<T> IntoIterator for LimitedSizeVec<T> {
         let ptr = self.data.as_ptr();
         let len = self.len as usize;
         let capacity = self.capacity;
-        
+
         // Prevent the vector from being dropped
         self.data = NonNull::dangling();
         self.len = 0;
         self.capacity = 0;
-        
+
         IntoIter {
             data: NonNull::new(ptr).unwrap(),
             start: ptr,
@@ -1144,7 +1155,7 @@ impl<'a, T> IntoIterator for &'a mut LimitedSizeVec<T> {
 // Safety: LimitedSizeVec<T> is Send if T is Send
 unsafe impl<T: Send> Send for LimitedSizeVec<T> {}
 
-// Safety: LimitedSizeVec<T> is Sync if T is Sync  
+// Safety: LimitedSizeVec<T> is Sync if T is Sync
 unsafe impl<T: Sync> Sync for LimitedSizeVec<T> {}
 
 impl<T> Drop for LimitedSizeVec<T> {
@@ -1157,12 +1168,12 @@ impl<T> Drop for LimitedSizeVec<T> {
                     std::ptr::drop_in_place(self.data.as_ptr().add(i as usize));
                 }
             }
-            
+
             // Deallocate memory
             unsafe {
                 dealloc(
-                    self.data.as_ptr() as *mut u8, 
-                    Layout::array::<T>(self.capacity as usize).unwrap()
+                    self.data.as_ptr() as *mut u8,
+                    Layout::array::<T>(self.capacity as usize).unwrap(),
                 );
             }
         }
@@ -1427,16 +1438,16 @@ mod tests {
     #[test]
     fn test_drop_behavior() {
         use std::rc::Rc;
-        
+
         let item = Rc::new("test");
         assert_eq!(Rc::strong_count(&item), 1);
-        
+
         {
             let mut vec = LimitedSizeVec::new();
             vec.push(item.clone());
             assert_eq!(Rc::strong_count(&item), 2);
         } // vec is dropped here
-        
+
         assert_eq!(Rc::strong_count(&item), 1);
     }
 
@@ -1444,11 +1455,11 @@ mod tests {
     fn test_pop_method() {
         let mut vec = LimitedSizeVec::new();
         assert_eq!(vec.pop(), None);
-        
+
         vec.push(1);
         vec.push(2);
         vec.push(3);
-        
+
         assert_eq!(vec.pop(), Some(3));
         assert_eq!(vec.len(), 2);
         assert_eq!(vec.pop(), Some(2));
@@ -1464,15 +1475,15 @@ mod tests {
         vec.push("b");
         vec.push("c");
         vec.push("d");
-        
+
         // Remove from middle
         assert_eq!(vec.remove(1), "b");
         assert_eq!(vec.as_slice(), ["a", "c", "d"]);
-        
+
         // Remove from end
         assert_eq!(vec.remove(2), "d");
         assert_eq!(vec.as_slice(), ["a", "c"]);
-        
+
         // Remove from start
         assert_eq!(vec.remove(0), "a");
         assert_eq!(vec.as_slice(), ["c"]);
@@ -1492,15 +1503,15 @@ mod tests {
         let mut vec = LimitedSizeVec::new();
         vec.push("a");
         vec.push("c");
-        
+
         // Insert in middle
         vec.insert(1, "b");
         assert_eq!(vec.as_slice(), ["a", "b", "c"]);
-        
+
         // Insert at beginning
         vec.insert(0, "start");
         assert_eq!(vec.as_slice(), ["start", "a", "b", "c"]);
-        
+
         // Insert at end
         vec.insert(vec.len(), "end");
         assert_eq!(vec.as_slice(), ["start", "a", "b", "c", "end"]);
@@ -1523,19 +1534,19 @@ mod tests {
         vec.push(3);
         vec.push(4);
         vec.push(5);
-        
+
         let old_capacity = vec.capacity();
         vec.truncate(3);
-        
+
         assert_eq!(vec.len(), 3);
         assert_eq!(vec.as_slice(), [1, 2, 3]);
         assert_eq!(vec.capacity(), old_capacity); // Capacity preserved
-        
+
         // Truncate to 0
         vec.truncate(0);
         assert_eq!(vec.len(), 0);
         assert!(vec.is_empty());
-        
+
         // Truncate larger than length should do nothing
         vec.push(10);
         vec.truncate(10);
@@ -1547,15 +1558,15 @@ mod tests {
     fn test_resize_method() {
         let mut vec = LimitedSizeVec::new();
         vec.push(1);
-        
+
         // Resize up
         vec.resize(4, 42);
         assert_eq!(vec.as_slice(), [1, 42, 42, 42]);
-        
+
         // Resize down
         vec.resize(2, 0);
         assert_eq!(vec.as_slice(), [1, 42]);
-        
+
         // Resize to same size
         vec.resize(2, 100);
         assert_eq!(vec.as_slice(), [1, 42]);
@@ -1565,13 +1576,13 @@ mod tests {
     fn test_extend_from_slice() {
         let mut vec = LimitedSizeVec::new();
         vec.push(1);
-        
+
         vec.extend_from_slice(&[2, 3, 4]);
         assert_eq!(vec.as_slice(), [1, 2, 3, 4]);
-        
+
         vec.extend_from_slice(&[]);
         assert_eq!(vec.as_slice(), [1, 2, 3, 4]);
-        
+
         vec.extend_from_slice(&[5, 6]);
         assert_eq!(vec.as_slice(), [1, 2, 3, 4, 5, 6]);
     }
@@ -1580,14 +1591,14 @@ mod tests {
     fn test_reserve_method() {
         let mut vec = LimitedSizeVec::new();
         assert_eq!(vec.capacity(), 8);
-        
+
         vec.reserve(50);
         assert!(vec.capacity() >= 50);
-        
+
         let old_capacity = vec.capacity();
         vec.reserve(10); // Less than current, should do nothing
         assert_eq!(vec.capacity(), old_capacity);
-        
+
         // Test with existing elements
         vec.push(1);
         vec.push(2);
@@ -1599,13 +1610,13 @@ mod tests {
     #[test]
     fn test_push_unchecked() {
         let mut vec = LimitedSizeVec::new_with_capacity(10);
-        
+
         unsafe {
             vec.push_unchecked(1);
             vec.push_unchecked(2);
             vec.push_unchecked(3);
         }
-        
+
         assert_eq!(vec.len(), 3);
         assert_eq!(vec.as_slice(), [1, 2, 3]);
     }
@@ -1615,11 +1626,11 @@ mod tests {
         let mut vec = LimitedSizeVec::new();
         vec.push(String::from("hello"));
         vec.push(String::from("world"));
-        
+
         unsafe {
             assert_eq!(vec.get_unchecked(0), &"hello");
             assert_eq!(vec.get_unchecked(1), &"world");
-            
+
             vec.get_mut_unchecked(0).push_str(" there");
             assert_eq!(vec.get_unchecked(0), &"hello there");
         }
@@ -1662,7 +1673,7 @@ mod tests {
         vec.push(1);
         vec.push(2);
         vec.push(3);
-        
+
         let mut iter = vec.into_iter();
         assert_eq!(iter.next(), Some(1));
         assert_eq!(iter.next_back(), Some(3));
@@ -1677,10 +1688,10 @@ mod tests {
         vec.push(1);
         vec.push(2);
         vec.push(3);
-        
+
         let sum: i32 = (&vec).into_iter().sum();
         assert_eq!(sum, 6);
-        
+
         // Vector should still exist
         assert_eq!(vec.len(), 3);
     }
@@ -1691,11 +1702,11 @@ mod tests {
         vec.push(1);
         vec.push(2);
         vec.push(3);
-        
+
         for item in &mut vec {
             *item *= 2;
         }
-        
+
         assert_eq!(vec.as_slice(), [2, 4, 6]);
     }
 
@@ -1705,7 +1716,7 @@ mod tests {
         vec.push(1);
         vec.push(2);
         vec.push(3);
-        
+
         let iter = vec.into_iter();
         assert_eq!(iter.size_hint(), (3, Some(3)));
     }
@@ -1731,21 +1742,21 @@ mod tests {
         vec.push(1);
         vec.push(2);
         vec.push(3);
-        
+
         let old_capacity = vec.capacity();
         vec.clear();
-        
+
         assert_eq!(vec.len(), 0);
         assert_eq!(vec.capacity(), old_capacity);
-        
+
         // Test with non-Copy type (drops needed)
         let mut vec = LimitedSizeVec::new();
         vec.push(String::from("hello"));
         vec.push(String::from("world"));
-        
+
         let old_capacity = vec.capacity();
         vec.clear();
-        
+
         assert_eq!(vec.len(), 0);
         assert_eq!(vec.capacity(), old_capacity);
     }
@@ -1754,17 +1765,17 @@ mod tests {
     fn test_memory_efficiency_compared_to_std_vec() {
         // Test that our struct is smaller than Vec on 64-bit systems
         use std::mem::size_of;
-        
+
         // LimitedSizeVec should be smaller due to u32 length/capacity
         let limited_size = size_of::<LimitedSizeVec<i32>>();
         let std_vec_size = size_of::<Vec<i32>>();
-        
+
         #[cfg(target_pointer_width = "64")]
         {
             // On 64-bit systems, our vector should be smaller
             assert!(limited_size <= std_vec_size);
         }
-        
+
         println!("LimitedSizeVec<i32> size: {} bytes", limited_size);
         println!("Vec<i32> size: {} bytes", std_vec_size);
     }

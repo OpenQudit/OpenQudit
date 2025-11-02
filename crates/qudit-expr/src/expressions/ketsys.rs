@@ -1,10 +1,14 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::{expressions::JittableExpression, index::{IndexDirection, TensorIndex}, GenerationShape, TensorExpression};
+use crate::{
+    expressions::JittableExpression,
+    index::{IndexDirection, TensorIndex},
+    GenerationShape, TensorExpression,
+};
 
 use super::NamedExpression;
-use qudit_core::Radices;
 use qudit_core::QuditSystem;
+use qudit_core::Radices;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct KetSystemExpression {
@@ -47,11 +51,20 @@ impl DerefMut for KetSystemExpression {
 
 impl From<KetSystemExpression> for TensorExpression {
     fn from(value: KetSystemExpression) -> Self {
-        let KetSystemExpression { inner, radices, num_states } = value;
+        let KetSystemExpression {
+            inner,
+            radices,
+            num_states,
+        } = value;
         // TODO: add a proper implementation of into_iter for QuditRadices
-        let indices = [num_states].into_iter()
+        let indices = [num_states]
+            .into_iter()
             .map(|r| (IndexDirection::Batch, r))
-            .chain(radices.into_iter().map(|r| (IndexDirection::Output, usize::from(*r))))
+            .chain(
+                radices
+                    .into_iter()
+                    .map(|r| (IndexDirection::Output, usize::from(*r))),
+            )
             .enumerate()
             .map(|(i, (d, r))| TensorIndex::new(d, i, r))
             .collect();
@@ -68,17 +81,21 @@ impl TryFrom<TensorExpression> for KetSystemExpression {
         let mut radices = vec![];
         for idx in value.indices() {
             match idx.direction() {
-                IndexDirection::Batch => {
-                    match num_states {
-                        Some(n) => num_states = Some(n * idx.index_size()),
-                        None => num_states = Some(idx.index_size()),
-                    }
+                IndexDirection::Batch => match num_states {
+                    Some(n) => num_states = Some(n * idx.index_size()),
+                    None => num_states = Some(idx.index_size()),
+                },
+                IndexDirection::Output => {
+                    radices.push(idx.index_size());
                 }
-                IndexDirection::Output => { radices.push(idx.index_size()); }
-                _ => { return Err(String::from("Cannot convert a tensor with non-output or batch indices to a ket system.")); }
+                _ => {
+                    return Err(String::from(
+                        "Cannot convert a tensor with non-output or batch indices to a ket system.",
+                    ));
+                }
             }
         }
-        
+
         Ok(KetSystemExpression {
             inner: value.into(),
             radices: radices.into(),

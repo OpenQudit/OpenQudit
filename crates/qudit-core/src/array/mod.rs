@@ -1,15 +1,15 @@
 //! Implements the tensor struct and associated methods for the Openqudit library.
 
-mod tensor;
 mod symsq;
+mod tensor;
 
 pub use tensor::Tensor;
-pub use tensor::TensorRef;
 pub use tensor::TensorMut;
+pub use tensor::TensorRef;
 
 pub use symsq::SymSqTensor;
-pub use symsq::SymSqTensorRef;
 pub use symsq::SymSqTensorMut;
+pub use symsq::SymSqTensorRef;
 
 /// Helper for bounds checking
 #[allow(dead_code)]
@@ -50,4 +50,3 @@ fn calc_continuous_strides<const D: usize>(dims: &[usize; D]) -> [usize; D] {
         strides
     }
 }
-

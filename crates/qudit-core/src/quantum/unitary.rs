@@ -16,14 +16,14 @@ use num_traits::Float;
 use crate::bitwidth::BitWidthConvertible;
 use crate::c32;
 use crate::c64;
-use faer::Mat;
-use faer::MatMut;
-use faer::MatRef;
 use crate::ComplexScalar;
-use crate::RealScalar;
 use crate::QuditPermutation;
 use crate::QuditSystem;
 use crate::Radices;
+use crate::RealScalar;
+use faer::Mat;
+use faer::MatMut;
+use faer::MatRef;
 
 /// A unitary matrix over a qudit system.
 ///
@@ -664,11 +664,11 @@ impl<C: ComplexScalar> PartialEq<Mat<i32>> for UnitaryMatrix<C> {
     fn eq(&self, other: &Mat<i32>) -> bool {
         self.matrix.nrows() == other.nrows()
             && self.matrix.ncols() == other.ncols()
-            && self
-                .matrix
-                .col_iter()
-                .zip(other.col_iter())
-                .all(|(a, b)| a.iter().zip(b.iter()).all(|(a, b)| *a == C::from(*b).unwrap()))
+            && self.matrix.col_iter().zip(other.col_iter()).all(|(a, b)| {
+                a.iter()
+                    .zip(b.iter())
+                    .all(|(a, b)| *a == C::from(*b).unwrap())
+            })
     }
 }
 
@@ -781,9 +781,9 @@ mod test {
 #[cfg(feature = "python")]
 mod python {
     use super::*;
-    use pyo3::{exceptions::PyTypeError, prelude::*};
     use crate::PyRegistrar;
-    
+    use pyo3::{exceptions::PyTypeError, prelude::*};
+
     use numpy::{PyArray2, PyReadonlyArray2, PyUntypedArrayMethods};
 
     /// Python wrapper for UnitaryMatrix
@@ -801,15 +801,15 @@ mod python {
         fn new(radices: Radices, matrix: PyReadonlyArray2<c64>) -> PyResult<Self> {
             let array = matrix.as_array();
             let (nrows, ncols) = array.dim();
-            
+
             let mat = Mat::from_fn(nrows, ncols, |i, j| array[[i, j]]);
-            
+
             if !UnitaryMatrix::is_unitary(&mat) {
                 return Err(pyo3::exceptions::PyValueError::new_err(
-                    "Matrix is not unitary"
+                    "Matrix is not unitary",
                 ));
             }
-            
+
             Ok(Self {
                 inner: UnitaryMatrix::new(radices, mat),
             })
@@ -818,7 +818,11 @@ mod python {
         /// Convert to numpy array
         fn to_array<'py>(&self, py: Python<'py>) -> Bound<'py, PyArray2<c64>> {
             let rows: Vec<Vec<c64>> = (0..self.inner.nrows())
-                .map(|i| (0..self.inner.ncols()).map(|j| self.inner[(i, j)]).collect())
+                .map(|i| {
+                    (0..self.inner.ncols())
+                        .map(|j| self.inner[(i, j)])
+                        .collect()
+                })
                 .collect();
             PyArray2::from_vec2(py, &rows).unwrap()
         }
@@ -855,9 +859,14 @@ mod python {
                 let shape = py_unitary.shape();
                 let dimension = shape[0];
                 let radices = Radices::guess(dimension);
-                Ok(PyUnitaryMatrix::new(radices, py_unitary).unwrap().inner.clone()) 
+                Ok(PyUnitaryMatrix::new(radices, py_unitary)
+                    .unwrap()
+                    .inner
+                    .clone())
             } else {
-                Err(PyTypeError::new_err("Invalid type for unitary matrix extraction."))
+                Err(PyTypeError::new_err(
+                    "Invalid type for unitary matrix extraction.",
+                ))
             }
         }
     }

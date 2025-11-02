@@ -4,10 +4,14 @@ use std::ptr::NonNull;
 // TODO: add basic derives for clone, PartialEq, Debug and Display
 // TODO: Use strong typing where it makes sense
 // TODO: Add helpful, useful, succinct documentation with examples.
-use faer::{MatMut, MatRef, RowMut, RowRef};
 use super::check_bounds;
+use faer::{MatMut, MatRef, RowMut, RowRef};
 
-use crate::{array::TensorRef, array::TensorMut, memory::{alloc_zeroed_memory, Memorable, MemoryBuffer}};
+use crate::{
+    array::TensorMut,
+    array::TensorRef,
+    memory::{alloc_zeroed_memory, Memorable, MemoryBuffer},
+};
 
 /// Convert SymSqMatMat external indexing to internal indexing.
 ///
@@ -43,7 +47,6 @@ fn calculate_flat_index<const D: usize>(indices: &[usize; D], strides: &[usize; 
     flat_idx
 }
 
-
 // Schwarz's Theorem is satisfied for quantum tensor networks
 //
 // TODO: when const generics can appear in const expressions, this can be rewritten better
@@ -57,11 +60,26 @@ pub struct SymSqTensor<C: Memorable, const D: usize> {
 impl<C: Memorable, const D: usize> SymSqTensor<C, D> {
     /// Creates a new symmetric square tensor with the given data, dimensions, and strides.
     pub fn new(data: MemoryBuffer<C>, dims: [usize; D], strides: [usize; D]) -> Self {
-        assert!(D >= 2, "Symmetric square tensors must have 2 or more dimensions.");
-        assert!(dims[0] == dims[1], "Symmetric square tensors must be square in their two major dimensions.");
-        assert!(strides[0] == strides[1]*dims[1], "Symmetric square tensors must be continuous across their two major dimensions.");
-        assert!(dims.iter().all(|&d| d != 0), "Cannot have a zero-length dimension.");
-        assert!(strides.iter().all(|&d| d != 0), "Cannot have a zero-length stride.");
+        assert!(
+            D >= 2,
+            "Symmetric square tensors must have 2 or more dimensions."
+        );
+        assert!(
+            dims[0] == dims[1],
+            "Symmetric square tensors must be square in their two major dimensions."
+        );
+        assert!(
+            strides[0] == strides[1] * dims[1],
+            "Symmetric square tensors must be continuous across their two major dimensions."
+        );
+        assert!(
+            dims.iter().all(|&d| d != 0),
+            "Cannot have a zero-length dimension."
+        );
+        assert!(
+            strides.iter().all(|&d| d != 0),
+            "Cannot have a zero-length stride."
+        );
 
         let mut max_element = [0; D];
         for (i, d) in dims.iter().enumerate() {
@@ -69,7 +87,10 @@ impl<C: Memorable, const D: usize> SymSqTensor<C, D> {
         }
         let max_flat_index = calculate_flat_index(&max_element, &strides);
 
-        assert!(data.len() >= max_flat_index, "Data buffer is not large enough.");
+        assert!(
+            data.len() >= max_flat_index,
+            "Data buffer is not large enough."
+        );
 
         Self {
             data,
@@ -117,16 +138,12 @@ impl<C: Memorable, const D: usize> SymSqTensor<C, D> {
 
     /// Returns an immutable reference to the tensor.
     pub fn as_ref(&self) -> SymSqTensorRef<'_, C, D> {
-        unsafe {
-            SymSqTensorRef::from_raw_parts(self.data.as_ptr(), self.dims, self.strides)
-        }
+        unsafe { SymSqTensorRef::from_raw_parts(self.data.as_ptr(), self.dims, self.strides) }
     }
 
     /// Returns a mutable reference to the tensor.
     pub fn as_mut(&mut self) -> SymSqTensorMut<'_, C, D> {
-        unsafe {
-            SymSqTensorMut::from_raw_parts(self.data.as_mut_ptr(), self.dims, self.strides)
-        }
+        unsafe { SymSqTensorMut::from_raw_parts(self.data.as_mut_ptr(), self.dims, self.strides) }
     }
 
     /// Returns a reference to an element at the given indices.
@@ -456,12 +473,20 @@ impl<C: Memorable> SymSqTensor<C, 5> {
 
     /// Returns an immutable reference to the 3D subtensor at the given matrix indices without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> TensorRef<'_, C, 3> {
-        TensorRef::from_raw_parts(self.ptr_at(&[m1, m2, 0, 0, 0]), [self.dims[2], self.dims[3], self.dims[4]], [self.strides[2], self.strides[3], self.strides[4]])
+        TensorRef::from_raw_parts(
+            self.ptr_at(&[m1, m2, 0, 0, 0]),
+            [self.dims[2], self.dims[3], self.dims[4]],
+            [self.strides[2], self.strides[3], self.strides[4]],
+        )
     }
 
     /// Returns a mutable reference to the 3D subtensor at the given matrix indices without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m1: usize, m2: usize) -> TensorMut<'_, C, 3> {
-        TensorMut::from_raw_parts(self.ptr_at_mut(&[m1, m2, 0, 0, 0]), [self.dims[2], self.dims[3], self.dims[4]], [self.strides[2], self.strides[3], self.strides[4]])
+        TensorMut::from_raw_parts(
+            self.ptr_at_mut(&[m1, m2, 0, 0, 0]),
+            [self.dims[2], self.dims[3], self.dims[4]],
+            [self.strides[2], self.strides[3], self.strides[4]],
+        )
     }
 }
 
@@ -482,12 +507,24 @@ impl<C: Memorable> SymSqTensor<C, 4> {
 
     /// Returns an immutable matrix reference to the subtensor at the given indices without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> MatRef<'_, C> {
-        MatRef::from_raw_parts(self.ptr_at(&[m1, m2, 0, 0]), self.dims[2], self.dims[3], self.strides[2] as isize, self.strides[3] as isize)
+        MatRef::from_raw_parts(
+            self.ptr_at(&[m1, m2, 0, 0]),
+            self.dims[2],
+            self.dims[3],
+            self.strides[2] as isize,
+            self.strides[3] as isize,
+        )
     }
 
     /// Returns a mutable matrix reference to the subtensor at the given indices without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m1: usize, m2: usize) -> MatMut<'_, C> {
-        MatMut::from_raw_parts_mut(self.ptr_at_mut(&[m1, m2, 0, 0]), self.dims[2], self.dims[3], self.strides[2] as isize, self.strides[3] as isize)
+        MatMut::from_raw_parts_mut(
+            self.ptr_at_mut(&[m1, m2, 0, 0]),
+            self.dims[2],
+            self.dims[3],
+            self.strides[2] as isize,
+            self.strides[3] as isize,
+        )
     }
 }
 
@@ -508,12 +545,20 @@ impl<C: Memorable> SymSqTensor<C, 3> {
 
     /// Returns an immutable row reference to the subtensor at the given indices without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> RowRef<'_, C> {
-        RowRef::from_raw_parts(self.ptr_at(&[m1, m2, 0]), self.dims[2], self.strides[2] as isize)
+        RowRef::from_raw_parts(
+            self.ptr_at(&[m1, m2, 0]),
+            self.dims[2],
+            self.strides[2] as isize,
+        )
     }
 
     /// Returns a mutable row reference to the subtensor at the given indices without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m1: usize, m2: usize) -> RowMut<'_, C> {
-        RowMut::from_raw_parts_mut(self.ptr_at_mut(&[m1, m2, 0]), self.dims[2], self.strides[2] as isize)
+        RowMut::from_raw_parts_mut(
+            self.ptr_at_mut(&[m1, m2, 0]),
+            self.dims[2],
+            self.strides[2] as isize,
+        )
     }
 }
 
@@ -549,7 +594,11 @@ impl<'a, C: Memorable> SymSqTensorRef<'a, C, 5> {
 
     /// Returns an immutable reference to the 3D subtensor at the given matrix indices without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> TensorRef<'a, C, 3> {
-        TensorRef::from_raw_parts(self.ptr_at(&[m1, m2, 0, 0, 0]), [self.dims[2], self.dims[3], self.dims[4]], [self.strides[2], self.strides[3], self.strides[4]])
+        TensorRef::from_raw_parts(
+            self.ptr_at(&[m1, m2, 0, 0, 0]),
+            [self.dims[2], self.dims[3], self.dims[4]],
+            [self.strides[2], self.strides[3], self.strides[4]],
+        )
     }
 }
 
@@ -563,7 +612,13 @@ impl<'a, C: Memorable> SymSqTensorRef<'a, C, 4> {
 
     /// Returns an immutable matrix reference to the subtensor at the given indices without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> MatRef<'a, C> {
-        MatRef::from_raw_parts(self.ptr_at(&[m1, m2, 0, 0]), self.dims[2], self.dims[3], self.strides[2] as isize, self.strides[3] as isize)
+        MatRef::from_raw_parts(
+            self.ptr_at(&[m1, m2, 0, 0]),
+            self.dims[2],
+            self.dims[3],
+            self.strides[2] as isize,
+            self.strides[3] as isize,
+        )
     }
 }
 
@@ -577,7 +632,11 @@ impl<'a, C: Memorable> SymSqTensorRef<'a, C, 3> {
 
     /// Returns an immutable row reference to the subtensor at the given indices without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> RowRef<'a, C> {
-        RowRef::from_raw_parts(self.ptr_at(&[m1, m2, 0]), self.dims[2], self.strides[2] as isize)
+        RowRef::from_raw_parts(
+            self.ptr_at(&[m1, m2, 0]),
+            self.dims[2],
+            self.strides[2] as isize,
+        )
     }
 }
 
@@ -610,12 +669,20 @@ impl<'a, C: Memorable> SymSqTensorMut<'a, C, 5> {
 
     /// Returns an immutable reference to the 3D subtensor at the given matrix indices without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> TensorRef<'a, C, 3> {
-        TensorRef::from_raw_parts(self.ptr_at(&[m1, m2, 0, 0, 0]), [self.dims[2], self.dims[3], self.dims[4]], [self.strides[2], self.strides[3], self.strides[4]])
+        TensorRef::from_raw_parts(
+            self.ptr_at(&[m1, m2, 0, 0, 0]),
+            [self.dims[2], self.dims[3], self.dims[4]],
+            [self.strides[2], self.strides[3], self.strides[4]],
+        )
     }
 
     /// Returns a mutable reference to the 3D subtensor at the given matrix indices without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m1: usize, m2: usize) -> TensorMut<'a, C, 3> {
-        TensorMut::from_raw_parts(self.ptr_at_mut(&[m1, m2, 0, 0, 0]), [self.dims[2], self.dims[3], self.dims[4]], [self.strides[2], self.strides[3], self.strides[4]])
+        TensorMut::from_raw_parts(
+            self.ptr_at_mut(&[m1, m2, 0, 0, 0]),
+            [self.dims[2], self.dims[3], self.dims[4]],
+            [self.strides[2], self.strides[3], self.strides[4]],
+        )
     }
 }
 
@@ -636,12 +703,24 @@ impl<'a, C: Memorable> SymSqTensorMut<'a, C, 4> {
 
     /// Returns an immutable matrix reference to the subtensor at the given indices without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> MatRef<'a, C> {
-        MatRef::from_raw_parts(self.ptr_at(&[m1, m2, 0, 0]), self.dims[2], self.dims[3], self.strides[2] as isize, self.strides[3] as isize)
+        MatRef::from_raw_parts(
+            self.ptr_at(&[m1, m2, 0, 0]),
+            self.dims[2],
+            self.dims[3],
+            self.strides[2] as isize,
+            self.strides[3] as isize,
+        )
     }
 
     /// Returns a mutable matrix reference to the subtensor at the given indices without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m1: usize, m2: usize) -> MatMut<'a, C> {
-        MatMut::from_raw_parts_mut(self.ptr_at_mut(&[m1, m2, 0, 0]), self.dims[2], self.dims[3], self.strides[2] as isize, self.strides[3] as isize)
+        MatMut::from_raw_parts_mut(
+            self.ptr_at_mut(&[m1, m2, 0, 0]),
+            self.dims[2],
+            self.dims[3],
+            self.strides[2] as isize,
+            self.strides[3] as isize,
+        )
     }
 }
 
@@ -662,12 +741,20 @@ impl<'a, C: Memorable> SymSqTensorMut<'a, C, 3> {
 
     /// Returns an immutable row reference to the subtensor at the given indices without bounds checking.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> RowRef<'a, C> {
-        RowRef::from_raw_parts(self.ptr_at(&[m1, m2, 0]), self.dims[2], self.strides[2] as isize)
+        RowRef::from_raw_parts(
+            self.ptr_at(&[m1, m2, 0]),
+            self.dims[2],
+            self.strides[2] as isize,
+        )
     }
 
     /// Returns a mutable row reference to the subtensor at the given indices without bounds checking.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m1: usize, m2: usize) -> RowMut<'a, C> {
-        RowMut::from_raw_parts_mut(self.ptr_at_mut(&[m1, m2, 0]), self.dims[2], self.strides[2] as isize)
+        RowMut::from_raw_parts_mut(
+            self.ptr_at_mut(&[m1, m2, 0]),
+            self.dims[2],
+            self.strides[2] as isize,
+        )
     }
 }
 

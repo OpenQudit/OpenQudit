@@ -10,7 +10,7 @@ use pprof::criterion::{Output, PProfProfiler};
 use pprof::flamegraph::Options;
 
 pub struct FlamegraphProfiler<'a, 'b> {
-    inner: PProfProfiler<'a, 'b>
+    inner: PProfProfiler<'a, 'b>,
 }
 
 impl<'a, 'b> FlamegraphProfiler<'a, 'b> {
@@ -19,7 +19,7 @@ impl<'a, 'b> FlamegraphProfiler<'a, 'b> {
         options.image_width = Some(2560);
         options.hash = true;
         FlamegraphProfiler {
-            inner: PProfProfiler::new(frequency, Output::Flamegraph(Some(options)))
+            inner: PProfProfiler::new(frequency, Output::Flamegraph(Some(options))),
         }
     }
 }

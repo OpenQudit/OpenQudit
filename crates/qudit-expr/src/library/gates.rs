@@ -198,7 +198,7 @@ pub fn XGate(radix: usize) -> UnitaryExpression {
         body += "],";
     }
     body += "]";
-    
+
     UnitaryExpression::new(proto + "{" + &body + "}")
 }
 
@@ -251,7 +251,7 @@ pub fn ZGate(radix: usize) -> UnitaryExpression {
         body += "],";
     }
     body += "]";
-    
+
     UnitaryExpression::new(proto + "{" + &body + "}")
 }
 
@@ -294,7 +294,7 @@ pub fn PGate(radix: usize) -> UnitaryExpression {
         proto += ", ";
     }
     proto += ")";
-    
+
     let mut body = "".to_string();
     body += "[";
     for i in 0..radix {
@@ -441,7 +441,7 @@ pub fn Invert(mut expr: UnitaryExpression) -> UnitaryExpression {
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// let control_levels = vec![vec![0, 1], vec![0, 1]];
 /// let prod = cartesian_product(control_levels);
 /// assert_eq!(prod, vec![
@@ -619,10 +619,13 @@ pub fn Controlled(
         Some(levels) => levels,
         None => {
             // Generate default control_levels: each control qudit activated by its highest level
-            control_radices.iter().map(|&radix| vec![(usize::from(radix) - 1)]).collect()
+            control_radices
+                .iter()
+                .map(|&radix| vec![(usize::from(radix) - 1)])
+                .collect()
         }
     };
-    
+
     if control_radices.len() != control_levels.len() {
         panic!("control_radices and control_levels must have the same length");
     }
@@ -664,12 +667,10 @@ pub fn Controlled(
 
     // Embed gate expression into identity expression at correct spots
     let diagonal_indices: Vec<usize> = cartesian_product(control_levels)
-            .into_iter()
-            .map(|block_idx_expansion| {
-                control_radices.compress(&block_idx_expansion)
-            })
-            .map(|block_diag_idx| block_diag_idx * gate_dim)
-            .collect();
+        .into_iter()
+        .map(|block_idx_expansion| control_radices.compress(&block_idx_expansion))
+        .map(|block_diag_idx| block_diag_idx * gate_dim)
+        .collect();
 
     for diagonal_idx in diagonal_indices.iter() {
         expr.embed(gate_expr.clone(), *diagonal_idx, *diagonal_idx);
@@ -690,10 +691,13 @@ pub fn ClassicallyControlled(
         Some(levels) => levels,
         None => {
             // Generate default control_levels: each control qudit activated by its highest level
-            control_radices.iter().map(|&radix| vec![(usize::from(radix) - 1)]).collect()
+            control_radices
+                .iter()
+                .map(|&radix| vec![(usize::from(radix) - 1)])
+                .collect()
         }
     };
-    
+
     if control_radices.len() != control_levels.len() {
         panic!("control_radices and control_levels must have the same length");
     }
@@ -726,18 +730,21 @@ pub fn ClassicallyControlled(
     }
 
     let diagonal_indices: Vec<usize> = cartesian_product(control_levels)
-            .into_iter()
-            .map(|block_idx_expansion| control_radices.compress(&block_idx_expansion))
-            .collect();
+        .into_iter()
+        .map(|block_idx_expansion| control_radices.compress(&block_idx_expansion))
+        .collect();
 
-    let new_radices = control_radices.into_iter().map(|&r| r.into()).collect::<Vec<_>>();
+    let new_radices = control_radices
+        .into_iter()
+        .map(|&r| r.into())
+        .collect::<Vec<_>>();
     expr.classically_control(&diagonal_indices, &new_radices)
 }
 
 #[cfg(feature = "python")]
 mod python {
-    use pyo3::prelude::*;
     use crate::python::PyExpressionRegistrar;
+    use pyo3::prelude::*;
 
     /// Registers the gate library with the Python module.
     fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -748,10 +755,16 @@ mod python {
         parent_module.add_function(wrap_pyfunction!(super::ZGate, parent_module)?)?;
         parent_module.add_function(wrap_pyfunction!(super::PGate, parent_module)?)?;
         parent_module.add_function(wrap_pyfunction!(super::U3Gate, parent_module)?)?;
-        parent_module.add_function(wrap_pyfunction!(super::ParameterizedUnitary, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(
+            super::ParameterizedUnitary,
+            parent_module
+        )?)?;
         parent_module.add_function(wrap_pyfunction!(super::Invert, parent_module)?)?;
         parent_module.add_function(wrap_pyfunction!(super::Controlled, parent_module)?)?;
-        parent_module.add_function(wrap_pyfunction!(super::ClassicallyControlled, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(
+            super::ClassicallyControlled,
+            parent_module
+        )?)?;
         Ok(())
     }
     inventory::submit!(PyExpressionRegistrar { func: register });

@@ -4,16 +4,16 @@
 mod bitwidth;
 mod function;
 mod perm;
+mod quantum;
 mod radices;
 mod radix;
 mod scalar;
 mod system;
-mod quantum;
 mod utils;
 
 pub mod accel;
-pub mod memory;
 pub mod array;
+pub mod memory;
 
 pub use bitwidth::BitWidthConvertible;
 pub use function::HasBounds;
@@ -22,6 +22,8 @@ pub use function::HasPeriods;
 pub use function::ParamIndices;
 pub use perm::calc_index_permutation;
 pub use perm::QuditPermutation;
+pub use quantum::Ket;
+pub use quantum::UnitaryMatrix;
 pub use radices::Radices;
 pub use radix::Radix;
 pub use scalar::ComplexScalar;
@@ -29,8 +31,6 @@ pub use scalar::RealScalar;
 pub use system::ClassicalSystem;
 pub use system::HybridSystem;
 pub use system::QuditSystem;
-pub use quantum::UnitaryMatrix;
-pub use quantum::Ket;
 pub use utils::CompactStorage;
 pub use utils::CompactVec;
 pub use utils::LimitedSizeVec;

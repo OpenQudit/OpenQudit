@@ -19,16 +19,16 @@ struct U3Gate;
 
 impl UnitaryExpressionGenerator for U3Gate {
     fn gen_expr(&self) -> UnitaryExpression {
-        UnitaryExpression::new(
-            String::from("
+        UnitaryExpression::new(String::from(
+            "
                 U3(f1, f2, f3) {
                     [
                         [ cos(f1/2), ~e^(i*f3)*sin(f1/2) ],
                         [ e^(i*f2)*sin(f1/2), e^(i*(f2+f3))*cos(f1/2) ]
                     ]
                 }
-            "),
-        )
+            ",
+        ))
     }
 }
 
@@ -36,8 +36,8 @@ struct CNOTGate;
 
 impl UnitaryExpressionGenerator for CNOTGate {
     fn gen_expr(&self) -> UnitaryExpression {
-        UnitaryExpression::new(
-            String::from("
+        UnitaryExpression::new(String::from(
+            "
                 CNOT() {
                     [
                         [ 1, 0, 0, 0 ],
@@ -46,8 +46,8 @@ impl UnitaryExpressionGenerator for CNOTGate {
                         [ 0, 0, 1, 0 ]
                     ]
                 }
-            "),
-        )
+            ",
+        ))
     }
 }
 

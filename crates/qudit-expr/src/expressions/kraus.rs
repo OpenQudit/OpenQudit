@@ -1,10 +1,14 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::{expressions::JittableExpression, index::{IndexDirection, TensorIndex}, GenerationShape, TensorExpression};
+use crate::{
+    expressions::JittableExpression,
+    index::{IndexDirection, TensorIndex},
+    GenerationShape, TensorExpression,
+};
 
 use super::NamedExpression;
-use qudit_core::Radices;
 use qudit_core::QuditSystem;
+use qudit_core::Radices;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct KrausOperatorsExpression {
@@ -33,7 +37,7 @@ impl JittableExpression for KrausOperatorsExpression {
         GenerationShape::Tensor3D(
             self.num_operators,
             self.output_radices.dimension(),
-            self.input_radices.dimension()
+            self.input_radices.dimension(),
         )
     }
 }
@@ -66,12 +70,26 @@ impl DerefMut for KrausOperatorsExpression {
 
 impl From<KrausOperatorsExpression> for TensorExpression {
     fn from(value: KrausOperatorsExpression) -> Self {
-        let KrausOperatorsExpression { inner, input_radices, output_radices, num_operators } = value;
+        let KrausOperatorsExpression {
+            inner,
+            input_radices,
+            output_radices,
+            num_operators,
+        } = value;
         // TODO: add a proper implementation of into_iter for QuditRadices
-        let indices = [num_operators].into_iter()
+        let indices = [num_operators]
+            .into_iter()
             .map(|r| (IndexDirection::Batch, r))
-            .chain(output_radices.into_iter().map(|r| (IndexDirection::Output, usize::from(*r))))
-            .chain(input_radices.into_iter().map(|r| (IndexDirection::Input, usize::from(*r))))
+            .chain(
+                output_radices
+                    .into_iter()
+                    .map(|r| (IndexDirection::Output, usize::from(*r))),
+            )
+            .chain(
+                input_radices
+                    .into_iter()
+                    .map(|r| (IndexDirection::Input, usize::from(*r))),
+            )
             .enumerate()
             .map(|(i, (d, r))| TensorIndex::new(d, i, r))
             .collect();
@@ -89,18 +107,20 @@ impl TryFrom<TensorExpression> for KrausOperatorsExpression {
         let mut output_radices = vec![];
         for idx in value.indices() {
             match idx.direction() {
-                IndexDirection::Batch => {
-                    match num_operators {
-                        Some(n) => num_operators = Some(n * idx.index_size()),
-                        None => num_operators = Some(idx.index_size()),
-                    }
+                IndexDirection::Batch => match num_operators {
+                    Some(n) => num_operators = Some(n * idx.index_size()),
+                    None => num_operators = Some(idx.index_size()),
+                },
+                IndexDirection::Input => {
+                    input_radices.push(idx.index_size());
                 }
-                IndexDirection::Input => { input_radices.push(idx.index_size()); }
-                IndexDirection::Output => { output_radices.push(idx.index_size()); }
-                _ => unreachable!()
+                IndexDirection::Output => {
+                    output_radices.push(idx.index_size());
+                }
+                _ => unreachable!(),
             }
         }
-        
+
         Ok(KrausOperatorsExpression {
             inner: value.into(),
             input_radices: input_radices.into(),
@@ -113,15 +133,14 @@ impl TryFrom<TensorExpression> for KrausOperatorsExpression {
 #[cfg(feature = "python")]
 mod python {
     use super::*;
-    use pyo3::prelude::*;
-    use qudit_core::Radix;
     use crate::python::PyExpressionRegistrar;
-    use qudit_core::c64;
-    use pyo3::types::PyTuple;
+    use ndarray::ArrayViewMut3;
     use numpy::PyArray3;
     use numpy::PyArrayMethods;
-    use ndarray::ArrayViewMut3;
-
+    use pyo3::prelude::*;
+    use pyo3::types::PyTuple;
+    use qudit_core::c64;
+    use qudit_core::Radix;
 
     #[pyclass]
     #[pyo3(name = "KrausOperatorsExpression")]
@@ -163,16 +182,19 @@ mod python {
         }
 
         fn __repr__(&self) -> String {
-            format!("KrausOperatorsExpression(name='{}', radices={:?}, num_operators={}, params={})", 
-                    self.expr.name(), self.expr.input_radices.to_vec(), self.expr.num_operators, self.expr.num_params())
+            format!(
+                "KrausOperatorsExpression(name='{}', radices={:?}, num_operators={}, params={})",
+                self.expr.name(),
+                self.expr.input_radices.to_vec(),
+                self.expr.num_operators,
+                self.expr.num_params()
+            )
         }
     }
 
     impl From<KrausOperatorsExpression> for PyKrausOperatorsExpression {
         fn from(value: KrausOperatorsExpression) -> Self {
-            PyKrausOperatorsExpression {
-                expr: value,
-            }
+            PyKrausOperatorsExpression { expr: value }
         }
     }
 

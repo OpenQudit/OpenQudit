@@ -135,7 +135,7 @@ pub trait ClassicalSystem {
 }
 
 /// A data structure that consists of or operates on a hybrid quantum-classical system.
-pub trait HybridSystem: QuditSystem + ClassicalSystem { 
+pub trait HybridSystem: QuditSystem + ClassicalSystem {
     /// Returns the radices of the qudits in the system.
     ///
     /// # Returns

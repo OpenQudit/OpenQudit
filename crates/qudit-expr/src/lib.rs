@@ -1,45 +1,44 @@
-mod qgl;
-mod expressions;
-mod codegen;
 mod analysis;
-mod shape;
 mod cache;
+mod codegen;
+mod expressions;
 pub mod index;
 pub mod library;
+mod qgl;
+mod shape;
 
-pub use expressions::Constant;
-pub use expressions::Expression;
-pub use expressions::ComplexExpression;
-pub use expressions::NamedExpression;
-pub use expressions::BraExpression;
-pub use expressions::KetExpression;
-pub use expressions::BraSystemExpression;
-pub use expressions::KetSystemExpression;
-pub use expressions::IsometryExpression;
-pub use expressions::UnitaryExpression;
-pub use expressions::KrausOperatorsExpression;
-pub use expressions::UnitarySystemExpression;
-pub use expressions::TensorExpression;
-pub use expressions::ExpressionGenerator;
-pub use codegen::DifferentiationLevel;
-pub use codegen::{FUNCTION, GRADIENT, HESSIAN};
-pub use codegen::ModuleBuilder;
-pub use codegen::Module;
-pub use codegen::WriteFunc;
-pub use codegen::WriteFuncWithLifeTime;
-pub use codegen::CodeGenerator;
 pub use analysis::simplify_matrix_and_matvec;
-pub use shape::GenerationShape;
 pub use cache::ExpressionCache;
 pub use cache::ExpressionId;
-
+pub use codegen::CodeGenerator;
+pub use codegen::DifferentiationLevel;
+pub use codegen::Module;
+pub use codegen::ModuleBuilder;
+pub use codegen::WriteFunc;
+pub use codegen::WriteFuncWithLifeTime;
+pub use codegen::{FUNCTION, GRADIENT, HESSIAN};
+pub use expressions::BraExpression;
+pub use expressions::BraSystemExpression;
+pub use expressions::ComplexExpression;
+pub use expressions::Constant;
+pub use expressions::Expression;
+pub use expressions::ExpressionGenerator;
+pub use expressions::IsometryExpression;
+pub use expressions::KetExpression;
+pub use expressions::KetSystemExpression;
+pub use expressions::KrausOperatorsExpression;
+pub use expressions::NamedExpression;
+pub use expressions::TensorExpression;
+pub use expressions::UnitaryExpression;
+pub use expressions::UnitarySystemExpression;
+pub use shape::GenerationShape;
 
 ////////////////////////////////////////////////////////////////////////
 /// Python Module.
 ////////////////////////////////////////////////////////////////////////
 #[cfg(feature = "python")]
 pub(crate) mod python {
-    use pyo3::prelude::{Bound, PyModule, PyResult, PyAnyMethods, PyModuleMethods};
+    use pyo3::prelude::{Bound, PyAnyMethods, PyModule, PyModuleMethods, PyResult};
 
     /// A trait for objects that can register importables with a PyO3 module.
     pub struct PyExpressionRegistrar {
@@ -58,7 +57,9 @@ pub(crate) mod python {
         }
 
         parent_module.add_submodule(&submodule)?;
-        parent_module.py().import("sys")?
+        parent_module
+            .py()
+            .import("sys")?
             .getattr("modules")?
             .set_item("openqudit.expressions", submodule)?;
 

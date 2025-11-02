@@ -480,7 +480,6 @@ impl<T: Into<Radix>> core::iter::FromIterator<T> for Radices {
     ///
     /// This will attempt to avoid an allocation when possible.
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        
         let vec: CompactVec<Radix> = iter.into_iter().map(|r| r.into()).collect();
         Radices(vec)
     }
@@ -498,7 +497,7 @@ impl core::ops::Deref for Radices {
 
 impl<T: Into<Radix> + CompactStorage> From<CompactVec<T>> for Radices {
     #[inline(always)]
-    fn from(value: CompactVec<T>) -> Self { 
+    fn from(value: CompactVec<T>) -> Self {
         value.into_iter().map(|x| x.into()).collect()
     }
 }
@@ -520,21 +519,21 @@ impl<T: Into<Radix> + 'static> From<Vec<T>> for Radices {
 
 impl<T: Into<Radix> + Copy> From<&[T]> for Radices {
     #[inline(always)]
-    fn from(value: &[T]) -> Self { 
+    fn from(value: &[T]) -> Self {
         value.iter().copied().collect()
     }
 }
 
 impl<T: Into<Radix>, const N: usize> From<[T; N]> for Radices {
     #[inline(always)]
-    fn from(value: [T; N]) -> Self { 
+    fn from(value: [T; N]) -> Self {
         value.into_iter().collect()
     }
 }
 
 impl<'a, T: Into<Radix> + Copy, const N: usize> From<&'a [T; N]> for Radices {
     #[inline(always)]
-    fn from(value: &'a [T; N]) -> Self { 
+    fn from(value: &'a [T; N]) -> Self {
         value.iter().copied().collect()
     }
 }
@@ -635,7 +634,9 @@ mod python {
             } else if let Ok(nums) = ob.extract::<Vec<usize>>() {
                 Ok(Radices::new(nums))
             } else {
-                Err(PyTypeError::new_err("Expected a list of integers for radices."))
+                Err(PyTypeError::new_err(
+                    "Expected a list of integers for radices.",
+                ))
             }
         }
     }

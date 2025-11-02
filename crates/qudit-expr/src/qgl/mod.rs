@@ -94,8 +94,8 @@ mod expr;
 pub(crate) mod lexer;
 mod parser;
 
-pub use expr::ParsedDefinition;
 pub use expr::Expression;
+pub use expr::ParsedDefinition;
 
 pub fn parse_scalar(input: &str) -> Result<Expression, String> {
     let mut parser = parser::Parser::new(input, true);
@@ -149,5 +149,3 @@ pub fn parse_qobj(input: &str) -> Result<ParsedDefinition, String> {
 
 //     Ok(udef)
 // }
-
-

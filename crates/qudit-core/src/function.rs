@@ -21,19 +21,15 @@ impl PartialEq for ParamIndices {
         if self.len() != other.len() {
             return false;
         }
-        
+
         match (self, other) {
             // Same variants - delegate to inner equality
             (ParamIndices::Joint(start1, len1), ParamIndices::Joint(start2, len2)) => {
                 start1 == start2 && len1 == len2
             }
-            (ParamIndices::Disjoint(v1), ParamIndices::Disjoint(v2)) => {
-                v1 == v2
-            }
+            (ParamIndices::Disjoint(v1), ParamIndices::Disjoint(v2)) => v1 == v2,
             // Cross variants - compare iterators element by element
-            _ => {
-                self.iter().eq(other.iter())
-            }
+            _ => self.iter().eq(other.iter()),
         }
     }
 }
@@ -83,7 +79,7 @@ impl ParamIndices {
     /// A `ParamIndices` representing an empty set of parameter indices.
     pub fn constant() -> ParamIndices {
         ParamIndices::Joint(0, 0)
-    } 
+    }
 
     /// Checks if the `ParamIndices` is empty (contains no parameters).
     ///
@@ -117,7 +113,7 @@ impl ParamIndices {
                     }
                 }
                 true
-            },
+            }
         }
     }
 
@@ -126,7 +122,7 @@ impl ParamIndices {
     /// # Returns
     ///
     /// The number of parameters.
-    /// 
+    ///
     pub fn num_params(&self) -> usize {
         match self {
             ParamIndices::Joint(_, length) => *length,
@@ -278,7 +274,7 @@ impl ParamIndices {
     /// A mutable reference to `self` for chaining.
     pub fn sort(&mut self) -> &mut Self {
         match self {
-            ParamIndices::Joint(_, _) => {},
+            ParamIndices::Joint(_, _) => {}
             ParamIndices::Disjoint(indices) => indices.sort(),
         }
         self
@@ -303,19 +299,15 @@ impl ParamIndices {
     /// A `ParamIndicesIter` that yields the parameter indices.
     pub fn iter<'a>(&'a self) -> ParamIndicesIter<'a> {
         match self {
-            ParamIndices::Joint(start, length) => {
-                ParamIndicesIter::Joint {
-                    start: *start,
-                    length: *length,
-                    current: 0,
-                }
-            }
-            ParamIndices::Disjoint(indices) => {
-                ParamIndicesIter::Disjoint {
-                    indices: &indices,
-                    current: 0,
-                }
-            }
+            ParamIndices::Joint(start, length) => ParamIndicesIter::Joint {
+                start: *start,
+                length: *length,
+                current: 0,
+            },
+            ParamIndices::Disjoint(indices) => ParamIndicesIter::Disjoint {
+                indices: &indices,
+                current: 0,
+            },
         }
     }
 
@@ -330,12 +322,8 @@ impl ParamIndices {
     /// `true` if the `ParamIndices` contains the index, `false` otherwise.
     pub fn contains(&self, index: usize) -> bool {
         match self {
-            ParamIndices::Joint(start, length) => {
-                index >= *start && index < *start + *length
-            }
-            ParamIndices::Disjoint(indices) => {
-                indices.contains(&index)
-            }
+            ParamIndices::Joint(start, length) => index >= *start && index < *start + *length,
+            ParamIndices::Disjoint(indices) => indices.contains(&index),
         }
     }
 
@@ -351,7 +339,7 @@ impl ParamIndices {
     pub fn as_vec(&self) -> Vec<usize> {
         self.iter().collect()
     }
-    
+
     /// Returns the number of indices tracked by this object; alias for num_params()
     pub fn len(&self) -> usize {
         match self {
@@ -375,7 +363,7 @@ pub enum ParamIndicesIter<'a> {
     /// Iterator for `ParamIndices::Disjoint`.
     Disjoint {
         /// A slice of the indices.
-        indices: &'a[usize],
+        indices: &'a [usize],
         /// The current index in the slice.
         current: usize,
     },
@@ -386,7 +374,11 @@ impl<'a> Iterator for ParamIndicesIter<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         match self {
-            ParamIndicesIter::Joint { start, length, current } => {
+            ParamIndicesIter::Joint {
+                start,
+                length,
+                current,
+            } => {
                 if *current < *length {
                     let result = *start + *current;
                     *current += 1;
@@ -468,9 +460,9 @@ mod python {
     use super::*;
     use pyo3::prelude::*;
     use pyo3::types::PyIterator;
-    
+
     /// Python wrapper for parameter indices.
-    /// 
+    ///
     /// This provides parameter index functionality to Python, supporting both
     /// consecutive (Joint) and disjoint parameter representations.
     #[pyclass(name = "ParamIndices", frozen, eq, hash)]
@@ -478,22 +470,22 @@ mod python {
     pub struct PyParamIndices {
         inner: ParamIndices,
     }
-    
+
     #[pymethods]
     impl PyParamIndices {
         /// Creates new parameter indices.
-        /// 
+        ///
         /// # Arguments
-        /// 
+        ///
         /// * `indices_or_start` - Either an iterable of parameter indices, or the starting index for a consecutive range
         /// * `length` - Optional length for consecutive range (only used if `indices_or_start` is an integer)
-        /// 
+        ///
         /// # Examples
-        /// 
+        ///
         /// ```python
         /// # Disjoint parameters
         /// params1 = ParamIndices([0, 2, 5, 7])
-        /// 
+        ///
         /// # Consecutive parameters starting at index 10 with length 5
         /// params2 = ParamIndices(10, 5)  # represents [10, 11, 12, 13, 14]
         /// ```
@@ -526,62 +518,62 @@ mod python {
                 }
             }
         }
-        
+
         /// Returns the number of parameters.
         #[getter]
         fn num_params(&self) -> usize {
             self.inner.num_params()
         }
-        
+
         /// Returns the starting index (for Joint) or first index (for Disjoint).
         #[getter]
         fn start(&self) -> usize {
             self.inner.start()
         }
-        
+
         /// Returns whether the parameters are consecutive.
         #[getter]
         fn is_consecutive(&self) -> bool {
             self.inner.is_consecutive()
         }
-        
+
         /// Returns whether the parameter indices are empty.
         #[getter]
         fn is_empty(&self) -> bool {
             self.inner.is_empty()
         }
-        
+
         /// Checks if the parameter indices contain the given index.
         fn contains(&self, index: usize) -> bool {
             self.inner.contains(index)
         }
-        
+
         /// Returns all parameter indices as a list.
         fn to_list(&self) -> Vec<usize> {
             self.inner.to_vec()
         }
-        
+
         /// Returns a sorted copy of these parameter indices.
         fn sorted(&self) -> PyParamIndices {
             PyParamIndices {
                 inner: self.inner.sorted(),
             }
         }
-        
+
         /// Concatenates with another ParamIndices.
         fn concat(&self, other: &PyParamIndices) -> PyParamIndices {
             PyParamIndices {
                 inner: self.inner.concat(&other.inner),
             }
         }
-        
+
         /// Intersects with another ParamIndices.
         fn intersect(&self, other: &PyParamIndices) -> PyParamIndices {
             PyParamIndices {
                 inner: self.inner.intersect(&other.inner),
             }
         }
-        
+
         /// Creates parameter indices for a constant (no parameters).
         #[staticmethod]
         fn constant() -> PyParamIndices {
@@ -589,7 +581,7 @@ mod python {
                 inner: ParamIndices::constant(),
             }
         }
-        
+
         fn __repr__(&self) -> String {
             match &self.inner {
                 ParamIndices::Joint(start, length) => {
@@ -598,50 +590,54 @@ mod python {
                     } else {
                         format!("ParamIndices({}, {})", start, length)
                     }
-                },
+                }
                 ParamIndices::Disjoint(indices) => {
                     format!("ParamIndices({:?})", indices)
                 }
             }
         }
-        
+
         fn __str__(&self) -> String {
             let indices = self.inner.to_vec();
             if indices.len() <= 3 {
                 format!("{:?}", indices)
             } else {
-                format!("[{}, ..., {}]", indices.first().unwrap(), indices.last().unwrap())
+                format!(
+                    "[{}, ..., {}]",
+                    indices.first().unwrap(),
+                    indices.last().unwrap()
+                )
             }
         }
-        
+
         fn __len__(&self) -> usize {
             self.inner.len()
         }
-        
+
         fn __iter__(slf: PyRef<'_, Self>) -> PyParamIndicesIterator {
             PyParamIndicesIterator {
                 indices: slf.inner.to_vec(),
                 index: 0,
             }
         }
-        
+
         fn __contains__(&self, index: usize) -> bool {
             self.inner.contains(index)
         }
     }
-    
+
     #[pyclass]
     struct PyParamIndicesIterator {
         indices: Vec<usize>,
         index: usize,
     }
-    
+
     #[pymethods]
     impl PyParamIndicesIterator {
         fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
             slf
         }
-        
+
         fn __next__(mut slf: PyRefMut<'_, Self>) -> Option<usize> {
             if slf.index < slf.indices.len() {
                 let result = slf.indices[slf.index];
@@ -652,35 +648,34 @@ mod python {
             }
         }
     }
-    
+
     impl From<ParamIndices> for PyParamIndices {
         fn from(indices: ParamIndices) -> Self {
             PyParamIndices { inner: indices }
         }
     }
-    
+
     impl From<PyParamIndices> for ParamIndices {
         fn from(py_indices: PyParamIndices) -> Self {
             py_indices.inner
         }
     }
-    
+
     impl<'py> IntoPyObject<'py> for ParamIndices {
         type Target = PyParamIndices;
         type Output = Bound<'py, Self::Target>;
         type Error = PyErr;
-        
+
         fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
             let py_indices = PyParamIndices::from(self);
             Bound::new(py, py_indices)
         }
     }
-    
+
     impl<'py> FromPyObject<'py> for ParamIndices {
         fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
             let py_indices: PyParamIndices = ob.extract()?;
             Ok(py_indices.into())
         }
     }
-
 }

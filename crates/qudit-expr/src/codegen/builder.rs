@@ -1,10 +1,7 @@
-use std::collections::HashMap;
-
 use super::{codegen::CodeGenerator, module::Module};
-use num::traits::real::Real;
-use qudit_core::{ComplexScalar, ParamIndices, QuditSystem, RealScalar};
+use qudit_core::RealScalar;
 
-use crate::{analysis::{simplify_expressions, simplify_matrix_and_matvec}, Expression, expressions::JittableExpression, TensorExpression, UnitaryExpression, GenerationShape};
+use crate::Expression;
 
 pub struct CompilableUnit<'a> {
     pub fn_name: String,
@@ -14,22 +11,29 @@ pub struct CompilableUnit<'a> {
 }
 
 impl<'a> CompilableUnit<'a> {
-    pub fn new(name: &str, exprs: &'a [Expression], variables: Vec<String>, unit_size: usize) -> Self {
+    pub fn new(
+        name: &str,
+        exprs: &'a [Expression],
+        variables: Vec<String>,
+        unit_size: usize,
+    ) -> Self {
         CompilableUnit {
             fn_name: name.to_string(),
             exprs,
             variables,
-            unit_size
+            unit_size,
         }
     }
-    
+
     pub fn add_to_module<R: RealScalar>(&self, module: &Module<R>) {
         // println!("Adding fn_name: {} to module.", self.fn_name);
         // for expr in &self.exprs {
         //     println!("{:?}", expr);
         // }
         let mut codegen = CodeGenerator::new(&module);
-        codegen.gen_func(&self.fn_name, &self.exprs, &self.variables, self.unit_size).expect("Error generating function.");
+        codegen
+            .gen_func(&self.fn_name, &self.exprs, &self.variables, self.unit_size)
+            .expect("Error generating function.");
     }
 }
 
@@ -93,4 +97,3 @@ impl<'a, R: RealScalar> ModuleBuilder<'a, R> {
         module
     }
 }
-

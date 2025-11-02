@@ -2,16 +2,19 @@ use std::collections::{BTreeSet, HashMap};
 use std::ops::{Deref, DerefMut};
 
 use faer::Mat;
-use qudit_core::UnitaryMatrix;
 use qudit_core::ComplexScalar;
-use qudit_core::Radices;
 use qudit_core::QuditSystem;
+use qudit_core::Radices;
+use qudit_core::UnitaryMatrix;
 
+use crate::{
+    expressions::JittableExpression,
+    index::{IndexDirection, TensorIndex},
+    GenerationShape, TensorExpression,
+};
 use crate::{ComplexExpression, UnitarySystemExpression};
-use crate::{expressions::JittableExpression, index::{IndexDirection, TensorIndex}, GenerationShape, TensorExpression};
 
 use super::NamedExpression;
-
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct UnitaryExpression {
@@ -50,7 +53,7 @@ impl UnitaryExpression {
     pub fn identity<S: Into<String>, T: Into<Radices>>(name: S, radices: T) -> Self {
         let radices = radices.into();
         let dim = radices.dimension();
-        let mut body = Vec::with_capacity(dim*dim);
+        let mut body = Vec::with_capacity(dim * dim);
         for i in 0..dim {
             for j in 0..dim {
                 if i == j {
@@ -62,10 +65,7 @@ impl UnitaryExpression {
         }
         let inner = NamedExpression::new(name, vec![], body);
 
-        UnitaryExpression {
-            inner,
-            radices,
-        }
+        UnitaryExpression { inner, radices }
     }
 
     pub fn set_radices(&mut self, new_radices: Radices) {
@@ -88,16 +88,27 @@ impl UnitaryExpression {
         self.transpose();
     }
 
-    pub fn classically_multiplex(expressions: &[&UnitaryExpression], new_dim_radices: &[usize]) -> UnitarySystemExpression { 
+    pub fn classically_multiplex(
+        expressions: &[&UnitaryExpression],
+        new_dim_radices: &[usize],
+    ) -> UnitarySystemExpression {
         let new_dim = new_dim_radices.iter().product();
-        assert!(expressions.len() == new_dim, "Cannot multiplex a number of expressions not equal to the length of new dimension.");
+        assert!(
+            expressions.len() == new_dim,
+            "Cannot multiplex a number of expressions not equal to the length of new dimension."
+        );
         assert!(expressions.len() > 0);
         for expression in expressions {
-            assert_eq!(expression.radices(), expressions[0].radices(), "All expressions must have equal radices.");
+            assert_eq!(
+                expression.radices(),
+                expressions[0].radices(),
+                "All expressions must have equal radices."
+            );
         }
 
         // construct larger tensor
-        let mut new_expressions = Vec::with_capacity(expressions[0].dimension() * expressions[0].dimension() * new_dim);
+        let mut new_expressions =
+            Vec::with_capacity(expressions[0].dimension() * expressions[0].dimension() * new_dim);
         let mut var_map_number = 0;
         let mut new_variables = Vec::new();
         for i in 0..new_dim {
@@ -111,9 +122,21 @@ impl UnitaryExpression {
             }
         }
 
-        let new_indices = new_dim_radices.iter().map(|r| (IndexDirection::Batch, *r as usize))
-            .chain(expressions[0].radices().iter().map(|r| (IndexDirection::Output, usize::from(*r))))
-            .chain(expressions[0].radices().iter().map(|r| (IndexDirection::Input, usize::from(*r))))
+        let new_indices = new_dim_radices
+            .iter()
+            .map(|r| (IndexDirection::Batch, *r as usize))
+            .chain(
+                expressions[0]
+                    .radices()
+                    .iter()
+                    .map(|r| (IndexDirection::Output, usize::from(*r))),
+            )
+            .chain(
+                expressions[0]
+                    .radices()
+                    .iter()
+                    .map(|r| (IndexDirection::Input, usize::from(*r))),
+            )
             .enumerate()
             .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
             .collect();
@@ -121,26 +144,46 @@ impl UnitaryExpression {
         let name = {
             // if all expressions have same name: multiplex_name
             // else: multiplex_name_name_...
-            if expressions.iter().all(|e| e.name() == expressions[0].name()) {
+            if expressions
+                .iter()
+                .all(|e| e.name() == expressions[0].name())
+            {
                 format!("Multiplexed_{}", expressions[0].name())
             } else {
-                "Multiplexed_".to_string() + &expressions.iter().map(|e| e.name()).collect::<Vec<_>>().join("_")
+                "Multiplexed_".to_string()
+                    + &expressions
+                        .iter()
+                        .map(|e| e.name())
+                        .collect::<Vec<_>>()
+                        .join("_")
             }
         };
 
         let inner = NamedExpression::new(name, new_variables, new_expressions);
-        TensorExpression::from_raw(new_indices, inner).try_into().unwrap()
+        TensorExpression::from_raw(new_indices, inner)
+            .try_into()
+            .unwrap()
     }
 
     // TODO: better API for user-facing thoughts
-    pub fn classically_control(&self, positions: &[usize], new_dim_radices: &[usize]) -> UnitarySystemExpression {
+    pub fn classically_control(
+        &self,
+        positions: &[usize],
+        new_dim_radices: &[usize],
+    ) -> UnitarySystemExpression {
         let new_dim = new_dim_radices.iter().product();
-        assert!(positions.len() <= new_dim, "Cannot place unitary in more locations than length of new dimension.");
+        assert!(
+            positions.len() <= new_dim,
+            "Cannot place unitary in more locations than length of new dimension."
+        );
 
         // Ensure positions are unique
         let mut sorted_positions = positions.to_vec();
         sorted_positions.sort_unstable();
-        assert!(sorted_positions.iter().collect::<BTreeSet<_>>().len() == sorted_positions.len(), "Positions must be unique");
+        assert!(
+            sorted_positions.iter().collect::<BTreeSet<_>>().len() == sorted_positions.len(),
+            "Positions must be unique"
+        );
 
         // Construct identity expression
         let mut identity = Vec::with_capacity(self.dimension() * self.dimension());
@@ -164,18 +207,39 @@ impl UnitaryExpression {
             }
         }
 
-        let new_indices = new_dim_radices.iter().map(|r| (IndexDirection::Batch, *r as usize))
-            .chain(self.radices.iter().map(|r| (IndexDirection::Output, usize::from(*r))))
-            .chain(self.radices.iter().map(|r| (IndexDirection::Input, usize::from(*r))))
+        let new_indices = new_dim_radices
+            .iter()
+            .map(|r| (IndexDirection::Batch, *r as usize))
+            .chain(
+                self.radices
+                    .iter()
+                    .map(|r| (IndexDirection::Output, usize::from(*r))),
+            )
+            .chain(
+                self.radices
+                    .iter()
+                    .map(|r| (IndexDirection::Input, usize::from(*r))),
+            )
             .enumerate()
             .map(|(id, (dir, size))| TensorIndex::new(dir, id, size))
             .collect();
 
-        let inner = NamedExpression::new(format!("Stacked_{}", self.name()), self.variables().to_owned(), expressions);
-        TensorExpression::from_raw(new_indices, inner).try_into().unwrap()
+        let inner = NamedExpression::new(
+            format!("Stacked_{}", self.name()),
+            self.variables().to_owned(),
+            expressions,
+        );
+        TensorExpression::from_raw(new_indices, inner)
+            .try_into()
+            .unwrap()
     }
 
-    pub fn embed(&mut self, sub_matrix: UnitaryExpression, top_left_row_idx: usize, top_left_col_idx: usize) {
+    pub fn embed(
+        &mut self,
+        sub_matrix: UnitaryExpression,
+        top_left_row_idx: usize,
+        top_left_col_idx: usize,
+    ) {
         let nrows = self.dimension();
         let ncols = self.dimension();
         let sub_nrows = sub_matrix.dimension();
@@ -184,12 +248,12 @@ impl UnitaryExpression {
         if top_left_row_idx + sub_nrows > nrows || top_left_col_idx + sub_ncols > ncols {
             panic!("Embedding matrix is too large");
         }
-        
+
         for i in 0..sub_nrows {
             for j in 0..sub_ncols {
                 // TODO: remove clone by building into_iter for sub_matrix
                 let sub_expr = sub_matrix[i * sub_ncols + j].clone();
-                self[(top_left_row_idx + i) * ncols + (top_left_col_idx + j)] = sub_expr; 
+                self[(top_left_row_idx + i) * ncols + (top_left_col_idx + j)] = sub_expr;
             }
         }
 
@@ -203,7 +267,7 @@ impl UnitaryExpression {
         self.set_variables(new_variables);
     }
 
-    pub fn otimes<U: AsRef<UnitaryExpression>>(&self,  other: U) -> Self {
+    pub fn otimes<U: AsRef<UnitaryExpression>>(&self, other: U) -> Self {
         let other = other.as_ref();
         let mut variables = Vec::new();
         let mut var_map_self = HashMap::new();
@@ -226,18 +290,25 @@ impl UnitaryExpression {
         let rhs_ncols = other.dimension();
 
         let mut out_body = Vec::with_capacity(lhs_nrows * lhs_ncols * rhs_ncols * rhs_nrows);
-        
+
         for i in 0..lhs_nrows {
             for j in 0..rhs_nrows {
                 for k in 0..lhs_ncols {
                     for l in 0..rhs_ncols {
-                        out_body.push(self[i * lhs_ncols + k].map_var_names(&var_map_self) * other[j * rhs_ncols + l].map_var_names(&var_map_other));
+                        out_body.push(
+                            self[i * lhs_ncols + k].map_var_names(&var_map_self)
+                                * other[j * rhs_ncols + l].map_var_names(&var_map_other),
+                        );
                     }
                 }
             }
         }
 
-        let inner = NamedExpression::new(format!("{} ⊗ {}", self.name(), other.name()), variables, out_body);
+        let inner = NamedExpression::new(
+            format!("{} ⊗ {}", self.name(), other.name()),
+            variables,
+            out_body,
+        );
 
         UnitaryExpression {
             inner,
@@ -253,7 +324,10 @@ impl UnitaryExpression {
         let rhs_ncols = other.dimension();
 
         if lhs_ncols != rhs_nrows {
-            panic!("Matrix dimensions do not match for dot product: {} != {}", lhs_ncols, rhs_nrows);
+            panic!(
+                "Matrix dimensions do not match for dot product: {} != {}",
+                lhs_ncols, rhs_nrows
+            );
         }
 
         let mut variables = Vec::new();
@@ -271,19 +345,25 @@ impl UnitaryExpression {
             i += 1;
         }
 
-        let mut out_body = Vec::with_capacity(lhs_nrows*rhs_ncols);
+        let mut out_body = Vec::with_capacity(lhs_nrows * rhs_ncols);
 
         for i in 0..lhs_nrows {
             for j in 0..rhs_ncols {
-                let mut sum = self[i * lhs_ncols].map_var_names(&var_map_self) * other[j].map_var_names(&var_map_other);
+                let mut sum = self[i * lhs_ncols].map_var_names(&var_map_self)
+                    * other[j].map_var_names(&var_map_other);
                 for k in 1..lhs_ncols {
-                    sum += self[i * lhs_ncols + k].map_var_names(&var_map_self) * other[k * rhs_ncols + j].map_var_names(&var_map_other);
+                    sum += self[i * lhs_ncols + k].map_var_names(&var_map_self)
+                        * other[k * rhs_ncols + j].map_var_names(&var_map_other);
                 }
                 out_body.push(sum);
             }
         }
 
-        let inner = NamedExpression::new(format!("{} ⋅ {}", self.name(), other.name()), variables, out_body);
+        let inner = NamedExpression::new(
+            format!("{} ⋅ {}", self.name(), other.name()),
+            variables,
+            out_body,
+        );
 
         UnitaryExpression {
             inner,
@@ -292,7 +372,11 @@ impl UnitaryExpression {
     }
 
     pub fn get_arg_map<C: ComplexScalar>(&self, args: &[C::R]) -> HashMap<&str, C::R> {
-        self.variables().iter().zip(args.iter()).map(|(a, b)| (a.as_str(), *b)).collect()
+        self.variables()
+            .iter()
+            .zip(args.iter())
+            .map(|(a, b)| (a.as_str(), *b))
+            .collect()
     }
 
     pub fn eval<C: ComplexScalar>(&self, args: &[C::R]) -> UnitaryMatrix<C> {
@@ -306,7 +390,6 @@ impl UnitaryExpression {
         }
         UnitaryMatrix::new(self.radices.clone(), mat)
     }
-
 }
 
 impl JittableExpression for UnitaryExpression {
@@ -350,9 +433,14 @@ impl DerefMut for UnitaryExpression {
 impl From<UnitaryExpression> for TensorExpression {
     fn from(value: UnitaryExpression) -> Self {
         let UnitaryExpression { inner, radices } = value;
-        let indices = radices.iter()
+        let indices = radices
+            .iter()
             .map(|r| (IndexDirection::Output, usize::from(*r)))
-            .chain(radices.into_iter().map(|r| (IndexDirection::Input, usize::from(*r))))
+            .chain(
+                radices
+                    .into_iter()
+                    .map(|r| (IndexDirection::Input, usize::from(*r))),
+            )
             .enumerate()
             .map(|(i, (d, r))| TensorIndex::new(d, i, r))
             .collect();
@@ -369,16 +457,24 @@ impl TryFrom<TensorExpression> for UnitaryExpression {
         let mut output_radices = vec![];
         for idx in value.indices() {
             match idx.direction() {
-                IndexDirection::Input => { input_radices.push(idx.index_size()); }
-                IndexDirection::Output => { output_radices.push(idx.index_size()); }
-                _ => { return Err(String::from("Cannot convert a tensor with non-input, non-output indices to an isometry.")); }
+                IndexDirection::Input => {
+                    input_radices.push(idx.index_size());
+                }
+                IndexDirection::Output => {
+                    output_radices.push(idx.index_size());
+                }
+                _ => {
+                    return Err(String::from("Cannot convert a tensor with non-input, non-output indices to an isometry."));
+                }
             }
         }
 
         if input_radices != output_radices {
-            return Err(String::from("Non-square matrix tensor cannot be converted to a unitary."));
+            return Err(String::from(
+                "Non-square matrix tensor cannot be converted to a unitary.",
+            ));
         }
-        
+
         Ok(UnitaryExpression {
             inner: value.into(),
             radices: input_radices.into(),
@@ -387,14 +483,14 @@ impl TryFrom<TensorExpression> for UnitaryExpression {
 }
 
 impl<C: ComplexScalar> From<UnitaryMatrix<C>> for UnitaryExpression {
-    fn from(value: UnitaryMatrix<C>) -> Self {        
+    fn from(value: UnitaryMatrix<C>) -> Self {
         let mut body = vec![Vec::with_capacity(value.ncols()); value.nrows()];
         for col in value.col_iter() {
             for (row_id, elem) in col.iter().enumerate() {
                 body[row_id].push(ComplexExpression::from(*elem));
             }
         }
-        let mut flat_body = Vec::with_capacity(value.ncols()*value.nrows());
+        let mut flat_body = Vec::with_capacity(value.ncols() * value.nrows());
         for row in body.into_iter() {
             for elem in row.into_iter() {
                 flat_body.push(elem);
@@ -415,19 +511,17 @@ impl QuditSystem for UnitaryExpression {
     }
 }
 
-
 #[cfg(feature = "python")]
 mod python {
     use super::*;
-    use pyo3::prelude::*;
-    use qudit_core::Radix;
     use crate::python::PyExpressionRegistrar;
-    use qudit_core::c64;
-    use pyo3::types::PyTuple;
+    use ndarray::ArrayViewMut2;
     use numpy::PyArray2;
     use numpy::PyArrayMethods;
-    use ndarray::ArrayViewMut2;
-
+    use pyo3::prelude::*;
+    use pyo3::types::PyTuple;
+    use qudit_core::c64;
+    use qudit_core::Radix;
 
     #[pyclass]
     #[pyo3(name = "UnitaryExpression")]
@@ -456,7 +550,8 @@ mod python {
             let py = args.py();
             let args: Vec<f64> = args.extract()?;
             let unitary = self.expr.eval(&args);
-            let py_array: Bound<'py, PyArray2<c64>> = PyArray2::zeros(py, (unitary.dimension(), unitary.dimension()), false);
+            let py_array: Bound<'py, PyArray2<c64>> =
+                PyArray2::zeros(py, (unitary.dimension(), unitary.dimension()), false);
 
             {
                 let mut readwrite = py_array.readwrite();
@@ -508,8 +603,14 @@ mod python {
             }
         }
 
-        fn embed(&mut self, sub_matrix: &PyUnitaryExpression, top_left_row_idx: usize, top_left_col_idx: usize) {
-            self.expr.embed(sub_matrix.expr.clone(), top_left_row_idx, top_left_col_idx);
+        fn embed(
+            &mut self,
+            sub_matrix: &PyUnitaryExpression,
+            top_left_row_idx: usize,
+            top_left_col_idx: usize,
+        ) {
+            self.expr
+                .embed(sub_matrix.expr.clone(), top_left_row_idx, top_left_col_idx);
         }
 
         // fn classically_control(&self, positions: Vec<usize>, new_dim_radices: Vec<usize>) -> crate::python::tensor::PyTensorExpression {
@@ -518,16 +619,18 @@ mod python {
         // }
 
         fn __repr__(&self) -> String {
-            format!("UnitaryExpression(name='{}', radices={:?}, params={})", 
-                    self.expr.name(), self.expr.radices().to_vec(), self.expr.num_params())
+            format!(
+                "UnitaryExpression(name='{}', radices={:?}, params={})",
+                self.expr.name(),
+                self.expr.radices().to_vec(),
+                self.expr.num_params()
+            )
         }
     }
 
     impl From<UnitaryExpression> for PyUnitaryExpression {
         fn from(value: UnitaryExpression) -> Self {
-            PyUnitaryExpression {
-                expr: value,
-            }
+            PyUnitaryExpression { expr: value }
         }
     }
 

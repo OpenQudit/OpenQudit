@@ -3,19 +3,16 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::ops::DerefMut;
 
-use qudit_core::UnitaryMatrix;
-use qudit_core::ComplexScalar;
 use super::ComplexExpression;
 use crate::expressions::JittableExpression;
 use crate::expressions::NamedExpression;
+use crate::index::IndexDirection;
 use crate::index::IndexSize;
+use crate::index::TensorIndex;
 use crate::qgl::parse_qobj;
 use crate::qgl::Expression as CiscExpression;
 use crate::Expression;
 use crate::GenerationShape;
-use crate::index::TensorIndex;
-use crate::index::IndexDirection;
-use crate::UnitaryExpression;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TensorExpression {
@@ -61,7 +58,10 @@ impl TensorExpression {
         let variables = qdef.variables;
         let element_wise = qdef.body.into_element_wise();
         let body: Vec<ComplexExpression> = match element_wise {
-            CiscExpression::Vector(vec) => vec.into_iter().map(|expr| ComplexExpression::new(expr)).collect(),
+            CiscExpression::Vector(vec) => vec
+                .into_iter()
+                .map(|expr| ComplexExpression::new(expr))
+                .collect(),
             CiscExpression::Matrix(mat) => mat
                 .into_iter()
                 .flat_map(|row| {
@@ -85,7 +85,6 @@ impl TensorExpression {
             _ => panic!("Tensor body must be a vector"),
         };
 
-
         TensorExpression {
             indices,
             inner: NamedExpression::new(name, variables, body),
@@ -93,12 +92,9 @@ impl TensorExpression {
     }
 
     pub fn from_raw(indices: Vec<TensorIndex>, inner: NamedExpression) -> Self {
-        TensorExpression {
-            indices,
-            inner,
-        }
+        TensorExpression { indices, inner }
     }
- 
+
     pub fn indices(&self) -> &[TensorIndex] {
         &self.indices
     }
@@ -156,8 +152,15 @@ impl TensorExpression {
     }
 
     pub fn reindex(&mut self, new_indices: Vec<TensorIndex>) -> &mut Self {
-        assert_eq!(new_indices.iter().map(|idx| idx.index_size()).product::<usize>(), self.num_elements(), "Product of new dimensions must match the total number of elements in the tensor body.");
-        
+        assert_eq!(
+            new_indices
+                .iter()
+                .map(|idx| idx.index_size())
+                .product::<usize>(),
+            self.num_elements(),
+            "Product of new dimensions must match the total number of elements in the tensor body."
+        );
+
         // Assert that all indices are lined up correctly (Derv | Batch | Output | Input)
         let mut last_direction = IndexDirection::Derivative;
         for index in &new_indices {
@@ -181,9 +184,16 @@ impl TensorExpression {
         let original_dimensions = self.dimensions();
 
         //Reorder the TensorIndex objects based on `perm`
-        let reordered_indices: Vec<TensorIndex> = perm.iter()
+        let reordered_indices: Vec<TensorIndex> = perm
+            .iter()
             .enumerate()
-            .map(|(id, &p_id)| TensorIndex::new(redirection[id], self.indices[p_id].index_id(), self.indices[p_id].index_size()))
+            .map(|(id, &p_id)| {
+                TensorIndex::new(
+                    redirection[id],
+                    self.indices[p_id].index_id(),
+                    self.indices[p_id].index_size(),
+                )
+            })
             .collect();
 
         // Update self.indices with the newly reordered and direction-assigned indices
@@ -198,7 +208,8 @@ impl TensorExpression {
             let mut original_coordinate: Vec<usize> = Vec::with_capacity(self.rank());
             let mut temp_i = i;
             for d_idx in 0..self.rank() {
-                original_coordinate.push((temp_i / original_strides[d_idx]) % original_dimensions[d_idx]);
+                original_coordinate
+                    .push((temp_i / original_strides[d_idx]) % original_dimensions[d_idx]);
                 temp_i %= original_strides[d_idx]; // Update temp_i for next dimension
             }
 
@@ -226,16 +237,28 @@ impl TensorExpression {
         // Assertions for input validity
         let (nrows, ncols) = match self.generation_shape() {
             GenerationShape::Matrix(r, c) => (r, c),
-            _ => panic!("TensorExpression must be a square matrix to use stack_with_identity, got {:?}", self.generation_shape()),
+            _ => panic!(
+                "TensorExpression must be a square matrix to use stack_with_identity, got {:?}",
+                self.generation_shape()
+            ),
         };
-        assert_eq!(nrows, ncols, "TensorExpression must be a square matrix for stack_with_identity");
+        assert_eq!(
+            nrows, ncols,
+            "TensorExpression must be a square matrix for stack_with_identity"
+        );
         // assert_eq!(nrows, self.dimensions.dimension(), "Matrix dimension must match qudit dimensions for stack_with_identity");
-        assert!(positions.len() <= new_dim, "Cannot place tensor in more locations than length of new dimension.");
+        assert!(
+            positions.len() <= new_dim,
+            "Cannot place tensor in more locations than length of new dimension."
+        );
 
         // Ensure positions are unique
         let mut sorted_positions = positions.to_vec();
         sorted_positions.sort_unstable();
-        assert!(sorted_positions.iter().collect::<BTreeSet<_>>().len() == sorted_positions.len(), "Positions must be unique");
+        assert!(
+            sorted_positions.iter().collect::<BTreeSet<_>>().len() == sorted_positions.len(),
+            "Positions must be unique"
+        );
 
         // Construct identity expression
         let mut identity = Vec::with_capacity(nrows * ncols);
@@ -259,13 +282,21 @@ impl TensorExpression {
             }
         }
 
-        let new_indices = [TensorIndex::new(IndexDirection::Batch, 0, new_dim)].into_iter()
-            .chain(self.indices().iter().map(|idx| TensorIndex::new(idx.direction(), idx.index_id() + 1, idx.index_size())))
-            .collect();
+        let new_indices =
+            [TensorIndex::new(IndexDirection::Batch, 0, new_dim)]
+                .into_iter()
+                .chain(self.indices().iter().map(|idx| {
+                    TensorIndex::new(idx.direction(), idx.index_id() + 1, idx.index_size())
+                }))
+                .collect();
 
         TensorExpression {
             indices: new_indices,
-            inner: NamedExpression::new(format!("Stacked_{}", self.name()), self.variables().to_owned(), expressions),
+            inner: NamedExpression::new(
+                format!("Stacked_{}", self.name()),
+                self.variables().to_owned(),
+                expressions,
+            ),
         }
     }
 
@@ -281,10 +312,16 @@ impl TensorExpression {
         let mut traced_dim_indices = std::collections::HashSet::new();
         for &(d1, d2) in dimension_pairs {
             if d1 >= num_dims || d2 >= num_dims {
-                panic!("Dimension index out of bounds: ({}, {}) for dimensions {:?}", d1, d2, in_dims);
+                panic!(
+                    "Dimension index out of bounds: ({}, {}) for dimensions {:?}",
+                    d1, d2, in_dims
+                );
             }
             if in_dims[d1] != in_dims[d2] {
-                panic!("Dimensions being traced must have the same size: D{} ({}) != D{} ({})", d1, in_dims[d1], d2, in_dims[d2]);
+                panic!(
+                    "Dimensions being traced must have the same size: D{} ({}) != D{} ({})",
+                    d1, in_dims[d1], d2, in_dims[d2]
+                );
             }
             if !traced_dim_indices.insert(d1) {
                 panic!("Dimension {} appears more than once as a trace source.", d1);
@@ -323,11 +360,14 @@ impl TensorExpression {
         for (i, expr) in self.elements().iter().enumerate() {
             let original_coordinate: Vec<usize> = (0..in_dims.len())
                 .into_iter()
-                .map(|d| ((i % in_strides[d+1]) / in_strides[d]))
+                .map(|d| (i % in_strides[d + 1]) / in_strides[d])
                 .rev()
                 .collect();
 
-            if dimension_pairs.iter().all(|(d1, d2)| original_coordinate[*d1] == original_coordinate[*d2]) {
+            if dimension_pairs
+                .iter()
+                .all(|(d1, d2)| original_coordinate[*d1] == original_coordinate[*d2])
+            {
                 let mut new_linear_idx = 0;
                 for (&idx, stride) in remaining_dims_indices.iter().zip(&out_strides) {
                     new_linear_idx += original_coordinate[idx] * stride;
@@ -341,25 +381,36 @@ impl TensorExpression {
 
         TensorExpression {
             indices: new_indices,
-            inner: NamedExpression::new(format!("PartialTraced_{}", self.name()), self.variables().to_owned(), new_body),
+            inner: NamedExpression::new(
+                format!("PartialTraced_{}", self.name()),
+                self.variables().to_owned(),
+                new_body,
+            ),
         }
     }
 
     /// replace all variables with values, new variables given in variables input
-    pub fn substitute_parameters<S: AsRef<str>, C: AsRef<Expression>>(&self, variables: &[S], values: &[C]) -> Self {
-        let sub_map: HashMap<_, _> = self.variables().iter().zip(values.iter()).map(|(k, v)| (Expression::Variable(k.to_string()), v.as_ref())).collect();
+    pub fn substitute_parameters<S: AsRef<str>, C: AsRef<Expression>>(
+        &self,
+        variables: &[S],
+        values: &[C],
+    ) -> Self {
+        let sub_map: HashMap<_, _> = self
+            .variables()
+            .iter()
+            .zip(values.iter())
+            .map(|(k, v)| (Expression::Variable(k.to_string()), v.as_ref()))
+            .collect();
 
         let mut new_body = vec![];
         for expr in self.elements().iter() {
-            let mut new_expr = None; 
+            let mut new_expr = None;
             for (var, value) in &sub_map {
                 match new_expr {
-                    None => {
-                        new_expr = Some(expr.substitute(var, value))
-                    }
+                    None => new_expr = Some(expr.substitute(var, value)),
                     Some(ref mut e) => *e = e.substitute(var, value),
                 }
-            } 
+            }
             match new_expr {
                 None => new_body.push(expr.clone()),
                 Some(e) => new_body.push(e),
@@ -374,7 +425,14 @@ impl TensorExpression {
         }
     }
 
-    pub fn destruct(self) -> (String, Vec<String>, Vec<ComplexExpression>, Vec<TensorIndex>) {
+    pub fn destruct(
+        self,
+    ) -> (
+        String,
+        Vec<String>,
+        Vec<ComplexExpression>,
+        Vec<TensorIndex>,
+    ) {
         let Self { inner, indices } = self;
         let (name, variables, body) = inner.destruct();
         (name, variables, body, indices)

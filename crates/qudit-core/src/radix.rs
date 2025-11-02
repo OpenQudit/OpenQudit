@@ -15,7 +15,7 @@ use crate::CompactStorage;
 /// // Create from u8 or usize
 /// let radix = Radix::from(10u8);
 /// let radix = Radix::from(16usize);
-/// 
+///
 /// // Convert to other integer types
 /// let base = usize::from(radix);
 /// let base: u64 = radix.into();
@@ -36,15 +36,21 @@ impl<T: AsPrimitive<u8> + From<u8> + PartialOrd> From<T> for Radix {
 impl CompactStorage for Radix {
     type InlineType = Radix;
     const CONVERSION_INFALLIBLE: bool = true;
-    
-    #[inline(always)]
-    fn to_inline(value: Self) -> Result<Self::InlineType, Self> { Ok(value) }
 
     #[inline(always)]
-    fn from_inline(value: Self::InlineType) -> Self { value }
+    fn to_inline(value: Self) -> Result<Self::InlineType, Self> {
+        Ok(value)
+    }
 
     #[inline(always)]
-    fn to_inline_unchecked(value: Self) -> Self::InlineType { value }
+    fn from_inline(value: Self::InlineType) -> Self {
+        value
+    }
+
+    #[inline(always)]
+    fn to_inline_unchecked(value: Self) -> Self::InlineType {
+        value
+    }
 }
 
 impl From<Radix> for usize {
@@ -190,9 +196,10 @@ mod python {
         fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
             let value: u8 = obj.extract()?;
             if value < 2 {
-                Err(pyo3::exceptions::PyValueError::new_err(
-                    format!("Radix value {} is invalid. Radices must be >= 2.", value)
-                ))
+                Err(pyo3::exceptions::PyValueError::new_err(format!(
+                    "Radix value {} is invalid. Radices must be >= 2.",
+                    value
+                )))
             } else {
                 Ok(Radix(value))
             }
@@ -245,7 +252,7 @@ mod tests {
         let r2 = Radix::from(2u8);
         let r10 = Radix::from(10u8);
         let r255 = Radix::from(255u8);
-        
+
         assert_eq!(usize::from(r2), 2);
         assert_eq!(usize::from(r10), 10);
         assert_eq!(usize::from(r255), 255);
@@ -268,7 +275,7 @@ mod tests {
     fn arithmetic() {
         let r10 = Radix::from(10u8);
         let r5 = Radix::from(5u8);
-        
+
         assert_eq!(r10 + r5, Radix::from(15u8));
         assert_eq!(r10 - r5, Radix::from(5u8));
     }
@@ -292,4 +299,3 @@ mod tests {
         assert_eq!(product, 24);
     }
 }
-

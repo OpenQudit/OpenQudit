@@ -1,10 +1,14 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::{expressions::JittableExpression, index::{IndexDirection, TensorIndex}, GenerationShape, TensorExpression};
+use crate::{
+    expressions::JittableExpression,
+    index::{IndexDirection, TensorIndex},
+    GenerationShape, TensorExpression,
+};
 
 use super::NamedExpression;
-use qudit_core::Radices;
 use qudit_core::QuditSystem;
+use qudit_core::Radices;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct UnitarySystemExpression {
@@ -25,7 +29,11 @@ impl UnitarySystemExpression {
 
 impl JittableExpression for UnitarySystemExpression {
     fn generation_shape(&self) -> GenerationShape {
-        GenerationShape::Tensor3D(self.num_unitaries, self.radices.dimension(), self.radices.dimension())
+        GenerationShape::Tensor3D(
+            self.num_unitaries,
+            self.radices.dimension(),
+            self.radices.dimension(),
+        )
     }
 }
 
@@ -55,15 +63,27 @@ impl DerefMut for UnitarySystemExpression {
     }
 }
 
-
 impl From<UnitarySystemExpression> for TensorExpression {
     fn from(value: UnitarySystemExpression) -> Self {
-        let UnitarySystemExpression { inner, radices, num_unitaries } = value;
+        let UnitarySystemExpression {
+            inner,
+            radices,
+            num_unitaries,
+        } = value;
         // TODO: add a proper implementation of into_iter for QuditRadices
-        let indices = [num_unitaries].into_iter()
+        let indices = [num_unitaries]
+            .into_iter()
             .map(|r| (IndexDirection::Batch, r))
-            .chain(radices.into_iter().map(|r| (IndexDirection::Output, usize::from(*r))))
-            .chain(radices.into_iter().map(|r| (IndexDirection::Input, usize::from(*r))))
+            .chain(
+                radices
+                    .into_iter()
+                    .map(|r| (IndexDirection::Output, usize::from(*r))),
+            )
+            .chain(
+                radices
+                    .into_iter()
+                    .map(|r| (IndexDirection::Input, usize::from(*r))),
+            )
             .enumerate()
             .map(|(i, (d, r))| TensorIndex::new(d, i, r))
             .collect();
@@ -81,22 +101,26 @@ impl TryFrom<TensorExpression> for UnitarySystemExpression {
         let mut output_radices = vec![];
         for idx in value.indices() {
             match idx.direction() {
-                IndexDirection::Batch => {
-                    match &mut num_unitaries {
-                        Some(n) => *n *= idx.index_size(),
-                        None => num_unitaries = Some(idx.index_size()),
-                    }
+                IndexDirection::Batch => match &mut num_unitaries {
+                    Some(n) => *n *= idx.index_size(),
+                    None => num_unitaries = Some(idx.index_size()),
+                },
+                IndexDirection::Input => {
+                    input_radices.push(idx.index_size());
                 }
-                IndexDirection::Input => { input_radices.push(idx.index_size()); }
-                IndexDirection::Output => { output_radices.push(idx.index_size()); }
+                IndexDirection::Output => {
+                    output_radices.push(idx.index_size());
+                }
                 _ => unreachable!(),
             }
         }
 
         if input_radices != output_radices {
-            return Err(String::from("Non-square matrix tensor cannot be converted to a unitary."));
+            return Err(String::from(
+                "Non-square matrix tensor cannot be converted to a unitary.",
+            ));
         }
-        
+
         Ok(UnitarySystemExpression {
             inner: value.into(),
             radices: input_radices.into(),
@@ -108,15 +132,14 @@ impl TryFrom<TensorExpression> for UnitarySystemExpression {
 #[cfg(feature = "python")]
 mod python {
     use super::*;
-    use pyo3::prelude::*;
-    use qudit_core::Radix;
     use crate::python::PyExpressionRegistrar;
-    use qudit_core::c64;
-    use pyo3::types::PyTuple;
+    use ndarray::ArrayViewMut3;
     use numpy::PyArray3;
     use numpy::PyArrayMethods;
-    use ndarray::ArrayViewMut3;
-
+    use pyo3::prelude::*;
+    use pyo3::types::PyTuple;
+    use qudit_core::c64;
+    use qudit_core::Radix;
 
     #[pyclass]
     #[pyo3(name = "UnitarySystemExpression")]
@@ -158,16 +181,19 @@ mod python {
         }
 
         fn __repr__(&self) -> String {
-            format!("UnitarySystemExpression(name='{}', radices={:?}, num_unitaries={}, params={})", 
-                    self.expr.name(), self.expr.radices.to_vec(), self.expr.num_unitaries, self.expr.num_params())
+            format!(
+                "UnitarySystemExpression(name='{}', radices={:?}, num_unitaries={}, params={})",
+                self.expr.name(),
+                self.expr.radices.to_vec(),
+                self.expr.num_unitaries,
+                self.expr.num_params()
+            )
         }
     }
 
     impl From<UnitarySystemExpression> for PyUnitarySystemExpression {
         fn from(value: UnitarySystemExpression) -> Self {
-            PyUnitarySystemExpression {
-                expr: value,
-            }
+            PyUnitarySystemExpression { expr: value }
         }
     }
 

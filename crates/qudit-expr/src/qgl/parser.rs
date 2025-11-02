@@ -46,12 +46,18 @@ impl Parser {
             pos += 1;
         }
 
-        Parser { scalar, tokens, pos }
+        Parser {
+            scalar,
+            tokens,
+            pos,
+        }
     }
 
     pub fn parse(&mut self) -> ParserResult<Vec<ParsedDefinition>> {
         if self.scalar {
-            return Err(ParserError::new("Cannot parse an expression definition in scalar mode."));
+            return Err(ParserError::new(
+                "Cannot parse an expression definition in scalar mode.",
+            ));
         }
 
         let mut statements = Vec::new();
@@ -65,7 +71,9 @@ impl Parser {
 
     pub fn parse_scalar(&mut self) -> ParserResult<Expression> {
         if !self.scalar {
-            return Err(ParserError::new("Cannot parse a scalar expression in array mode."));
+            return Err(ParserError::new(
+                "Cannot parse a scalar expression in array mode.",
+            ));
         }
 
         let expr = self.parse_expr()?;

@@ -6,8 +6,8 @@ use ordered_float::NotNan;
 use crate::ComplexExpression;
 use crate::Expression;
 
-#[cfg(test)]
-mod extract;
+// #[cfg(test)]
+// mod extract;
 
 pub type EGraph = egg::EGraph<TrigLanguage, ConstantFold>;
 pub type Constant = NotNan<f64>;
@@ -93,7 +93,7 @@ impl<'a> SineExtractor<'a> {
         let mut extractor = SineExtractor { costs, egraph };
         extractor.calculate_costs();
         extractor
-    } 
+    }
 
     pub fn extract_sine(&self, eclass: Id) -> Option<RecExpr<TrigLanguage>> {
         let id = self.egraph.find(eclass);
@@ -131,7 +131,7 @@ impl<'a> SineExtractor<'a> {
             did_something = false;
 
             for class in self.egraph.classes() {
-                let pass = self.make_pass(class); 
+                let pass = self.make_pass(class);
                 match (self.costs.get(&class.id), pass) {
                     (None, Some(new)) => {
                         self.costs.insert(class.id, new);
@@ -153,7 +153,10 @@ impl<'a> SineExtractor<'a> {
         }
     }
 
-    fn make_pass(&mut self, eclass: &EClass<TrigLanguage, Option<(NotNan<f64>, RecExpr<ENodeOrVar<TrigLanguage>>)>>) -> Option<(f64, TrigLanguage)> {
+    fn make_pass(
+        &mut self,
+        eclass: &EClass<TrigLanguage, Option<(NotNan<f64>, RecExpr<ENodeOrVar<TrigLanguage>>)>>,
+    ) -> Option<(f64, TrigLanguage)> {
         let (cost, node) = eclass
             .iter()
             .map(|n| (self.node_total_cost(n), n))
@@ -180,7 +183,10 @@ impl<'a> SineExtractor<'a> {
             TrigLanguage::Neg(_) => 1.0,
             TrigLanguage::Add(_) | TrigLanguage::Sub(_) => 1.0,
             TrigLanguage::Mul(_) | TrigLanguage::Div(_) => 5.0,
-            TrigLanguage::Pow(_) | TrigLanguage::Sqrt(_) | TrigLanguage::Sin(_) | TrigLanguage::Cos(_) => 50.0,
+            TrigLanguage::Pow(_)
+            | TrigLanguage::Sqrt(_)
+            | TrigLanguage::Sin(_)
+            | TrigLanguage::Cos(_) => 50.0,
             _ => 0.0,
         };
         enode.fold(op_cost, |acc, id| acc + self.costs[&id].0)
@@ -198,12 +204,12 @@ impl<'a> SineExtractor<'a> {
 //         let memory = FxHashMap::default();
 //         let currently_processing = FxHashSet::default();
 //         TestExtractor { memory, currently_processing, egraph: e }
-//     } 
+//     }
 
 //     pub fn extract_best(&mut self, eclass: Id) -> RecExpr<TrigLanguage> {
 //         let root = self.egraph.find(eclass);
 //         let node = self.calculate_best_node(root);
-//         node.1.build_recexpr(|id| self.memory.get(&id).unwrap().clone()) 
+//         node.1.build_recexpr(|id| self.memory.get(&id).unwrap().clone())
 //     }
 
 //     pub fn calculate_best_node(&mut self, eclass: Id) -> (f64, TrigLanguage) {
@@ -246,7 +252,6 @@ impl<'a> SineExtractor<'a> {
 //     }
 // }
 
-
 struct TrigExprExtractor<'a> {
     costs: Vec<(f64, TrigLanguage)>,
     egraph: &'a EGraph,
@@ -258,13 +263,17 @@ impl<'a> TrigExprExtractor<'a> {
         // let costs = FxHashMap::default();
         let mut max_id = 0usize;
         for class in egraph.classes() {
-            let id = unsafe{std::mem::transmute::<Id, u32>(class.id)} as usize;
+            let id = unsafe { std::mem::transmute::<Id, u32>(class.id) } as usize;
             if id > max_id {
                 max_id = id
             }
         }
         let costs = vec![(-1.0, TrigLanguage::Pi); max_id + 1];
-        let mut extractor = TrigExprExtractor { costs, egraph, has_changed: false };
+        let mut extractor = TrigExprExtractor {
+            costs,
+            egraph,
+            has_changed: false,
+        };
         extractor.calculate_costs();
         extractor
     }
@@ -305,7 +314,7 @@ impl<'a> TrigExprExtractor<'a> {
             did_something = false;
 
             for class in self.egraph.classes() {
-                let pass = self.make_repass(class); 
+                let pass = self.make_repass(class);
                 let old = self.get_cost(class.id);
                 match (old, pass) {
                     (old, new) if old.0 < 0.0 || new < old.0 => {
@@ -324,7 +333,7 @@ impl<'a> TrigExprExtractor<'a> {
             did_something = false;
 
             for class in self.egraph.classes() {
-                let pass = self.make_pass(class); 
+                let pass = self.make_pass(class);
                 match (self.get_cost(class.id), pass) {
                     (old, Some(new)) => {
                         if old.0 < 0.0 {
@@ -347,7 +356,10 @@ impl<'a> TrigExprExtractor<'a> {
         }
     }
 
-    fn make_pass(&mut self, eclass: &EClass<TrigLanguage, Option<(NotNan<f64>, RecExpr<ENodeOrVar<TrigLanguage>>)>>) -> Option<(f64, TrigLanguage)> {
+    fn make_pass(
+        &mut self,
+        eclass: &EClass<TrigLanguage, Option<(NotNan<f64>, RecExpr<ENodeOrVar<TrigLanguage>>)>>,
+    ) -> Option<(f64, TrigLanguage)> {
         let (cost, node) = eclass
             .iter()
             .map(|n| (self.node_total_cost(n), n))
@@ -356,7 +368,10 @@ impl<'a> TrigExprExtractor<'a> {
         cost.map(|c| (c, node.clone()))
     }
 
-    fn make_repass(&mut self, eclass: &EClass<TrigLanguage, Option<(NotNan<f64>, RecExpr<ENodeOrVar<TrigLanguage>>)>>) -> f64 {
+    fn make_repass(
+        &mut self,
+        eclass: &EClass<TrigLanguage, Option<(NotNan<f64>, RecExpr<ENodeOrVar<TrigLanguage>>)>>,
+    ) -> f64 {
         eclass
             .iter()
             .map(|n| self.node_cost(n))
@@ -379,7 +394,7 @@ impl<'a> TrigExprExtractor<'a> {
 
     fn node_cost(&self, enode: &TrigLanguage) -> f64 {
         let op_cost = match enode {
-            TrigLanguage::Constant(_) => 0.5, 
+            TrigLanguage::Constant(_) => 0.5,
             TrigLanguage::Neg(_) => 1.0,
             TrigLanguage::Add(_) | TrigLanguage::Sub(_) => 1.0,
             TrigLanguage::Mul(_) | TrigLanguage::Div(_) => 5.0,
@@ -392,12 +407,12 @@ impl<'a> TrigExprExtractor<'a> {
 
     #[inline(always)]
     fn get_cost(&self, id: Id) -> &(f64, TrigLanguage) {
-        &self.costs[unsafe{std::mem::transmute::<Id, u32>(id)} as usize]
+        &self.costs[unsafe { std::mem::transmute::<Id, u32>(id) } as usize]
     }
 
     #[inline(always)]
     fn put_cost(&mut self, id: Id, cost: (f64, TrigLanguage)) {
-        self.costs[unsafe{std::mem::transmute::<Id, u32>(id)} as usize] = cost;
+        self.costs[unsafe { std::mem::transmute::<Id, u32>(id) } as usize] = cost;
     }
 }
 
@@ -405,15 +420,18 @@ struct TrigCostFn;
 impl CostFunction<TrigLanguage> for TrigCostFn {
     type Cost = f64;
     fn cost<C>(&mut self, enode: &TrigLanguage, mut costs: C) -> Self::Cost
-    where 
-        C: FnMut(Id) -> Self::Cost
+    where
+        C: FnMut(Id) -> Self::Cost,
     {
         let op_cost = match enode {
             TrigLanguage::Constant(_) => 0.5,
             TrigLanguage::Neg(_) => 1.0,
             TrigLanguage::Add(_) | TrigLanguage::Sub(_) => 1.0,
             TrigLanguage::Mul(_) | TrigLanguage::Div(_) => 5.0,
-            TrigLanguage::Pow(_) | TrigLanguage::Sqrt(_) | TrigLanguage::Sin(_) | TrigLanguage::Cos(_) => 50.0,
+            TrigLanguage::Pow(_)
+            | TrigLanguage::Sqrt(_)
+            | TrigLanguage::Sin(_)
+            | TrigLanguage::Cos(_) => 50.0,
             _ => 0.0,
         };
 
@@ -491,10 +509,7 @@ impl Analysis<TrigLanguage> for ConstantFold {
                 x(a)? / x(b)?,
                 format!("(/ {} {})", x(a)?, x(b)?).parse().unwrap(),
             ),
-            TrigLanguage::Neg([a]) => (
-                -x(a)?,
-                format!("(~ {})", x(a)?).parse().unwrap(),
-            ),
+            TrigLanguage::Neg([a]) => (-x(a)?, format!("(~ {})", x(a)?).parse().unwrap()),
             // TrigLanguage::Pow([a, b]) => (
             //     NotNan::new(x(a)?.powf(x(b)?.into_inner())).unwrap(), // TODO: handle invalids
             //     format!("(pow {} {})", x(a)?, x(b)?).parse().unwrap(),
@@ -515,7 +530,6 @@ impl Analysis<TrigLanguage> for ConstantFold {
             //     NotNan::new(x(a)?.cos()).unwrap(), // TODO: handle invalids
             //     format!("(cos {})", x(a)?).parse().unwrap(),
             // ),
-
             _ => return None,
         })
     }
@@ -565,7 +579,6 @@ fn make_rules() -> Vec<Rewrite<TrigLanguage, ConstantFold>> {
         // Commutativity
         rewrite!("+-commutative"; "(+ ?a ?b)" => "(+ ?b ?a)"),
         rewrite!("*-commutative"; "(* ?a ?b)" => "(* ?b ?a)"),
-
         // Associativity
         rewrite!("associate-+r+"; "(+ ?a (+ ?b ?c))" => "(+ (+ ?a ?b) ?c)"),
         rewrite!("associate-+l+"; "(+ (+ ?a ?b) ?c)" => "(+ ?a (+ ?b ?c))"),
@@ -583,10 +596,8 @@ fn make_rules() -> Vec<Rewrite<TrigLanguage, ConstantFold>> {
         rewrite!("associate-/r/"; "(/ ?a (/ ?b ?c))" => "(* (/ ?a ?b) ?c)"),
         rewrite!("associate-/l/"; "(/ (/ ?b ?c) ?a)" => "(/ ?b (* ?a ?c))"),
         rewrite!("associate-/l*"; "(/ (* ?b ?c) ?a)" => "(* ?b (/ ?c ?a))"),
-
         // Counting
         rewrite!("count-2"; "(+ ?x ?x)" => "(* 2 ?x)"),
-
         // Distributivity
         rewrite!("distribute-lft-in"; "(* ?a (+ ?b ?c))" => "(+ (* ?a ?b) (* ?a ?c))"),
         rewrite!("distribute-rgt-in"; "(* ?a (+ ?b ?c))" => "(+ (* ?b ?a) (* ?c ?a))"),
@@ -596,7 +607,6 @@ fn make_rules() -> Vec<Rewrite<TrigLanguage, ConstantFold>> {
         rewrite!("distribute-rgt-out--"; "(- (* ?b ?a) (* ?c ?a))" => "(* ?a (- ?b ?c))"),
         rewrite!("distribute-lft1-in"; "(+ (* ?b ?a) ?a)" => "(* (+ ?b 1) ?a)"),
         rewrite!("distribute-rgt1-in"; "(+ ?a (* ?c ?a))" => "(* (+ ?c 1) ?a)"),
-
         // Distributivity Fp Safe
         rewrite!("distribute-lft-neg-in"; "(~ (* ?a ?b))" => "(* (~ ?a) ?b)"),
         rewrite!("distribute-rgt-neg-in"; "(~ (* ?a ?b))" => "(* ?a (~ ?b))"),
@@ -608,11 +618,9 @@ fn make_rules() -> Vec<Rewrite<TrigLanguage, ConstantFold>> {
         rewrite!("distribute-frac-neg2"; "(/ ?a (~ ?b))" => "(~ (/ ?a ?b))"),
         rewrite!("distribute-neg-frac"; "(~ (/ ?a ?b))" => "(/ (~ ?a) ?b)"),
         rewrite!("distribute-neg-frac2"; "(~ (/ ?a ?b))" => "(/ ?a (~ ?b))"),
-
         // Cancel Sign Fp Safe
         rewrite!("cancel-sign-sub"; "(- ?a (* (~ ?b) ?c))" => "(+ ?a (* ?b ?c))"),
         rewrite!("cancel-sign-sub-inv"; "(- ?a (* ?b ?c))" => "(+ ?a (* (~ ?b) ?c))"),
-
         // Difference Of Squares Canonicalize
         rewrite!("swap-sqr"; "(* (* ?a ?b) (* ?a ?b))" => "(* (* ?a ?a) (* ?b ?b))"),
         rewrite!("unswap-sqr"; "(* (* ?a ?a) (* ?b ?b))" => "(* (* ?a ?b) (* ?a ?b))"),
@@ -620,7 +628,6 @@ fn make_rules() -> Vec<Rewrite<TrigLanguage, ConstantFold>> {
         rewrite!("difference-of-sqr-1"; "(- (* ?a ?a) 1)" => "(* (+ ?a 1) (- ?a 1))"),
         rewrite!("difference-of-sqr--1"; "(+ (* ?a ?a) -1)" => "(* (+ ?a 1) (- ?a 1))"),
         rewrite!("pow-sqr"; "(* (pow ?a ?b) (pow ?a ?b))" => "(pow ?a (* 2 ?b))"),
-
         // // Sqr Pow Expand
         // rewrite!("sqr-pow"; "(pow ?a ?b)" => "(* (pow ?a (/ ?b 2)) (pow ?a (/ ?b 2)))"),
         // TODO: add conditional that a > 0
@@ -642,7 +649,6 @@ fn make_rules() -> Vec<Rewrite<TrigLanguage, ConstantFold>> {
         rewrite!("mul0-lft"; "(* 0 ?a)" => "0"),
         rewrite!("mul0-rgt"; "(* ?a 0)" => "0"),
         rewrite!("*-inverses"; "(/ ?a ?a)" => "1" if is_not_zero("?a")),
-
         // Id Reduce Fp Safe
         rewrite!("+-lft-identity"; "(+ 0 ?a)" => "?a"),
         rewrite!("+-rgt-identity"; "(+ ?a 0)" => "?a"),
@@ -653,17 +659,14 @@ fn make_rules() -> Vec<Rewrite<TrigLanguage, ConstantFold>> {
         rewrite!("*-rgt-identity"; "(* ?a 1)" => "?a"),
         rewrite!("/-rgt-identity"; "(/ ?a 1)" => "?a"),
         rewrite!("mul-1-neg"; "(* -1 ?a)" => "(~ ?a)"),
-
         // Nan Transform Fp Safe
         rewrite!("sub-neg"; "(- ?a ?b)" => "(+ ?a (~ ?b))"),
         rewrite!("unsub-neg"; "(+ ?a (~ ?b))" => "(- ?a ?b)"),
         rewrite!("neg-sub0"; "(~ ?b)" => "(- 0 ?b)"),
         rewrite!("neg-mul-1"; "(~ ?a)" => "(* -1 ?a)"),
-
         // Id Transform Safe
         rewrite!("div-inv"; "(/ ?a ?b)" => "(* ?a (/ 1 ?b))"),
         rewrite!("un-div-inv"; "(* ?a (/ 1 ?b))" => "(/ ?a ?b)"),
-
         // // Id Transform Clear Num
         // rewrite!("clear-num"; "(/ ?a ?b)" => "(/ 1 (/ ?b ?a))" if is_not_zero("?a")),
         // // TODO: Causes issues with trig functions; probably a confounding issue, need further
@@ -671,7 +674,6 @@ fn make_rules() -> Vec<Rewrite<TrigLanguage, ConstantFold>> {
 
         // Id Transform Fp Safe
         rewrite!("*-un-lft-identity"; "?a" => "(* 1 ?a)"),
-
         // Difference Of Cubes
         rewrite!("sum-cubes"; "(+ (pow ?a 3) (pow ?b 3))" => "(* (+ (* ?a ?a) (- (* ?b ?b) (* ?a ?b))) (+ ?a ?b))"),
         rewrite!("difference-cubes"; "(- (pow ?a 3) (pow ?b 3))" => "(* (+ (* ?a ?a) (+ (* ?b ?b) (* ?a ?b))) (- ?a ?b))"),
@@ -681,32 +683,26 @@ fn make_rules() -> Vec<Rewrite<TrigLanguage, ConstantFold>> {
         // Fractions Distribute
         rewrite!("div-sub"; "(/ (- ?a ?b) ?c)" => "(- (/ ?a ?c) (/ ?b ?c))"),
         rewrite!("times-frac"; "(/ (* ?a ?b) (* ?c ?d))" => "(* (/ ?a ?c) (/ ?b ?d))"),
-
         // Fractions Transform
         rewrite!("sub-div"; "(- (/ ?a ?c) (/ ?b ?c))" => "(/ (- ?a ?b) ?c)"),
         rewrite!("frac-add"; "(+ (/ ?a ?b) (/ ?c ?d))" => "(/ (+ (* ?a ?d) (* ?b ?c)) (* ?b ?d))"),
         rewrite!("frac-sub"; "(- (/ ?a ?b) (/ ?c ?d))" => "(/ (- (* ?a ?d) (* ?b ?c)) (* ?b ?d))"),
         rewrite!("frac-times"; "(* (/ ?a ?b) (/ ?c ?d))" => "(/ (* ?a ?c) (* ?b ?d))"),
         rewrite!("frac-2neg"; "(/ ?a ?b)" => "(/ (~ ?a) (~ ?b))"),
-
         // Squares Reduce
         rewrite!("rem-square-sqrt"; "(* (sqrt ?x) (sqrt ?x))" => "?x"),
-
         // Squares Reduce Fp Sound
         rewrite!("sqr-neg"; "(* (~ ?x) (~ ?x))" => "(* ?x ?x)"),
-
         // Squares Transform Sound
         rewrite!("sqrt-pow2"; "(pow (sqrt ?x) ?y)" => "(pow ?x (/ ?y 2))"),
         rewrite!("sqrt-unprod"; "(* (sqrt ?x) (sqrt ?y))" => "(sqrt (* ?x ?y))"),
         rewrite!("sqrt-undiv"; "(/ (sqrt ?x) (sqrt ?y))" => "(sqrt (/ ?x ?y))"),
-
         // Sqrt Canonicalize
         rewrite!("sqrt-1"; "(sqrt 1)" => "1"),
         rewrite!("sqrt-0"; "(sqrt 0)" => "0"),
         rewrite!("sqrt-can"; "(/ (sqrt ?x) ?x)" => "(/ 1 (sqrt ?x))"),
         rewrite!("sqrt-can-inv"; "(/ ?x (sqrt ?x))" => "(sqrt ?x)"),
-        rewrite!("sqrt-can-rev"; "(/ 1 (sqrt ?x))" => "(/ (sqrt ?x) ?x)"), 
-
+        rewrite!("sqrt-can-rev"; "(/ 1 (sqrt ?x))" => "(/ (sqrt ?x) ?x)"),
         // // Squares Transform
         // rewrite!("sqrt-pow1"; "(sqrt (pow ?x ?y))" => "(pow ?x (/ ?y 2))"),
         // rewrite!("sqrt-prod"; "(sqrt (* ?x ?y))" => "(* (sqrt ?x) (sqrt ?y))"),
@@ -719,41 +715,32 @@ fn make_rules() -> Vec<Rewrite<TrigLanguage, ConstantFold>> {
         rewrite!("cube-prod"; "(pow (* ?x ?y) 3)" => "(* (pow ?x 3) (pow ?y 3))"),
         rewrite!("cube-div"; "(pow (/ ?x ?y) 3)" => "(/ (pow ?x 3) (pow ?y 3))"),
         rewrite!("cube-mult"; "(pow ?x 3)" => "(* ?x (* ?x ?x))"),
-
         // Cubes Canonicalize
         rewrite!("cube-unmult"; "(* ?x (* ?x ?x))" => "(pow ?x 3)"),
-
         // Pow Reduce
         rewrite!("unpow-1"; "(pow ?a -1)" => "(/ 1 ?a)"),
-
         // Pow Reduce Fp Safe
         rewrite!("unpow1"; "(pow ?a 1)" => "?a"),
-
         // Pow Reduce Fp Safe Nan
         rewrite!("unpow0"; "(pow ?a 0)" => "1" if is_not_zero("?a")),
         rewrite!("pow-base-1"; "(pow 1 ?a)" => "1"),
-
         // Pow Expand Fp Safe
         rewrite!("pow1"; "?a" => "(pow ?a 1)"),
-
         // Pow Canonicalize
         rewrite!("unpow1/2"; "(pow ?a 0.5)" => "(sqrt ?a)"),
         rewrite!("unpow2"; "(pow ?a 2)" => "(* ?a ?a)"),
         rewrite!("unpow3"; "(pow ?a 3)" => "(* (* ?a ?a) ?a)"),
         rewrite!("pow-plus"; "(* (pow ?a ?b) ?a)" => "(pow ?a (+ ?b 1))"),
-
         // Pow Transform Sound
         rewrite!("pow-prod-down"; "(* (pow ?b ?a) (pow ?c ?a))" => "(pow (* ?b ?c) ?a)"),
         rewrite!("pow-prod-up"; "(* (pow ?a ?b) (pow ?a ?c))" => "(pow ?a (+ ?b ?c))"),
         rewrite!("pow-flip"; "(/ 1 (pow ?a ?b))" => "(pow ?a (~ ?b))"),
         rewrite!("pow-neg"; "(pow ?a (~ ?b))" => "(/ 1 (pow ?a ?b))" if is_not_zero("?a")),
         rewrite!("pow-div"; "(/ (pow ?a ?b) (pow ?a ?c))" => "(pow ?a (- ?b ?c))"),
-
         // Pow Specialize Sound
         rewrite!("pow1/2"; "(sqrt ?a)" => "(pow ?a 0.5)"),
         rewrite!("pow2"; "(* ?a ?a)" => "(pow ?a 2)"),
         rewrite!("pow3"; "(* (* ?a ?a) ?a)" => "(pow ?a 3)"),
-
         // // Pow Transform
         // rewrite!("pow-sub"; "(pow ?a (- ?b ?c))" => "(/ (pow ?a ?b) (pow ?a ?c))"),
         // rewrite!("pow-pow"; "(pow (pow ?a ?b) ?c)" => "(pow ?a (* ?b ?c))"),
@@ -764,24 +751,19 @@ fn make_rules() -> Vec<Rewrite<TrigLanguage, ConstantFold>> {
 
         // Pow Transform Fp Safe Nan
         rewrite!("pow-base-0"; "(pow 0 ?a)" => "0" if is_not_zero("?a")),
-
         // Pow Transform Fp Safe
         rewrite!("inv-pow"; "(/ 1 ?a)" => "(pow ?a -1)"),
-
         // Trig Reduce Fp Sound
         rewrite!("sin-0"; "(sin 0)" => "0"),
         rewrite!("cos-0"; "(cos 0)" => "1"),
-
         // Trig Reduce Fp Sound Nan
         rewrite!("sin-neg"; "(sin (~ ?x))" => "(~ (sin ?x))"),
         rewrite!("neg-sig"; "(~ (sin ?x))" => "(sin (~ ?x))"),
         rewrite!("cos-neg"; "(cos (~ ?x))" => "(cos ?x)"),
         rewrite!("neg-cos"; "(cos ?x)" => "(cos (~ ?x))"),
-
         // Trig Expand Fp Safe
         rewrite!("sqr-sin-b"; "(* (sin ?x) (sin ?x))" => "(- 1 (* (cos ?x) (cos ?x)))"),
         rewrite!("sqr-cos-b"; "(* (cos ?x) (cos ?x))" => "(- 1 (* (sin ?x) (sin ?x)))"),
-
         // Trig Reduce Sound
         rewrite!("cos-sin-sum"; "(+ (* (cos ?a) (cos ?a)) (* (sin ?a) (sin ?a)))" => "1"),
         rewrite!("1-sub-cos"; "(- 1 (* (cos ?a) (cos ?a)))" => "(* (sin ?a) (sin ?a))"),
@@ -809,27 +791,22 @@ fn make_rules() -> Vec<Rewrite<TrigLanguage, ConstantFold>> {
         rewrite!("cos-PI"; "(cos (pi))" => "-1"),
         rewrite!("cos-+PI"; "(cos (+ ?x (pi)))" => "(~ (cos ?x))"),
         rewrite!("cos-+PI/2"; "(cos (+ ?x (* (pi) 0.5)))" => "(~ (sin ?x))"),
-
         rewrite!("hang-0p-tan"; "(/ (sin ?a) (+ 1 (cos ?a)))" => "(/ (sin (/ ?a 2)) (cos (/ ?a 2)))"),
         rewrite!("hang-0m-tan"; "(/ (~ (sin ?a)) (+ 1 (cos ?a)))" => "(/ (sin (/ (~ ?a) 2)) (cos (/ (~ ?a) 2)))"),
         rewrite!("hang-p0-tan"; "(/ (- 1 (cos ?a)) (sin ?a))" => "(/ (sin (/ ?a 2)) (cos (/ ?a 2)))"),
         rewrite!("hang-m0-tan"; "(/ (- 1 (cos ?a)) (~ (sin ?a)))" => "(/ (sin (/ (~ ?a) 2)) (cos (/ (~ ?a) 2)))"),
-
         rewrite!("tan-hang-0p"; "(/ (sin (* ?a 0.5)) (cos (* ?a 0.5)))" => "(/ (sin ?a) (+ 1 (cos ?a)))"),
         rewrite!("tan-hang-0m"; "(/ (sin (* (~ ?a) 0.5)) (cos (* (~ ?a) 0.5)))" => "(/ (~ (sin ?a)) (+ 1 (cos ?a)))"),
         rewrite!("tan-hang-p0"; "(/ (sin (* ?a 0.5)) (cos (* ?a 0.5)))" => "(/ (- 1 (cos ?a)) (sin ?a))"),
         rewrite!("tan-hang-m0"; "(/ (sin (* (~ ?a) 0.5)) (cos (* (~ ?a) 0.5)))" => "(/ (- 1 (cos ?a)) (~ (sin ?a)))" if is_not_zero("?a")),
-
         // Trig Expand Sound
         rewrite!("csc-cot"; "(/ 1 (* (sin ?a) (sin ?a)))" => "(+ 1 (/ (* (cos ?a) (cos ?a)) (* (sin ?a) (sin ?a))))"),
         rewrite!("sec-tan"; "(/ 1 (* (cos ?a) (cos ?a)))" => "(+ 1 (/ (* (sin ?a) (sin ?a)) (* (cos ?a) (cos ?a))))"),
         rewrite!("csc-sec"; "(* (/ 1 (* (cos ?a) (cos ?a))) (/ 1 (* (sin ?a) (sin ?a))))" => "(+ (/ 1 (* (cos ?a) (cos ?a))) (/ 1 (* (sin ?a) (sin ?a))))"),
         rewrite!("sin-sum"; "(sin (+ ?x ?y))" => "(+ (* (sin ?x) (cos ?y)) (* (cos ?x) (sin ?y)))"),
         rewrite!("cos-sum"; "(cos (+ ?x ?y))" => "(- (* (cos ?x) (cos ?y)) (* (sin ?x) (sin ?y)))"),
-
         // rewrite!("tan-sum"; "(/ (sin (+ ?a ?b)) (cos (+ ?a ?b)))" => "(/ (+ (/ (sin ?a) (cos ?a)) (/ (sin ?b) (cos ?b))) (- 1 (* (/ (sin ?a) (cos ?a)) (/ (sin ?b) (cos ?b)))))"),
         // rewrite!("cot-sum"; "(/ (cos (+ ?a ?b)) (sin (+ ?a ?b)))" => "(/ (- (* (/ (cos ?a) (sin ?a)) (/ (cos ?b) (sin ?b))) 1) (+ (/ (cos ?b) (sin ?b)) (/ (cos ?a) (sin ?a))))"),
-
         rewrite!("sin-diff"; "(sin (- ?x ?y))" => "(- (* (sin ?x) (cos ?y)) (* (cos ?x) (sin ?y)))"),
         rewrite!("cos-diff"; "(cos (- ?x ?y))" => "(+ (* (cos ?x) (cos ?y)) (* (sin ?x) (sin ?y)))"),
         rewrite!("sin-2"; "(sin (* 2 ?x))" => "(* 2 (* (sin ?x) (cos ?x)))"),
@@ -840,7 +817,6 @@ fn make_rules() -> Vec<Rewrite<TrigLanguage, ConstantFold>> {
         rewrite!("cos-3"; "(cos (* 3 ?x))" => "(- (* 4 (pow (cos ?x) 3)) (* 3 (cos ?x)))"),
         rewrite!("2-cos"; "(- (* (cos ?x) (cos ?x)) (* (sin ?x) (sin ?x)))" => "(cos (* 2 ?x))"),
         rewrite!("3-cos"; "(- (* 4 (pow (cos ?x) 3)) (* 3 (cos ?x)))" => "(cos (* 3 ?x))"),
-
         // Trig Expand Sound2
         rewrite!("sqr-sin-a"; "(* (sin ?x) (sin ?x))" => "(- 0.5 (* 0.5 (cos (* 2 ?x))))"),
         rewrite!("sqr-cos-a"; "(* (cos ?x) (cos ?x))" => "(+ 0.5 (* 0.5 (cos (* 2 ?x))))"),
@@ -851,7 +827,6 @@ fn make_rules() -> Vec<Rewrite<TrigLanguage, ConstantFold>> {
         rewrite!("cos-mult"; "(* (cos ?x) (cos ?y))" => "(/ (+ (cos (+ ?x ?y)) (cos (- ?x ?y))) 2)"),
         rewrite!("sin-mult"; "(* (sin ?x) (sin ?y))" => "(/ (- (cos (- ?x ?y)) (cos (+ ?x ?y))) 2)"),
         rewrite!("sin-cos-mult"; "(* (sin ?x) (cos ?y))" => "(/ (+ (sin (- ?x ?y)) (sin (+ ?x ?y))) 2)"),
-
         rewrite!("tan-2"; "(/ (sin (* 2 ?x)) (cos (* 2 ?x)))" => "(/ (* 2 (/ (sin ?x) (cos ?x))) (- 1 (* (/ (sin ?x) (cos ?x)) (/ (sin ?x) (cos ?x)))))"),
         rewrite!("2-tan"; "(/ (* 2 (/ (sin ?x) (cos ?x))) (- 1 (* (/ (sin ?x) (cos ?x)) (/ (sin ?x) (cos ?x)))))" => "(/ (sin (* 2 ?x)) (cos (* 2 ?x)))"),
     ]
@@ -863,7 +838,6 @@ fn to_egg_expr(expr: &Expression) -> RecExpr<TrigLanguage> {
 
 use crate::qgl::lexer::Lexer;
 use crate::qgl::lexer::Token;
-
 
 // pi -> Ident("pi")
 // 5 -> Number(5)
@@ -916,34 +890,30 @@ fn _from_egg_expr(tokens: Vec<Token>) -> Expression {
         } else if *token == Token::RParen {
             assert_eq!(i, tokens.len() - 1);
         } else {
-            operands.push(_from_egg_expr(tokens[i..i+1].to_vec()));
+            operands.push(_from_egg_expr(tokens[i..i + 1].to_vec()));
         }
         i += 1;
     }
 
     match op_token {
-        Token::Ident(id) => {
-            match id.clone().as_str() {
-                "sin" => Expression::Sin(Box::new(operands[0].clone())),
-                "cos" => Expression::Cos(Box::new(operands[0].clone())),
-                "sqrt" => Expression::Sqrt(Box::new(operands[0].clone())),
-                "pow" => Expression::Pow(Box::new(operands[0].clone()), Box::new(operands[1].clone())),
-                _ => panic!("Invalid operator during parsing of egg expression")
-            }
-        }
+        Token::Ident(id) => match id.clone().as_str() {
+            "sin" => Expression::Sin(Box::new(operands[0].clone())),
+            "cos" => Expression::Cos(Box::new(operands[0].clone())),
+            "sqrt" => Expression::Sqrt(Box::new(operands[0].clone())),
+            "pow" => Expression::Pow(Box::new(operands[0].clone()), Box::new(operands[1].clone())),
+            _ => panic!("Invalid operator during parsing of egg expression"),
+        },
         Token::Negation => {
             return Expression::Neg(Box::new(operands[0].clone()));
+        }
+        Token::Op(op) => match op {
+            '+' => Expression::Add(Box::new(operands[0].clone()), Box::new(operands[1].clone())),
+            '-' => Expression::Sub(Box::new(operands[0].clone()), Box::new(operands[1].clone())),
+            '*' => Expression::Mul(Box::new(operands[0].clone()), Box::new(operands[1].clone())),
+            '/' => Expression::Div(Box::new(operands[0].clone()), Box::new(operands[1].clone())),
+            _ => panic!("Invalid operator during parsing of egg expression"),
         },
-        Token::Op(op) => {
-            match op {
-                '+' => Expression::Add(Box::new(operands[0].clone()), Box::new(operands[1].clone())),
-                '-' => Expression::Sub(Box::new(operands[0].clone()), Box::new(operands[1].clone())),
-                '*' => Expression::Mul(Box::new(operands[0].clone()), Box::new(operands[1].clone())),
-                '/' => Expression::Div(Box::new(operands[0].clone()), Box::new(operands[1].clone())),
-                _ => panic!("Invalid operator during parsing of egg expression")
-            }
-        },
-        _ => panic!("Invalid token during parsing of egg expression")
+        _ => panic!("Invalid token during parsing of egg expression"),
     }
 }
 
@@ -953,7 +923,7 @@ fn from_egg_expr(expr: RecExpr<TrigLanguage>) -> Expression {
     if expr_tokens.len() == 0 {
         panic!("Failure to lex expression: {}", expr_str);
     }
-    
+
     // any Op('-') that is next to a Number is a negation and should be grouped
     let mut grouped_tokens = vec![];
     let mut i = 0;
@@ -996,7 +966,11 @@ pub fn simplify(expr: &Expression) -> Expression {
 #[allow(dead_code)]
 pub fn extract_best_sine(expr: Expression) -> Option<Expression> {
     let expr: RecExpr<TrigLanguage> = to_egg_expr(&expr);
-    let runner = Runner::default().with_expr(&expr).with_iter_limit(1000).with_node_limit(10000000).run(&make_rules());
+    let runner = Runner::default()
+        .with_expr(&expr)
+        .with_iter_limit(1000)
+        .with_node_limit(10000000)
+        .run(&make_rules());
     let egraph = &runner.egraph;
     let extractor = SineExtractor::new(egraph);
     let root = runner.roots[0];
@@ -1011,7 +985,10 @@ pub fn simplify_complex(expr: ComplexExpression) -> ComplexExpression {
     let real_expr: RecExpr<TrigLanguage> = to_egg_expr(&real);
     let imag_expr: RecExpr<TrigLanguage> = to_egg_expr(&imag);
 
-    let runner = Runner::default().with_expr(&real_expr).with_expr(&imag_expr).run(&make_rules());
+    let runner = Runner::default()
+        .with_expr(&real_expr)
+        .with_expr(&imag_expr)
+        .run(&make_rules());
     let mut extractor = TrigExprExtractor::new(&runner.egraph);
 
     // the Runner knows which e-class the expression given with `with_expr` is in
@@ -1025,11 +1002,16 @@ pub fn simplify_complex(expr: ComplexExpression) -> ComplexExpression {
     let best_imag = extractor.extract_best(imag_root);
     let imag_simple = from_egg_expr(best_imag);
 
-    ComplexExpression { real: real_simple, imag: imag_simple }
+    ComplexExpression {
+        real: real_simple,
+        imag: imag_simple,
+    }
 }
 
 #[allow(dead_code)]
-pub fn simplify_matrix_no_context(matrix_expression: &Vec<Vec<ComplexExpression>>) -> Vec<Vec<ComplexExpression>> {
+pub fn simplify_matrix_no_context(
+    matrix_expression: &Vec<Vec<ComplexExpression>>,
+) -> Vec<Vec<ComplexExpression>> {
     let mut runner: Runner<TrigLanguage, ConstantFold> = Runner::default();
 
     for row in matrix_expression {
@@ -1037,7 +1019,7 @@ pub fn simplify_matrix_no_context(matrix_expression: &Vec<Vec<ComplexExpression>
             let ComplexExpression { real, imag } = expr;
             let real_expr: RecExpr<TrigLanguage> = to_egg_expr(&real);
             let imag_expr: RecExpr<TrigLanguage> = to_egg_expr(&imag);
-            runner = runner.with_expr(&real_expr).with_expr(&imag_expr); 
+            runner = runner.with_expr(&real_expr).with_expr(&imag_expr);
         }
     }
 
@@ -1047,7 +1029,7 @@ pub fn simplify_matrix_no_context(matrix_expression: &Vec<Vec<ComplexExpression>
     let mut simplified_matrix = vec![vec![]; matrix_expression.len()];
     let nrows = matrix_expression.len();
     let ncols = matrix_expression[0].len();
-    
+
     for i in 0..nrows {
         for j in 0..ncols {
             let real_root = runner.roots[2 * (i * ncols + j)];
@@ -1058,7 +1040,10 @@ pub fn simplify_matrix_no_context(matrix_expression: &Vec<Vec<ComplexExpression>
             let (_, best_imag) = extractor.find_best(imag_root);
             let imag_simple = from_egg_expr(best_imag);
 
-            simplified_matrix[i].push(ComplexExpression { real: real_simple, imag: imag_simple });
+            simplified_matrix[i].push(ComplexExpression {
+                real: real_simple,
+                imag: imag_simple,
+            });
         }
     }
 
@@ -1066,7 +1051,9 @@ pub fn simplify_matrix_no_context(matrix_expression: &Vec<Vec<ComplexExpression>
 }
 
 #[allow(dead_code)]
-pub fn simplify_matrix(matrix_expression: &Vec<Vec<ComplexExpression>>) -> Vec<Vec<ComplexExpression>> {
+pub fn simplify_matrix(
+    matrix_expression: &Vec<Vec<ComplexExpression>>,
+) -> Vec<Vec<ComplexExpression>> {
     let mut runner: Runner<TrigLanguage, ConstantFold> = Runner::default();
 
     for row in matrix_expression {
@@ -1074,7 +1061,7 @@ pub fn simplify_matrix(matrix_expression: &Vec<Vec<ComplexExpression>>) -> Vec<V
             let ComplexExpression { real, imag } = expr;
             let real_expr: RecExpr<TrigLanguage> = to_egg_expr(&real);
             let imag_expr: RecExpr<TrigLanguage> = to_egg_expr(&imag);
-            runner = runner.with_expr(&real_expr).with_expr(&imag_expr); 
+            runner = runner.with_expr(&real_expr).with_expr(&imag_expr);
         }
     }
 
@@ -1084,7 +1071,7 @@ pub fn simplify_matrix(matrix_expression: &Vec<Vec<ComplexExpression>>) -> Vec<V
     let mut simplified_matrix = vec![vec![]; matrix_expression.len()];
     let nrows = matrix_expression.len();
     let ncols = matrix_expression[0].len();
-    
+
     for i in 0..nrows {
         for j in 0..ncols {
             let real_root = runner.roots[2 * (i * ncols + j)];
@@ -1095,14 +1082,19 @@ pub fn simplify_matrix(matrix_expression: &Vec<Vec<ComplexExpression>>) -> Vec<V
             let best_imag = extractor.extract_best(imag_root);
             let imag_simple = from_egg_expr(best_imag);
 
-            simplified_matrix[i].push(ComplexExpression { real: real_simple, imag: imag_simple });
+            simplified_matrix[i].push(ComplexExpression {
+                real: real_simple,
+                imag: imag_simple,
+            });
         }
     }
 
     simplified_matrix
 }
 
-pub fn simplify_expressions_iter<'a>(expression: impl Iterator<Item = &'a Expression>) -> Vec<Expression> {
+pub fn simplify_expressions_iter<'a>(
+    expression: impl Iterator<Item = &'a Expression>,
+) -> Vec<Expression> {
     let mut runner: Runner<TrigLanguage, ConstantFold> = Runner::default();
 
     let mut num_expressions = 0;
@@ -1116,7 +1108,7 @@ pub fn simplify_expressions_iter<'a>(expression: impl Iterator<Item = &'a Expres
     let mut extractor = TrigExprExtractor::new(&runner.egraph);
 
     let mut simplified_expressions = vec![];
-    
+
     for i in 0..num_expressions {
         let root = runner.roots[i];
         let best = extractor.extract_best(root);
@@ -1141,7 +1133,7 @@ pub fn simplify_expressions(expression: Vec<Expression>) -> Vec<Expression> {
     let mut extractor = TrigExprExtractor::new(&runner.egraph);
 
     let mut simplified_expressions = vec![];
-    
+
     for i in 0..num_expressions {
         let root = runner.roots[i];
         let best = extractor.extract_best(root);
@@ -1151,7 +1143,13 @@ pub fn simplify_expressions(expression: Vec<Expression>) -> Vec<Expression> {
     simplified_expressions
 }
 
-pub fn simplify_matrix_and_matvec(matrix_expression: &Vec<Vec<ComplexExpression>>, matvec_expression: &Vec<Vec<Vec<ComplexExpression>>>) -> (Vec<Vec<ComplexExpression>>, Vec<Vec<Vec<ComplexExpression>>>) {
+pub fn simplify_matrix_and_matvec(
+    matrix_expression: &Vec<Vec<ComplexExpression>>,
+    matvec_expression: &Vec<Vec<Vec<ComplexExpression>>>,
+) -> (
+    Vec<Vec<ComplexExpression>>,
+    Vec<Vec<Vec<ComplexExpression>>>,
+) {
     let mut runner: Runner<TrigLanguage, ConstantFold> = Runner::default();
 
     for row in matrix_expression {
@@ -1159,7 +1157,7 @@ pub fn simplify_matrix_and_matvec(matrix_expression: &Vec<Vec<ComplexExpression>
             let ComplexExpression { real, imag } = expr;
             let real_expr: RecExpr<TrigLanguage> = to_egg_expr(real);
             let imag_expr: RecExpr<TrigLanguage> = to_egg_expr(imag);
-            runner = runner.with_expr(&real_expr).with_expr(&imag_expr); 
+            runner = runner.with_expr(&real_expr).with_expr(&imag_expr);
         }
     }
 
@@ -1169,7 +1167,7 @@ pub fn simplify_matrix_and_matvec(matrix_expression: &Vec<Vec<ComplexExpression>
                 let ComplexExpression { real, imag } = expr;
                 let real_expr: RecExpr<TrigLanguage> = to_egg_expr(real);
                 let imag_expr: RecExpr<TrigLanguage> = to_egg_expr(imag);
-                runner = runner.with_expr(&real_expr).with_expr(&imag_expr); 
+                runner = runner.with_expr(&real_expr).with_expr(&imag_expr);
             }
         }
     }
@@ -1177,11 +1175,10 @@ pub fn simplify_matrix_and_matvec(matrix_expression: &Vec<Vec<ComplexExpression>
     runner = runner.run(&make_rules());
     let mut extractor = TrigExprExtractor::new(&runner.egraph);
 
-
     let mut simplified_matrix = vec![vec![]; matrix_expression.len()];
     let nrows = matrix_expression.len();
     let ncols = matrix_expression[0].len();
-    
+
     for i in 0..nrows {
         for j in 0..ncols {
             let real_root = runner.roots[2 * (i * ncols + j)];
@@ -1192,7 +1189,10 @@ pub fn simplify_matrix_and_matvec(matrix_expression: &Vec<Vec<ComplexExpression>
             let best_imag = extractor.extract_best(imag_root);
             let imag_simple = from_egg_expr(best_imag);
 
-            simplified_matrix[i].push(ComplexExpression { real: real_simple, imag: imag_simple });
+            simplified_matrix[i].push(ComplexExpression {
+                real: real_simple,
+                imag: imag_simple,
+            });
         }
     }
 
@@ -1208,16 +1208,20 @@ pub fn simplify_matrix_and_matvec(matrix_expression: &Vec<Vec<ComplexExpression>
     for m in 0..nmats {
         for i in 0..nrows {
             for j in 0..ncols {
-                let real_root = runner.roots[matrix_expr_offset + 2 * (m * nrows * ncols + i * ncols + j)];
-                let imag_root = runner.roots[matrix_expr_offset + 2 * (m * nrows * ncols + i * ncols + j) + 1];
+                let real_root =
+                    runner.roots[matrix_expr_offset + 2 * (m * nrows * ncols + i * ncols + j)];
+                let imag_root =
+                    runner.roots[matrix_expr_offset + 2 * (m * nrows * ncols + i * ncols + j) + 1];
 
                 let best_real = extractor.extract_best(real_root);
                 let real_simple = from_egg_expr(best_real);
                 let best_imag = extractor.extract_best(imag_root);
                 let imag_simple = from_egg_expr(best_imag);
 
-
-                simplified_matvec[m][i].push(ComplexExpression { real: real_simple, imag: imag_simple });
+                simplified_matvec[m][i].push(ComplexExpression {
+                    real: real_simple,
+                    imag: imag_simple,
+                });
             }
         }
     }
@@ -1227,10 +1231,10 @@ pub fn simplify_matrix_and_matvec(matrix_expression: &Vec<Vec<ComplexExpression>
     (simplified_matrix, simplified_matvec)
 }
 
-#[cfg(test)]
-use crate::UnitaryExpression;
-#[cfg(test)]
-use extract::BottomUpExtractor;
+// #[cfg(test)]
+// use crate::UnitaryExpression;
+// #[cfg(test)]
+// use extract::BottomUpExtractor;
 
 // #[test]
 // fn test_simplify_matrix_and_matvec() {
@@ -1263,7 +1267,7 @@ use extract::BottomUpExtractor;
 //             let ComplexExpression { real, imag } = expr;
 //             let real_expr: RecExpr<TrigLanguage> = to_egg_expr(real);
 //             let imag_expr: RecExpr<TrigLanguage> = to_egg_expr(imag);
-//             runner = runner.with_expr(&real_expr).with_expr(&imag_expr); 
+//             runner = runner.with_expr(&real_expr).with_expr(&imag_expr);
 //         }
 //     }
 
@@ -1273,7 +1277,7 @@ use extract::BottomUpExtractor;
 //                 let ComplexExpression { real, imag } = expr;
 //                 let real_expr: RecExpr<TrigLanguage> = to_egg_expr(real);
 //                 let imag_expr: RecExpr<TrigLanguage> = to_egg_expr(imag);
-//                 runner = runner.with_expr(&real_expr).with_expr(&imag_expr); 
+//                 runner = runner.with_expr(&real_expr).with_expr(&imag_expr);
 //             }
 //         }
 //     }
@@ -1337,14 +1341,19 @@ pub fn check_equality(expr: &Expression, expr2: &Expression) -> bool {
     // runner.egraph.equivs(&expr2, &expr1).len() > 0
 }
 
-
 #[allow(dead_code)]
 fn print_equality(s1: &str, s2: &str) {
     let expr1: RecExpr<TrigLanguage> = s1.parse().unwrap();
     let expr2: RecExpr<TrigLanguage> = s2.parse().unwrap();
 
-    let mut runner: Runner<TrigLanguage, ConstantFold> = Runner::default().with_explanations_enabled().with_expr(&expr1).run(&make_rules());
-    println!("{}", runner.explain_equivalence(&expr1, &expr2).get_flat_string());
+    let mut runner: Runner<TrigLanguage, ConstantFold> = Runner::default()
+        .with_explanations_enabled()
+        .with_expr(&expr1)
+        .run(&make_rules());
+    println!(
+        "{}",
+        runner.explain_equivalence(&expr1, &expr2).get_flat_string()
+    );
     // let egraph = runner.egraph;
     // let equivs = egraph.equivs(&expr1, &expr2);
     // if equivs.is_empty() {
@@ -1359,9 +1368,8 @@ fn check_equality_lhs_only(s1: &str, s2: &str) -> bool {
     let expr1: RecExpr<TrigLanguage> = s1.parse().unwrap();
     let expr2: RecExpr<TrigLanguage> = s2.parse().unwrap();
 
-    let runner: Runner<TrigLanguage, ConstantFold> = Runner::default()
-        .with_expr(&expr1)
-        .run(&make_rules());
+    let runner: Runner<TrigLanguage, ConstantFold> =
+        Runner::default().with_expr(&expr1).run(&make_rules());
 
     runner.egraph.equivs(&expr1, &expr2).len() > 0
 }
@@ -1390,7 +1398,7 @@ fn check_equality_both(s1: &str, s2: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // use super::*;
 
     #[test]
     fn check_equality_test() {

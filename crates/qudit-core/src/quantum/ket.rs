@@ -1,11 +1,11 @@
 use crate::ComplexScalar;
-use crate::RealScalar;
-use crate::Radices;
 use crate::QuditSystem;
-use faer::{Col, Row, Mat};
-use std::ops::Index;
-use num_traits::One;
+use crate::Radices;
+use crate::RealScalar;
+use faer::{Col, Mat, Row};
 use num_complex::ComplexFloat;
+use num_traits::One;
+use std::ops::Index;
 
 /// Represents a quantum state vector as a Ket.
 pub struct Ket<R: RealScalar> {
@@ -86,15 +86,17 @@ impl<R: RealScalar> Ket<R> {
     pub fn basis<T: Into<Radices>>(radices: T, index: usize) -> Self {
         let radices = radices.into();
         let dimension = radices.dimension();
-        assert!(index < dimension, "Index {} out of bounds for dimension {}", index, dimension);
-        
+        assert!(
+            index < dimension,
+            "Index {} out of bounds for dimension {}",
+            index,
+            dimension
+        );
+
         let mut vector = Col::zeros(dimension);
         vector[index] = R::C::one();
-        
-        Self {
-            radices,
-            vector,
-        }
+
+        Self { radices, vector }
     }
 
     /// Create a uniform superposition state (all amplitudes equal).
@@ -113,7 +115,7 @@ impl<R: RealScalar> Ket<R> {
         let radices = radices.into();
         let dimension = radices.dimension();
         let amplitude = R::C::from_real(R::one() / R::from(dimension).unwrap().sqrt());
-        
+
         Self {
             radices,
             vector: Col::from_fn(dimension, |_| amplitude),
@@ -163,9 +165,12 @@ impl<R: RealScalar> Ket<R> {
     /// assert!((distance - 1.0).abs() < 1e-10); // Orthogonal states
     /// ```
     pub fn get_distance_from(&self, other: &Self) -> R {
-        assert_eq!(self.vector.nrows(), other.vector.nrows(), 
-                   "Cannot compute distance between states of different dimensions");
-        
+        assert_eq!(
+            self.vector.nrows(),
+            other.vector.nrows(),
+            "Cannot compute distance between states of different dimensions"
+        );
+
         let inner_product = self.inner_product(other);
         let fidelity = inner_product.norm_squared();
         R::one() - fidelity
@@ -175,7 +180,8 @@ impl<R: RealScalar> Ket<R> {
     // rather: have a dagger that takes Ket -> Bra, and allow multiplication
     /// Compute the inner product ⟨self|other⟩.
     fn inner_product(&self, other: &Self) -> R::C {
-        self.vector.iter()
+        self.vector
+            .iter()
             .zip(other.vector.iter())
             .map(|(&a, &b)| a.conj() * b)
             .sum()
@@ -239,18 +245,18 @@ impl<R: RealScalar> Ket<R> {
     pub fn tensor_product(&self, other: &Self) -> Self {
         // Combine the radices
         let new_radices = self.radices.concat(&other.radices);
-        
+
         // Compute Kronecker product of the vectors
         let self_dim = self.vector.nrows();
         let other_dim = other.vector.nrows();
         let new_dim = self_dim * other_dim;
-        
+
         let new_vector = Col::from_fn(new_dim, |idx| {
             let i = idx / other_dim;
             let j = idx % other_dim;
             self.vector[i] * other.vector[j]
         });
-        
+
         Self {
             radices: new_radices,
             vector: new_vector,
@@ -271,7 +277,7 @@ impl<R: RealScalar> QuditSystem for Ket<R> {
 // Index trait implementation for accessing amplitudes
 impl<R: RealScalar> Index<usize> for Ket<R> {
     type Output = R::C;
-    
+
     fn index(&self, index: usize) -> &Self::Output {
         &self.vector[index]
     }
@@ -283,17 +289,17 @@ impl<R: RealScalar> Index<usize> for Ket<R> {
 
 impl<R: RealScalar, T: Into<R::C> + Copy> TryFrom<Mat<T>> for Ket<R> {
     type Error = String;
-    
+
     fn try_from(value: Mat<T>) -> Result<Self, Self::Error> {
         if value.ncols() != 1 {
             return Err(format!(
-                "Matrix has {} columns, expected 1 column for conversion to Ket", 
+                "Matrix has {} columns, expected 1 column for conversion to Ket",
                 value.ncols()
             ));
         }
 
         // TODO: If T == R::C then take ptr and manually drop value for zero-alloc
-        
+
         let vec: Vec<R::C> = value.col(0).iter().copied().map(|x| x.into()).collect();
         Ok(vec.into())
     }
@@ -304,7 +310,7 @@ impl<C: ComplexScalar> From<Col<C>> for Ket<C::R> {
         let radices = Radices::guess(value.nrows());
         Self {
             radices,
-            vector: value
+            vector: value,
         }
     }
 }
@@ -323,7 +329,7 @@ impl<R: RealScalar, T: Into<R::C> + Copy> From<Vec<T>> for Ket<R> {
         let radices = Radices::guess(value.len());
         Self {
             radices,
-            vector: Col::from_fn(value.len(), |i| value[i].into())
+            vector: Col::from_fn(value.len(), |i| value[i].into()),
         }
     }
 }
@@ -340,7 +346,7 @@ impl<R: RealScalar, T: Into<R::C> + Copy> From<&[T]> for Ket<R> {
         let radices = Radices::guess(value.len());
         Self {
             radices,
-            vector: Col::from_fn(value.len(), |i| value[i].into())
+            vector: Col::from_fn(value.len(), |i| value[i].into()),
         }
     }
 }
@@ -350,7 +356,7 @@ impl<R: RealScalar, T: Into<R::C> + Copy, const N: usize> From<&[T; N]> for Ket<
         let radices = Radices::guess(N);
         Self {
             radices,
-            vector: Col::from_fn(N, |i| value[i].into())
+            vector: Col::from_fn(N, |i| value[i].into()),
         }
     }
 }
@@ -360,8 +366,7 @@ impl<R: RealScalar, T: Into<R::C> + Copy, const N: usize> From<[T; N]> for Ket<R
         let radices = Radices::guess(N);
         Self {
             radices,
-            vector: Col::from_fn(N, |i| value[i].into())
+            vector: Col::from_fn(N, |i| value[i].into()),
         }
     }
 }
-

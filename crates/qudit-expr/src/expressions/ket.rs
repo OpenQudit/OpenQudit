@@ -1,11 +1,15 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::{expressions::JittableExpression, index::{IndexDirection, TensorIndex}, GenerationShape, TensorExpression};
+use crate::{
+    expressions::JittableExpression,
+    index::{IndexDirection, TensorIndex},
+    GenerationShape, TensorExpression,
+};
 
-use super::NamedExpression;
 use super::ComplexExpression;
-use qudit_core::{ComplexScalar, Radices, RealScalar};
+use super::NamedExpression;
 use qudit_core::QuditSystem;
+use qudit_core::Radices;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct KetExpression {
@@ -25,10 +29,7 @@ impl KetExpression {
         body[0] = ComplexExpression::one();
         let variables = vec![];
         let inner = NamedExpression::new(name, variables, body);
-        KetExpression {
-            inner,
-            radices,
-        }
+        KetExpression { inner, radices }
     }
 }
 
@@ -78,7 +79,8 @@ impl From<KetExpression> for TensorExpression {
     fn from(value: KetExpression) -> Self {
         let KetExpression { inner, radices } = value;
         // TODO: add a proper implementation of into_iter for QuditRadices
-        let indices = radices.into_iter()
+        let indices = radices
+            .into_iter()
             .enumerate()
             .map(|(i, r)| TensorIndex::new(IndexDirection::Output, i, usize::from(*r)))
             .collect();
@@ -91,8 +93,14 @@ impl TryFrom<TensorExpression> for KetExpression {
     type Error = String;
 
     fn try_from(value: TensorExpression) -> Result<Self, Self::Error> {
-        if value.indices().iter().any(|idx| idx.direction() != IndexDirection::Output) {
-            return Err(String::from("Cannot convert a tensor with non-output indices to a ket."));
+        if value
+            .indices()
+            .iter()
+            .any(|idx| idx.direction() != IndexDirection::Output)
+        {
+            return Err(String::from(
+                "Cannot convert a tensor with non-output indices to a ket.",
+            ));
         }
         let radices = Radices::from_iter(value.indices().iter().map(|idx| idx.index_size()));
         Ok(KetExpression {
@@ -105,15 +113,14 @@ impl TryFrom<TensorExpression> for KetExpression {
 #[cfg(feature = "python")]
 mod python {
     use super::*;
-    use pyo3::prelude::*;
-    use qudit_core::Radix;
     use crate::python::PyExpressionRegistrar;
-    use qudit_core::c64;
-    use pyo3::types::PyTuple;
+    use ndarray::ArrayViewMut2;
     use numpy::PyArray2;
     use numpy::PyArrayMethods;
-    use ndarray::ArrayViewMut2;
-
+    use pyo3::prelude::*;
+    use pyo3::types::PyTuple;
+    use qudit_core::c64;
+    use qudit_core::Radix;
 
     #[pyclass]
     #[pyo3(name = "KetExpression")]
@@ -147,16 +154,18 @@ mod python {
         }
 
         fn __repr__(&self) -> String {
-            format!("KetExpression(name='{}', radices={:?}, params={})", 
-                    self.expr.name(), self.expr.radices().to_vec(), self.expr.num_params())
+            format!(
+                "KetExpression(name='{}', radices={:?}, params={})",
+                self.expr.name(),
+                self.expr.radices().to_vec(),
+                self.expr.num_params()
+            )
         }
     }
 
     impl From<KetExpression> for PyKetExpression {
         fn from(value: KetExpression) -> Self {
-            PyKetExpression {
-                expr: value,
-            }
+            PyKetExpression { expr: value }
         }
     }
 

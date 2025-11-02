@@ -1,10 +1,14 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::{expressions::JittableExpression, index::{IndexDirection, TensorIndex}, GenerationShape, TensorExpression};
+use crate::{
+    expressions::JittableExpression,
+    index::{IndexDirection, TensorIndex},
+    GenerationShape, TensorExpression,
+};
 
 use super::NamedExpression;
-use qudit_core::Radices;
 use qudit_core::QuditSystem;
+use qudit_core::Radices;
 
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct IsometryExpression {
@@ -15,7 +19,10 @@ pub struct IsometryExpression {
 
 impl JittableExpression for IsometryExpression {
     fn generation_shape(&self) -> GenerationShape {
-        GenerationShape::Matrix(self.output_radices.dimension(), self.input_radices.dimension())
+        GenerationShape::Matrix(
+            self.output_radices.dimension(),
+            self.input_radices.dimension(),
+        )
     }
 }
 
@@ -47,11 +54,20 @@ impl DerefMut for IsometryExpression {
 
 impl From<IsometryExpression> for TensorExpression {
     fn from(value: IsometryExpression) -> Self {
-        let IsometryExpression { inner, input_radices, output_radices } = value;
+        let IsometryExpression {
+            inner,
+            input_radices,
+            output_radices,
+        } = value;
         // TODO: add a proper implementation of into_iter for QuditRadices
-        let indices = output_radices.into_iter()
+        let indices = output_radices
+            .into_iter()
             .map(|r| (IndexDirection::Output, usize::from(*r)))
-            .chain(input_radices.into_iter().map(|r| (IndexDirection::Input, usize::from(*r))))
+            .chain(
+                input_radices
+                    .into_iter()
+                    .map(|r| (IndexDirection::Input, usize::from(*r))),
+            )
             .enumerate()
             .map(|(i, (d, r))| TensorIndex::new(d, i, r))
             .collect();
@@ -68,12 +84,18 @@ impl TryFrom<TensorExpression> for IsometryExpression {
         let mut output_radices = vec![];
         for idx in value.indices() {
             match idx.direction() {
-                IndexDirection::Input => { input_radices.push(idx.index_size()); }
-                IndexDirection::Output => { output_radices.push(idx.index_size()); }
-                _ => { return Err(String::from("Cannot convert a tensor with non-input, non-output indices to an isometry.")); }
+                IndexDirection::Input => {
+                    input_radices.push(idx.index_size());
+                }
+                IndexDirection::Output => {
+                    output_radices.push(idx.index_size());
+                }
+                _ => {
+                    return Err(String::from("Cannot convert a tensor with non-input, non-output indices to an isometry."));
+                }
             }
         }
-        
+
         Ok(IsometryExpression {
             inner: value.into(),
             input_radices: input_radices.into(),

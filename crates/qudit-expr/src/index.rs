@@ -39,11 +39,11 @@ pub type WeightedIndex = (IndexId, IndexSize);
 /// links the conceptual/graphical tensor indices to the generated expression's dimensions by grouping
 /// them along directions. So all `Input`, `Output`, and `Batch` legs correspond to a
 /// specific dimension of the generated tensor. This tensor network library can
-/// use this to predict and manipulate the shape of a generated tensor. 
+/// use this to predict and manipulate the shape of a generated tensor.
 ///
 /// For example, kets capture quantum states, and are represented conceptually
 /// by column vectors. In the tensor network perspective, they are represented by
-/// a tensor with only `Output` indices. They have as many indices as there are 
+/// a tensor with only `Output` indices. They have as many indices as there are
 /// qudits in the state and the size of each index is the radix of the qudit.
 /// For qubits, the radix is 2, so all indices would have dimension 2. However,
 /// when generated in the `qudit-expr` library, they are generated as a vector.
@@ -110,7 +110,7 @@ impl IndexDirection {
 /// an expected output or expected generation (input) shape and ordering.
 /// For example, a `[super::network::QuditTensorNetwork]` will store its output
 /// indices in this format because after evaluation, there will
-/// be an expected shape and ordering. The shape is determined by all the 
+/// be an expected shape and ordering. The shape is determined by all the
 /// indices directions and sizes, and the ordering will be determined by the ids.
 ///
 /// # See Also
@@ -147,7 +147,7 @@ impl TensorIndex {
     /// # Examples
     ///
     /// ```
-    /// use qudit_tensor::network::{IndexDirection, TensorIndex};
+    /// use qudit_expr::index::{IndexDirection, TensorIndex};
     ///
     /// let idx = TensorIndex::new(IndexDirection::Input, 0, 2);
     /// assert_eq!(idx.index_id(), 0);
@@ -167,7 +167,7 @@ impl TensorIndex {
     /// # Examples
     ///
     /// ```
-    /// use qudit_tensor::network::{IndexDirection, TensorIndex};
+    /// use qudit_expr::index::{IndexDirection, TensorIndex};
     ///
     /// let leg = TensorIndex::new(IndexDirection::Output, 1, 3);
     /// assert_eq!(leg.direction(), IndexDirection::Output);
@@ -181,7 +181,7 @@ impl TensorIndex {
     /// # Examples
     ///
     /// ```
-    /// use qudit_tensor::network::{IndexDirection, TensorIndex};
+    /// use qudit_expr::index::{IndexDirection, TensorIndex};
     ///
     /// let leg = TensorIndex::new(IndexDirection::Batch, 2, 4);
     /// assert_eq!(leg.index_id(), 2);
@@ -195,7 +195,7 @@ impl TensorIndex {
     /// # Examples
     ///
     /// ```
-    /// use qudit_tensor::network::{IndexDirection, TensorIndex};
+    /// use qudit_expr::index::{IndexDirection, TensorIndex};
     ///
     /// let leg = TensorIndex::new(IndexDirection::Input, 3, 5);
     /// assert_eq!(leg.index_size(), 5);

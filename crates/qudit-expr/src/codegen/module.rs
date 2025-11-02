@@ -1,24 +1,23 @@
-use inkwell::execution_engine::JitFunction;
-use inkwell::{context::Context, execution_engine::ExecutionEngine};
-use qudit_core::{ComplexScalar, RealScalar};
+use inkwell::context::Context;
+use qudit_core::RealScalar;
 
 use std::borrow::Cow;
 use std::ffi::{CStr, CString};
 use std::mem::{ManuallyDrop, MaybeUninit};
-use std::rc::Rc;
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use inkwell::targets::{InitializationConfig, Target};
 use llvm_sys::core::{LLVMContextCreate, LLVMModuleCreateWithNameInContext};
-use llvm_sys::execution_engine::{LLVMCreateJITCompilerForModule, LLVMDisposeExecutionEngine, LLVMExecutionEngineRef, LLVMGetExecutionEngineTargetData, LLVMGetFunctionAddress, LLVMLinkInMCJIT};
+use llvm_sys::execution_engine::{
+    LLVMCreateJITCompilerForModule, LLVMDisposeExecutionEngine, LLVMExecutionEngineRef,
+    LLVMGetFunctionAddress,
+};
 use llvm_sys::prelude::LLVMModuleRef;
 
 use inkwell::module::Module as InkwellModule;
 
-use crate::codegen::WriteFuncWithLifeTime;
 use crate::WriteFunc;
 
-use super::builder::DifferentiationLevel;
 use super::process_name_for_gen;
 
 pub(crate) fn to_c_str(mut s: &str) -> Cow<'_, CStr> {
@@ -57,12 +56,12 @@ impl<R: RealScalar> Module<R> {
     pub fn new(module_name: &str) -> Self {
         unsafe {
             let core_context = LLVMContextCreate();
-            
+
             let c_string = to_c_str(module_name);
             let core_module = LLVMModuleCreateWithNameInContext(c_string.as_ptr(), core_context);
             // LLVMLinkInMCJIT();
             match Target::initialize_native(&InitializationConfig::default()) {
-                Ok(_) => {},
+                Ok(_) => {}
                 Err(string) => panic!("Error initializing native target: {:?}", string),
             }
 
@@ -77,7 +76,10 @@ impl<R: RealScalar> Module<R> {
             );
 
             if code == 1 {
-                panic!("Error creating JIT compiler: {:?}", convert_c_string(err_string.assume_init()));
+                panic!(
+                    "Error creating JIT compiler: {:?}",
+                    convert_c_string(err_string.assume_init())
+                );
             }
 
             let execution_engine = execution_engine.assume_init();
@@ -93,7 +95,7 @@ impl<R: RealScalar> Module<R> {
 
     pub fn with_module<'a, F, G>(&self, f: F) -> G
     where
-        F: FnOnce(ManuallyDrop<InkwellModule<'a>>) -> G
+        F: FnOnce(ManuallyDrop<InkwellModule<'a>>) -> G,
     {
         let module_ref = self.module.lock().unwrap();
         let module = unsafe { ManuallyDrop::new(InkwellModule::new(*module_ref)) };
@@ -115,7 +117,7 @@ impl<R: RealScalar> Module<R> {
             let c_string = to_c_str(&name);
             let address = unsafe { LLVMGetFunctionAddress(*engine_ref, c_string.as_ptr()) };
             if address == 0 {
-                return None
+                return None;
             }
             address as usize
         };
@@ -127,7 +129,7 @@ impl<R: RealScalar> Module<R> {
 impl<R: RealScalar> Drop for Module<R> {
     fn drop(&mut self) {
         let engine_ref = self.engine.lock().unwrap();
-        unsafe { 
+        unsafe {
             LLVMDisposeExecutionEngine(*engine_ref);
         }
     }
@@ -138,6 +140,5 @@ impl<R: RealScalar> std::fmt::Display for Module<R> {
         self.with_module(|module| module.print_to_string().to_string().fmt(f))
     }
 }
-
 
 unsafe impl<R: RealScalar> Send for Module<R> {}

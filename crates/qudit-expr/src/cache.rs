@@ -1,18 +1,17 @@
-use std::cell::RefCell;
 use std::collections::BTreeMap;
-use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
-use qudit_core::{ComplexScalar, RealScalar};
+use qudit_core::RealScalar;
 
-use crate::analysis::{simplify_expressions, simplify_expressions_iter};
-use crate::codegen::{CompilableUnit, WriteFuncWithLifeTime};
+use crate::analysis::simplify_expressions_iter;
+use crate::codegen::CompilableUnit;
 use crate::expressions::{ExpressionBody, NamedExpression};
 use crate::index::{IndexSize, TensorIndex};
-use crate::{ComplexExpression, DifferentiationLevel, Expression, GenerationShape, Module, ModuleBuilder, WriteFunc, FUNCTION, GRADIENT, HESSIAN};
 use crate::TensorExpression;
-use qudit_core::c32;
-use qudit_core::c64;
+use crate::{
+    ComplexExpression, DifferentiationLevel, Expression, GenerationShape, Module, ModuleBuilder,
+    WriteFunc, GRADIENT, HESSIAN,
+};
 
 pub type ExpressionId = u64;
 
@@ -34,7 +33,6 @@ impl CachedExpressionBody {
         }
     }
 
-
     pub fn num_elements(&self) -> usize {
         self.original.num_elements()
     }
@@ -45,8 +43,7 @@ impl CachedExpressionBody {
 
         if self.func.is_none() {
             self.func = Some(simplify_expressions_iter(
-                self.original.iter()
-                .flat_map(|c| [&c.real, &c.imag])
+                self.original.iter().flat_map(|c| [&c.real, &c.imag]),
             ));
 
             has_changed = true;
@@ -62,9 +59,10 @@ impl CachedExpressionBody {
             }
 
             self.grad = Some(simplify_expressions_iter(
-                self.original.iter()
-                .chain(grad_exprs.iter())
-                .flat_map(|c| [&c.real, &c.imag])
+                self.original
+                    .iter()
+                    .chain(grad_exprs.iter())
+                    .flat_map(|c| [&c.real, &c.imag]),
             ));
 
             has_changed = true;
@@ -88,10 +86,11 @@ impl CachedExpressionBody {
             }
 
             self.hess = Some(simplify_expressions_iter(
-                self.original.iter()
-                .chain(grad_exprs.iter())
-                .chain(hess_exprs.iter())
-                .flat_map(|c| [&c.real, &c.imag])
+                self.original
+                    .iter()
+                    .chain(grad_exprs.iter())
+                    .chain(hess_exprs.iter())
+                    .flat_map(|c| [&c.real, &c.imag]),
             ));
 
             has_changed = true;
@@ -167,14 +166,15 @@ impl CachedTensorExpression {
         &self.expressions.original
     }
 
-
     // Simplify and differentiate to prepare expression to evaluate up to diff_level.
     pub fn prepare(&mut self, diff_level: DifferentiationLevel) -> bool {
         self.expressions.prepare(&self.variables, diff_level)
     }
 
-    fn add_to_builder<'a, R: RealScalar>(&'a self, mut builder: ModuleBuilder<'a, R>) -> ModuleBuilder<'a, R> {
-
+    fn add_to_builder<'a, R: RealScalar>(
+        &'a self,
+        mut builder: ModuleBuilder<'a, R>,
+    ) -> ModuleBuilder<'a, R> {
         if self.expressions.func.is_some() {
             // println!("Adding {} function to module", self.name.clone() + "_" + "1");
             let unit = CompilableUnit::new(
@@ -210,7 +210,7 @@ impl CachedTensorExpression {
 
             builder = builder.add_unit(unit);
         }
-        
+
         builder
     }
 
@@ -219,21 +219,49 @@ impl CachedTensorExpression {
     }
 
     pub fn form_expression(&self) -> TensorExpression {
-        let named = NamedExpression::new(self.name.clone(), self.variables.clone(), self.expressions.original.clone());
+        let named = NamedExpression::new(
+            self.name.clone(),
+            self.variables.clone(),
+            self.expressions.original.clone(),
+        );
         TensorExpression::from_raw(self.indices.clone(), named)
     }
 
-    pub fn form_modified_indices(&self, modifiers: &(Vec<usize>, GenerationShape)) -> Vec<TensorIndex> {
-        let perm_index_sizes: Vec<usize> = modifiers.0.iter().map(|p| self.indices[*p].index_size()).collect();
+    pub fn form_modified_indices(
+        &self,
+        modifiers: &(Vec<usize>, GenerationShape),
+    ) -> Vec<TensorIndex> {
+        let perm_index_sizes: Vec<usize> = modifiers
+            .0
+            .iter()
+            .map(|p| self.indices[*p].index_size())
+            .collect();
         let redirection = modifiers.1.calculate_directions(&perm_index_sizes);
-        perm_index_sizes.iter().zip(redirection.iter()).enumerate().map(|(id, (s, d))| TensorIndex::new(*d, id, *s)).collect()
+        perm_index_sizes
+            .iter()
+            .zip(redirection.iter())
+            .enumerate()
+            .map(|(id, (s, d))| TensorIndex::new(*d, id, *s))
+            .collect()
     }
 
-    pub fn form_modified_expression(&self, modifiers: &(Vec<usize>, GenerationShape)) -> TensorExpression {
-        let perm_index_sizes: Vec<usize> = modifiers.0.iter().map(|p| self.indices[*p].index_size()).collect();
+    pub fn form_modified_expression(
+        &self,
+        modifiers: &(Vec<usize>, GenerationShape),
+    ) -> TensorExpression {
+        let perm_index_sizes: Vec<usize> = modifiers
+            .0
+            .iter()
+            .map(|p| self.indices[*p].index_size())
+            .collect();
         let redirection = modifiers.1.calculate_directions(&perm_index_sizes);
         let mut expression = self.form_expression();
-        let new_indices = perm_index_sizes.iter().zip(redirection.iter()).enumerate().map(|(id, (s, d))| TensorIndex::new(*d, id, *s)).collect();
+        let new_indices = perm_index_sizes
+            .iter()
+            .zip(redirection.iter())
+            .enumerate()
+            .map(|(id, (s, d))| TensorIndex::new(*d, id, *s))
+            .collect();
         expression.permute(&modifiers.0, redirection);
         expression.reindex(new_indices);
         expression
@@ -247,7 +275,7 @@ pub struct ExpressionCache {
     name_lookup: BTreeMap<String, Vec<ExpressionId>>, // Name to base expression ids
     module32: Option<Module<f32>>,
     module64: Option<Module<f64>>,
-    id_counter: ExpressionId
+    id_counter: ExpressionId,
 }
 
 impl ExpressionCache {
@@ -268,11 +296,17 @@ impl ExpressionCache {
 
     pub fn get(&self, expr_id: ExpressionId) -> Option<TensorExpression> {
         // TODO: do better.
-        let base_id = self.id_lookup.get(&expr_id)
+        let base_id = self
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let cexpr = self.expressions.get(base_id)
+        let cexpr = self
+            .expressions
+            .get(base_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let modifiers = cexpr.id_lookup.get(&expr_id)
+        let modifiers = cexpr
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
         Some(cexpr.form_modified_expression(modifiers))
     }
@@ -281,7 +315,10 @@ impl ExpressionCache {
         let expr = expr.as_ref();
         if let Some(ids) = self.name_lookup.get(expr.name()) {
             for id in ids {
-                let cexpr = self.expressions.get(id).expect("Expected since just looked up id.");
+                let cexpr = self
+                    .expressions
+                    .get(id)
+                    .expect("Expected since just looked up id.");
                 if expr == &cexpr.expressions.original {
                     return Some(*id);
                 }
@@ -315,81 +352,133 @@ impl ExpressionCache {
 
         let id = self.get_new_id();
         self.name_lookup.insert(expr.name().to_owned(), vec![id]);
-        self.expressions.insert(id, CachedTensorExpression::new(expr, id));
+        self.expressions
+            .insert(id, CachedTensorExpression::new(expr, id));
         self.id_lookup.insert(id, id);
         id
     }
 
     pub fn indices(&self, expr_id: ExpressionId) -> Vec<TensorIndex> {
-        let base_id = self.id_lookup.get(&expr_id)
+        let base_id = self
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let cexpr = self.expressions.get(base_id)
+        let cexpr = self
+            .expressions
+            .get(base_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let modifiers = cexpr.id_lookup.get(&expr_id)
+        let modifiers = cexpr
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
         cexpr.form_modified_indices(modifiers)
     }
 
     pub fn num_elements(&self, expr_id: ExpressionId) -> usize {
-        let base_id = self.id_lookup.get(&expr_id)
+        let base_id = self
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let cexpr = self.expressions.get(base_id)
+        let cexpr = self
+            .expressions
+            .get(base_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
         cexpr.num_elements()
     }
 
     pub fn generation_shape(&self, expr_id: ExpressionId) -> GenerationShape {
-        let base_id = self.id_lookup.get(&expr_id)
+        let base_id = self
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let cexpr = self.expressions.get(base_id)
+        let cexpr = self
+            .expressions
+            .get(base_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let modifiers = cexpr.id_lookup.get(&expr_id)
+        let modifiers = cexpr
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
         modifiers.1
     }
-    
+
     pub fn base_name(&self, expr_id: ExpressionId) -> String {
-        let base_id = self.id_lookup.get(&expr_id)
+        let base_id = self
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let cexpr = self.expressions.get(base_id)
+        let cexpr = self
+            .expressions
+            .get(base_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        
-       cexpr.name.clone()
+
+        cexpr.name.clone()
     }
 
     pub fn name(&self, expr_id: ExpressionId) -> String {
-        let base_id = self.id_lookup.get(&expr_id)
+        let base_id = self
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let cexpr = self.expressions.get(base_id)
+        let cexpr = self
+            .expressions
+            .get(base_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let modifiers = cexpr.id_lookup.get(&expr_id)
+        let modifiers = cexpr
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
 
         let base_name = cexpr.name.clone();
-        let permutation = modifiers.0.iter().map(|&i| i.to_string()).collect::<Vec<String>>().join("_");
-        let shape = modifiers.1.to_vec().iter().map(|&i| i.to_string()).collect::<Vec<String>>().join("_");
+        let permutation = modifiers
+            .0
+            .iter()
+            .map(|&i| i.to_string())
+            .collect::<Vec<String>>()
+            .join("_");
+        let shape = modifiers
+            .1
+            .to_vec()
+            .iter()
+            .map(|&i| i.to_string())
+            .collect::<Vec<String>>()
+            .join("_");
         format!("{base_name}_perm{permutation}_shape{shape}")
     }
 
     pub fn num_params(&self, expr_id: ExpressionId) -> usize {
-        let base_id = self.id_lookup.get(&expr_id)
+        let base_id = self
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let cexpr = self.expressions.get(base_id)
+        let cexpr = self
+            .expressions
+            .get(base_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
         cexpr.num_params()
     }
-    
+
     pub fn trace(&mut self, expr_id: ExpressionId, pairs: Vec<(usize, usize)>) -> ExpressionId {
         // expr_id -> base_id -> base_expr -> derived_name -> base_name -> check if base_name_tracedXYZ exists
         let old_name = self.name(expr_id);
-        let traced = pairs.iter().map(|(x, y)| format!("{x}_{y}")).collect::<Vec<String>>().join("_");
+        let traced = pairs
+            .iter()
+            .map(|(x, y)| format!("{x}_{y}"))
+            .collect::<Vec<String>>()
+            .join("_");
         let traced_name = format!("traced{traced}_{old_name}");
-        
-        let base_id = self.id_lookup.get(&expr_id)
+
+        let base_id = self
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let cexpr = self.expressions.get(base_id)
+        let cexpr = self
+            .expressions
+            .get(base_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let modifiers = cexpr.id_lookup.get(&expr_id)
+        let modifiers = cexpr
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
 
         let old_expr: TensorExpression = cexpr.form_modified_expression(modifiers);
@@ -399,9 +488,11 @@ impl ExpressionCache {
 
         if let Some(ids) = self.name_lookup.get(&traced_name) {
             for id in ids {
-                let cexpr_other = self.expressions.get(id)
+                let cexpr_other = self
+                    .expressions
+                    .get(id)
                     .unwrap_or_else(|| panic!("Failed to {id} in cache."));
-                
+
                 if traced_expr.elements() == cexpr_other.elements() {
                     return *id;
                 }
@@ -412,12 +503,23 @@ impl ExpressionCache {
         self.insert(traced_expr)
     }
 
-    pub fn permute_reshape(&mut self, expr_id: ExpressionId, perm: Vec<usize>, reshape: GenerationShape) -> ExpressionId {
-        let base_id = *self.id_lookup.get(&expr_id)
+    pub fn permute_reshape(
+        &mut self,
+        expr_id: ExpressionId,
+        perm: Vec<usize>,
+        reshape: GenerationShape,
+    ) -> ExpressionId {
+        let base_id = *self
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let cexpr = self.expressions.get(&base_id)
+        let cexpr = self
+            .expressions
+            .get(&base_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let modifiers = cexpr.id_lookup.get(&expr_id)
+        let modifiers = cexpr
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
 
         // assert reshape num elements is correct
@@ -426,12 +528,14 @@ impl ExpressionCache {
         let new_val = (composed_perm, reshape);
         for (id, val) in cexpr.id_lookup.iter() {
             if *val == new_val {
-                return *id
+                return *id;
             }
         }
 
         let new_id = self.get_new_id();
-        let cexpr = self.expressions.get_mut(&base_id)
+        let cexpr = self
+            .expressions
+            .get_mut(&base_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
         cexpr.id_lookup.insert(new_id, new_val);
         self.id_lookup.insert(new_id, base_id);
@@ -493,17 +597,29 @@ impl ExpressionCache {
     // into get_fn; that provides guarantees that when the lock goes out of scope all the write
     // functions are also out of scope.
 
-    pub fn get_fn<R: RealScalar>(&mut self, expr_id: ExpressionId, diff_level: DifferentiationLevel) -> WriteFunc<R> {
+    pub fn get_fn<R: RealScalar>(
+        &mut self,
+        expr_id: ExpressionId,
+        diff_level: DifferentiationLevel,
+    ) -> WriteFunc<R> {
         if !self.is_compiled::<R>() {
             self.compile::<R>();
         }
 
-        let module = self._get_module().as_ref().expect("Module should exist due to previous compilation.");
+        let module = self
+            ._get_module()
+            .as_ref()
+            .expect("Module should exist due to previous compilation.");
 
-        let base_id = self.id_lookup.get(&expr_id).expect("Unexpected expression id.");
+        let base_id = self
+            .id_lookup
+            .get(&expr_id)
+            .expect("Unexpected expression id.");
 
         // TODO: ensure diff_level function exists
-        module.get_function(&format!("expr_{}_{}", base_id, diff_level)).expect("Error retrieving compiled expression.")
+        module
+            .get_function(&format!("expr_{}_{}", base_id, diff_level))
+            .expect("Error retrieving compiled expression.")
     }
 
     pub fn get_output_map<R: RealScalar>(
@@ -513,11 +629,17 @@ impl ExpressionCache {
         col_stride: u64,
         mat_stride: u64,
     ) -> Vec<u64> {
-        let base_id = self.id_lookup.get(&expr_id)
+        let base_id = self
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let cexpr = self.expressions.get(base_id)
+        let cexpr = self
+            .expressions
+            .get(base_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
-        let modifiers = cexpr.id_lookup.get(&expr_id)
+        let modifiers = cexpr
+            .id_lookup
+            .get(&expr_id)
             .unwrap_or_else(|| panic!("Failed to {expr_id} in cache."));
 
         let (perm, shape) = modifiers;
@@ -526,7 +648,7 @@ impl ExpressionCache {
         // Vec<TensorIndex>
         let original_strides = cexpr.tensor_strides();
         let original_dimensions = cexpr.dimensions();
-        
+
         let new_strides = {
             let mut strides = Vec::with_capacity(cexpr.rank());
             let mut current_stride = 1;
@@ -543,7 +665,8 @@ impl ExpressionCache {
             let mut original_coordinate: Vec<usize> = Vec::with_capacity(cexpr.rank());
             let mut temp_i = i;
             for d_idx in 0..cexpr.rank() {
-                original_coordinate.push((temp_i / original_strides[d_idx]) % original_dimensions[d_idx]);
+                original_coordinate
+                    .push((temp_i / original_strides[d_idx]) % original_dimensions[d_idx]);
                 temp_i %= original_strides[d_idx]; // Update temp_i for next dimension
             }
 
@@ -576,10 +699,12 @@ impl ExpressionCache {
             let mat_idx = complex_perm_idx / (nrows * ncols);
             let row_idx = (complex_perm_idx % (nrows * ncols)) / ncols;
             let col_idx = complex_perm_idx % ncols;
-            map.push(2 * (mat_idx * mat_stride + row_idx * row_stride + col_idx * col_stride) + imag_offset)
+            map.push(
+                2 * (mat_idx * mat_stride + row_idx * row_stride + col_idx * col_stride)
+                    + imag_offset,
+            )
         }
-        
+
         map
     }
 }
-
