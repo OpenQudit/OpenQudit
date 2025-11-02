@@ -5,12 +5,8 @@ use criterion::Criterion;
 
 mod common;
 use common::FlamegraphProfiler;
-use pprof::criterion::{Output, PProfProfiler};
-use pprof::flamegraph::Options;
 
-use faer::{Mat, MatMut, MatRef};
 use qudit_core::accel::fused_reshape_permute_reshape_into_impl;
-use qudit_core::accel::fused_reshape_permute_reshape_into_prepare;
 use qudit_core::accel::tensor_fused_reshape_permute_reshape_into_prepare;
 use qudit_core::c64;
 use qudit_core::memory::{alloc_zeroed_memory, calc_col_stride};
@@ -28,7 +24,7 @@ pub fn frpr_benchmarks(c: &mut Criterion) {
 
     for (in_nrows, in_ncols, shape, perm, out_nrows, out_ncols) in test_cases_4_elements {
         let col_stride_in = calc_col_stride::<c64>(in_nrows, in_ncols);
-        let mut memory_in = alloc_zeroed_memory::<c64>(in_ncols * col_stride_in);
+        let memory_in = alloc_zeroed_memory::<c64>(in_ncols * col_stride_in);
 
         let col_stride_out = calc_col_stride::<c64>(out_nrows, out_ncols);
         let mut memory_out = alloc_zeroed_memory::<c64>(out_ncols * col_stride_out);
@@ -74,7 +70,7 @@ pub fn frpr_benchmarks(c: &mut Criterion) {
 
     for (in_nrows, in_ncols, shape, perm, out_nrows, out_ncols) in test_cases_6_elements {
         let col_stride_in = calc_col_stride::<c64>(in_nrows, in_ncols);
-        let mut memory_in = alloc_zeroed_memory::<c64>(in_ncols * col_stride_in);
+        let memory_in = alloc_zeroed_memory::<c64>(in_ncols * col_stride_in);
 
         let col_stride_out = calc_col_stride::<c64>(out_nrows, out_ncols);
         let mut memory_out = alloc_zeroed_memory::<c64>(out_ncols * col_stride_out);

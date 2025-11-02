@@ -1,10 +1,7 @@
-use std::f64::consts::PI;
 use std::ffi::c_int;
-use std::fs::File;
 use std::path::Path;
 
 use criterion::profiler::Profiler;
-use pprof::ProfilerGuard;
 
 use pprof::criterion::{Output, PProfProfiler};
 use pprof::flamegraph::Options;

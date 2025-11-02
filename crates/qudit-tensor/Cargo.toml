@@ -11,4 +11,4 @@ unused = { level = "allow", priority = -1 }
 qudit-core = { path = "../qudit-core" }
 qudit-expr = { path = "../qudit-expr" }
 bit-set = "0.8.0"
-faer = "0.22.6"
+faer = "0.23.2"

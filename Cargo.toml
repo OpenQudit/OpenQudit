@@ -13,18 +13,18 @@ license = "BSD-3-Clause"
 num = "0.4.3"
 num-traits = "0.2"
 num-complex = "0.4"
-ordered-float = "5.0.0"
+ordered-float = "5.1.0"
 
 # Linalg
-nano-gemm = "0.1.2"
-faer = { version = "0.22.6", features = ["std", "rand"], default-features = false }
-faer-traits = "0.22.1"
+nano-gemm = "0.1.3"
+faer = { version = "0.23.2", features = ["std", "rand"], default-features = false }
+faer-traits = "0.23.2"
 
 # Python Support
-pyo3 = { version = "0.26.0", features = ["extension-module", "abi3-py39"] }
+pyo3 = { version = "0.27.1", features = ["extension-module", "abi3-py39"] }
 inventory = { version = "0.3.21" }
-numpy = { version = "0.26.0" }
-ndarray = { version = "0.16" }
+numpy = { version = "0.27.0" }
+ndarray = { version = "0.17" }
 
 # LLVM/Compilation
 egg = "0.10.0"
@@ -32,14 +32,14 @@ inkwell = { version = "0.6.0", features = ["llvm18-1"] }
 llvm-sys = "181.2.0"
 
 # Data Structures
-aligned-vec = "0.6.1"
+aligned-vec = "0.6.4"
 bit-set = "0.8.0"
-indexmap = "2.11.1"
+indexmap = "2.12.0"
 rustc-hash = "2.1.1"
 slotmap = "1.0.7"
 
 # Utilities
-bytemuck = "1.21.0"
+bytemuck = "1.24.0"
 coe-rs = "0.1.2"
 dyn-clone = "1.0"
 itertools = "0.14.0"
@@ -56,10 +56,10 @@ qudit-inst = {path = "crates/qudit-inst"}
 qudit-python = {path = "crates/qudit-python"}
 
 # Testing
-proptest = "1.2"
+proptest = "1.9"
 
 # Benchmarking
-criterion = "0.5"
+criterion = "0.7"
 pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
 
 [profile.dev]
