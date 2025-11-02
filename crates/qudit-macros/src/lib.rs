@@ -3,19 +3,17 @@ use syn::{parse_macro_input, LitFloat, Result, Token, bracketed};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use quote::quote;
-//use faer::{c64, Mat};
 
-// ###########################################################################################################
-enum TensorTokens {
-    J,
-    OpenBracket,
-    ClosedBracket,
-    Comma,
-    Number,
-    Op,
-    OpenParenthesis,
-    ClosedParenthesis,
-}
+// enum TensorTokens {
+//     J,
+//     OpenBracket,
+//     ClosedBracket,
+//     Comma,
+//     Number,
+//     Op,
+//     OpenParenthesis,
+//     ClosedParenthesis,
+// }
 
 struct ComplexElement {
     real: LitFloat,
@@ -86,7 +84,7 @@ impl Parse for ComplexElement {
 /// # Example
 /// ```
 /// use faer::c64;
-/// use qudit_core_proc_macros::complex_elem;
+/// use qudit_macros::complex_elem;
 /// 
 /// let test1 = complex_elem!(3.4);
 /// let test2 = complex_elem!(5.4 j);
@@ -118,8 +116,6 @@ pub fn complex_elem(elem: proc_macro::TokenStream) -> proc_macro::TokenStream {
 
     quote!{c64::new(#real_part, #imag_part)}.into()
 }
-
-// ###########################################################################################################
 
 struct ComplexMatrix {
     data: Vec<Vec<ComplexElement>>,
@@ -154,7 +150,7 @@ impl Parse for ComplexMatrix {
 /// # Example
 /// ```
 /// use faer::{c64, Mat};
-/// use qudit_core_proc_macros::complex_mat;
+/// use qudit_macros::complex_mat;
 /// 
 /// let answer = complex_mat!([
 ///     [1.0 + 1.0 j, 4.2 + 1.5 j],

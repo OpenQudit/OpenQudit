@@ -1,8 +1,8 @@
-use std::ops::AddAssign;
 use std::ops::Mul;
 
 // TODO: Add proper documentation to raw methods and add higher level
 // functions that call them with the cartesian_match for loop unrolling.
+/// Perform element-wise multiplication of two buffers.
 pub unsafe fn hadamard_kernel_raw<C: Mul<Output = C> + Copy>(
     nrows: usize,
     ncols: usize,
@@ -35,6 +35,7 @@ pub unsafe fn hadamard_kernel_raw<C: Mul<Output = C> + Copy>(
     }
 }
 
+/// Perform element-wise multiplication of two buffers and add the result into output.
 pub unsafe fn hadamard_kernel_add_raw<C: Mul<Output = C> + Copy>(
     nrows: usize,
     ncols: usize,

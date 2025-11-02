@@ -1,4 +1,4 @@
-use qudit_core_proc_macros::{complex_mat, complex_elem};
+use qudit_macros::{complex_mat, complex_elem};
 use faer::{c64, Mat};
 
 #[test]

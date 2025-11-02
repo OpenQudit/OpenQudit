@@ -770,7 +770,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// }
     /// ```
     #[inline]
-    pub fn iter(&self) -> CompactVecIter<T> {
+    pub fn iter(&self) -> CompactVecIter<'_, T> {
         match self {
             CompactVec::Inline(storage, length) => {
                 CompactVecIter::Inline(storage, 0, *length)

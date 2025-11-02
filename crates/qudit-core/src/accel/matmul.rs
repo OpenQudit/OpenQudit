@@ -118,6 +118,7 @@ impl<C: ComplexScalar> MatMulPlan<C> {
     }
 
     #[inline(always)]
+    /// Perform the matrix multiplication given by the plan without checking bounds.
     pub unsafe fn execute_raw_unchecked(
         &self,
         lhs: *const C,
@@ -221,6 +222,7 @@ impl<C: ComplexScalar> MatMulPlan<C> {
     }
 
     #[inline(always)]
+    /// Perform the additive matrix multiplication given by the plan without checking bounds.
     pub unsafe fn execute_add_raw_unchecked(
         &self,
         lhs: *const C,

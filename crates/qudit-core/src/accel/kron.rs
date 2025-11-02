@@ -13,6 +13,7 @@ use crate::ComplexScalar;
 
 // TODO: Add proper documentation to raw methods and add higher level
 // functions that call them with the cartesian_match for loop unrolling.
+/// Perform a kroneckor product between two matrix buffers.
 pub unsafe fn kron_kernel_raw<C: Mul<Output = C> + Copy>(
     dst: *mut C,
     dst_rs: isize,
@@ -52,6 +53,7 @@ pub unsafe fn kron_kernel_raw<C: Mul<Output = C> + Copy>(
     }
 }
 
+/// Perform a kroneckor product between two matrix buffers and add the result to the output.
 pub unsafe fn kron_kernel_add_raw<C: Mul<Output = C> + Copy + AddAssign>(
     dst: *mut C,
     dst_rs: isize,
