@@ -81,6 +81,7 @@ use core::f64;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
+#[allow(dead_code)]
 struct SineExtractor<'a> {
     costs: HashMap<Id, (f64, TrigLanguage)>,
     egraph: &'a EGraph,
@@ -992,6 +993,7 @@ pub fn simplify(expr: &Expression) -> Expression {
     from_egg_expr(best)
 }
 
+#[allow(dead_code)]
 pub fn extract_best_sine(expr: Expression) -> Option<Expression> {
     let expr: RecExpr<TrigLanguage> = to_egg_expr(&expr);
     let runner = Runner::default().with_expr(&expr).with_iter_limit(1000).with_node_limit(10000000).run(&make_rules());
@@ -1063,6 +1065,7 @@ pub fn simplify_matrix_no_context(matrix_expression: &Vec<Vec<ComplexExpression>
     simplified_matrix
 }
 
+#[allow(dead_code)]
 pub fn simplify_matrix(matrix_expression: &Vec<Vec<ComplexExpression>>) -> Vec<Vec<ComplexExpression>> {
     let mut runner: Runner<TrigLanguage, ConstantFold> = Runner::default();
 
@@ -1123,6 +1126,7 @@ pub fn simplify_expressions_iter<'a>(expression: impl Iterator<Item = &'a Expres
     simplified_expressions
 }
 
+#[allow(dead_code)]
 pub fn simplify_expressions(expression: Vec<Expression>) -> Vec<Expression> {
     let mut runner: Runner<TrigLanguage, ConstantFold> = Runner::default();
 
@@ -1282,6 +1286,7 @@ use extract::BottomUpExtractor;
 //     println!("Time taken: {:?}", elapsed);
 // }
 
+#[allow(dead_code)]
 pub fn check_many_equality(expr1s: &[&Expression], expr2s: &[&Expression]) -> bool {
     let expr1s: Vec<RecExpr<TrigLanguage>> = expr1s.iter().map(|expr| to_egg_expr(expr)).collect();
     let expr2s: Vec<RecExpr<TrigLanguage>> = expr2s.iter().map(|expr| to_egg_expr(expr)).collect();
@@ -1306,6 +1311,7 @@ pub fn check_many_equality(expr1s: &[&Expression], expr2s: &[&Expression]) -> bo
     true
 }
 
+#[allow(dead_code)]
 pub fn check_equality(expr: &Expression, expr2: &Expression) -> bool {
     let expr1: RecExpr<TrigLanguage> = to_egg_expr(expr);
     let expr2: RecExpr<TrigLanguage> = to_egg_expr(expr2);

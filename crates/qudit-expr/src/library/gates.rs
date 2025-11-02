@@ -6,6 +6,7 @@ use qudit_core::Radices;
 /// The identity or no-op gate.
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
+#[allow(non_snake_case)]
 pub fn IGate(radix: usize) -> UnitaryExpression {
     let proto = format!("I<{}>()", radix);
     let mut body = "".to_string();
@@ -58,6 +59,7 @@ pub fn IGate(radix: usize) -> UnitaryExpression {
 /// - <https://arxiv.org/pdf/1701.07902.pdf>
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
+#[allow(non_snake_case)]
 pub fn HGate(radix: usize) -> UnitaryExpression {
     let proto = format!("H<{}>()", radix);
     let mut body = "".to_string();
@@ -126,6 +128,7 @@ pub fn HGate(radix: usize) -> UnitaryExpression {
 /// - <https://arxiv.org/pdf/1105.5485.pdf>
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
+#[allow(non_snake_case)]
 pub fn SwapGate(radix: usize) -> UnitaryExpression {
     let proto = format!("Swap<{}, {}>()", radix, radix);
     let mut body = "".to_string();
@@ -179,6 +182,7 @@ pub fn SwapGate(radix: usize) -> UnitaryExpression {
 ///     - https://arxiv.org/pdf/2302.07966.pdf
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
+#[allow(non_snake_case)]
 pub fn XGate(radix: usize) -> UnitaryExpression {
     let proto = format!("X<{}>()", radix);
     let mut body = "[".to_string();
@@ -227,6 +231,7 @@ pub fn XGate(radix: usize) -> UnitaryExpression {
 ///     - https://arxiv.org/pdf/2302.07966.pdf
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
+#[allow(non_snake_case)]
 pub fn ZGate(radix: usize) -> UnitaryExpression {
     let proto = format!("Z<{}>()", radix);
     let mut body = "[".to_string();
@@ -280,6 +285,7 @@ pub fn ZGate(radix: usize) -> UnitaryExpression {
 /// - <https://arxiv.org/pdf/2204.13681.pdf>
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
+#[allow(non_snake_case)]
 pub fn PGate(radix: usize) -> UnitaryExpression {
     let mut proto = format!("P<{}>(", radix);
     for i in 0..radix - 1 {
@@ -312,6 +318,7 @@ pub fn PGate(radix: usize) -> UnitaryExpression {
 }
 
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
+#[allow(non_snake_case)]
 pub fn U3Gate() -> UnitaryExpression {
     let proto = "U(θ0, θ1, θ2)";
     let body = "[
@@ -389,7 +396,8 @@ fn embed_one_larger(unitary: UnitaryExpression) -> UnitaryExpression {
 ///     "Simple factorization of unitary transformations."
 ///     Physical Review A 97.2 (2018): 022328.
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
-#[cfg_attr(feature = "python", pyo3(signature = (radices = Radices::new(&[2]))))]
+#[cfg_attr(feature = "python", pyo3(signature = (radices = Radices::new([2]))))]
+#[allow(non_snake_case)]
 pub fn ParameterizedUnitary(radices: Radices) -> UnitaryExpression {
     let dimension = radices.dimension();
 
@@ -423,6 +431,7 @@ pub fn ParameterizedUnitary(radices: Radices) -> UnitaryExpression {
 
 /// Invert an expression
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
+#[allow(non_snake_case)]
 pub fn Invert(mut expr: UnitaryExpression) -> UnitaryExpression {
     expr.dagger();
     expr
@@ -463,7 +472,6 @@ fn cartesian_product(control_levels: Vec<Vec<usize>>) -> Vec<Vec<usize>> {
     }
     prod
 }
-
 
 /// An arbitrary controlled gate.
 ///
@@ -600,7 +608,8 @@ fn cartesian_product(control_levels: Vec<Vec<usize>>) -> Vec<Vec<usize>> {
 ///
 /// * If any level in `control_levels` is not unique.
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
-#[cfg_attr(feature = "python", pyo3(signature = (expr, control_radices = Radices::new(&[2]), control_levels = None)))]
+#[cfg_attr(feature = "python", pyo3(signature = (expr, control_radices = Radices::new([2]), control_levels = None)))]
+#[allow(non_snake_case)]
 pub fn Controlled(
     expr: UnitaryExpression,
     control_radices: Radices,
@@ -668,8 +677,10 @@ pub fn Controlled(
 
     expr
 }
+
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
-#[cfg_attr(feature = "python", pyo3(signature = (expr, control_radices = Radices::new(&[2]), control_levels = None)))]
+#[cfg_attr(feature = "python", pyo3(signature = (expr, control_radices = Radices::new([2]), control_levels = None)))]
+#[allow(non_snake_case)]
 pub fn ClassicallyControlled(
     expr: UnitaryExpression,
     control_radices: Radices,

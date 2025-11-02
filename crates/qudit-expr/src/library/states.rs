@@ -3,6 +3,7 @@ use crate::KetExpression;
 /// A terminating z-basis measurement for a qudit.
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
+#[allow(non_snake_case)]
 pub fn ZeroState(radix: usize) -> KetExpression {
     let proto = format!("Zero<{}>()", radix);
     let mut body = "".to_string();

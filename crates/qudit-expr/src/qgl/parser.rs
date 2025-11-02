@@ -1,4 +1,4 @@
-use super::expr::{Expression, ParsedDefinition, UnitaryDefinition};
+use super::expr::{Expression, ParsedDefinition};
 use super::lexer::{Lexer, Token};
 
 #[derive(Debug, Clone, PartialEq)]

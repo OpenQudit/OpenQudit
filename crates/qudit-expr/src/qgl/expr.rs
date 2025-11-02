@@ -597,40 +597,6 @@ impl Expression {
     }
 }
 
-/// An untyped definition of a unitary in the QGL language.
-#[derive(Debug, Clone, PartialEq)]
-pub struct UnitaryDefinition {
-    pub name: String,
-    pub radices: Option<Vec<usize>>,
-    pub variables: Vec<String>,
-    pub body: Expression,
-}
-
-// impl UnitaryDefinition {
-    // pub fn get_radices(&self) -> Vec<usize> {
-    //     match &self.radices {
-    //         Some(radices) => radices.clone(),
-    //         None => {
-    //             let mut d = self.dim();
-    //             let power_of_2 = d & (d - 1) == 0 && d != 0;
-    //             if !power_of_2 {
-    //                 panic!("Dimension must be a power of 2");
-    //             }
-    //             let mut radices = Vec::new();
-    //             while d > 1 {
-    //                 radices.push(2);
-    //                 d >>= 1;
-    //             }
-    //             radices
-    //         }
-    //     }
-    // }
-
-    // pub fn dim(&self) -> usize {
-    //     self.body.dim()
-    // }
-// }
-
 #[derive(Debug, Clone, PartialEq)]
 pub struct ParsedDefinition {
     pub name: String,
@@ -750,34 +716,3 @@ impl ParsedDefinition {
     }
 }
 
-enum ElementExpression {
-    Number(String),
-    Variable(String),
-    Binary {
-        op: char,
-        lhs: Box<ElementExpression>,
-        rhs: Box<ElementExpression>,
-    },
-    Unary {
-        op: char,
-        expr: Box<ElementExpression>,
-    },
-    Call {
-        fn_name: String,
-        args: Vec<ElementExpression>,
-    },
-}
-
-pub struct ElementWiseDefinition {
-    pub name: String,
-    pub dimensions: Vec<usize>,
-    pub variables: Vec<String>,
-    pub body: Vec<ElementExpression>,
-    pub shape: GenerationShape,
-}
-
-impl ElementWiseDefinition {
-    // pub fn new(pdef: ParsedDefinition) -> Self {
-    //     let mut body = Vec::new();
-    // }
-}

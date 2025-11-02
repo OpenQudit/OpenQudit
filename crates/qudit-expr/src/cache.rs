@@ -173,14 +173,6 @@ impl CachedTensorExpression {
         self.expressions.prepare(&self.variables, diff_level)
     }
 
-    fn process_name_for_gen(&self, name: String) -> String {
-        name.replace(" ", "_")
-            .replace("⊗", "t")
-            .replace("†", "d")
-            .replace("^", "p")
-            .replace("⋅", "x")
-    }
-
     fn add_to_builder<'a, R: RealScalar>(&'a self, mut builder: ModuleBuilder<'a, R>) -> ModuleBuilder<'a, R> {
 
         if self.expressions.func.is_some() {

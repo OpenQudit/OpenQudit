@@ -13,6 +13,7 @@ mod tensor;
 mod generator;
 
 
+#[allow(dead_code)]
 pub trait JittableExpression: Into<NamedExpression> {
     fn generation_shape(&self) -> crate::GenerationShape;
 }

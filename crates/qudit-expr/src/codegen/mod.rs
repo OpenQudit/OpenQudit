@@ -23,7 +23,6 @@ pub(self) fn process_name_for_gen(name: &str) -> String {
         .replace("⋅", "x")
 }
 
-
 pub(crate) use builder::CompilableUnit;
 pub use builder::DifferentiationLevel;
 pub use builder::{FUNCTION, GRADIENT, HESSIAN};
@@ -35,6 +34,7 @@ pub use codegen::CodeGenerator;
 use qudit_core::RealScalar;
 
 pub struct WriteFuncWithLifeTime<'a, R: RealScalar> {
+    #[allow(dead_code)]
     func: WriteFunc<R>,
     _phantom: std::marker::PhantomData<&'a Module<R>>,
 }
