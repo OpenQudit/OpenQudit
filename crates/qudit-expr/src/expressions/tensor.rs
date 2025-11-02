@@ -4,15 +4,15 @@ use std::ops::Deref;
 use std::ops::DerefMut;
 
 use super::ComplexExpression;
+use crate::Expression;
+use crate::GenerationShape;
 use crate::expressions::JittableExpression;
 use crate::expressions::NamedExpression;
 use crate::index::IndexDirection;
 use crate::index::IndexSize;
 use crate::index::TensorIndex;
-use crate::qgl::parse_qobj;
 use crate::qgl::Expression as CiscExpression;
-use crate::Expression;
-use crate::GenerationShape;
+use crate::qgl::parse_qobj;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TensorExpression {
@@ -166,7 +166,9 @@ impl TensorExpression {
         for index in &new_indices {
             let current_direction = index.direction();
             if current_direction < last_direction {
-                panic!("New indices are not ordered correctly. Expected order: Derv, Batch, Output, Input.");
+                panic!(
+                    "New indices are not ordered correctly. Expected order: Derv, Batch, Output, Input."
+                );
             }
             last_direction = current_direction;
         }

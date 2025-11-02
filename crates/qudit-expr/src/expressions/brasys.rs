@@ -1,9 +1,9 @@
 use std::ops::{Deref, DerefMut};
 
 use crate::{
+    GenerationShape, TensorExpression,
     expressions::JittableExpression,
     index::{IndexDirection, TensorIndex},
-    GenerationShape, TensorExpression,
 };
 
 use super::NamedExpression;
@@ -113,7 +113,9 @@ impl TryFrom<TensorExpression> for BraSystemExpression {
                 }
                 _ => {
                     if idx.index_size() > 1 {
-                        return Err(String::from("Cannot convert a tensor with non-input or batch indices to a bra system."));
+                        return Err(String::from(
+                            "Cannot convert a tensor with non-input or batch indices to a bra system.",
+                        ));
                     }
                 }
             }
@@ -136,8 +138,8 @@ mod python {
     use numpy::PyArrayMethods;
     use pyo3::prelude::*;
     use pyo3::types::PyTuple;
-    use qudit_core::c64;
     use qudit_core::Radix;
+    use qudit_core::c64;
 
     #[pyclass]
     #[pyo3(name = "BraSystemExpression")]

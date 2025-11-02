@@ -7,12 +7,12 @@ use qudit_core::QuditSystem;
 use qudit_core::Radices;
 use qudit_core::UnitaryMatrix;
 
+use crate::{ComplexExpression, UnitarySystemExpression};
 use crate::{
+    GenerationShape, TensorExpression,
     expressions::JittableExpression,
     index::{IndexDirection, TensorIndex},
-    GenerationShape, TensorExpression,
 };
-use crate::{ComplexExpression, UnitarySystemExpression};
 
 use super::NamedExpression;
 
@@ -464,7 +464,9 @@ impl TryFrom<TensorExpression> for UnitaryExpression {
                     output_radices.push(idx.index_size());
                 }
                 _ => {
-                    return Err(String::from("Cannot convert a tensor with non-input, non-output indices to an isometry."));
+                    return Err(String::from(
+                        "Cannot convert a tensor with non-input, non-output indices to an isometry.",
+                    ));
                 }
             }
         }
@@ -520,8 +522,8 @@ mod python {
     use numpy::PyArrayMethods;
     use pyo3::prelude::*;
     use pyo3::types::PyTuple;
-    use qudit_core::c64;
     use qudit_core::Radix;
+    use qudit_core::c64;
 
     #[pyclass]
     #[pyo3(name = "UnitaryExpression")]

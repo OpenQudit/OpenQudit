@@ -1,6 +1,6 @@
+use criterion::Criterion;
 use criterion::criterion_group;
 use criterion::criterion_main;
-use criterion::Criterion;
 
 use qudit_core::c64;
 use qudit_core::matrix::Mat;

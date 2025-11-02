@@ -1,11 +1,11 @@
 use std::ops::Deref;
 use std::ops::DerefMut;
 
+use crate::GenerationShape;
+use crate::TensorExpression;
 use crate::expressions::JittableExpression;
 use crate::index::IndexDirection;
 use crate::index::TensorIndex;
-use crate::GenerationShape;
-use crate::TensorExpression;
 
 use super::NamedExpression;
 use qudit_core::QuditSystem;
@@ -109,8 +109,8 @@ mod python {
     use numpy::PyArrayMethods;
     use pyo3::prelude::*;
     use pyo3::types::PyTuple;
-    use qudit_core::c64;
     use qudit_core::Radix;
+    use qudit_core::c64;
 
     #[pyclass]
     #[pyo3(name = "BraExpression")]

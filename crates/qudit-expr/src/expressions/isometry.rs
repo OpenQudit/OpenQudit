@@ -1,9 +1,9 @@
 use std::ops::{Deref, DerefMut};
 
 use crate::{
+    GenerationShape, TensorExpression,
     expressions::JittableExpression,
     index::{IndexDirection, TensorIndex},
-    GenerationShape, TensorExpression,
 };
 
 use super::NamedExpression;
@@ -91,7 +91,9 @@ impl TryFrom<TensorExpression> for IsometryExpression {
                     output_radices.push(idx.index_size());
                 }
                 _ => {
-                    return Err(String::from("Cannot convert a tensor with non-input, non-output indices to an isometry."));
+                    return Err(String::from(
+                        "Cannot convert a tensor with non-input, non-output indices to an isometry.",
+                    ));
                 }
             }
         }

@@ -4,8 +4,8 @@ use qudit_core::ComplexScalar;
 
 use crate::expressions::Constant;
 use crate::expressions::Expression;
-use crate::qgl::parse_scalar;
 use crate::qgl::Expression as CiscExpression;
+use crate::qgl::parse_scalar;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
 pub struct ComplexExpression {

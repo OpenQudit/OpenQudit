@@ -3,14 +3,14 @@ use std::sync::{Arc, Mutex};
 
 use qudit_core::RealScalar;
 
+use crate::TensorExpression;
 use crate::analysis::simplify_expressions_iter;
 use crate::codegen::CompilableUnit;
 use crate::expressions::{ExpressionBody, NamedExpression};
 use crate::index::{IndexSize, TensorIndex};
-use crate::TensorExpression;
 use crate::{
-    ComplexExpression, DifferentiationLevel, Expression, GenerationShape, Module, ModuleBuilder,
-    WriteFunc, GRADIENT, HESSIAN,
+    ComplexExpression, DifferentiationLevel, Expression, GRADIENT, GenerationShape, HESSIAN,
+    Module, ModuleBuilder, WriteFunc,
 };
 
 pub type ExpressionId = u64;

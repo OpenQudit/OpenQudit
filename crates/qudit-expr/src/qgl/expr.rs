@@ -674,7 +674,9 @@ impl ParsedDefinition {
                         } else if ncols == prod {
                             self.vector_triple_to_tensor_indices(&[], &[nrows], radices)
                         } else {
-                            panic!("Matrix expression parsed with explicit radices, but no dimension matching what is expected from radices.")
+                            panic!(
+                                "Matrix expression parsed with explicit radices, but no dimension matching what is expected from radices."
+                            )
                         }
                     }
                     GenerationShape::Tensor3D(nmats, nrows, ncols) => {
@@ -685,7 +687,9 @@ impl ParsedDefinition {
                         } else if ncols == prod {
                             self.vector_triple_to_tensor_indices(&[nmats], &[nrows], radices)
                         } else {
-                            panic!("Tensor3D expression parsed with explicit radices, but its product does not the row or column dimension.")
+                            panic!(
+                                "Tensor3D expression parsed with explicit radices, but its product does not the row or column dimension."
+                            )
                         }
                     }
                     _ => panic!("Tensor4D cannot be generated directly from QGL."),

@@ -1,9 +1,9 @@
 use std::ops::{Deref, DerefMut};
 
 use crate::{
+    GenerationShape, TensorExpression,
     expressions::JittableExpression,
     index::{IndexDirection, TensorIndex},
-    GenerationShape, TensorExpression,
 };
 
 use super::NamedExpression;
@@ -139,8 +139,8 @@ mod python {
     use numpy::PyArrayMethods;
     use pyo3::prelude::*;
     use pyo3::types::PyTuple;
-    use qudit_core::c64;
     use qudit_core::Radix;
+    use qudit_core::c64;
 
     #[pyclass]
     #[pyo3(name = "KrausOperatorsExpression")]

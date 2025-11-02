@@ -1,9 +1,9 @@
 use std::ops::{Deref, DerefMut};
 
 use crate::{
+    GenerationShape, TensorExpression,
     expressions::JittableExpression,
     index::{IndexDirection, TensorIndex},
-    GenerationShape, TensorExpression,
 };
 
 use super::NamedExpression;

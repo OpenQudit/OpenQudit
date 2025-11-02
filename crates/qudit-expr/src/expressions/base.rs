@@ -1,7 +1,7 @@
-use num::bigint::BigInt;
-use num::rational::Ratio;
 use num::FromPrimitive;
 use num::ToPrimitive;
+use num::bigint::BigInt;
+use num::rational::Ratio;
 use qudit_core::RealScalar;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -427,7 +427,9 @@ impl Expression {
                     Expression::zero()
                 } else if !base_fn_x && exponent_fn_x {
                     if lhs.is_parameterized() {
-                        todo!("Cannot differentiate with respect to a parameterized power base until ln is implemented")
+                        todo!(
+                            "Cannot differentiate with respect to a parameterized power base until ln is implemented"
+                        )
                     } else {
                         self.clone()
                             * rhs.differentiate(wrt)
@@ -441,7 +443,9 @@ impl Expression {
                         )
                         * lhs.differentiate(wrt)
                 } else {
-                    todo!("Cannot differentiate with respect to a parameterized base and exponent until ln is implemented")
+                    todo!(
+                        "Cannot differentiate with respect to a parameterized base and exponent until ln is implemented"
+                    )
                 }
             }
             Expression::Sqrt(expr) => {

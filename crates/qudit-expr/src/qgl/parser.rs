@@ -463,7 +463,7 @@ impl Parser {
                             return Err(ParserError::with_index(
                                 &format!("Failed to parse integer: {}", num),
                                 self.pos,
-                            ))
+                            ));
                         }
                     }
                 }
@@ -471,7 +471,7 @@ impl Parser {
                     return Err(ParserError::with_index(
                         &format!("Unexpected token: {:?} during constant parse.", self.peek()),
                         self.pos,
-                    ))
+                    ));
                 }
             };
 

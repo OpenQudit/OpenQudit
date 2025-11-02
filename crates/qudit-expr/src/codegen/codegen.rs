@@ -1,7 +1,7 @@
+use inkwell::AddressSpace;
 use inkwell::builder::Builder;
 use inkwell::values::FloatValue;
 use inkwell::values::FunctionValue;
-use inkwell::AddressSpace;
 
 use coe::is_same;
 use qudit_core::RealScalar;
