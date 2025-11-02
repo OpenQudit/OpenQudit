@@ -1,0 +1,55 @@
+[package]
+name = "qudit-circuit"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "qudit_circuit"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+qudit-core = { path = "../qudit-core" }
+qudit-expr = { path = "../qudit-expr" }
+qudit-tensor = { path = "../qudit-tensor" }
+indexmap = "2.6"
+itertools = "0.10"
+num = { workspace = true }
+num-traits = { workspace = true }
+num-complex = { workspace = true }
+faer = { workspace = true }
+pyo3 = { workspace = true, optional = true }
+inventory = { workspace = true, optional = true }
+aligned-vec = "0.6.4"
+bytemuck = "1.23.2"
+bit-set = "0.8.0"
+slotmap = "*"
+rustc-hash = "*"
+numpy = { workspace = true, optional = true }
+ndarray = { workspace = true, optional = true }
+
+[dev-dependencies]
+proptest = "1.2"
+criterion = "0.5"
+pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
+rand = "0.8.5"
+
+[package.metadata.docs.rs]
+rustdoc-args = [
+    "--html-in-header","./.cargo/html/docs-header.html",
+    "--html-before-content","./.cargo/html/docs-before-content.html"
+]
+
+[[bench]]
+name = "circuit_struct"
+harness = false
+
+[[bench]]
+name = "tnvm"
+harness = false
+
+[[bench]]
+name = "compact_vec_bench"
+harness = false
+
+[features]
+python = ["qudit-core/python", "qudit-expr/python", "dep:ndarray", "dep:numpy", "dep:pyo3", "dep:inventory"]

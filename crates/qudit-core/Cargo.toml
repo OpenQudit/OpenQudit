@@ -1,0 +1,36 @@
+[package]
+name = "qudit-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+faer = { workspace = true }
+faer-traits = { workspace = true }
+num-traits = { workspace = true }
+num = { workspace = true }
+nano-gemm = { workspace = true }
+aligned-vec = { workspace = true }
+bytemuck = { workspace = true }
+rand = { workspace = true }
+coe-rs = { workspace = true }
+bit-set = { workspace = true }
+rand_distr = { workspace = true }
+qudit-macros = { workspace = true }
+num-complex = { workspace = true }
+
+# python
+numpy = { workspace = true, optional = true }
+pyo3 = { workspace = true, optional = true }
+inventory = { workspace = true, optional = true }
+
+[dev-dependencies]
+proptest = "1.2"
+criterion = "0.5"
+pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
+
+[[bench]]
+name = "frpr"
+harness = false
+
+[features]
+python = ["dep:pyo3", "dep:inventory", "dep:numpy"]

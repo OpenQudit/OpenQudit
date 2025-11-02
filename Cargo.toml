@@ -1,23 +1,68 @@
 [workspace]
-members = [
-    "qudit-core",
-    "qudit-expr",
-    "qudit-gates",
-    "qudit-tensor",
-    "qudit-circuit",
-    "qudit-inst",
-    # "qudit-python",
-    "qudit-macro"
-]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.dependencies]
+
+# Number
+num = "0.4.3"
+num-traits = "0.2"
+num-complex = "0.4"
+ordered-float = "5.0.0"
+
+# Linalg
+nano-gemm = "0.1.2"
+faer = "0.22.6"
+faer-traits = "0.22.1"
+
+# Python Support
+pyo3 = { version = "0.26.0", features = ["extension-module", "abi3-py39"] }
+inventory = { version = "0.3.21" }
+numpy = { version = "0.26.0" }
+ndarray = { version = "0.16" }
+
+# LLVM/Compilation
+egg = "0.10.0"
+inkwell = { version = "0.6.0", features = ["llvm18-1"] }
+llvm-sys = "181.2.0"
+
+# Data Structures
+aligned-vec = "0.6.1"
+bit-set = "0.8.0"
+indexmap = "2.11.1"
+rustc-hash = "2.1.1"
+slotmap = "1.0.7"
+
+# Utilities
+bytemuck = "1.21.0"
+coe-rs = "0.1.2"
+dyn-clone = "1.0"
+itertools = "0.14.0"
+rand = "0.9.2"
+rand_distr = "0.5"
+
+# Owned Crates
+qudit-macros = {path = "crates/qudit-macros"}
+qudit-core = {path = "crates/qudit-core"}
+qudit-expr = {path = "crates/qudit-expr"}
+qudit-tensor = {path = "crates/qudit-tensor"}
+qudit-circuit = {path = "crates/qudit-circuit"}
+qudit-inst = {path = "crates/qudit-inst"}
+qudit-python = {path = "crates/qudit-python"}
+
+[workspace.dev-dependencies]
+proptest = "1.2"
+criterion = "0.5"
+pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
 
 [profile.dev]
-opt-level = 2       # Optimize for speed-ish
+opt-level = 2
 
 [profile.release]
-opt-level = 3       # Optimize for speed
-lto = "fat"          # Link Time Optimization
-codegen-units = 1   # Slower builds, potentially faster runtime
-strip = true       # Strip debug symbols from release binary
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = true
 
 [profile.bench]
 inherits = "release"
