@@ -16,7 +16,7 @@ classifiers = [
 build = "cp39-*"
 container-engine = "podman"
 skip = "*musllinux*"
-test-command = "python -c 'import openqudit'"
+test-command = 'python -c "import openqudit"'
 
 [tool.cibuildwheel.linux]
 manylinux-x86_64-image = "manylinux_2_28"
