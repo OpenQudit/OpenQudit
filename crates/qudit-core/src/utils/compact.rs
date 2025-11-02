@@ -14,7 +14,7 @@ const INLINE_CAPACITY: usize = 7;
 /// # Examples
 /// 
 /// ```
-/// # use qudit_circuit::utils::CompactVec;
+/// # use qudit_core::CompactVec;
 /// let mut vec: CompactVec<i8> = CompactVec::new();
 /// vec.push(1);
 /// vec.push(2);
@@ -40,7 +40,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let vec: CompactVec<i8> = CompactVec::new();
     /// assert_eq!(vec.len(), 0);
     /// assert!(vec.is_inline());
@@ -89,7 +89,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.push_unchecked(42);
     /// vec.push_unchecked(-10);
@@ -122,7 +122,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.push(1);
     /// vec.push(2);
@@ -163,7 +163,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.push(1);
     /// vec.push(2);
@@ -191,7 +191,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// assert_eq!(vec.len(), 0);
     /// vec.push(1);
@@ -210,7 +210,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// assert!(vec.is_empty());
     /// vec.push(1);
@@ -226,7 +226,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.push(10);
     /// vec.push(20);
@@ -260,7 +260,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.push(42);
     /// unsafe {
@@ -285,7 +285,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// assert!(vec.is_inline());
     /// 
@@ -312,7 +312,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let vec: CompactVec<i8> = CompactVec::new();
     /// assert_eq!(vec.capacity(), 7);
     /// 
@@ -344,7 +344,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.push(1);
     /// vec.push(2);
@@ -464,7 +464,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.extend_from_slice(&[1, 2, 3]);
     /// assert_eq!(vec.len(), 3);
@@ -489,7 +489,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.reserve(10);  // This will transition to heap since 10 > INLINE_CAPACITY
     /// assert!(!vec.is_inline());
@@ -522,7 +522,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.push(1);
     /// vec.push(2);
@@ -546,7 +546,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     ///
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.push(1);
     /// vec.push(2);
@@ -581,7 +581,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     ///
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.extend_from_slice(&[3, 1, 4, 1, 5]);
     /// vec.sort();
@@ -616,7 +616,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.extend_from_slice(&[1, 2, 3]);
     /// 
@@ -640,7 +640,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.push(10);
     /// vec.push(20);
@@ -688,7 +688,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.push(42);
     /// unsafe {
@@ -723,7 +723,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.extend_from_slice(&[1, 2, 3]);
     /// 
@@ -758,7 +758,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.extend_from_slice(&[1, 2, 3]);
     /// 
@@ -866,7 +866,7 @@ where
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let vec = vec![1i8, 2, 3];
     /// let compact: CompactVec<i8> = vec.into();
     /// assert_eq!(compact.len(), 3);
@@ -896,7 +896,7 @@ where
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let array = [1i8, 2, 3, 4, 5];
     /// let compact: CompactVec<i8> = array.into();
     /// assert_eq!(compact.len(), 5);
@@ -921,7 +921,7 @@ where
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let array = [1i8, 2, 3, 4, 5];
     /// let compact: CompactVec<i8> = array.into();
     /// assert_eq!(compact.len(), 5);
@@ -946,7 +946,7 @@ where
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let slice = &[1i8, 2, 3];
     /// let compact: CompactVec<i8> = slice.into();
     /// assert_eq!(compact.len(), 3);
@@ -988,7 +988,7 @@ where
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut compact: CompactVec<i8> = CompactVec::new();
     /// compact.extend_from_slice(&[1, 2, 3]);
     /// 
@@ -1128,7 +1128,7 @@ where
     /// # Examples
     /// 
     /// ```
-    /// # use qudit_circuit::utils::CompactVec;
+    /// # use qudit_core::CompactVec;
     /// let mut vec: CompactVec<i8> = CompactVec::new();
     /// vec.extend_from_slice(&[1, 2, 3]);
     /// 

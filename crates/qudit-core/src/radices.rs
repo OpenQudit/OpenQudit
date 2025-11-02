@@ -268,18 +268,16 @@ impl Radices {
     /// # use std::collections::HashMap;
     /// let two_qubits = Radices::new([2, 2]);
     /// let counts = two_qubits.counts();
-    /// assert_eq!(counts.get(&2), Some(&2));
+    /// assert_eq!(counts.get(&(2.into())), Some(&2));
     ///
     /// let two_qutrits = Radices::new([3, 3]);
     /// let counts = two_qutrits.counts();
-    /// assert_eq!(counts.get(&3), Some(&2));
+    /// assert_eq!(counts.get(&(3.into())), Some(&2));
     ///
     /// let hybrid_system = Radices::new([3, 2, 3]);
     /// let counts = hybrid_system.counts();
-    /// let mut expected_counts = HashMap::new();
-    /// expected_counts.insert(2, 1);
-    /// expected_counts.insert(3, 2);
-    /// assert_eq!(counts, expected_counts);
+    /// assert_eq!(counts.get(&(3.into())), Some(&2));
+    /// assert_eq!(counts.get(&(2.into())), Some(&1));
     /// ```
     pub fn counts(&self) -> HashMap<Radix, usize> {
         let mut counts = HashMap::new();
@@ -470,8 +468,8 @@ impl<T: Into<Radix>> core::iter::FromIterator<T> for Radices {
     /// assert_eq!(two_qutrits, Radices::new([3, 3]));
     ///
     /// // Ten qubits then ten qutrits
-    /// let mixed_system = Radices::from_iter(vec![2; 10].iter()
-    ///                         .chain(vec![3; 10].iter()));
+    /// let mixed_system = Radices::from_iter(vec![2; 10].into_iter()
+    ///                         .chain(vec![3; 10].into_iter()));
     ///
     /// // Using .collect()
     /// let from_collect: Radices = (2..5).collect();

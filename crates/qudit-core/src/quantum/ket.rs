@@ -14,7 +14,7 @@ pub struct Ket<R: RealScalar> {
 }
 
 impl<R: RealScalar> Ket<R> {
-    /// Create a new StateVector.
+    /// Create a new Ket.
     ///
     /// # Arguments
     ///
@@ -28,11 +28,11 @@ impl<R: RealScalar> Ket<R> {
     /// # Example
     ///
     /// ```
-    /// use qudit_core::matrix::Col;
-    /// use qudit_core::state::StateVector;
+    /// use faer::Col;
+    /// use qudit_core::Ket;
     /// use qudit_core::c64;
-    /// let zero_state: StateVector<c64> = StateVector::new([2, 2], vec![
-    ///     c64::one(), c64::zero(), c64::zero(), c64::zero()
+    /// let zero_state: Ket<f64> = Ket::new([2, 2], vec![
+    ///     c64::ONE, c64::ZERO, c64::ZERO, c64::ZERO
     /// ]);
     /// ```
     ///
@@ -59,7 +59,7 @@ impl<R: RealScalar> Ket<R> {
     /// # Example
     ///
     /// ```
-    /// use qudit_core::quantum::ket::Ket;
+    /// use qudit_core::Ket;
     /// let zero_state: Ket<f64> = Ket::zero([2, 2]);
     /// ```
     pub fn zero<T: Into<Radices>>(radices: T) -> Self {
@@ -80,7 +80,7 @@ impl<R: RealScalar> Ket<R> {
     /// # Example
     ///
     /// ```
-    /// use qudit_core::quantum::ket::Ket;
+    /// use qudit_core::Ket;
     /// let state: Ket<f64> = Ket::basis([2, 2], 3); // |11⟩ state
     /// ```
     pub fn basis<T: Into<Radices>>(radices: T, index: usize) -> Self {
@@ -106,7 +106,7 @@ impl<R: RealScalar> Ket<R> {
     /// # Example
     ///
     /// ```
-    /// use qudit_core::quantum::ket::Ket;
+    /// use qudit_core::Ket;
     /// let uniform_state: Ket<f64> = Ket::uniform([2, 2]);
     /// ```
     pub fn uniform<T: Into<Radices>>(radices: T) -> Self {
@@ -131,7 +131,7 @@ impl<R: RealScalar> Ket<R> {
     /// # Example
     ///
     /// ```
-    /// use qudit_core::quantum::ket::Ket;
+    /// use qudit_core::Ket;
     /// let basis_state: Ket<f64> = Ket::basis([2, 2], 0);
     /// assert!(basis_state.is_pure_state());
     /// ```
@@ -156,7 +156,7 @@ impl<R: RealScalar> Ket<R> {
     /// # Example
     ///
     /// ```
-    /// use qudit_core::quantum::ket::Ket;
+    /// use qudit_core::Ket;
     /// let state1: Ket<f64> = Ket::basis([2], 0);
     /// let state2: Ket<f64> = Ket::basis([2], 1);
     /// let distance = state1.get_distance_from(&state2);
@@ -188,7 +188,7 @@ impl<R: RealScalar> Ket<R> {
     /// # Example
     ///
     /// ```
-    /// use qudit_core::quantum::ket::Ket;
+    /// use qudit_core::Ket;
     /// let uniform_state: Ket<f64> = Ket::uniform([2, 2]);
     /// let probs = uniform_state.probabilities();
     /// // Each probability should be 0.25 for uniform superposition
@@ -210,7 +210,7 @@ impl<R: RealScalar> Ket<R> {
     /// # Example
     ///
     /// ```
-    /// use qudit_core::quantum::ket::Ket;
+    /// use qudit_core::Ket;
     /// let basis_state: Ket<f64> = Ket::basis([2, 2], 1);
     /// assert!((basis_state.probability_at(1) - 1.0).abs() < 1e-10);
     /// assert!(basis_state.probability_at(0).abs() < 1e-10);
@@ -231,7 +231,7 @@ impl<R: RealScalar> Ket<R> {
     /// # Example
     ///
     /// ```
-    /// use qudit_core::quantum::ket::Ket;
+    /// use qudit_core::Ket;
     /// let qubit1: Ket<f64> = Ket::basis([2], 0); // |0⟩
     /// let qubit2: Ket<f64> = Ket::basis([2], 1); // |1⟩
     /// let combined = qubit1.tensor_product(&qubit2); // |01⟩

@@ -50,10 +50,10 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     /// # Example
     ///
     /// ```
-    /// use qudit_core::matrix::Mat;
-    /// use qudit_core::unitary::UnitaryMatrix;
+    /// use faer::Mat;
+    /// use qudit_core::UnitaryMatrix;
     /// use qudit_core::c64;
-    /// let unitary: UnitaryMatrix<c64> = UnitaryMatrix::new([2, 2], Mat::identity(4, 4));
+    /// let unitary: UnitaryMatrix<c64> = UnitaryMatrix::new([2, 2], Mat::<c64>::identity(4, 4));
     /// ```
     ///
     /// # See Also
@@ -87,8 +87,8 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     /// # Example
     ///
     /// ```
-    /// use qudit_core::matrix::Mat;
-    /// use qudit_core::unitary::UnitaryMatrix;
+    /// use faer::Mat;
+    /// use qudit_core::UnitaryMatrix;
     /// use qudit_core::c64;
     /// let unitary: UnitaryMatrix<c64> = UnitaryMatrix::new_unchecked([2, 2], Mat::identity(4, 4));
     /// ```
@@ -121,11 +121,11 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     /// # Example
     ///
     /// ```
-    /// use qudit_core::matrix::Mat;
-    /// use qudit_core::unitary::UnitaryMatrix;
+    /// use faer::Mat;
+    /// use qudit_core::UnitaryMatrix;
     /// use qudit_core::c64;
     /// let unitary: UnitaryMatrix<c64> = UnitaryMatrix::identity([2, 2]);
-    /// assert_eq!(unitary, UnitaryMatrix::new(&vec![2, 2], Mat::identity(4, 4)));
+    /// assert_eq!(unitary, UnitaryMatrix::new([2, 2], Mat::identity(4, 4)));
     /// ```
     ///
     /// # See Also
@@ -155,7 +155,7 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     ///
     /// ```
     /// use qudit_core::c64;
-    /// use qudit_core::unitary::UnitaryMatrix;
+    /// use qudit_core::UnitaryMatrix;
     /// let unitary: UnitaryMatrix<c64> = UnitaryMatrix::random([2, 2]);
     /// assert!(UnitaryMatrix::is_unitary(&unitary));
     /// ```
@@ -209,9 +209,9 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     ///
     /// ```
     /// use qudit_core::c64;
-    /// use qudit_core::matrix::mat;
-    /// use qudit_core::matrix::Mat;
-    /// use qudit_core::unitary::UnitaryMatrix;
+    /// use faer::mat;
+    /// use faer::Mat;
+    /// use qudit_core::UnitaryMatrix;
     /// let mat: Mat<c64> = Mat::identity(2, 2);
     /// assert!(UnitaryMatrix::is_unitary(&mat));
     ///
@@ -271,15 +271,15 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     ///
     /// ```
     /// use qudit_core::c64;
-    /// use qudit_core::matrix::mat;
-    /// use qudit_core::matrix::Mat;
-    /// use qudit_core::unitary::UnitaryMatrix;
+    /// use faer::mat;
+    /// use faer::Mat;
+    /// use qudit_core::UnitaryMatrix;
     /// use qudit_core::ComplexScalar;
     /// let u1: UnitaryMatrix<c64> = UnitaryMatrix::identity([2, 2]);
     /// let u2 = UnitaryMatrix::identity([2, 2]);
     /// let u3 = UnitaryMatrix::random([2, 2]);
-    /// assert_eq!(u1.get_distance_from(&u2), c64::real(0.0));
-    /// assert!(u1.get_distance_from(&u3) > c64::real(0.0));
+    /// assert_eq!(u1.get_distance_from(&u2), 0.0);
+    /// assert!(u1.get_distance_from(&u3) > 0.0);
     /// ```
     ///
     /// # See Also
@@ -327,9 +327,9 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     ///
     /// ```
     /// use qudit_core::c64;
-    /// use qudit_core::matrix::mat;
-    /// use qudit_core::matrix::Mat;
-    /// use qudit_core::unitary::UnitaryMatrix;
+    /// use faer::mat;
+    /// use faer::Mat;
+    /// use qudit_core::UnitaryMatrix;
     /// use qudit_core::QuditPermutation;
     /// use num_traits::{One, Zero};
     /// let unitary: UnitaryMatrix<c64> = UnitaryMatrix::identity([2, 2]);
@@ -341,7 +341,7 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     ///     [c64::zero(), c64::one(), c64::zero(), c64::zero()],
     ///     [c64::zero(), c64::zero(), c64::zero(), c64::one()],
     /// ];
-    /// assert_eq!(permuted, UnitaryMatrix::new(&vec![2, 2], Mat::identity(4, 4)));
+    /// assert_eq!(permuted, UnitaryMatrix::new([2, 2], Mat::identity(4, 4)));
     /// ```
     pub fn permute(&self, perm: &QuditPermutation) -> UnitaryMatrix<C> {
         assert_eq!(perm.radices(), self.radices());
@@ -358,9 +358,9 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     /// # Example
     /// ```
     /// use qudit_core::c64;
-    /// use qudit_core::matrix::mat;
-    /// use qudit_core::matrix::Mat;
-    /// use qudit_core::unitary::UnitaryMatrix;
+    /// use faer::mat;
+    /// use faer::Mat;
+    /// use qudit_core::UnitaryMatrix;
     /// use num_traits::Zero;
     /// let y_mat = mat![
     ///    [c64::zero(), c64::new(0.0, -1.0)],
@@ -389,9 +389,9 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     ///
     /// ```
     /// use qudit_core::c64;
-    /// use qudit_core::matrix::mat;
-    /// use qudit_core::matrix::Mat;
-    /// use qudit_core::unitary::UnitaryMatrix;
+    /// use faer::mat;
+    /// use faer::Mat;
+    /// use qudit_core::UnitaryMatrix;
     /// use num_traits::Zero;
     /// let y_mat = mat![
     ///   [c64::zero(), c64::new(0.0, -1.0)],
@@ -420,9 +420,9 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     ///
     /// ```
     /// use qudit_core::c64;
-    /// use qudit_core::matrix::mat;
-    /// use qudit_core::matrix::Mat;
-    /// use qudit_core::unitary::UnitaryMatrix;
+    /// use faer::mat;
+    /// use faer::Mat;
+    /// use qudit_core::UnitaryMatrix;
     /// use num_traits::Zero;
     /// let y_mat: Mat<c64> = mat![
     ///     [c64::zero(), c64::new(0.0, -1.0)],
@@ -436,8 +436,8 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     /// ];
     /// assert_eq!(dagger, UnitaryMatrix::new([2], y_mat_adjoint));
     /// assert_eq!(dagger.dagger(), unitary);
-    /// assert_eq!(dagger.dot(&unitary), Mat::identity(2, 2));
-    /// assert_eq!(unitary.dot(&dagger), Mat::identity(2, 2));
+    /// assert_eq!(dagger.dot(&unitary), Mat::<c64>::identity(2, 2));
+    /// assert_eq!(unitary.dot(&dagger), Mat::<c64>::identity(2, 2));
     /// ```
     pub fn dagger(&self) -> Self {
         Self::new(self.radices.clone(), self.matrix.adjoint().to_owned())
@@ -467,9 +467,9 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     ///
     /// ```
     /// use qudit_core::c64;
-    /// use qudit_core::matrix::mat;
-    /// use qudit_core::matrix::Mat;
-    /// use qudit_core::unitary::UnitaryMatrix;
+    /// use faer::mat;
+    /// use faer::Mat;
+    /// use qudit_core::UnitaryMatrix;
     /// use num_traits::Zero;
     /// let y_mat = mat![
     ///    [c64::zero(), c64::new(0.0, -1.0)],
@@ -505,9 +505,9 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     ///
     /// ```
     /// use qudit_core::c64;
-    /// use qudit_core::matrix::mat;
-    /// use qudit_core::matrix::Mat;
-    /// use qudit_core::unitary::UnitaryMatrix;
+    /// use faer::mat;
+    /// use faer::Mat;
+    /// use qudit_core::UnitaryMatrix;
     /// use num_traits::Zero;
     /// let y_mat = mat![
     ///   [c64::zero(), c64::new(0.0, -1.0)],

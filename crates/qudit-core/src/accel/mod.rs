@@ -14,7 +14,7 @@
 ///   and `rest_pat` is a tuple with the remaining patterns stored in a similar recursive structure.
 /// 
 /// # Example
-/// ```
+/// ```ignore
 /// // The following call
 /// cartesian_match!(
 ///     {some_function()},

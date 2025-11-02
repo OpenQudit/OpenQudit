@@ -245,8 +245,8 @@ pub unsafe fn kron_sq_unchecked<C: ComplexField>(dst: MatMut<C>, lhs: MatRef<C>,
 ///
 /// # Example
 /// ```
-/// use qudit_core::matrix::mat;
-/// use qudit_core::matrix::Mat;
+/// use faer::mat;
+/// use faer::Mat;
 /// use qudit_core::accel::kron;
 ///
 /// let a = mat![
@@ -319,7 +319,7 @@ pub fn kron<C: ComplexField>(lhs: MatRef<C>, rhs: MatRef<C>, dst: MatMut<C>) {
 /// 
 /// # Example
 /// ```
-/// use qudit_core::matrix::{mat, Mat};
+/// use faer::{mat, Mat};
 /// use qudit_core::accel::kron_add;
 /// use qudit_core::c64;
 ///
@@ -378,7 +378,6 @@ mod kron_tests {
     use super::*;
     use faer::Mat;
     use faer::mat;
-    use crate::c64;
 
     // #[test]
     // fn kron_add_test() {

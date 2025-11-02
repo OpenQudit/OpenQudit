@@ -63,7 +63,7 @@ impl<C: ComplexScalar> MatMulPlan<C> {
     /// # Examples
     /// ```
     /// use qudit_core::accel::MatMulPlan;
-    /// use qudit_core::matrix::{mat, Mat};
+    /// use faer::{mat, Mat};
     /// use qudit_core::c64;
     /// 
     /// let mut out = Mat::<c64>::zeros(2, 2);
@@ -168,7 +168,7 @@ impl<C: ComplexScalar> MatMulPlan<C> {
     /// # Examples
     /// ```
     /// use qudit_core::accel::MatMulPlan;
-    /// use qudit_core::matrix::{mat, Mat};
+    /// use faer::{mat, Mat};
     /// use qudit_core::c64;
     /// 
     /// let mut out = Mat::<c64>::ones(2, 2);
@@ -272,7 +272,7 @@ impl<C: ComplexScalar> MatMulPlan<C> {
 /// # Examples
 /// ```
 /// use qudit_core::accel::matmul_unchecked;
-/// use qudit_core::matrix::{mat, Mat};
+/// use faer::{mat, Mat};
 /// use qudit_core::c64;
 /// 
 /// let mut out = Mat::<c64>::zeros(2, 2);

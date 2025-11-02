@@ -77,13 +77,13 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
     /// 
     /// # Examples
     /// ```
-    /// use qudit_core::array::Tensor;
+    /// # use qudit_core::array::Tensor;
     /// 
-    /// let test_tensor = Tensor::<f64, 2>::zeros(&[3, 4]);
+    /// let test_tensor = Tensor::<f64, 2>::zeros([3, 4]);
     /// 
     /// for i in 0..3 {
     ///     for j in 0..4 {
-    ///         assert_eq!(test_tensor.data[(4*i + j) as usize], 0.0);
+    ///         assert_eq!(test_tensor.get(&[i, j]), &0.0);
     ///     }
     /// }
     /// ```
@@ -212,10 +212,10 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
     ///
     /// # Examples
     /// ```
-    /// let tensor_from_vec = Tensor::from_vec(vec![10, 20, 30, 40], [2, 2]);
-    /// assert_eq!(tensor_from_vec.dims(), [2, 2]);
-    /// assert_eq!(tensor_from_vec.strides(), [2, 1]);
-    /// assert_eq!(tensor_from_vec.data.as_slice(), &[10, 20, 30, 40]);
+    /// # use qudit_core::array::Tensor;
+    /// let tensor_from_slice = Tensor::from_slice(&vec![10, 20, 30, 40], [2, 2]);
+    /// assert_eq!(tensor_from_slice.dims(), &[2, 2]);
+    /// assert_eq!(tensor_from_slice.strides(), &[2, 1]);
     /// ```
     pub fn from_slice(slice: &[C], dims: [usize; D]) -> Self {
         let strides = super::calc_continuous_strides(&dims);
@@ -242,6 +242,7 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
     ///
     /// # Examples
     /// ```
+    /// # use qudit_core::array::Tensor;
     /// // Create a 2x3 tensor from a slice with custom strides
     /// let data = vec![1, 2, 3, 4, 5, 6];
     /// let tensor = Tensor::from_slice_with_strides(
@@ -249,11 +250,11 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
     ///     [2, 3], // 2 rows, 3 columns
     ///     [3, 1], // Stride for rows is 3 elements, for columns is 1 element
     /// );
-    /// assert_eq!(tensor.dimensions(), &[2, 3]);
+    /// assert_eq!(tensor.dims(), &[2, 3]);
     /// assert_eq!(tensor.strides(), &[3, 1]);
-    /// assert_eq!(tensor.at([0, 0]), &1);
-    /// assert_eq!(tensor.at([0, 1]), &2);
-    /// assert_eq!(tensor.at([1, 0]), &4);
+    /// assert_eq!(tensor.get(&[0, 0]), &1);
+    /// assert_eq!(tensor.get(&[0, 1]), &2);
+    /// assert_eq!(tensor.get(&[1, 0]), &4);
     ///
     /// // Creating a column vector view from a larger matrix's data
     /// let matrix_data = vec![1, 2, 3, 4, 5, 6, 7, 8, 9]; // A 3x3 matrix's data
@@ -263,7 +264,7 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
     ///     [3, 1], // 3 rows, 1 column
     ///     [3, 1], // Stride to next row is 3, stride to next column is 1 (but only 1 column)
     /// );
-    /// assert_eq!(column_view.dimensions(), &[3, 1]);
+    /// assert_eq!(column_view.dims(), &[3, 1]);
     /// assert_eq!(column_view.strides(), &[3, 1]);
     /// // Note: This example is slightly misleading as the slice itself doesn't change for the column.
     /// // A more accurate example for strides would involve a sub-view that skips elements.
@@ -295,13 +296,13 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
     ///
     /// # Examples
     /// ```
-    /// use qudit_core::array::Tensor;
+    /// # use qudit_core::array::Tensor;
     /// 
     /// let test_tensor = Tensor::<f64, 2>::zeros_with_strides(&[3, 4], &[4, 1]);
     ///
     /// for i in 0..3 {
     ///     for j in 0..4 {
-    ///         assert_eq!(test_tensor.at([i, j]), &0.0);
+    ///         assert_eq!(test_tensor.get(&[i, j]), &0.0);
     ///     }
     /// }
     /// ```

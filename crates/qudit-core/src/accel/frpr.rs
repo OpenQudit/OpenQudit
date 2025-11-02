@@ -827,7 +827,7 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
     tensor_fused_reshape_permute_reshape_into_prepare_helper(out_shape, out_strides, &permuted_shape);
 
     // There exists the possibility that certain axes fail to merge in reshaping the output tensor to the permuted tensor.
-    // In this case, it is guranteed that both the input and output can agree on a single shape upon re-calculating
+    // In this case, it is guaranteed that both the input and output can agree on a single shape upon re-calculating
     // the shape and strides of the input. Notice the input only has to split some of its axes (which has no possibility 
     // of failure) to match the output's shape. 
     if true_shape_out != permuted_shape {
@@ -896,7 +896,7 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
         // We sort the axes of the permuted tensor in descending order of their strides in the output 
         // tensor's memory layout. Compared to `candidate_outputs1`, this increases the likelihood that 
         // we find contiguous axes in the output tensor's memory layout upon merging axes below. 
-        let mut out_strides_argsort = (0..K).collect::<Vec<_>>();
+        let mut out_strides_argsort = (0..tensor_out_strides.len()).collect::<Vec<_>>();
         out_strides_argsort.sort_by_key(|&i| -tensor_out_strides[i]);
         let sorted_out_strides = out_strides_argsort
             .iter()

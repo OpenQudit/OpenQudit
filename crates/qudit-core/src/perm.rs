@@ -50,8 +50,8 @@ use crate::Radix;
 /// # Examples
 ///
 /// ```
-/// use qudit_core::{QuditRadices, radices, calc_index_permutation};
-/// let radices = radices![2; 2];
+/// use qudit_core::{Radices, calc_index_permutation};
+/// let radices = Radices::new([2, 2]);
 /// let perm = vec![1, 0];
 /// let index_perm = calc_index_permutation(&radices, &perm);
 /// assert_eq!(index_perm, vec![0, 2, 1, 3]);
@@ -122,9 +122,9 @@ impl QuditPermutation {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::{QuditRadices, QuditPermutation};
+    /// use qudit_core::{Radices, QuditPermutation};
     ///
-    /// let three_qubits = QuditRadices::new(&vec![2; 3]);
+    /// let three_qubits = Radices::new([2; 3]);
     /// let qudit_shift = QuditPermutation::new(three_qubits, &vec![2, 0, 1]);
     /// ```
     ///
@@ -180,7 +180,7 @@ impl QuditPermutation {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::{QuditRadices, QuditPermutation};
+    /// use qudit_core::{Radices, QuditPermutation};
     ///
     /// let qubit_shift = QuditPermutation::from_qubit_location(&vec![2, 0, 1]);
     /// ```
@@ -212,7 +212,7 @@ impl QuditPermutation {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::{QuditRadices, QuditPermutation};
+    /// use qudit_core::{Radices, QuditPermutation};
     ///
     /// let qutrit_swap = QuditPermutation::from_qudit_location(3, &vec![1, 0]);
     /// ```
@@ -235,17 +235,17 @@ impl QuditPermutation {
     ///
     /// # Examples
     /// ```
-    /// use qudit_core::{QuditRadices, QuditPermutation};
+    /// use qudit_core::{Radices, QuditPermutation};
     ///
-    /// let three_qubits = QuditRadices::new(&vec![2; 3]);
+    /// let three_qubits = Radices::new([2; 3]);
     /// let qudit_shift = QuditPermutation::new(three_qubits, &vec![2, 0, 1]);
     /// assert!(qudit_shift.is_physically_implementable());
     ///
-    /// let three_qutrits = QuditRadices::new(&vec![3; 3]);
+    /// let three_qutrits = Radices::new([3; 3]);
     /// let qudit_shift = QuditPermutation::new(three_qutrits, &vec![2, 0, 1]);
     /// assert!(qudit_shift.is_physically_implementable());
     ///
-    /// let three_qudits = QuditRadices::new(&vec![2, 3, 4]);
+    /// let three_qudits = Radices::new([2, 3, 4]);
     /// let qudit_shift = QuditPermutation::new(three_qudits, &vec![2, 0, 1]);
     /// assert!(!qudit_shift.is_physically_implementable());
     /// ```
@@ -271,8 +271,8 @@ impl QuditPermutation {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::{QuditRadices, QuditPermutation};
-    /// let radices = QuditRadices::new(&vec![2, 3]);
+    /// use qudit_core::{Radices, QuditPermutation};
+    /// let radices = Radices::new([2, 3]);
     /// let loc = vec![37, 24];
     /// let hybrid_swap = QuditPermutation::locally_invert_location(radices.clone(), &loc);
     /// assert_eq!(hybrid_swap, QuditPermutation::new(radices, &vec![1, 0]));
@@ -293,7 +293,7 @@ impl QuditPermutation {
     ///
     /// # Examples
     /// ```
-    /// use qudit_core::{QuditRadices, QuditPermutation};
+    /// use qudit_core::{Radices, QuditPermutation};
     ///
     /// let qubit_swap = QuditPermutation::from_qubit_location(&vec![1, 0]);
     /// assert_eq!(qubit_swap.index_perm(), &vec![0, 2, 1, 3]);
@@ -306,12 +306,12 @@ impl QuditPermutation {
     ///
     /// # Examples
     /// ```
-    /// use qudit_core::{QuditRadices, QuditPermutation};
-    /// let qudit_swap = QuditPermutation::new(QuditRadices::new(&vec![2, 3]), &vec![1, 0]);
-    /// assert_eq!(qudit_swap.permuted_radices(), QuditRadices::new(&vec![3, 2]));
+    /// use qudit_core::{Radices, QuditPermutation};
+    /// let qudit_swap = QuditPermutation::new(Radices::new([2, 3]), &vec![1, 0]);
+    /// assert_eq!(qudit_swap.permuted_radices(), Radices::new([3, 2]));
     ///
-    /// let qudit_swap = QuditPermutation::new(QuditRadices::new(&vec![2, 3, 4]), &vec![1, 0, 2]);
-    /// assert_eq!(qudit_swap.permuted_radices(), QuditRadices::new(&vec![3, 2, 4]));
+    /// let qudit_swap = QuditPermutation::new(Radices::new([2, 3, 4]), &vec![1, 0, 2]);
+    /// assert_eq!(qudit_swap.permuted_radices(), Radices::new([3, 2, 4]));
     /// ```
     pub fn permuted_radices(&self) -> Radices {
         self.perm.iter().map(|&i| self.radices[i]).collect()
@@ -401,7 +401,7 @@ impl QuditPermutation {
     ///
     /// # Examples
     /// ```
-    /// use qudit_core::{QuditRadices, QuditPermutation};
+    /// use qudit_core::{Radices, QuditPermutation};
     /// let qubit_swap = QuditPermutation::from_qubit_location(&vec![1, 0]);
     /// assert_eq!(qubit_swap.cycles(), vec![vec![0, 1]]);
     ///
@@ -460,7 +460,7 @@ impl QuditPermutation {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::{QuditRadices, QuditPermutation};
+    /// use qudit_core::{Radices, QuditPermutation};
     /// let qubit_swap = QuditPermutation::from_qubit_location(&vec![1, 0]);
     /// assert_eq!(qubit_swap.index_cycles(), vec![vec![1, 2]]);
     /// ```
@@ -509,7 +509,7 @@ impl QuditPermutation {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::{QuditRadices, QuditPermutation};
+    /// use qudit_core::{Radices, QuditPermutation};
     /// let qubit_swap = QuditPermutation::from_qubit_location(&vec![1, 0]);
     /// assert_eq!(qubit_swap.transpositions(), vec![(0, 1)]);
     ///
@@ -543,7 +543,7 @@ impl QuditPermutation {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::{QuditRadices, QuditPermutation};
+    /// use qudit_core::{Radices, QuditPermutation};
     /// let qubit_swap = QuditPermutation::from_qubit_location(&vec![1, 0]);
     /// assert_eq!(qubit_swap.index_transpositions(), vec![(1, 2)]);
     /// ```
@@ -579,8 +579,8 @@ impl QuditPermutation {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::{QuditRadices, QuditPermutation};
-    /// use qudit_core::matrix::{mat, Mat};
+    /// use qudit_core::{Radices, QuditPermutation};
+    /// use faer::{mat, Mat};
     /// let qubit_swap = QuditPermutation::from_qubit_location(&vec![1, 0]);
     /// let mat = mat![
     ///     [1., 2., 3., 4.],
@@ -625,8 +625,8 @@ impl QuditPermutation {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::{QuditRadices, QuditPermutation};
-    /// use qudit_core::matrix::{mat, Mat};
+    /// use qudit_core::{Radices, QuditPermutation};
+    /// use faer::{mat, Mat};
     /// let qubit_swap = QuditPermutation::from_qubit_location(&vec![1, 0]);
     /// let mut mat = mat![
     ///     [1., 2., 3., 4.],
@@ -722,8 +722,8 @@ impl QuditPermutation {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::{QuditRadices, QuditPermutation};
-    /// use qudit_core::matrix::{mat, Mat};
+    /// use qudit_core::{Radices, QuditPermutation};
+    /// use faer::{mat, Mat};
     /// let qubit_swap = QuditPermutation::from_qubit_location(&vec![1, 0]);
     /// let mat = mat![
     ///     [1., 2., 3., 4.],
@@ -769,8 +769,8 @@ impl QuditPermutation {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::{QuditRadices, QuditPermutation};
-    /// use qudit_core::matrix::{mat, Mat};
+    /// use qudit_core::{Radices, QuditPermutation};
+    /// use faer::{mat, Mat};
     /// let qubit_swap = QuditPermutation::from_qubit_location(&vec![1, 0]);
     /// let mut mat = mat![
     ///     [1., 2., 3., 4.],
@@ -866,8 +866,8 @@ impl QuditPermutation {
     /// # Examples
     ///
     /// ```
-    /// use qudit_core::{QuditRadices, QuditPermutation};
-    /// use qudit_core::matrix::{mat, Mat};
+    /// use qudit_core::{Radices, QuditPermutation};
+    /// use faer::{mat, Mat};
     /// let qubit_swap = QuditPermutation::from_qubit_location(&vec![1, 0]);
     /// let mat = mat![
     ///     [1., 2., 3., 4.],
@@ -1027,7 +1027,7 @@ impl core::fmt::Display for QuditPermutation {
 pub mod strategies {
     // use super::*;
     // // use crate::radices::strategies::fixed_length_radices;
-    // use crate::radices::QuditRadices;
+    // use crate::radices::Radices;
     // use proptest::prelude::*;
 
     // pub fn perms(num_qudits: usize) -> impl Strategy<Value =
@@ -1038,7 +1038,7 @@ pub mod strategies {
     //         .prop_map(|(radices, perm)| QuditPermutation::new(radices, perm))
     // }
 
-    // pub fn perms_with_radices(radices: QuditRadices) -> impl Strategy<Value =
+    // pub fn perms_with_radices(radices: Radices) -> impl Strategy<Value =
     // QuditPermutation> {     Just(Vec::from_iter(0..radices.
     // get_num_qudits()))         .prop_shuffle()
     //         .prop_map(move |perm| QuditPermutation::new(radices.clone(),
@@ -1059,7 +1059,7 @@ pub mod strategies {
     // QuditPermutation> {     Just(Vec::from_iter(0..num_qudits))
     //         .prop_shuffle()
     //         .prop_map(move |perm| {
-    //             QuditPermutation::new(QuditRadices::new(vec![2; num_qudits]),
+    //             QuditPermutation::new(Radices::new(vec![2; num_qudits]),
     // perm)         })
     // }
 
@@ -1067,7 +1067,7 @@ pub mod strategies {
     // Strategy<Value = QuditPermutation> {     Just(Vec::from_iter(0..
     // num_qudits))         .prop_shuffle()
     //         .prop_map(move |perm| {
-    //             QuditPermutation::new(QuditRadices::new(vec![radix;
+    //             QuditPermutation::new(Radices::new(vec![radix;
     // num_qudits]), perm)         })
     // }
 
@@ -1077,7 +1077,7 @@ pub mod strategies {
     //         Just(Vec::from_iter(0..num_qudits)).prop_shuffle(),
     //     )
     //         .prop_map(move |(radix, perm)| {
-    //             QuditPermutation::new(QuditRadices::new(vec![radix;
+    //             QuditPermutation::new(Radices::new(vec![radix;
     // num_qudits]), perm)         })
     // }
 }
@@ -1087,12 +1087,12 @@ mod tests {
     // use super::QuditPermutation;
     // // use crate::math::hsd;
     // use crate::Gate;
-    // use crate::QuditRadices;
+    // use crate::Radices;
 
     // #[test]
     // fn test_swap_as_perm() {
     //     for radix in 2..5 {
-    //         let radices = QuditRadices::new(vec![radix, radix]);
+    //         let radices = Radices::new(vec![radix, radix]);
     //         let perm = QuditPermutation::new(radices, vec![1, 0]);
     //         let perm_mat = perm.get_matrix();
     //         assert_eq!(Gate::QuditSwap(radix).get_unitary(&[]), perm_mat);
@@ -1102,7 +1102,7 @@ mod tests {
     // #[test]
     // fn test_double_swap_as_perm() {
     //     for radix in 2..5 {
-    //         let radices = QuditRadices::new(vec![radix; 4]);
+    //         let radices = Radices::new(vec![radix; 4]);
     //         let perm = QuditPermutation::new(radices, vec![1, 0, 3, 2]);
     //         let perm_mat = perm.get_matrix();
     //         let swap_utry = Gate::QuditSwap(radix).get_unitary(&[]);
@@ -1113,7 +1113,7 @@ mod tests {
     // #[test]
     // fn test_complicated_perm() {
     //     for radix in 2..3 {
-    //         let radices = QuditRadices::new(vec![radix; 4]);
+    //         let radices = Radices::new(vec![radix; 4]);
     //         let perm = QuditPermutation::new(radices, vec![1, 3, 0, 2]);
     //         let perm_mat = perm.get_matrix();
     //         // for r in perm_mat.outer_iter() {

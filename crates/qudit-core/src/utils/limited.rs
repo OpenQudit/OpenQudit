@@ -32,7 +32,7 @@ use std::alloc::{alloc, dealloc, Layout};
 /// # Examples
 ///
 /// ```rust
-/// # use qudit_circuit::utils::LimitedSizeVec;
+/// # use qudit_core::LimitedSizeVec;
 ///
 /// // Create a new vector
 /// let mut vec = LimitedSizeVec::new();
@@ -70,7 +70,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use qudit_circuit::utils::LimitedSizeVec;
+    /// use qudit_core::LimitedSizeVec;
     ///
     /// let vec: LimitedSizeVec<i32> = LimitedSizeVec::new();
     /// assert_eq!(vec.len(), 0);
@@ -92,7 +92,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use qudit_circuit::utils::LimitedSizeVec;
+    /// use qudit_core::LimitedSizeVec;
     ///
     /// let vec: LimitedSizeVec<i32> = LimitedSizeVec::new_with_capacity(100);
     /// assert_eq!(vec.len(), 0);
@@ -147,7 +147,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(42);
@@ -229,7 +229,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// assert_eq!(vec.len(), 0);
@@ -247,7 +247,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let vec: LimitedSizeVec<i32> = LimitedSizeVec::new_with_capacity(50);
     /// assert_eq!(vec.capacity(), 50);
@@ -262,7 +262,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// assert!(vec.is_empty());
@@ -283,7 +283,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push("hello");
@@ -308,7 +308,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(String::from("hello"));
@@ -339,7 +339,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push("hello");
@@ -366,7 +366,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(String::from("hello"));
@@ -387,7 +387,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(1);
@@ -417,7 +417,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push("a");
@@ -456,7 +456,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push("a");
@@ -496,7 +496,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(1);
@@ -530,7 +530,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(1);
@@ -562,7 +562,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(1);
@@ -588,7 +588,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec: LimitedSizeVec<usize> = LimitedSizeVec::new();
     /// vec.reserve(100);
@@ -610,7 +610,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new_with_capacity(10);
     /// unsafe {
@@ -630,7 +630,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(1);
@@ -663,7 +663,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(3);
@@ -689,7 +689,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec1 = LimitedSizeVec::new();
     /// vec1.push(1);
@@ -724,7 +724,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec1 = LimitedSizeVec::new();
     /// vec1.push("hello".to_string());
@@ -746,7 +746,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(1);
@@ -767,7 +767,7 @@ impl<T> LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(1);
@@ -794,7 +794,7 @@ impl<T: Clone> Clone for LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec1 = LimitedSizeVec::new();
     /// vec1.push("hello".to_string());
@@ -1058,7 +1058,7 @@ impl<T> IntoIterator for LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(1);
@@ -1100,7 +1100,7 @@ impl<'a, T> IntoIterator for &'a LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(1);
@@ -1125,7 +1125,7 @@ impl<'a, T> IntoIterator for &'a mut LimitedSizeVec<T> {
     /// # Examples
     ///
     /// ```rust
-    /// # use qudit_circuit::utils::LimitedSizeVec;
+    /// # use qudit_core::LimitedSizeVec;
     ///
     /// let mut vec = LimitedSizeVec::new();
     /// vec.push(1);
