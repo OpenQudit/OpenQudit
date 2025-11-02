@@ -70,7 +70,7 @@ impl TryFrom<TensorExpression> for KetSystemExpression {
             match idx.direction() {
                 IndexDirection::Batch => {
                     match num_states {
-                        Some(n) => return Err(String::from("More than one batch index in ket system conversion.")),
+                        Some(n) => num_states = Some(n * idx.index_size()),
                         None => num_states = Some(idx.index_size()),
                     }
                 }

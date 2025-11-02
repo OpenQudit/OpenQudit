@@ -95,7 +95,7 @@ impl TryFrom<TensorExpression> for BraSystemExpression {
             match idx.direction() {
                 IndexDirection::Batch => {
                     match num_states {
-                        Some(n) => return Err(String::from("More than one batch index in bra system conversion.")),
+                        Some(n) => num_states = Some(n * idx.index_size()),
                         None => num_states = Some(idx.index_size()),
                     }
                 }

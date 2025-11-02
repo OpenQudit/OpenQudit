@@ -91,7 +91,7 @@ impl TryFrom<TensorExpression> for KrausOperatorsExpression {
             match idx.direction() {
                 IndexDirection::Batch => {
                     match num_operators {
-                        Some(n) => return Err(String::from("More than one batch index in kraus operator conversion.")),
+                        Some(n) => num_operators = Some(n * idx.index_size()),
                         None => num_operators = Some(idx.index_size()),
                     }
                 }
