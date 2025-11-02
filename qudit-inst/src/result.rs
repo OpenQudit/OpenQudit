@@ -61,7 +61,7 @@ impl<C: ComplexScalar> InstantiationResult<C> {
     /// # Examples
     /// 
     /// ```rust
-    /// # use qudit_inst::result::InstantiationResult;
+    /// # use qudit_inst::InstantiationResult;
     /// # use qudit_core::c64;
     /// 
     /// let result = InstantiationResult::<c64>::new(
@@ -94,7 +94,7 @@ impl<C: ComplexScalar> InstantiationResult<C> {
     /// # Examples
     /// 
     /// ```rust
-    /// # use qudit_inst::result::InstantiationResult;
+    /// # use qudit_inst::InstantiationResult;
     /// # use qudit_core::c64;
     /// 
     /// let result = InstantiationResult::<c64>::success(
@@ -132,8 +132,8 @@ impl<C: ComplexScalar> InstantiationResult<C> {
     /// # Examples
     /// 
     /// ```rust
-    /// # use qudit_inst::result::InstantiationResult;
-    /// # use qudit_core::c6464;
+    /// # use qudit_inst::InstantiationResult;
+    /// # use qudit_core::c64;
     /// 
     /// let success = InstantiationResult::<c64>::success(vec![1.0], None);
     /// assert!(success.is_success());

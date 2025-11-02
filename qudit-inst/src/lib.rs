@@ -51,6 +51,7 @@ pub(crate) mod python {
 mod tests {
     use super::*;
     use faer::mat;
+    use qudit_circuit::ArgumentList;
     use qudit_core::c32;
     use qudit_core::c64;
     use qudit_core::UnitaryMatrix;
@@ -131,7 +132,7 @@ mod tests {
 
         let block_expr = U3Gate().otimes(U3Gate()).dot(Controlled(XGate(2), [2].into(), None));
         circ.append(block_expr.clone(), [1, 2], None);
-        circ.append(block_expr.clone(), [0, 1], None);
+        circ.append(block_expr.clone(), [0, 1], ArgumentList::new(vec![None::<f64>.try_into().unwrap(); 6]));
         circ.append(block_expr.clone(), [2, 3], None);
 
         let one_qubit_basis_measurement = BraSystemExpression::new("OneQMeasure() {

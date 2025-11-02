@@ -59,7 +59,7 @@ impl Radices {
     /// equal to the input.
     pub fn guess(dimension: usize) -> Radices {
         if dimension < 2 {
-            panic!("Invalid dimension in QuditRadices");
+            panic!("Invalid dimension in Radices");
         }
 
         // Is a power of two?

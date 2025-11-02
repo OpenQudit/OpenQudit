@@ -25,6 +25,8 @@ pub use wire::WireList;
 pub use operation::OpCode;
 pub use operation::Operation;
 pub use circuit::QuditCircuit;
+pub use param::Argument;
+pub use param::ArgumentList;
 // pub use subcircuit::Subcircuit;
 // pub use location::CircuitLocation;
 // pub use param::ParamEntry;
