@@ -14,12 +14,16 @@ classifiers = [
 
 [tool.cibuildwheel]
 build = "cp39-*"
-# container-engine = "podman"
+container-engine = "podman"
 skip = "*musllinux*"
+test-command = "python -c 'import openqudit'"
 
 [tool.cibuildwheel.linux]
 manylinux-x86_64-image = "manylinux_2_28"
 before-all = "dnf install -y llvm-devel-18.1.8-3.module_el8.10.0+3903+ca21d481 libffi-devel ncurses-devel"
+
+[tool.cibuildwheel.linux.config-settings]
+build-args = "--features dynamic"
 
 [tool.cibuildwheel.macos]
 before-all = """
@@ -33,7 +37,6 @@ MACOSX_DEPLOYMENT_TARGET = "11.0"
 
 [tool.cibuildwheel.windows]
 archs = ["auto64"]
-# before-all = "dir D:\\a\\OpenQudit\\OpenQudit\\vcpkg\\installed\\x64-windows-static\\lib\\"
 environment = { LIB='D:\\a\\OpenQudit\\OpenQudit\\vcpkg\\installed\\x64-windows-static\\lib\\;$LIB' }
 
 # Run delvewheel

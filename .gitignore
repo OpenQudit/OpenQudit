@@ -27,6 +27,7 @@ __pycache__/
 .installed.cfg
 *.egg
 wheels/
+wheelhouse/
 *.so
 *.pyd
 .env
