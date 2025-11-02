@@ -15,7 +15,6 @@ rand = { workspace = true }
 coe-rs = { workspace = true }
 bit-set = { workspace = true }
 rand_distr = { workspace = true }
-qudit-macros = { workspace = true }
 num-complex = { workspace = true }
 
 # python
@@ -24,9 +23,10 @@ pyo3 = { workspace = true, optional = true }
 inventory = { workspace = true, optional = true }
 
 [dev-dependencies]
-proptest = "1.2"
-criterion = "0.5"
-pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
+proptest = { workspace = true }
+criterion = { workspace = true }
+pprof = { workspace = true }
+qudit-macros = { workspace = true }
 
 [[bench]]
 name = "frpr"

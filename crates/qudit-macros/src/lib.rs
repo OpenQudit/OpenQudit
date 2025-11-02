@@ -1,209 +1,511 @@
-use proc_macro2::{Span, TokenStream};
-use syn::{parse_macro_input, LitFloat, Result, Token, bracketed};
-use syn::parse::{Parse, ParseStream};
-use syn::punctuated::Punctuated;
+use proc_macro::TokenStream;
+use proc_macro2::{TokenStream as TokenStream2, TokenTree, Delimiter, Span, Spacing, Punct, Group};
+use syn::{Result, Error};
 use quote::quote;
 
-// enum TensorTokens {
-//     J,
-//     OpenBracket,
-//     ClosedBracket,
-//     Comma,
-//     Number,
-//     Op,
-//     OpenParenthesis,
-//     ClosedParenthesis,
-// }
-
-struct ComplexElement {
-    real: LitFloat,
-    imag: LitFloat,
+#[derive(Debug, Clone)]
+enum TensorTokens {
+    OpenBracket,
+    ClosedBracket,
+    Comma,
+    Number(Vec<TokenTree>)
 }
 
-mod keywords {
-    syn::custom_keyword!(j);
+#[derive(Debug, Clone)]
+enum RecursiveTensor {
+    Scalar(Vec<TokenTree>),
+    SubTensor(Vec<RecursiveTensor>)
 }
 
-impl Parse for ComplexElement {
-    fn parse(elem: ParseStream) -> Result<Self> {
-        let mut real_float = 0.0;
-        let mut imag_float = 0.0;
-        let mut number_accumulator: f64;
-        let mut sign_accumulator: f64 = 1.0;
-        let mut lit_float_accumulator: LitFloat;
+/// Replaces `j` with `c32::new(0.0, 1.0)` in the input token stream.
+/// Also makes implicit multiplication explicit. (e.g. `4j` becomes `4.0 * j`)
+/// 
+/// # Arguments
+/// 
+/// * `input` - A tokenstream containing the input tokens.
+/// 
+/// # Returns
+/// 
+/// * A tokenstream with the processed tokens.
+/// 
+/// # Panics
+/// 
+/// * If a literal with suffix or prefix `j` is not a valid number.
+/// 
+fn j_processing32(input: TokenStream2) -> TokenStream2 {
+    let tokens: Vec<TokenTree> = input.into_iter().collect();
+    let mut new_stream = Vec::<TokenTree>::new();
+    let mut stream_accumulator: Vec<TokenTree> ;
 
-        while !elem.is_empty() && !elem.peek(Token![,]) {
-            // If we have a structure like `4.3j`, we need to detect `j` via .suffix().
-            // If we have `4.3 j`, `4.3` and `j` are separate tokens and we detect `j` via `elem.peek(Token![,])`.
+    let mut token: &TokenTree;
+    let mut lit_str: String;
+    let mut pass: bool;
+    for index in 0..tokens.len() {
+        stream_accumulator = Vec::<TokenTree>::new();
+        pass = false;
+        token = &tokens[index];
 
-            lit_float_accumulator = elem.parse::<LitFloat>()?;
-            number_accumulator = lit_float_accumulator.base10_parse::<f64>()?;
-            
-            if lit_float_accumulator.suffix() == "j" {
-                // The case where we have `j` next to a float without whitespace
-                imag_float += number_accumulator * sign_accumulator;
-            } else if elem.peek(keywords::j) {
-                // The case where we have `j` next to a float with whitespace
-                imag_float += number_accumulator * sign_accumulator;
-                elem.parse::<keywords::j>()?;
-            } else {
-                real_float += number_accumulator * sign_accumulator;
+        // Replaces `j` with c64::new(0.0, 1.0).
+        match &token {
+
+            TokenTree::Literal(literal) => {
+                lit_str = literal.to_string();
+                if let Some(num_part) = lit_str.strip_suffix('j') {
+                    if let Ok(number_val) = num_part.parse::<f32>() {
+                        stream_accumulator.extend(quote!{#number_val * c32::new(0.0, 1.0)});
+                        pass = true;
+                    } else {
+                        panic!("Not a valid number")
+                    }
+                } else if let Some(num_part) = lit_str.strip_prefix('j') {
+                    if let Ok(number_val) = num_part.parse::<f32>() {
+                        stream_accumulator.extend(quote!{#number_val * c32::new(0.0, 1.0)});
+                        pass = true;
+                    } else {
+                        panic!("Not a valid number")
+                    }
+                } 
             }
 
-            if elem.is_empty() || elem.peek(Token![,]) {
-                break;
-            } else if elem.peek(Token![+]) {
-                sign_accumulator = 1.0;
-                elem.parse::<Token![+]>()?;
-            } else if elem.peek(Token![-]) {
-                sign_accumulator = -1.0;
-                elem.parse::<Token![-]>()?;
-            } else {
-                return Err(elem.error("Expected a sign but got something else"));
+            TokenTree::Ident(identifier) => {
+                if identifier.to_string().as_str() == "j" {
+                    stream_accumulator.extend(quote!{c32::new(0.0, 1.0)});
+                    pass = true;
+                } 
+            }
+
+            TokenTree::Group(group) => {
+                let processed_inner_stream = j_processing32(group.stream());
+                let new_group = Group::new(group.delimiter(), processed_inner_stream);
+                new_stream.push(TokenTree::Group(new_group));
+                continue;
+            }
+
+            _ => ()
+        }
+
+        if !pass {
+            new_stream.push(token.clone());
+            continue;
+        }
+
+        // Makes implicit multiplication explicit
+        pass = false;
+        if index > 0 {
+            if let TokenTree::Punct(punct) = &tokens[index - 1] {
+                match punct.as_char() {
+                    ']' | ',' | '+' | '-' | '*' | '/' => pass = true,
+                    _ => ()
+                }
+            }
+            if !pass {
+                new_stream.push(TokenTree::Punct(Punct::new('*', Spacing::Alone)));
             }
         }
-        let mut real_str = real_float.to_string();
-        let mut imag_str = imag_float.to_string();
-
-        // There's a bug in `.to_string()` where floats with no decimal part is converted 
-        // to integer notation. We thus need to add the decimal back in.
-        if !real_str.contains('.') {
-            real_str.push_str(".0");
+        
+        new_stream.extend(stream_accumulator);
+        
+        pass = false;
+        if index < tokens.len() - 1 {
+            if let TokenTree::Punct(punct) = &tokens[index + 1] {
+                match punct.as_char() {
+                    ']' | ',' | '+' | '-' | '*' | '/' => pass = true,
+                    _ => ()
+                }
+            }
+            if !pass {
+                new_stream.push(TokenTree::Punct(Punct::new('*', Spacing::Alone)));
+            }
         }
-        if !imag_str.contains('.') {
-            imag_str.push_str(".0");
-        }
-
-        let real = LitFloat::new(&real_str, Span::call_site());
-        let imag = LitFloat::new(&imag_str, Span::call_site());
-
-        Ok(ComplexElement {real, imag})
+        
     }
+    return TokenStream2::from_iter(new_stream);
 }
 
-/// # Example
-/// ```
-/// use faer::c64;
-/// use qudit_macros::complex_elem;
+/// Replaces `j` with `c64::new(0.0, 1.0)` in the input token stream.
+/// Also makes implicit multiplication explicit. (e.g. `4j` becomes `4.0 * j`)
 /// 
-/// let test1 = complex_elem!(3.4);
-/// let test2 = complex_elem!(5.4 j);
-/// let test3 = complex_elem!(3.4 + 5.4 j);
-/// let test4 = complex_elem!(3.4 - 5.4 j);
-/// let test5 = complex_elem!(3.4 j - 5.4);
-/// let test6 = complex_elem!(-3.4 j - 5.4);
+/// # Arguments
 /// 
-/// let expected1 = c64::(3.4, 0.0);
-/// let expected2 = c64::(0.0, 5.4);
-/// let expected3 = c64::(3.4, 5.4);
-/// let expected4 = c64::(3.4, -5.4);
-/// let expected5 = c64::(-5.4, 3.4);
-/// let expected6 = c64::(-5.4, -3.4);
+/// * `input` - A tokenstream containing the input tokens.
 /// 
-/// assert_eq!(test1, expected1);
-/// assert_eq!(test2, expected2);
-/// assert_eq!(test3, expected3);
-/// assert_eq!(test4, expected4);
-/// assert_eq!(test5, expected5);
-/// assert_eq!(test6, expected6);
-/// ```
-#[proc_macro]
-pub fn complex_elem(elem: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let parsed_elem = parse_macro_input!(elem as ComplexElement);
+/// # Returns
+/// 
+/// * A tokenstream with the processed tokens.
+/// 
+/// # Panics
+/// 
+/// * If a literal with suffix or prefix `j` is not a valid number.
+/// 
+fn j_processing64(input: TokenStream2) -> TokenStream2 {
+    let tokens: Vec<TokenTree> = input.into_iter().collect();
+    let mut new_stream = Vec::<TokenTree>::new();
+    let mut stream_accumulator: Vec<TokenTree> ;
 
-    let real_part = parsed_elem.real;
-    let imag_part = parsed_elem.imag;
+    let mut token: &TokenTree;
+    let mut lit_str: String;
+    let mut pass: bool;
+    for index in 0..tokens.len() {
+        stream_accumulator = Vec::<TokenTree>::new();
+        pass = false;
+        token = &tokens[index];
 
-    quote!{c64::new(#real_part, #imag_part)}.into()
-}
+        // Replaces `j` with c64::new(0.0, 1.0).
+        match &token {
 
-struct ComplexMatrix {
-    data: Vec<Vec<ComplexElement>>,
-}
+            TokenTree::Literal(literal) => {
+                lit_str = literal.to_string();
+                if let Some(num_part) = lit_str.strip_suffix('j') {
+                    if let Ok(number_val) = num_part.parse::<f64>() {
+                        stream_accumulator.extend(quote!{#number_val * c64::new(0.0, 1.0)});
+                        pass = true;
+                    } else {
+                        panic!("Not a valid number")
+                    }
+                } else if let Some(num_part) = lit_str.strip_prefix('j') {
+                    if let Ok(number_val) = num_part.parse::<f64>() {
+                        stream_accumulator.extend(quote!{#number_val * c64::new(0.0, 1.0)});
+                        pass = true;
+                    } else {
+                        panic!("Not a valid number")
+                    }
+                } 
+            }
 
-impl Parse for ComplexMatrix {
-    fn parse(matrix: ParseStream) -> Result<Self> {
-        let rows;
-        bracketed!(rows in matrix);
+            TokenTree::Ident(identifier) => {
+                if identifier.to_string().as_str() == "j" {
+                    stream_accumulator.extend(quote!{c64::new(0.0, 1.0)});
+                    pass = true;
+                } 
+            }
 
-        let mut data = Vec::new();
-        let mut parsed_row_accumulator: Punctuated<ComplexElement, Token![,]>;
+            TokenTree::Group(group) => {
+                let processed_inner_stream = j_processing64(group.stream());
+                let new_group = Group::new(group.delimiter(), processed_inner_stream);
+                new_stream.push(TokenTree::Group(new_group));
+                continue;
+            }
 
-        while !rows.is_empty() {
-            let row;
-            bracketed!(row in rows);
+            _ => ()
+        }
 
-            parsed_row_accumulator = Punctuated::parse_terminated(&row)?;
-            
-            data.push(
-                parsed_row_accumulator.into_iter().collect()
-            );
+        if !pass {
+            new_stream.push(token.clone());
+            continue;
+        }
 
-            if rows.peek(Token![,]) {
-                rows.parse::<Token![,]>()?;
+        // Makes implicit multiplication explicit
+        pass = false;
+        if index > 0 {
+            if let TokenTree::Punct(punct) = &tokens[index - 1] {
+                match punct.as_char() {
+                    ']' | ',' | '+' | '-' | '*' | '/' => pass = true,
+                    _ => ()
+                }
+            }
+            if !pass {
+                new_stream.push(TokenTree::Punct(Punct::new('*', Spacing::Alone)));
             }
         }
-        Ok(ComplexMatrix{data})
+        
+        new_stream.extend(stream_accumulator);
+        
+        pass = false;
+        if index < tokens.len() - 1 {
+            if let TokenTree::Punct(punct) = &tokens[index + 1] {
+                match punct.as_char() {
+                    ']' | ',' | '+' | '-' | '*' | '/' => pass = true,
+                    _ => ()
+                }
+            }
+            if !pass {
+                new_stream.push(TokenTree::Punct(Punct::new('*', Spacing::Alone)));
+            }
+        }
+        
     }
+    return TokenStream2::from_iter(new_stream);
 }
 
-/// # Example
-/// ```
-/// use faer::{c64, Mat};
-/// use qudit_macros::complex_mat;
+/// Categorizes the tokens in the input token stream to aid in parsing.
 /// 
-/// let answer = complex_mat!([
-///     [1.0 + 1.0 j, 4.2 + 1.5 j],
-///     [2.0 + 1.0 j, 4.9 + 1.5 j]
-/// ]);
+/// # Arguments
 /// 
-/// let expected_data = [
-///     [c64::new(1.0, 1.0), c64::new(4.2, 1.5)],
-///     [c64::new(2.0, 1.0), c64::new(4.9, 1.5)]
-/// ];
-/// let expected = Mat::from_fn(2, 2, |i, j| -> c64 {expected_data[i][j]});
+/// * `token_stream` - A tokenstream containing the input tokens.
 /// 
-/// assert_eq!(answer, expected);
-/// ```
-#[proc_macro]
-pub fn complex_mat(raw_matrix: proc_macro::TokenStream) -> proc_macro::TokenStream {
-    let matrix = parse_macro_input!(raw_matrix as ComplexMatrix);
+/// # Returns
+/// 
+/// * A tokenstream with the processed tokens.
+/// 
+fn tensor_lexer(token_stream: TokenStream2) -> Result<Vec<TensorTokens>> {
+    let mut processed_tokens = Vec::new();
+    let mut token_iterator = token_stream.into_iter();
 
-    let num_rows = matrix.data.len();
+    let mut number_token_accumulator = Vec::new();
 
-    let num_cols: usize;
-    if num_rows == 0 {
-        num_cols = 0;
+    while let Some(token) = token_iterator.next() {
+        match &token {
+            
+            TokenTree::Literal(_literal) => {
+                number_token_accumulator.push(token);
+            }
+
+            TokenTree::Ident(_identifier) => {
+                number_token_accumulator.push(token);
+            }
+
+            TokenTree::Punct(punctuation) => match punctuation.as_char() {
+                ',' => {
+                    if !number_token_accumulator.is_empty() {
+                        processed_tokens.push(TensorTokens::Number(number_token_accumulator));
+                        number_token_accumulator = Vec::new();
+                    }
+                    
+                    processed_tokens.push(TensorTokens::Comma)
+                },
+                _ => number_token_accumulator.push(token)
+            }
+
+            TokenTree::Group(group) => match group.delimiter() {
+                Delimiter::Bracket => {
+                    if !number_token_accumulator.is_empty() {
+                        processed_tokens.push(TensorTokens::Number(number_token_accumulator));
+                        number_token_accumulator = Vec::new();
+                    }
+
+                    processed_tokens.push(TensorTokens::OpenBracket);
+                    processed_tokens.extend(tensor_lexer(group.stream())?);
+                    processed_tokens.push(TensorTokens::ClosedBracket);
+                },
+                _ => number_token_accumulator.push(token)
+            }
+
+        }
+    }
+    if !number_token_accumulator.is_empty() {
+        processed_tokens.push(TensorTokens::Number(number_token_accumulator));
+    }
+    return Ok(processed_tokens);
+}
+
+/// Organizes a series of custom tokens into a recursive tensor structure.
+/// 
+/// # Arguments
+/// 
+/// * `tokens` - A slice of `TensorTokens`, expected from `tensor_lexer`.
+/// 
+/// # Returns
+/// 
+/// * A recursive tensor storing the user's tokens.
+/// * The number of tokens consumed from the input slice.
+/// 
+/// # Panics
+/// 
+/// * If there is a missing closing bracket.
+/// * If the tensor does not start with an opening bracket or is not a scalar.
+/// 
+fn tensor_parser(tokens: &[TensorTokens]) -> Result<(RecursiveTensor, usize)> {
+    let mut index = 0;
+
+    // A tensor starts with [ or is a scalar.
+    if let Some(TensorTokens::OpenBracket) = tokens.get(index) {
+        index += 1;
+
+        // Each recursive step is adding one dimension.
+        let mut children = Vec::new();
+        loop {
+            if index > tokens.len() {
+                return Err(Error::new(Span::call_site(), "Missing closing bracket"));
+            }
+
+            if let Some(TensorTokens::ClosedBracket) = tokens.get(index) {
+                index += 1;
+                return Ok((RecursiveTensor::SubTensor(children), index));
+            }
+
+            let (child, delta_index) = tensor_parser(&tokens[index..])?;
+            children.push(child);
+            index += delta_index;
+
+            if let Some(TensorTokens::Comma) = tokens.get(index) {
+                index += 1;
+            }
+        }
+    } else if let Some(TensorTokens::Number(token_tree_vec)) = tokens.get(index) {
+            return Ok((RecursiveTensor::Scalar(token_tree_vec.clone()), 1));
     } else {
-        num_cols = matrix.data[0].len();
+        return Err(Error::new(Span::call_site(), "Not a valid tensor"));
     }
-
-    let mut processed_matrix: Vec<TokenStream> = Vec::new();
-    let mut row_accumulator: Vec<TokenStream>;
-    let mut real: LitFloat;
-    let mut imag: LitFloat;
-    for row in matrix.data {
-        row_accumulator = Vec::<TokenStream>::new();
-        for elem in row {
-            real = elem.real;
-            imag = elem.imag;
-            row_accumulator.push(
-                quote!{faer::c64::new(#real, #imag)}.into()
-            );
-        }
-        processed_matrix.push(
-            quote! {
-                [#(#row_accumulator),*]
-            }.into()
-        );
-    }
-
-    quote!{
-        {
-            let temp_array = [#(#processed_matrix),*];
-            Mat::from_fn(#num_rows, #num_cols, |i, j| temp_array[i][j])
-        }
-    }.into()
+        
 }
 
-// ###########################################################################################################
+/// Flattens the recursive tensor structure into a single vector of tokens and calculates its shape.
+/// 
+/// # Arguments
+/// 
+/// * `input` - A reference to the recursive tensor structure.
+/// 
+/// # Returns
+/// 
+/// * A vector containing all elements of the input tensor.
+/// * The shape of the input tensor.
+/// 
+fn flatten_tensor_data(input: &RecursiveTensor) -> (Vec<TokenStream2>, Vec<usize>) {
+    match input {
+
+        RecursiveTensor::Scalar(token_vec) => {
+            let stream = TokenStream2::from_iter(token_vec.clone());
+            (vec![stream.clone()], vec![])
+        }
+
+        RecursiveTensor::SubTensor(subtensors) => {
+
+            // Flattened data calculation
+            let mut flat_data = Vec::new();
+            for subtensor in subtensors {
+                let (mut subtensor_data, _) = flatten_tensor_data(subtensor);
+                flat_data.append(&mut subtensor_data);
+            }
+
+            // Shape calculation
+            let (_, sub_shape) = flatten_tensor_data(&subtensors[0]);
+            let mut final_shape = vec![subtensors.len()];
+            final_shape.extend(sub_shape);
+
+            return (flat_data, final_shape);
+        }
+    }
+}
+
+/// Creates a 64-bit complex tensor from nested brackets. Complex numbers
+/// can be created using `j`. (e.g. `4j`, `my_function()j`, or `some_variable * j`)
+/// 
+/// # Arguments
+/// 
+/// * `input` - The user's desired tensor written in simplified language.
+/// 
+/// # Returns
+/// 
+/// * A 64-bit complex tensor implementing the user's data.
+/// 
+/// # Panics
+/// 
+/// * If there is a missing closing bracket.
+/// * If the tensor does not start with an opening bracket or is not a scalar.
+/// * If a literal with suffix or prefix `j` is not a valid number.
+/// 
+/// # Example
+/// ```
+/// use qudit_macros::complex_tensor64;
+/// use qudit_core::array::Tensor;
+/// use qudit_core::c64;
+/// use std::slice::from_raw_parts;
+/// 
+/// fn arbitrary_func(x: f64, y: f64) -> f64 {
+///     return x * y + 9.0 * x;
+/// }
+/// 
+/// let attempt = complex_tensor64!([
+///    3.0 * arbitrary_func(1.5, 2.0)j + 4.5,
+///   -(2.0j + arbitrary_func(5.5, 3.5))
+/// ]);
+/// let expected_data = vec![c64::new(4.5, 49.5), c64::new(-68.75, -2.0)];
+/// let expected = Tensor::<c64, 1>::from_slice(&expected_data, [2]);
+/// 
+/// assert_eq!(attempt.dims(), expected.dims());
+/// unsafe {
+///    assert_eq!(from_raw_parts(attempt.as_ptr(), 2), from_raw_parts(expected.as_ptr(), 2));
+/// }
+/// ```
+#[proc_macro]
+pub fn complex_tensor64(input: TokenStream) -> TokenStream {
+
+    let input_processed = j_processing64(input.into());
+
+    let tokens = match tensor_lexer(input_processed) {
+        Ok(inner_val) => inner_val,
+        Err(error) => return error.to_compile_error().into(),
+    };
+
+    let (recursive_tensor, _) = match tensor_parser(&tokens) {
+        Ok(inner_val) => inner_val,
+        Err(error) => return error.to_compile_error().into(),
+    };
+
+    let (flat_data, shape) = flatten_tensor_data(&recursive_tensor);
+    
+    let quoted_shape = quote!{[#(#shape),*]};
+
+    let d = shape.len();
+    quote!{{
+            let data_vec: Vec<c64> = vec![#(#flat_data),*];
+            Tensor::<c64, #d>::from_slice(&data_vec, #quoted_shape)
+    }}.into()
+}
+
+/// Creates a 32-bit complex tensor from nested brackets. Complex numbers
+/// can be created using `j`. (e.g. `4j`, `my_function()j`, or `some_variable * j`)
+/// 
+/// # Arguments
+/// 
+/// * `input` - The user's desired tensor written in simplified language.
+/// 
+/// # Returns
+/// 
+/// * A 32-bit complex tensor implementing the user's data.
+/// 
+/// # Panics
+/// 
+/// * If there is a missing closing bracket.
+/// * If the tensor does not start with an opening bracket or is not a scalar.
+/// * If a literal with suffix or prefix `j` is not a valid number.
+/// 
+/// # Example
+/// ```
+/// use qudit_macros::complex_tensor32;
+/// use qudit_core::array::Tensor;
+/// use qudit_core::c32;
+/// use std::slice::from_raw_parts;
+/// 
+/// fn arbitrary_func(x: f32, y: f32) -> f32 {
+///     return x * y + 9.0 * x;
+/// }
+/// 
+/// let attempt = complex_tensor32!([
+///    3.0 * arbitrary_func(1.5, 2.0)j + 4.5,
+///   -(2.0j + arbitrary_func(5.5, 3.5))
+/// ]);
+/// let expected_data = vec![c32::new(4.5, 49.5), c32::new(-68.75, -2.0)];
+/// let expected = Tensor::<c32, 1>::from_slice(&expected_data, [2]);
+/// 
+/// assert_eq!(attempt.dims(), expected.dims());
+/// unsafe {
+///    assert_eq!(from_raw_parts(attempt.as_ptr(), 2), from_raw_parts(expected.as_ptr(), 2));
+/// }
+/// ```
+#[proc_macro]
+pub fn complex_tensor32(input: TokenStream) -> TokenStream {
+
+    let input_processed = j_processing32(input.into());
+
+    let tokens = match tensor_lexer(input_processed) {
+        Ok(inner_val) => inner_val,
+        Err(error) => return error.to_compile_error().into(),
+    };
+
+    let (recursive_tensor, _) = match tensor_parser(&tokens) {
+        Ok(inner_val) => inner_val,
+        Err(error) => return error.to_compile_error().into(),
+    };
+
+    let (flat_data, shape) = flatten_tensor_data(&recursive_tensor);
+    
+    let quoted_shape = quote!{[#(#shape),*]};
+
+    let d = shape.len();
+    quote!{{
+            let data_vec: Vec<c32> = vec![#(#flat_data),*];
+            Tensor::<c32, #d>::from_slice(&data_vec, #quoted_shape)
+    }}.into()
+}
+

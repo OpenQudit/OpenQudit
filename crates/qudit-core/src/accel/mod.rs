@@ -96,7 +96,7 @@ pub use matmul::MatMulPlan;
 
 #[cfg(test)]
 mod macro_tests {
-    use qudit_macro::{complex_tensor64, complex_tensor32};
+    use qudit_macros::{complex_tensor64, complex_tensor32};
     use crate::array::Tensor;
     use crate::{c64, c32};
     use std::slice::from_raw_parts;

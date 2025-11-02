@@ -2,6 +2,10 @@
 members = ["crates/*"]
 resolver = "2"
 
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+
 [workspace.dependencies]
 
 # Number
@@ -12,7 +16,7 @@ ordered-float = "5.0.0"
 
 # Linalg
 nano-gemm = "0.1.2"
-faer = "0.22.6"
+faer = { version = "0.22.6", features = ["std", "rand"], default-features = false }
 faer-traits = "0.22.1"
 
 # Python Support
@@ -50,8 +54,10 @@ qudit-circuit = {path = "crates/qudit-circuit"}
 qudit-inst = {path = "crates/qudit-inst"}
 qudit-python = {path = "crates/qudit-python"}
 
-[workspace.dev-dependencies]
+# Testing
 proptest = "1.2"
+
+# Benchmarking
 criterion = "0.5"
 pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
 
