@@ -28,6 +28,9 @@ struct ParamBuffer<R: RealScalar> {
 
     /// Maps variable parameter i to parameter variable_map[i]
     variable_map: Vec<usize>,
+
+    /// Flag that enables a shortcut in updates
+    fully_parameterized: bool,
 }
 
 impl<R: RealScalar> ParamBuffer<R> {
@@ -35,7 +38,7 @@ impl<R: RealScalar> ParamBuffer<R> {
     fn new(num_params: usize, const_map: Option<&FxHashMap<usize, R>>) -> Self {
         let mut buffer = alloc_zeroed_memory(num_params);
 
-        let variable_map = if let Some(const_map) = const_map {
+        if let Some(const_map) = const_map {
             for (idx, arg) in const_map.iter() {
                 buffer[*idx] = *arg;
             }
@@ -47,26 +50,37 @@ impl<R: RealScalar> ParamBuffer<R> {
                 }
             }
             
-            variable_map
-        } else {
-            Vec::new()
-        };
+            let fully_parameterized = variable_map.len() == num_params;
 
-        Self {
-            buffer,
-            variable_map,
+            Self {
+                buffer,
+                variable_map,
+                fully_parameterized,
+            }
+        } else {
+            Self {
+                buffer,
+                variable_map: (0..num_params).collect(),
+                fully_parameterized: true,
+            }
         }
     }
 
 
     /// Places the variable arguments into the buffer
     #[inline(always)]
-    fn place_new_var_args(&mut self, var_args: &[R]) {
+    fn as_slice_with_var_args<'a, 'b>(&'a mut self, var_args: &'b [R]) -> &'b [R] where 'a: 'b {
         debug_assert_eq!(var_args.len(), self.variable_map.len());
+
+        if self.fully_parameterized {
+            return var_args;
+        }
 
         for (arg, idx) in var_args.iter().zip(self.variable_map.iter()) {
             self.buffer[*idx] = *arg;
         }
+
+        self.as_slice()
     }
 
     /// Convert the buffer to a slice of arguments
@@ -164,12 +178,12 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
         unsafe {
             let this = self.as_mut().get_unchecked_mut();
 
-            this.param_buffer.place_new_var_args(var_args);
+            let arg_slice = this.param_buffer.as_slice_with_var_args(var_args);
 
             for inst in &this.dynamic_instructions {
                 // Safety: Whole structure of TNVM ensures that the instruction
                 // evaluates only on memory it has access to.
-                inst.evaluate::<E>(this.param_buffer.as_slice(), &mut this.memory);
+                inst.evaluate::<E>(arg_slice, &mut this.memory);
             }
        
             // Safety: Projection of const reference from mutable pin. Caller

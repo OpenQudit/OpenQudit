@@ -1,12 +1,11 @@
-use std::{cell::RefCell, collections::HashMap, rc::Rc, sync::{Arc, Mutex}};
+use std::sync::{Arc, Mutex};
 
 // use aligned_vec::CACHELINE_ALIGN;
 // use faer_entity::Entity;
 
 // use crate::sim::qvm::QVMType;
 
-use qudit_core::{ComplexScalar, ParamIndices};
-use qudit_expr::{DifferentiationLevel, ExpressionCache, Module, ModuleBuilder, TensorExpression, UnitaryExpression};
+use qudit_expr::ExpressionCache;
 
 use super::{BytecodeInstruction, TensorBuffer};
 

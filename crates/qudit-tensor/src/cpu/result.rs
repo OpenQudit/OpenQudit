@@ -3,7 +3,6 @@ use faer::RowRef;
 use faer::ColRef;
 use faer::MatRef;
 use qudit_core::array::TensorRef;
-use qudit_core::array::SymSqTensorRef;
 use qudit_expr::GenerationShape;
 use super::buffer::SizedTensorBuffer;
 

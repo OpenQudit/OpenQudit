@@ -1,15 +1,9 @@
 use std::hash::Hash;
 
 use super::fmt::PrintTree;
-use qudit_core::HasPeriods;
-use qudit_core::HasParams;
 use qudit_core::ParamInfo;
-use qudit_core::RealScalar;
-use qudit_core::Radices;
-use qudit_core::QuditSystem;
 use qudit_expr::index::IndexDirection;
 use qudit_expr::index::TensorIndex;
-use qudit_expr::GenerationShape;
 use super::tree::TTGTNode;
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]

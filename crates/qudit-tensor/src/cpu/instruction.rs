@@ -1,10 +1,7 @@
 use std::sync::{Arc, Mutex};
-use std::{cell::RefCell, rc::Rc};
 
-use faer::MatMut;
 use qudit_core::{memory::MemoryBuffer, ComplexScalar};
-use qudit_expr::{DifferentiationLevel, ExpressionCache, ExpressionId, Module};
-use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
+use qudit_expr::{DifferentiationLevel, ExpressionCache};
 
 use crate::{bytecode::BytecodeInstruction, cpu::instructions::{WriteStruct, FRPRStruct, HadamardStruct, KronStruct, TraceStruct}};
 

@@ -1,15 +1,12 @@
-use std::{cell::RefCell, collections::{BTreeMap, BTreeSet, HashMap}, hash::Hash, rc::Rc, sync::{Arc, Mutex}};
+use std::{collections::{BTreeSet, HashMap}, sync::{Arc, Mutex}};
 
-use qudit_core::Radices;
 use qudit_expr::{ExpressionCache, GenerationShape};
 
-use crate::tree::TTGTNode;
 use crate::tree::TTGTTree;
 use super::path::ContractionPath;
 use super::tensor::QuditTensor;
 use super::index::NetworkIndex;
 use super::index::TensorIndex;
-use super::index::ContractionIndex;
 use super::index::WeightedIndex;
 use super::index::IndexDirection;
 use super::index::IndexId;

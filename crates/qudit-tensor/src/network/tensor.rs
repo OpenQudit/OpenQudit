@@ -1,15 +1,9 @@
-use qudit_core::UnitaryMatrix;
-use qudit_core::ComplexScalar;
-use qudit_core::ParamIndices;
 use qudit_core::ParamInfo;
-use qudit_expr::index::IndexSize;
 use qudit_expr::ExpressionId;
 use qudit_expr::GenerationShape;
-use qudit_expr::TensorExpression;
 
 use qudit_expr::index::TensorIndex;
 use qudit_expr::index::IndexDirection;
-use qudit_expr::UnitaryExpression;
 
 #[derive(Debug, Clone)]
 pub struct QuditTensor {

@@ -1,13 +1,10 @@
-use std::collections::BTreeMap;
 
-use faer::{MatMut, MatRef};
-use qudit_core::array::{TensorRef, TensorMut, SymSqTensorMut, SymSqTensorRef};
-use qudit_core::{memory, ComplexScalar, ParamInfo};
+use qudit_core::{ComplexScalar, ParamInfo};
 use super::{GradOffsetList, HessOffsetList, cache_grad_offset_list, cache_hess_offset_list};
 
 use super::super::buffer::SizedTensorBuffer;
 use qudit_expr::DifferentiationLevel;
-use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
+use qudit_expr::{GRADIENT, HESSIAN};
 use qudit_core::memory::MemoryBuffer;
 use qudit_core::accel::MatMulPlan;
 

@@ -1,15 +1,8 @@
 use std::fmt;
 use std::hash::Hash;
 
-use qudit_core::HasPeriods;
-use qudit_core::HasParams;
 use qudit_core::ParamInfo;
-use qudit_core::RealScalar;
-use qudit_core::Radices;
-use qudit_core::QuditSystem;
-use qudit_core::QuditPermutation;
 use qudit_expr::index::TensorIndex;
-use qudit_expr::GenerationShape;
 
 use super::fmt::PrintTree;
 use super::tree::TTGTNode;

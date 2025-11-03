@@ -1,14 +1,11 @@
-use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::BTreeMap;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
 
 use qudit_core::UnitaryMatrix;
 use qudit_core::ComplexScalar;
-use qudit_core::ParamIndices;
 use qudit_core::ParamInfo;
 use qudit_core::Radices;
 use qudit_expr::ExpressionCache;
@@ -21,7 +18,6 @@ use super::tensor::QuditTensor;
 use super::index::NetworkIndex;
 use super::index::TensorIndex;
 use super::index::ContractionIndex;
-use super::index::WeightedIndex;
 use super::index::IndexDirection;
 use super::index::IndexId;
 use super::index::IndexSize;

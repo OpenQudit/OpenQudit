@@ -10,9 +10,7 @@ mod trace;
 mod hadamard;
 
 pub use leaf::LeafNode;
-pub use matmul::MatMulNode;
 pub use transpose::TransposeNode;
-pub use outer::OuterProductNode;
 pub use trace::TraceNode;
 pub use hadamard::HadamardProductNode;
 

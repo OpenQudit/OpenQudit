@@ -1,15 +1,11 @@
-use std::cell::RefCell;
-use std::collections::{HashMap, HashSet, BTreeSet};
-use std::rc::Rc;
+use std::collections::BTreeSet;
 use std::sync::{Arc, Mutex};
 
 use super::buffer::TensorBuffer;
 use super::{Bytecode, BytecodeInstruction};
-use qudit_core::{HasParams, ParamInfo};
-use qudit_expr::index::TensorIndex;
+use qudit_core::HasParams;
 use crate::tree::{TTGTTree, TTGTNode, LeafNode, TraceNode, TransposeNode};
-use qudit_expr::{ExpressionCache, GenerationShape, TensorExpression, UnitaryExpression};
-use qudit_core::QuditSystem;
+use qudit_expr::{ExpressionCache, GenerationShape};
 
 #[derive(Default)]
 pub struct BytecodeGenerator {

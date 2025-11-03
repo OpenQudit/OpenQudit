@@ -2,7 +2,7 @@ use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap};
 
 use bit_set::BitSet;
 
-use crate::network::index::{IndexId, IndexSize, WeightedIndex};
+use crate::network::index::{IndexId, WeightedIndex};
 
 /// A bitmask representing a set of tensors in a network.
 // pub type SubNetwork = u64;

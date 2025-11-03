@@ -1,5 +1,4 @@
-use faer::{MatMut, MatRef};
-use qudit_core::accel::{fused_reshape_permute_reshape_into_prepare, tensor_fused_reshape_permute_reshape_into_prepare};
+use qudit_core::accel::tensor_fused_reshape_permute_reshape_into_prepare;
 use qudit_core::accel::fused_reshape_permute_reshape_into_impl;
 use qudit_core::ComplexScalar;
 use qudit_core::memory::MemoryBuffer;

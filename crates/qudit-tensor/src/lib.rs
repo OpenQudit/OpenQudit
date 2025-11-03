@@ -27,7 +27,7 @@ mod tests {
 
     use crate::bytecode::BytecodeGenerator;
     // use crate::qvm::QVM;
-    use qudit_core::{ParamInfo, QuditRadices};
+    use qudit_core::{ParamInfo, Radices};
     use qudit_expr::TensorExpression;
     use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
 
@@ -66,7 +66,7 @@ mod tests {
             ]
         }");
         
-        let mut network = QuditCircuitTensorNetworkBuilder::new(QuditRadices::new(&vec![2, 2]), None)
+        let mut network = QuditCircuitTensorNetworkBuilder::new(Radices::new([2, 2]), None)
             .prepend_expression(ZZ.clone(), ParamInfo::empty(), vec![0, 1], vec![0, 1], vec!["a".to_string()])
             .prepend_expression(classically_controlled_u3.clone(), ParamInfo::parameterized(vec![0, 1, 2]), vec![0], vec![0], vec!["a".to_string()])
             .build();

@@ -1,6 +1,4 @@
 
-use std::cell::RefCell;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -13,20 +11,13 @@ use super::matmul::MatMulNode;
 use super::outer::OuterProductNode;
 use super::transpose::TransposeNode;
 
-use qudit_core::HasPeriods;
-use qudit_core::HasParams;
 use qudit_core::ParamInfo;
-use qudit_core::RealScalar;
 use qudit_expr::index::IndexDirection;
 use qudit_expr::index::IndexId;
 use qudit_expr::index::TensorIndex;
 use qudit_expr::ExpressionId;
 use qudit_expr::ExpressionCache;
 use qudit_expr::GenerationShape;
-use qudit_expr::TensorExpression;
-use qudit_expr::UnitaryExpression;
-use qudit_core::Radices;
-use qudit_core::QuditSystem;
 
 // TODO: Rename to TensorTree
 /// A tree structure representing a parameterized quantum expression.
@@ -172,7 +163,7 @@ impl TTGTTree {
         }
     }
 
-    pub fn transpose(mut self, perm: Vec<usize>, redirection: Vec<IndexDirection>) -> Self {
+    pub fn transpose(self, perm: Vec<usize>, redirection: Vec<IndexDirection>) -> Self {
         let is_identity_permutation = perm.iter().enumerate().all(|(i, &p)| i == p);
         let original_directions: Vec<IndexDirection> = self.indices().iter().map(|idx| idx.direction()).collect();
         let is_identity_redirection = redirection == original_directions;
@@ -229,7 +220,7 @@ impl TTGTTree {
     //     }
     // }
 
-    pub fn trace(mut self, pairs: Vec<(usize, usize)>) -> Self {
+    pub fn trace(self, pairs: Vec<(usize, usize)>) -> Self {
         let new_root = if pairs.is_empty() {
             self.root
         // } else if let TTGTNode::Leaf(mut n) = self.root {

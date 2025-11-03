@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use qudit_core::{ComplexScalar, ParamInfo};
+use qudit_core::ParamInfo;
 use qudit_expr::ExpressionId;
 
 #[derive(Clone)]
