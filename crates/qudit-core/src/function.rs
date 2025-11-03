@@ -406,6 +406,260 @@ impl<T: AsRef<[usize]>> From<T> for ParamIndices {
     }
 }
 
+/// Information about function parameters, including their indices and whether they are constant.
+///
+/// # Fields
+///
+/// * `indices` - The parameter indices, stored as either consecutive or disjoint ranges
+/// * `constant` - A vector indicating whether each parameter is constant (true) or variable (false)
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ParamInfo {
+    indices: ParamIndices,
+    constant: Vec<bool>, // TODO: change to bitmap
+}
+
+impl ParamInfo {
+    /// Creates a new `ParamInfo` with the given parameter indices and constant flags.
+    ///
+    /// # Arguments
+    ///
+    /// * `indices` - The parameter indices (can be any type that converts to `ParamIndices`)
+    /// * `constant` - A vector indicating whether each parameter is constant
+    ///
+    /// # Returns
+    ///
+    /// A new `ParamInfo` instance.
+    ///
+    /// # Panics
+    ///
+    /// The length of the `constant` vector should match the number of parameters in `indices`.
+    pub fn new(indices: impl Into<ParamIndices>, constant: Vec<bool>) -> ParamInfo {
+        ParamInfo {
+            indices: indices.into(),
+            constant,
+        }
+    }
+
+    /// Creates a new `ParamInfo` where all parameters are variable (not constant).
+    ///
+    /// This is a convenience method for creating parameter information where all
+    /// parameters can vary during optimization or analysis.
+    ///
+    /// # Arguments
+    ///
+    /// * `indices` - The parameter indices (can be any type that converts to `ParamIndices`)
+    ///
+    /// # Returns
+    ///
+    /// A new `ParamInfo` instance with all parameters marked as variable.
+    pub fn parameterized(indices: impl Into<ParamIndices>) -> ParamInfo {
+        let indices = indices.into();
+        let num_params = indices.num_params();
+        ParamInfo {
+            indices,
+            constant: vec![false; num_params],
+        }
+    }
+
+    /// Returns a new `ParamInfo` with its parameter indices sorted.
+    ///
+    /// If the `ParamIndices` are `Disjoint`, the internal vector is sorted.
+    /// If the `ParamIndices` are `Joint`, they remain `Joint` as their order is inherently sorted.
+    /// The `constant` vector is reordered to match the new order of indices.
+    pub fn to_sorted(&self) -> ParamInfo {
+        // Create a map from each parameter index to its 'constant' status.
+        let index_to_constant_map: std::collections::HashMap<usize, bool> = self.indices.iter()
+            .zip(self.constant.iter().cloned())
+            .collect();
+
+        // Get the sorted parameter indices. This will preserve the `Joint` variant if applicable.
+        let new_indices = self.indices.sorted();
+
+        // Build the new `constant` vector by iterating through the `new_indices`
+        // and looking up their constant status in the map.
+        let new_constant: Vec<bool> = new_indices.iter()
+            .map(|index| *index_to_constant_map.get(&index).unwrap_or(&false))
+            .collect();
+
+        ParamInfo {
+            indices: new_indices,
+            constant: new_constant,
+        }
+    }
+
+    /// Concatenates this `ParamInfo` with another, combining their parameter indices and constant flags.
+    ///
+    /// This operation combines parameter indices from both `ParamInfo` instances. If a parameter
+    /// index appears in both instances, their constant flags must match or an assertion will fail.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - The other `ParamInfo` to concatenate with
+    ///
+    /// # Returns
+    ///
+    /// A new `ParamInfo` containing the combined parameters and their constant status.
+    pub fn concat(&self, other: &ParamInfo) -> ParamInfo {
+        let combined_indices = self.indices.concat(&other.indices);
+
+        let self_index_to_constant: std::collections::HashMap<usize, bool> = self.indices.iter()
+            .zip(self.constant.iter().cloned())
+            .collect();
+
+        let other_index_to_constant: std::collections::HashMap<usize, bool> = other.indices.iter()
+            .zip(other.constant.iter().cloned())
+            .collect();
+
+        let mut new_constant = Vec::new();
+        for index in combined_indices.iter() {
+            if let Some(&c) = self_index_to_constant.get(&index) {
+                if let Some(&c_other) = other_index_to_constant.get(&index) {
+                    assert_eq!(c, c_other);
+                }
+                new_constant.push(c);
+            } else if let Some(&c) = other_index_to_constant.get(&index) {
+                new_constant.push(c);
+            } else {
+                unreachable!();
+            };
+        }
+
+        ParamInfo {
+            indices: combined_indices,
+            constant: new_constant,
+        }
+    }
+
+    /// Computes the intersection of this `ParamInfo` with another.
+    ///
+    /// Returns a new `ParamInfo` containing only the parameters that are present in both
+    /// instances. The constant flags must match for common parameters.
+    ///
+    /// # Arguments
+    ///
+    /// * `other` - The other `ParamInfo` to intersect with
+    ///
+    /// # Returns
+    ///
+    /// A new `ParamInfo` containing only the common parameters.
+    pub fn intersect(&self, other: &ParamInfo) -> ParamInfo {
+        let combined_indices = self.indices.intersect(&other.indices);
+
+        let self_index_to_constant: std::collections::HashMap<usize, bool> = self.indices.iter()
+            .zip(self.constant.iter().cloned())
+            .collect();
+
+        let other_index_to_constant: std::collections::HashMap<usize, bool> = other.indices.iter()
+            .zip(other.constant.iter().cloned())
+            .collect();
+
+        let mut new_constant = Vec::new();
+        for index in combined_indices.iter() {
+            let c_self = self_index_to_constant.get(&index);
+            let c_other = other_index_to_constant.get(&index);
+
+            // An index in combined_indices must exist in both self and other ParamInfo
+            match (c_self, c_other) {
+                (Some(&s_const), Some(&o_const)) => {
+                    // Their constant status must be the same for the common index
+                    assert_eq!(s_const, o_const, "Constant status mismatch for common index {}", index);
+                    new_constant.push(s_const);
+                },
+                _ => unreachable!("Intersected index {} not found in both original ParamInfos", index),
+            }
+        }
+
+        ParamInfo {
+            indices: combined_indices,
+            constant: new_constant,
+        }
+    }
+
+    /// Returns the total number of parameters.
+    ///
+    /// # Returns
+    ///
+    /// The number of parameters tracked by this `ParamInfo`.
+    pub fn num_params(&self) -> usize {
+        self.indices.num_params()
+    }
+
+    /// Returns the parameter indices as a vector of u64 values.
+    ///
+    /// This is useful for interfacing with external libraries that expect
+    /// parameter indices as 64-bit unsigned integers.
+    ///
+    /// # Returns
+    ///
+    /// A vector containing all parameter indices converted to u64.
+    pub fn get_param_map(&self) -> Vec<u64> {
+        self.indices.iter().map(|x| x as u64).collect()
+    }
+
+    /// Returns a copy of the constant flags for all parameters.
+    ///
+    /// The returned vector has the same length as the number of parameters,
+    /// where each boolean indicates whether the corresponding parameter is constant.
+    ///
+    /// # Returns
+    ///
+    /// A vector of boolean values indicating parameter constancy.
+    pub fn get_const_map(&self) -> Vec<bool> {
+        self.constant.clone()
+    }
+
+    /// Creates an empty `ParamInfo` with no parameters.
+    ///
+    /// This is useful as a default or starting point for parameter information.
+    ///
+    /// # Returns
+    ///
+    /// An empty `ParamInfo` instance.
+    pub fn empty() -> ParamInfo {
+        ParamInfo {
+            indices: vec![].into(),
+            constant: vec![],
+        }
+    }
+
+    /// Checks if this `ParamInfo` contains no parameters.
+    ///
+    /// # Returns
+    ///
+    /// `true` if there are no parameters, `false` otherwise.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
+    /// Returns the number of parameters (alias for `num_params`).
+    ///
+    /// # Returns
+    ///
+    /// The total number of parameters.
+    pub fn len(&self) -> usize {
+        self.constant.len()
+    }
+
+    /// Returns a sorted vector of indices for parameters that are not constant.
+    ///
+    /// This is useful for optimization routines that only need to vary non-constant
+    /// parameters.
+    ///
+    /// # Returns
+    ///
+    /// A sorted vector containing the indices of all non-constant parameters.
+    pub fn sorted_non_constant(&self) -> Vec<usize> {
+        let mut non_constant_indices = Vec::new();
+        for (index, &is_constant) in self.indices.iter().zip(self.constant.iter()) {
+            if !is_constant {
+                non_constant_indices.push(index);
+            }
+        }
+        non_constant_indices.sort();
+        non_constant_indices
+    }
+}
+
 /// A parameterized object.
 pub trait HasParams {
     /// The number of parameters this object requires.

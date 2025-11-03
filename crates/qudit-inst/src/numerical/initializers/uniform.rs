@@ -1,7 +1,7 @@
 use qudit_core::RealScalar;
 use super::super::InitialGuessGenerator;
 use rand::Rng;
-use rand::distributions::Uniform as RandUniform;
+use rand::distr::Uniform as RandUniform;
 
 #[derive(Clone)]
 pub struct Uniform<R: RealScalar> {
@@ -38,7 +38,7 @@ impl<R: RealScalar> InitialGuessGenerator<R> for Uniform<R> {
         let distribution = RandUniform::new(
             self.lower_bound.to64(),
             self.upper_bound.to64(),
-        );
+        ).unwrap();
 
         (0..num_params).map(|_| R::from64(rng.sample(distribution))).collect()
     }

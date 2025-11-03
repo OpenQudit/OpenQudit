@@ -15,8 +15,8 @@ qudit-circuit = { path = "../qudit-circuit" }
 num-complex = { workspace = true }
 faer = { workspace = true }
 faer-traits = { workspace = true }
-rand = "0.9.2"
-dyn-clone = "1.0"
+rand = { workspace = true }
+dyn-clone = { workspace = true }
 
 pyo3 = { workspace = true, optional = true }
 inventory = { workspace = true, optional = true }
@@ -24,9 +24,9 @@ numpy = { workspace = true, optional = true }
 ndarray = { workspace = true, optional = true }
 
 [dev-dependencies]
-proptest = "1.9"
-criterion = "0.7"
-pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
+proptest = { workspace = true }
+criterion = { workspace = true }
+pprof = { workspace = true }
 
 [[bench]]
 name = "unitary"

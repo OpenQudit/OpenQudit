@@ -45,8 +45,6 @@ impl<C: ComplexScalar> ParamBuffer<C> {
 pub struct TNVM<C: ComplexScalar, const D: DifferentiationLevel> {
     const_instructions: Vec<TNVMInstruction<C, D>>,
     dynamic_instructions: Vec<TNVMInstruction<C, D>>,
-    // #[allow(dead_code)]
-    // module: Module<C>,
     expressions: Arc<Mutex<ExpressionCache>>,
     memory: MemoryBuffer<C>,
     // param_buffer: ParamBuffer<C>,

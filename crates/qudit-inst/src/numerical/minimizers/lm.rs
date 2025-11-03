@@ -8,6 +8,7 @@ use crate::numerical::ProvidesJacobian;
 use crate::numerical::Jacobian;
 use crate::numerical::ResidualFunction;
 use crate::numerical::Function;
+use faer::linalg::solvers::Solve;
 
 /// Levenberg-Marquardt (LM) optimization algorithm.
 ///
