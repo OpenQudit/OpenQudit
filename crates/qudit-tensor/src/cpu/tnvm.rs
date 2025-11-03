@@ -5,18 +5,18 @@ use std::sync::Mutex;
 
 use qudit_core::RealScalar;
 use qudit_expr::DifferentiationLevel;
-use qudit_expr::GenerationShape;
 use qudit_expr::ExpressionCache;
+use qudit_expr::GenerationShape;
 use qudit_expr::FUNCTION;
 use rustc_hash::FxHashMap;
 
-use crate::bytecode::Bytecode;
-use crate::cpu::TNVMResult;
 use super::buffer::SizedTensorBuffer;
 use super::instruction::TNVMInstruction;
+use crate::bytecode::Bytecode;
+use crate::cpu::TNVMResult;
 
-use qudit_core::memory::MemoryBuffer;
 use qudit_core::memory::alloc_zeroed_memory;
+use qudit_core::memory::MemoryBuffer;
 use qudit_core::ComplexScalar;
 
 pub type PinnedTNVM<C, const D: DifferentiationLevel> = Pin<Box<TNVM<C, D>>>;
@@ -49,7 +49,7 @@ impl<R: RealScalar> ParamBuffer<R> {
                     variable_map.push(candidate_var_idx);
                 }
             }
-            
+
             let fully_parameterized = variable_map.len() == num_params;
 
             Self {
@@ -66,10 +66,12 @@ impl<R: RealScalar> ParamBuffer<R> {
         }
     }
 
-
     /// Places the variable arguments into the buffer
     #[inline(always)]
-    fn as_slice_with_var_args<'a, 'b>(&'a mut self, var_args: &'b [R]) -> &'b [R] where 'a: 'b {
+    fn as_slice_with_var_args<'a, 'b>(&'a mut self, var_args: &'b [R]) -> &'b [R]
+    where
+        'a: 'b,
+    {
         debug_assert_eq!(var_args.len(), self.variable_map.len());
 
         if self.fully_parameterized {
@@ -138,12 +140,20 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
         // Generate instructions
         let mut const_instructions = Vec::new();
         for inst in &program.const_code {
-            const_instructions.push(TNVMInstruction::new(inst, &sized_buffers, expressions.clone()));
+            const_instructions.push(TNVMInstruction::new(
+                inst,
+                &sized_buffers,
+                expressions.clone(),
+            ));
         }
 
         let mut dynamic_instructions = Vec::new();
         for inst in &program.dynamic_code {
-            dynamic_instructions.push(TNVMInstruction::new(inst, &sized_buffers, expressions.clone()));
+            dynamic_instructions.push(TNVMInstruction::new(
+                inst,
+                &sized_buffers,
+                expressions.clone(),
+            ));
         }
 
         // Initialize parameter buffer
@@ -168,9 +178,12 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
     }
 
     // TODO: evaluate_into
-    
+
     /// Evaluate the TNVM with the provided arguments for all variable parameters.
-    pub fn evaluate<'a, const E: DifferentiationLevel>(self: &'a mut Pin<Box<Self>>, var_args: &[C::R]) -> TNVMResult<'a, C> {
+    pub fn evaluate<'a, const E: DifferentiationLevel>(
+        self: &'a mut Pin<Box<Self>>,
+        var_args: &[C::R],
+    ) -> TNVMResult<'a, C> {
         if E > D {
             panic!("Unsafe TNVM evaluation.");
         }
@@ -186,7 +199,7 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
                 // evaluates only on memory it has access to.
                 inst.evaluate::<E>(arg_slice, &mut this.memory);
             }
-       
+
             // Safety: Projection of const reference from mutable pin. Caller
             // cannot move data from this structure.
             TNVMResult::new(&this.memory, &this.out_buffer)
@@ -201,4 +214,3 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
         self.out_buffer.shape()
     }
 }
-

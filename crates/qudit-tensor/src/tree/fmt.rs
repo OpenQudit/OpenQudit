@@ -1,9 +1,5 @@
 pub trait PrintTree {
-    fn modify_prefix_for_child(
-        &self,
-        prefix: &str,
-        last_child: bool,
-    ) -> String {
+    fn modify_prefix_for_child(&self, prefix: &str, last_child: bool) -> String {
         let mut new_prefix = String::from(prefix);
 
         // replace last ╠═ or ╚═ with ║

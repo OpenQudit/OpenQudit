@@ -1,9 +1,9 @@
 use std::hash::Hash;
 
 use super::fmt::PrintTree;
+use super::tree::TTGTNode;
 use qudit_core::ParamInfo;
 use qudit_expr::index::TensorIndex;
-use super::tree::TTGTNode;
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct HadamardProductNode {
@@ -18,7 +18,10 @@ impl HadamardProductNode {
         let left_indices = left.indices();
         let right_indices = right.indices();
 
-        assert!(left_indices.iter().zip(right_indices.iter()).all(|(l, r)| l.index_size() == r.index_size() && l.direction() == r.direction()));
+        assert!(left_indices
+            .iter()
+            .zip(right_indices.iter())
+            .all(|(l, r)| l.index_size() == r.index_size() && l.direction() == r.direction()));
 
         let param_info = left.param_info().union(&right.param_info());
 
@@ -48,4 +51,3 @@ impl PrintTree for HadamardProductNode {
         self.right.write_tree(&right_prefix, fmt);
     }
 }
-

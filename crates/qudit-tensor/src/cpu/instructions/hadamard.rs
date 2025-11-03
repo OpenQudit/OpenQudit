@@ -1,13 +1,12 @@
-
+use super::{cache_grad_offset_list, cache_hess_offset_list, GradOffsetList, HessOffsetList};
 use qudit_core::{ComplexScalar, ParamInfo};
-use super::{GradOffsetList, HessOffsetList, cache_grad_offset_list, cache_hess_offset_list};
 
 use super::super::buffer::SizedTensorBuffer;
+use qudit_core::accel::hadamard_kernel_add_raw;
+use qudit_core::accel::hadamard_kernel_raw;
+use qudit_core::memory::MemoryBuffer;
 use qudit_expr::DifferentiationLevel;
 use qudit_expr::{GRADIENT, HESSIAN};
-use qudit_core::memory::MemoryBuffer;
-use qudit_core::accel::hadamard_kernel_raw;
-use qudit_core::accel::hadamard_kernel_add_raw;
 
 pub struct HadamardStruct<C: ComplexScalar> {
     left: SizedTensorBuffer<C>,
@@ -25,9 +24,17 @@ impl<C: ComplexScalar> HadamardStruct<C> {
         left_param_info: ParamInfo,
         right_param_info: ParamInfo,
     ) -> Self {
-        let grad_offset_list = cache_grad_offset_list(&left, &right, &out, &left_param_info, &right_param_info);
-        let hess_offset_list = cache_hess_offset_list(&left, &right, &out, &left_param_info, &right_param_info);
-        Self { left, right, out, grad_offset_list, hess_offset_list }
+        let grad_offset_list =
+            cache_grad_offset_list(&left, &right, &out, &left_param_info, &right_param_info);
+        let hess_offset_list =
+            cache_hess_offset_list(&left, &right, &out, &left_param_info, &right_param_info);
+        Self {
+            left,
+            right,
+            out,
+            grad_offset_list,
+            hess_offset_list,
+        }
     }
 
     #[inline(always)]
@@ -75,7 +82,12 @@ impl<C: ComplexScalar> HadamardStruct<C> {
     }
 
     #[inline(always)]
-    unsafe fn batched_hadamard_add(&self, mut left: *const C, mut right: *const C, mut out: *mut C) {
+    unsafe fn batched_hadamard_add(
+        &self,
+        mut left: *const C,
+        mut right: *const C,
+        mut out: *mut C,
+    ) {
         for _ in 0..self.left.nmats() {
             self.hadamard_add(left, right, out);
             left = left.add(self.left.mat_stride());
@@ -98,7 +110,7 @@ impl<C: ComplexScalar> HadamardStruct<C> {
                 let out = memory.as_mut_ptr().add(*o_off);
                 self.hadamard(left, right, out);
 
-                if *prod {    
+                if *prod {
                     let left = memory.as_ptr().add(*l2_off);
                     let right = memory.as_ptr().add(*r2_off);
                     self.hadamard_add(left, right, out);
@@ -107,13 +119,15 @@ impl<C: ComplexScalar> HadamardStruct<C> {
         }
 
         if D >= HESSIAN {
-            for (l_off, r_off, o_off, prod, l2_off, r2_off, l3_off, r3_off, l4_off, r4_off) in &self.hess_offset_list {
+            for (l_off, r_off, o_off, prod, l2_off, r2_off, l3_off, r3_off, l4_off, r4_off) in
+                &self.hess_offset_list
+            {
                 let left = memory.as_ptr().add(*l_off);
                 let right = memory.as_ptr().add(*r_off);
                 let out = memory.as_mut_ptr().add(*o_off);
                 self.hadamard(left, right, out);
 
-                if *prod {    
+                if *prod {
                     let left = memory.as_ptr().add(*l2_off);
                     let right = memory.as_ptr().add(*r2_off);
                     self.hadamard_add(left, right, out);
@@ -130,7 +144,10 @@ impl<C: ComplexScalar> HadamardStruct<C> {
         }
     }
     #[inline(always)]
-    pub unsafe fn batched_evaluate<const D: DifferentiationLevel>(&self, memory: &mut MemoryBuffer<C>) {
+    pub unsafe fn batched_evaluate<const D: DifferentiationLevel>(
+        &self,
+        memory: &mut MemoryBuffer<C>,
+    ) {
         let left = memory.as_ptr().add(self.left.offset());
         let right = memory.as_ptr().add(self.right.offset());
         let out = memory.as_mut_ptr().add(self.out.offset());
@@ -143,7 +160,7 @@ impl<C: ComplexScalar> HadamardStruct<C> {
                 let out = memory.as_mut_ptr().add(*o_off);
                 self.batched_hadamard(left, right, out);
 
-                if *prod {    
+                if *prod {
                     let left = memory.as_ptr().add(*l2_off);
                     let right = memory.as_ptr().add(*r2_off);
                     self.batched_hadamard_add(left, right, out);
@@ -152,13 +169,15 @@ impl<C: ComplexScalar> HadamardStruct<C> {
         }
 
         if D >= HESSIAN {
-            for (l_off, r_off, o_off, prod, l2_off, r2_off, l3_off, r3_off, l4_off, r4_off) in &self.hess_offset_list {
+            for (l_off, r_off, o_off, prod, l2_off, r2_off, l3_off, r3_off, l4_off, r4_off) in
+                &self.hess_offset_list
+            {
                 let left = memory.as_ptr().add(*l_off);
                 let right = memory.as_ptr().add(*r_off);
                 let out = memory.as_mut_ptr().add(*o_off);
                 self.batched_hadamard(left, right, out);
 
-                if *prod {    
+                if *prod {
                     let left = memory.as_ptr().add(*l2_off);
                     let right = memory.as_ptr().add(*r2_off);
                     self.batched_hadamard_add(left, right, out);
@@ -175,4 +194,3 @@ impl<C: ComplexScalar> HadamardStruct<C> {
         }
     }
 }
-

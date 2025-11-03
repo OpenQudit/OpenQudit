@@ -1,12 +1,11 @@
 type TensorId = usize;
 
-mod index;
-mod tensor;
-mod path;
-mod network;
 mod builder;
+mod index;
+mod network;
+mod path;
+mod tensor;
 
-pub use tensor::QuditTensor;
-pub use network::QuditTensorNetwork;
 pub use builder::QuditCircuitTensorNetworkBuilder;
-
+pub use network::QuditTensorNetwork;
+pub use tensor::QuditTensor;

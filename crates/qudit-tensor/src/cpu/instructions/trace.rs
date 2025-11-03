@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-use qudit_core::ComplexScalar;
 use qudit_core::memory::MemoryBuffer;
+use qudit_core::ComplexScalar;
 use qudit_expr::{DifferentiationLevel, FUNCTION, GRADIENT, HESSIAN};
 
 use super::super::buffer::SizedTensorBuffer;
@@ -19,7 +19,7 @@ impl<C: ComplexScalar> TraceStruct<C> {
         diff_lvl: DifferentiationLevel,
     ) -> Self {
         assert!(input.nparams() == output.nparams());
-    
+
         // Trace instruction is extremely likely, if always possible, to
         // optimize out. Leaving as a todo for now to focus on more important
         // things.

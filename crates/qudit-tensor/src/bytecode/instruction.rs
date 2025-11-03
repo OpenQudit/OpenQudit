@@ -18,22 +18,22 @@ impl std::fmt::Debug for BytecodeInstruction {
         match self {
             BytecodeInstruction::Write(id, _, index) => {
                 write!(f, "Write {} {:?}", id, index)
-            },
+            }
             BytecodeInstruction::Matmul(a, b, c, _, _) => {
                 write!(f, "Matmul {:?} {:?} {:?}", a, b, c)
-            },
+            }
             BytecodeInstruction::Kron(a, b, c, _, _) => {
                 write!(f, "Kron {:?} {:?} {:?}", a, b, c)
-            },
+            }
             BytecodeInstruction::Hadamard(a, b, c, _, _) => {
                 write!(f, "Kron {:?} {:?} {:?}", a, b, c)
-            },
+            }
             BytecodeInstruction::FRPR(a, _, _, d) => {
                 write!(f, "FRPR {:?} {:?}", a, d)
-            },
+            }
             BytecodeInstruction::Trace(a, _, c) => {
                 write!(f, "Trace {:?} {:?}", a, c)
-            },
+            }
         }
     }
 }
@@ -43,43 +43,40 @@ impl BytecodeInstruction {
         match self {
             BytecodeInstruction::Write(_, _, index) => {
                 *index += offset;
-            },
+            }
             BytecodeInstruction::Matmul(a, b, c, _, _) => {
                 *a += offset;
                 *b += offset;
                 *c += offset;
-            },
+            }
             BytecodeInstruction::Kron(a, b, c, _, _) => {
                 *a += offset;
                 *b += offset;
                 *c += offset;
-            },
+            }
             BytecodeInstruction::Hadamard(a, b, c, _, _) => {
                 *a += offset;
                 *b += offset;
                 *c += offset;
-            },
+            }
             BytecodeInstruction::FRPR(a, _, _, d) => {
                 *a += offset;
                 *d += offset;
-            },
+            }
             BytecodeInstruction::Trace(a, _, c) => {
                 *a += offset;
                 *c += offset;
-            },
+            }
         }
     }
 
-    pub fn replace_buffer_indices(
-        &mut self,
-        buffer_map: &HashMap<usize, usize>,
-    ) {
+    pub fn replace_buffer_indices(&mut self, buffer_map: &HashMap<usize, usize>) {
         match self {
             BytecodeInstruction::Write(_, _, index) => {
                 if let Some(new_index) = buffer_map.get(index) {
                     *index = *new_index;
                 }
-            },
+            }
             BytecodeInstruction::Matmul(a, b, c, _, _) => {
                 if let Some(new_index) = buffer_map.get(a) {
                     *a = *new_index;
@@ -90,7 +87,7 @@ impl BytecodeInstruction {
                 if let Some(new_index) = buffer_map.get(c) {
                     *c = *new_index;
                 }
-            },
+            }
             BytecodeInstruction::Kron(a, b, c, _, _) => {
                 if let Some(new_index) = buffer_map.get(a) {
                     *a = *new_index;
@@ -101,7 +98,7 @@ impl BytecodeInstruction {
                 if let Some(new_index) = buffer_map.get(c) {
                     *c = *new_index;
                 }
-            },
+            }
             BytecodeInstruction::Hadamard(a, b, c, _, _) => {
                 if let Some(new_index) = buffer_map.get(a) {
                     *a = *new_index;
@@ -112,7 +109,7 @@ impl BytecodeInstruction {
                 if let Some(new_index) = buffer_map.get(c) {
                     *c = *new_index;
                 }
-            },
+            }
             BytecodeInstruction::FRPR(a, _, _, d) => {
                 if let Some(new_index) = buffer_map.get(a) {
                     *a = *new_index;
@@ -120,7 +117,7 @@ impl BytecodeInstruction {
                 if let Some(new_index) = buffer_map.get(d) {
                     *d = *new_index;
                 }
-            },
+            }
             BytecodeInstruction::Trace(a, _, c) => {
                 if let Some(new_index) = buffer_map.get(a) {
                     *a = *new_index;
@@ -128,7 +125,7 @@ impl BytecodeInstruction {
                 if let Some(new_index) = buffer_map.get(c) {
                     *c = *new_index;
                 }
-            },
+            }
         }
     }
 }

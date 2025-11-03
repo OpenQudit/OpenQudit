@@ -3,7 +3,10 @@ use std::sync::{Arc, Mutex};
 use qudit_core::{memory::MemoryBuffer, ComplexScalar};
 use qudit_expr::{DifferentiationLevel, ExpressionCache};
 
-use crate::{bytecode::BytecodeInstruction, cpu::instructions::{WriteStruct, FRPRStruct, HadamardStruct, KronStruct, TraceStruct}};
+use crate::{
+    bytecode::BytecodeInstruction,
+    cpu::instructions::{FRPRStruct, HadamardStruct, KronStruct, TraceStruct, WriteStruct},
+};
 
 use super::buffer::SizedTensorBuffer;
 use super::instructions::MatmulStruct;
@@ -30,13 +33,8 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVMInstruction<C, D> {
             BytecodeInstruction::FRPR(in_index, shape, perm, out_index) => {
                 let spec_a = buffers[*in_index].clone();
                 let spec_b = buffers[*out_index].clone();
-                TNVMInstruction::FRPR(FRPRStruct::new(
-                    spec_a,
-                    shape,
-                    perm,
-                    spec_b,
-                ))
-            },
+                TNVMInstruction::FRPR(FRPRStruct::new(spec_a, shape, perm, spec_b))
+            }
             BytecodeInstruction::Hadamard(a, b, c, p1, p2) => {
                 let spec_a = buffers[*a].clone();
                 let spec_b = buffers[*b].clone();
@@ -58,7 +56,7 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVMInstruction<C, D> {
                         p2.clone(),
                     ))
                 }
-            },
+            }
             BytecodeInstruction::Kron(a, b, c, p1, p2) => {
                 let spec_a = buffers[*a].clone();
                 let spec_b = buffers[*b].clone();
@@ -80,7 +78,7 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVMInstruction<C, D> {
                         p2.clone(),
                     ))
                 }
-            },
+            }
             BytecodeInstruction::Matmul(a, b, c, p1, p2) => {
                 let spec_a = buffers[*a].clone();
                 let spec_b = buffers[*b].clone();
@@ -102,10 +100,12 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVMInstruction<C, D> {
                         p2.clone(),
                     ))
                 }
-            },
+            }
             BytecodeInstruction::Write(expr_id, param_info, buffer_index) => {
                 let out_buffer = buffers[*buffer_index].clone();
-                let write_fns = std::array::from_fn(|i| expressions.lock().unwrap().get_fn::<C::R>(*expr_id, i + 1));
+                let write_fns = std::array::from_fn(|i| {
+                    expressions.lock().unwrap().get_fn::<C::R>(*expr_id, i + 1)
+                });
                 let output_map = expressions.lock().unwrap().get_output_map::<C::R>(
                     *expr_id,
                     out_buffer.row_stride() as u64,
@@ -116,28 +116,23 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVMInstruction<C, D> {
                 let const_map = param_info.get_const_map();
 
                 TNVMInstruction::Write(WriteStruct::new(
-                    write_fns,
-                    param_map,
-                    output_map,
-                    const_map,
-                    out_buffer,
+                    write_fns, param_map, output_map, const_map, out_buffer,
                 ))
-            },
+            }
             BytecodeInstruction::Trace(in_index, dimension_pairs, out_index) => {
                 let spec_a = buffers[*in_index].clone();
                 let spec_b = buffers[*out_index].clone();
-                TNVMInstruction::Trace(TraceStruct::new(
-                    spec_a,
-                    dimension_pairs.clone(),
-                    spec_b,
-                    D,
-                ))
-            },
+                TNVMInstruction::Trace(TraceStruct::new(spec_a, dimension_pairs.clone(), spec_b, D))
+            }
         }
     }
 
     #[inline(always)]
-    pub unsafe fn evaluate<const E: DifferentiationLevel>(&self, params: &[C::R], memory: &mut MemoryBuffer<C>) {
+    pub unsafe fn evaluate<const E: DifferentiationLevel>(
+        &self,
+        params: &[C::R],
+        memory: &mut MemoryBuffer<C>,
+    ) {
         match self {
             TNVMInstruction::FRPR(s) => s.evaluate::<E>(memory),
             TNVMInstruction::HadamardB(s) => s.batched_evaluate::<E>(memory),
@@ -151,4 +146,3 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVMInstruction<C, D> {
         }
     }
 }
-

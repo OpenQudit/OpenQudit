@@ -1,10 +1,10 @@
-use qudit_core::{memory::MemoryBuffer, ComplexScalar};
-use faer::RowRef;
+use super::buffer::SizedTensorBuffer;
 use faer::ColRef;
 use faer::MatRef;
+use faer::RowRef;
 use qudit_core::array::TensorRef;
+use qudit_core::{memory::MemoryBuffer, ComplexScalar};
 use qudit_expr::GenerationShape;
-use super::buffer::SizedTensorBuffer;
 
 pub struct TNVMReturnType2<'a, C: ComplexScalar> {
     pub ncols: usize,
@@ -36,9 +36,13 @@ impl<'a, C: ComplexScalar> TNVMReturnType2<'a, C> {
 
     pub fn unpack_mat(self) -> MatRef<'a, C> {
         if self.ntens != 1 {
-            MatRef::from_column_major_slice(self.buffer, self.ntens, self.nmats*self.nrows*self.ncols)
+            MatRef::from_column_major_slice(
+                self.buffer,
+                self.ntens,
+                self.nmats * self.nrows * self.ncols,
+            )
         } else if self.nmats != 1 {
-            MatRef::from_column_major_slice(self.buffer, self.nmats, self.nrows*self.ncols)
+            MatRef::from_column_major_slice(self.buffer, self.nmats, self.nrows * self.ncols)
         } else {
             MatRef::from_column_major_slice(self.buffer, self.nrows, self.ncols)
         }
@@ -51,8 +55,12 @@ impl<'a, C: ComplexScalar> TNVMReturnType2<'a, C> {
                 unsafe {
                     TensorRef::from_raw_parts(
                         self.buffer.as_ptr(),
-                        [self.ntens, self.nmats, self.nrows*self.ncols],
-                        [self.nmats*self.nrows*self.ncols, self.nrows*self.ncols, 1],
+                        [self.ntens, self.nmats, self.nrows * self.ncols],
+                        [
+                            self.nmats * self.nrows * self.ncols,
+                            self.nrows * self.ncols,
+                            1,
+                        ],
                     )
                 }
             } else {
@@ -60,7 +68,7 @@ impl<'a, C: ComplexScalar> TNVMReturnType2<'a, C> {
                     TensorRef::from_raw_parts(
                         self.buffer.as_ptr(),
                         [self.ntens, self.nrows, self.ncols],
-                        [self.nrows*self.ncols, 1, self.nrows],
+                        [self.nrows * self.ncols, 1, self.nrows],
                     )
                 }
             }
@@ -69,7 +77,7 @@ impl<'a, C: ComplexScalar> TNVMReturnType2<'a, C> {
                 TensorRef::from_raw_parts(
                     self.buffer.as_ptr(),
                     [self.nmats, self.nrows, self.ncols],
-                    [self.nrows*self.ncols, 1, self.nrows],
+                    [self.nrows * self.ncols, 1, self.nrows],
                 )
             }
         }
@@ -80,7 +88,12 @@ impl<'a, C: ComplexScalar> TNVMReturnType2<'a, C> {
             TensorRef::from_raw_parts(
                 self.buffer.as_ptr(),
                 [self.ntens, self.nmats, self.nrows, self.ncols],
-                [self.nmats*self.nrows*self.ncols, self.nrows*self.ncols, 1, self.nrows],
+                [
+                    self.nmats * self.nrows * self.ncols,
+                    self.nrows * self.ncols,
+                    1,
+                    self.nrows,
+                ],
             )
         }
     }
@@ -191,7 +204,12 @@ impl<'a, C: ComplexScalar> TNVMResult<'a, C> {
             nrows: self.buffer.nrows(),
             nmats: self.buffer.nmats(),
             ntens: 1,
-            buffer: unsafe { std::slice::from_raw_parts(self.buffer.as_ptr(self.memory), self.buffer.unit_memory_size()) }
+            buffer: unsafe {
+                std::slice::from_raw_parts(
+                    self.buffer.as_ptr(self.memory),
+                    self.buffer.unit_memory_size(),
+                )
+            },
         }
     }
 
@@ -201,7 +219,14 @@ impl<'a, C: ComplexScalar> TNVMResult<'a, C> {
             nrows: self.buffer.nrows(),
             nmats: self.buffer.nmats(),
             ntens: self.buffer.nparams(),
-            buffer: unsafe { std::slice::from_raw_parts(self.buffer.as_ptr(self.memory).add(self.buffer.unit_memory_size()), self.buffer.grad_memory_size()) }
+            buffer: unsafe {
+                std::slice::from_raw_parts(
+                    self.buffer
+                        .as_ptr(self.memory)
+                        .add(self.buffer.unit_memory_size()),
+                    self.buffer.grad_memory_size(),
+                )
+            },
         }
     }
 
@@ -249,20 +274,19 @@ impl<'a, C: ComplexScalar> TNVMResult<'a, C> {
     pub fn get_hess_result(&self) -> TNVMReturnType<'a, C> {
         match self.buffer.shape() {
             // Safety: TNVM told me this output buffer is mine
-            GenerationShape::Scalar => {
-                TNVMReturnType::SymSqMatrix(unsafe { self.buffer.hess_as_symsq_matrix_ref(self.memory) })
-            }
-            GenerationShape::Vector(_) => {
-                TNVMReturnType::SymSqTensor3D(unsafe { self.buffer.hess_as_symsq_tensor3d_ref(self.memory) })
-            }
-            GenerationShape::Matrix(_, _) => {
-                TNVMReturnType::SymSqTensor4D(unsafe { self.buffer.hess_as_symsq_tensor4d_ref(self.memory) })
-            }
-            GenerationShape::Tensor3D(_, _, _) => {
-                TNVMReturnType::SymSqTensor5D(unsafe { self.buffer.hess_as_symsq_tensor5d_ref(self.memory) })
-            }
+            GenerationShape::Scalar => TNVMReturnType::SymSqMatrix(unsafe {
+                self.buffer.hess_as_symsq_matrix_ref(self.memory)
+            }),
+            GenerationShape::Vector(_) => TNVMReturnType::SymSqTensor3D(unsafe {
+                self.buffer.hess_as_symsq_tensor3d_ref(self.memory)
+            }),
+            GenerationShape::Matrix(_, _) => TNVMReturnType::SymSqTensor4D(unsafe {
+                self.buffer.hess_as_symsq_tensor4d_ref(self.memory)
+            }),
+            GenerationShape::Tensor3D(_, _, _) => TNVMReturnType::SymSqTensor5D(unsafe {
+                self.buffer.hess_as_symsq_tensor5d_ref(self.memory)
+            }),
             _ => panic!("No Tensor4D should be exposed a function value output."),
         }
     }
 }
-

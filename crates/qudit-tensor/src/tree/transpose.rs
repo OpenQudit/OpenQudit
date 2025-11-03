@@ -2,8 +2,8 @@ use std::fmt;
 use std::hash::Hash;
 
 use qudit_core::ParamInfo;
-use qudit_expr::index::TensorIndex;
 use qudit_expr::index::IndexDirection;
+use qudit_expr::index::TensorIndex;
 
 use super::fmt::PrintTree;
 use super::tree::TTGTNode;
@@ -22,9 +22,21 @@ pub struct TransposeNode {
 }
 
 impl TransposeNode {
-    pub fn new(child: TTGTNode, perm: Vec<usize>, redirection: Vec<IndexDirection>) -> TransposeNode {
+    pub fn new(
+        child: TTGTNode,
+        perm: Vec<usize>,
+        redirection: Vec<IndexDirection>,
+    ) -> TransposeNode {
         let child_indices = child.indices();
-        let indices: Vec<TensorIndex> = (0..perm.len()).map(|x| TensorIndex::new(redirection[x], child_indices[perm[x]].index_id(), child_indices[perm[x]].index_size())).collect();
+        let indices: Vec<TensorIndex> = (0..perm.len())
+            .map(|x| {
+                TensorIndex::new(
+                    redirection[x],
+                    child_indices[perm[x]].index_id(),
+                    child_indices[perm[x]].index_size(),
+                )
+            })
+            .collect();
 
         TransposeNode {
             child: Box::new(child),
@@ -58,4 +70,3 @@ impl PrintTree for TransposeNode {
         self.child.write_tree(&child_prefix, fmt);
     }
 }
-

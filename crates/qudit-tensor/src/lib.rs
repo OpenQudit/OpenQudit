@@ -1,16 +1,16 @@
-mod tree;
-mod network;
 mod bytecode;
 mod cpu;
+mod network;
+mod tree;
 
-pub use network::QuditTensor;
-pub use network::QuditTensorNetwork;
-pub use network::QuditCircuitTensorNetworkBuilder;
 pub use bytecode::Bytecode;
-pub use cpu::TNVM;
 pub use cpu::PinnedTNVM;
 pub use cpu::TNVMResult;
 pub use cpu::TNVMReturnType;
+pub use cpu::TNVM;
+pub use network::QuditCircuitTensorNetworkBuilder;
+pub use network::QuditTensor;
+pub use network::QuditTensorNetwork;
 
 pub fn compile_network(network: QuditTensorNetwork) -> Bytecode {
     let optimal_path = network.solve_for_path();
@@ -32,12 +32,14 @@ mod tests {
 
     #[test]
     fn test_projective_measurement() {
-        let u3 = TensorExpression::new("U3(a, b, c) {
+        let u3 = TensorExpression::new(
+            "U3(a, b, c) {
             [
                 [cos(a/2), ~e^(c*i)*sin(a/2)],
                 [e^(b*i)*sin(a/2), e^(i*(b+c))*cos(a/2)],
             ]
-        }");
+        }",
+        );
         // let p3 = TensorExpression::new("Phase<3>(a, b) {
         //     [
         //         [ 1, 0, 0 ],
@@ -46,7 +48,8 @@ mod tests {
         //     ]
         // }");
         let classically_controlled_u3 = u3.stack_with_identity(&[1], 2);
-        let zz = TensorExpression::new("ZZParity() {
+        let zz = TensorExpression::new(
+            "ZZParity() {
             [
                 [
                     [ 1, 0, 0, 0 ], 
@@ -61,11 +64,24 @@ mod tests {
                     [ 0, 0, 0, 0 ],
                 ],
             ]
-        }");
-        
+        }",
+        );
+
         let network = QuditCircuitTensorNetworkBuilder::new(Radices::new([2, 2]), None)
-            .prepend_expression(zz.clone(), ParamInfo::empty(), vec![0, 1], vec![0, 1], vec!["a".to_string()])
-            .prepend_expression(classically_controlled_u3.clone(), ParamInfo::parameterized(vec![0, 1, 2]), vec![0], vec![0], vec!["a".to_string()])
+            .prepend_expression(
+                zz.clone(),
+                ParamInfo::empty(),
+                vec![0, 1],
+                vec![0, 1],
+                vec!["a".to_string()],
+            )
+            .prepend_expression(
+                classically_controlled_u3.clone(),
+                ParamInfo::parameterized(vec![0, 1, 2]),
+                vec![0],
+                vec![0],
+                vec!["a".to_string()],
+            )
             .build();
 
         let optimal_path = network.solve_for_path();

@@ -12,10 +12,9 @@ pub use matmul::MatmulStruct;
 pub use trace::TraceStruct;
 pub use write::WriteStruct;
 
-
 use super::buffer::SizedTensorBuffer;
-use qudit_core::ParamInfo;
 use qudit_core::ComplexScalar;
+use qudit_core::ParamInfo;
 use std::collections::BTreeMap;
 
 /// Captures the offsets into the TNVM memory for one gradient partial calculation.
@@ -49,7 +48,18 @@ type GradOffsetList = Vec<GradOffsetTuple>;
 /// * usize: Optional offset for fourth right buffer
 ///
 /// Note: there is no second output buffer since its the same buffer.
-type HessOffsetTuple = (usize, usize, usize, bool, usize, usize, usize, usize, usize, usize);
+type HessOffsetTuple = (
+    usize,
+    usize,
+    usize,
+    bool,
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+    usize,
+);
 
 /// List of pointers necessary for a full hessian calculation.
 type HessOffsetList = Vec<HessOffsetTuple>;
@@ -77,26 +87,33 @@ fn cache_grad_offset_list<C: ComplexScalar>(
         offset_map.insert(
             param,
             (
-                // Location of left partial with respect to i. 
-                left.offset() + left.unit_memory_size()*(i+1),
+                // Location of left partial with respect to i.
+                left.offset() + left.unit_memory_size() * (i + 1),
                 right.offset(),
                 // false => no need to apply product rule (at least not yet)
-                false, 0, 0,
-            )
+                false,
+                0,
+                0,
+            ),
         );
     }
 
     for (i, param) in sorted_right.iter().enumerate() {
-        offset_map.entry(param).and_modify(|offs| {
-            // This parameter is also in left, need to apply product rule
-            offs.2 = true;
-            offs.3 = left.offset();
-            offs.4 = right.offset() + right.unit_memory_size()*(i+1);
-        }).or_insert((
-            left.offset(),
-            right.offset() + right.unit_memory_size()*(i+1),
-            false, 0, 0,
-        ));
+        offset_map
+            .entry(param)
+            .and_modify(|offs| {
+                // This parameter is also in left, need to apply product rule
+                offs.2 = true;
+                offs.3 = left.offset();
+                offs.4 = right.offset() + right.unit_memory_size() * (i + 1);
+            })
+            .or_insert((
+                left.offset(),
+                right.offset() + right.unit_memory_size() * (i + 1),
+                false,
+                0,
+                0,
+            ));
     }
 
     // Sort and organize for output
@@ -104,15 +121,18 @@ fn cache_grad_offset_list<C: ComplexScalar>(
     vec.sort();
     vec.into_iter()
         .enumerate()
-        .map(|(i, (_, (l_off, r_off, prod, l2_off, r2_off)))| {(
-            l_off,
-            r_off,
-            // Out location is based off sorted order of parameter indices
-            out.offset() + out.unit_memory_size()*(i+1),
-            prod,
-            l2_off,
-            r2_off
-        )}).collect::<Vec<_>>()
+        .map(|(i, (_, (l_off, r_off, prod, l2_off, r2_off)))| {
+            (
+                l_off,
+                r_off,
+                // Out location is based off sorted order of parameter indices
+                out.offset() + out.unit_memory_size() * (i + 1),
+                prod,
+                l2_off,
+                r2_off,
+            )
+        })
+        .collect::<Vec<_>>()
 }
 
 /// Cache offsets pointing to partials that will be operated on during hessian calculations.
@@ -132,23 +152,29 @@ fn cache_hess_offset_list<C: ComplexScalar>(
         for (j, param_j) in sorted_left.iter().enumerate() {
             // Only upper right triangle of hessian is stored since its a symmetric square
             if param_i > param_j {
-                continue
+                continue;
             }
-            let k = if i <= j { j * (j + 1) / 2 + i } else { i * (i + 1) / 2 + j };
+            let k = if i <= j {
+                j * (j + 1) / 2 + i
+            } else {
+                i * (i + 1) / 2 + j
+            };
             offset_map.insert(
                 (param_i, param_j),
                 (
-                    // Location of left partial with respect to i then j. 
-                    left.offset() + left.grad_memory_size() + left.unit_memory_size()*(k+1),
+                    // Location of left partial with respect to i then j.
+                    left.offset() + left.grad_memory_size() + left.unit_memory_size() * (k + 1),
                     right.offset(),
-                    false, 0, 0,
+                    false,
+                    0,
+                    0,
                     // Location of left partial with respect to i
-                    left.offset() + left.unit_memory_size()*(i+1),
+                    left.offset() + left.unit_memory_size() * (i + 1),
                     0,
                     // Location of left partial with respect to j
-                    left.offset() + left.unit_memory_size()*(j+1),
+                    left.offset() + left.unit_memory_size() * (j + 1),
                     0,
-                )
+                ),
             );
         }
     }
@@ -156,24 +182,34 @@ fn cache_hess_offset_list<C: ComplexScalar>(
     for (i, param_i) in sorted_right.iter().enumerate() {
         for (j, param_j) in sorted_right.iter().enumerate() {
             if param_i > param_j {
-                continue
+                continue;
             }
-            let k = if i <= j { j * (j + 1) / 2 + i } else { i * (i + 1) / 2 + j };
-            offset_map.entry((param_i, param_j))
+            let k = if i <= j {
+                j * (j + 1) / 2 + i
+            } else {
+                i * (i + 1) / 2 + j
+            };
+            offset_map
+                .entry((param_i, param_j))
                 .and_modify(|offs| {
                     offs.2 = true;
                     offs.3 = left.offset();
-                    offs.4 = right.offset() + right.grad_memory_size() + right.unit_memory_size()*(k+1);
-                    offs.6 = right.offset() + right.unit_memory_size()*(j+1);
-                    offs.8 = right.offset() + right.unit_memory_size()*(i+1);
-                }).or_insert((
+                    offs.4 = right.offset()
+                        + right.grad_memory_size()
+                        + right.unit_memory_size() * (k + 1);
+                    offs.6 = right.offset() + right.unit_memory_size() * (j + 1);
+                    offs.8 = right.offset() + right.unit_memory_size() * (i + 1);
+                })
+                .or_insert((
                     left.offset(),
-                    right.offset() + right.grad_memory_size() + right.unit_memory_size()*(k+1),
-                    false, 0, 0,
+                    right.offset() + right.grad_memory_size() + right.unit_memory_size() * (k + 1),
+                    false,
                     0,
-                    right.offset() + right.unit_memory_size()*(j+1),
                     0,
-                    right.offset() + right.unit_memory_size()*(i+1),
+                    0,
+                    right.offset() + right.unit_memory_size() * (j + 1),
+                    0,
+                    right.offset() + right.unit_memory_size() * (i + 1),
                 ));
         }
     }
@@ -183,15 +219,21 @@ fn cache_hess_offset_list<C: ComplexScalar>(
     // left multiplied by a single partial of right.
     for (i, param_i) in sorted_left.iter().enumerate() {
         for (j, param_j) in sorted_right.iter().enumerate() {
-            offset_map.entry((param_i, param_j))
+            offset_map
+                .entry((param_i, param_j))
                 // If offset_map already contains this then param_i is in right and
                 // param_j is in left. Since its shared, I don't do anything
                 // here and just skip
                 .or_insert((
-                    left.offset() + left.unit_memory_size()*(i+1),
-                    right.offset() + right.unit_memory_size()*(j+1),
-                    false, 0, 0,
-                    0, 0, 0, 0,
+                    left.offset() + left.unit_memory_size() * (i + 1),
+                    right.offset() + right.unit_memory_size() * (j + 1),
+                    false,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0,
                 ));
         }
     }
@@ -201,19 +243,21 @@ fn cache_hess_offset_list<C: ComplexScalar>(
     vec.sort();
     vec.into_iter()
         .enumerate()
-        .map(|(k, (_, (l_off, r_off, prod, l2_off, r2_off, l3_off, r3_off, l4_off, r4_off)))| {
-            (
-                l_off,
-                r_off,
-                out.offset() + out.grad_memory_size() + out.unit_memory_size()*(k+1),
-                prod,
-                l2_off,
-                r2_off,
-                l3_off,
-                r3_off,
-                l4_off,
-                r4_off,
-            )
-        }).collect::<Vec<_>>()
+        .map(
+            |(k, (_, (l_off, r_off, prod, l2_off, r2_off, l3_off, r3_off, l4_off, r4_off)))| {
+                (
+                    l_off,
+                    r_off,
+                    out.offset() + out.grad_memory_size() + out.unit_memory_size() * (k + 1),
+                    prod,
+                    l2_off,
+                    r2_off,
+                    l3_off,
+                    r3_off,
+                    l4_off,
+                    r4_off,
+                )
+            },
+        )
+        .collect::<Vec<_>>()
 }
-

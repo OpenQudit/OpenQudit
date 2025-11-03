@@ -1,4 +1,3 @@
-
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -15,8 +14,8 @@ use qudit_core::ParamInfo;
 use qudit_expr::index::IndexDirection;
 use qudit_expr::index::IndexId;
 use qudit_expr::index::TensorIndex;
-use qudit_expr::ExpressionId;
 use qudit_expr::ExpressionCache;
+use qudit_expr::ExpressionId;
 use qudit_expr::GenerationShape;
 
 // TODO: Rename to TensorTree
@@ -75,19 +74,29 @@ impl TTGTTree {
 
         // First find the permutation and redirection for left that makes its tensor
         // order (shared_ids [Batch], non_contracted [Output], contracted[Input])
-        let left_left_indices = left.indices().iter()
+        let left_left_indices = left
+            .indices()
+            .iter()
             .filter(|idx| !shared_ids.contains(&idx.index_id()))
             .filter(|idx| !contraction_ids.contains(&idx.index_id()))
             .copied()
             .collect::<Vec<TensorIndex>>();
 
-        let left_index_transpose = shared_ids.iter().copied()
+        let left_index_transpose = shared_ids
+            .iter()
+            .copied()
             .chain(left_left_indices.iter().map(|idx| idx.index_id()))
             .chain(contraction_ids.iter().copied())
-            .map(|i| left.indices().iter().position(|x| x.index_id() == i).unwrap())
+            .map(|i| {
+                left.indices()
+                    .iter()
+                    .position(|x| x.index_id() == i)
+                    .unwrap()
+            })
             .collect::<Vec<usize>>();
 
-        let left_index_redirection = shared_ids.iter()
+        let left_index_redirection = shared_ids
+            .iter()
             .map(|_| IndexDirection::Batch)
             .chain(left_left_indices.iter().map(|_| IndexDirection::Output))
             .chain(contraction_ids.iter().map(|_| IndexDirection::Input))
@@ -97,19 +106,30 @@ impl TTGTTree {
         let left_transposed_tree = left.transpose(left_index_transpose, left_index_redirection);
 
         // same for right but (shared_ids, contracted, non_contracted)
-        let right_right_indices = right.indices().iter()
+        let right_right_indices = right
+            .indices()
+            .iter()
             .filter(|idx| !shared_ids.contains(&idx.index_id()))
             .filter(|idx| !contraction_ids.contains(&idx.index_id()))
             .copied()
             .collect::<Vec<TensorIndex>>();
 
-        let right_index_transpose = shared_ids.iter().copied()
+        let right_index_transpose = shared_ids
+            .iter()
+            .copied()
             .chain(contraction_ids.iter().copied())
             .chain(right_right_indices.iter().map(|idx| idx.index_id()))
-            .map(|i| right.indices().iter().position(|x| x.index_id() == i).unwrap())
+            .map(|i| {
+                right
+                    .indices()
+                    .iter()
+                    .position(|x| x.index_id() == i)
+                    .unwrap()
+            })
             .collect::<Vec<usize>>();
 
-        let right_index_redirection = shared_ids.iter()
+        let right_index_redirection = shared_ids
+            .iter()
             .map(|_| IndexDirection::Batch)
             .chain(contraction_ids.iter().map(|_| IndexDirection::Output))
             .chain(right_right_indices.iter().map(|_| IndexDirection::Input))
@@ -120,7 +140,9 @@ impl TTGTTree {
 
         // Contract
         if contraction_ids.is_empty() {
-            if left_transposed_tree.rank() == shared_ids.len() && right_transposed_tree.rank() == left_transposed_tree.rank() {
+            if left_transposed_tree.rank() == shared_ids.len()
+                && right_transposed_tree.rank() == left_transposed_tree.rank()
+            {
                 left_transposed_tree.hadamard(right_transposed_tree)
             } else {
                 left_transposed_tree.outer(right_transposed_tree)
@@ -165,7 +187,8 @@ impl TTGTTree {
 
     pub fn transpose(self, perm: Vec<usize>, redirection: Vec<IndexDirection>) -> Self {
         let is_identity_permutation = perm.iter().enumerate().all(|(i, &p)| i == p);
-        let original_directions: Vec<IndexDirection> = self.indices().iter().map(|idx| idx.direction()).collect();
+        let original_directions: Vec<IndexDirection> =
+            self.indices().iter().map(|idx| idx.direction()).collect();
         let is_identity_redirection = redirection == original_directions;
 
         let new_root = if is_identity_permutation && is_identity_redirection {
@@ -174,34 +197,66 @@ impl TTGTTree {
         //     let new_id = self.expressions.borrow_mut().permute(n.expr, perm, redirection);
         //     TTGTNode::Leaf(LeafNode::new(new_id, n.param_info, self.expressions.borrow_mut().indices(new_id)))
         } else if let TTGTNode::Transpose(n) = self.root {
-            let TransposeNode { child, perm: base_perm, .. } = n;
+            let TransposeNode {
+                child,
+                perm: base_perm,
+                ..
+            } = n;
             let composed_perm: Vec<usize> = base_perm.iter().map(|&idx| perm[idx]).collect();
             TTGTNode::Transpose(TransposeNode::new(*child, composed_perm, redirection))
         } else if let TTGTNode::Leaf(n) = self.root {
             let expr_perm = n.convert_tensor_perm_to_expression_perm(&perm);
-            let LeafNode { expr: expr_id, param_info, indices, tensor_to_expr_position_map } = n;
-            let new_indices = perm.iter()
+            let LeafNode {
+                expr: expr_id,
+                param_info,
+                indices,
+                tensor_to_expr_position_map,
+            } = n;
+            let new_indices = perm
+                .iter()
                 .map(|p| indices[*p])
                 .zip(redirection.iter())
-                .map(|(idx, new_direction)| TensorIndex::new(*new_direction, idx.index_id(), idx.index_size()))
+                .map(|(idx, new_direction)| {
+                    TensorIndex::new(*new_direction, idx.index_id(), idx.index_size())
+                })
                 .collect::<Vec<TensorIndex>>();
             let new_shape: GenerationShape = (&new_indices).into();
-            let new_expr_id = self.expressions.lock().unwrap().permute_reshape(expr_id, expr_perm, new_shape);
+            let new_expr_id = self
+                .expressions
+                .lock()
+                .unwrap()
+                .permute_reshape(expr_id, expr_perm, new_shape);
             // println!("After permuting in tree transpose, id is {:?}", new_expr_id);
-            TTGTNode::Leaf(LeafNode::new(new_expr_id, param_info, new_indices, tensor_to_expr_position_map))
+            TTGTNode::Leaf(LeafNode::new(
+                new_expr_id,
+                param_info,
+                new_indices,
+                tensor_to_expr_position_map,
+            ))
         } else {
             TTGTNode::Transpose(TransposeNode::new(self.root, perm, redirection))
         };
 
         Self {
             root: new_root,
-            expressions: self.expressions
+            expressions: self.expressions,
         }
     }
 
-    pub fn leaf(expressions: Arc<Mutex<ExpressionCache>>, expr: ExpressionId, param_info: ParamInfo, indices: Vec<TensorIndex>, tensor_to_expr_position_map: Vec<Vec<usize>>) -> Self {
+    pub fn leaf(
+        expressions: Arc<Mutex<ExpressionCache>>,
+        expr: ExpressionId,
+        param_info: ParamInfo,
+        indices: Vec<TensorIndex>,
+        tensor_to_expr_position_map: Vec<Vec<usize>>,
+    ) -> Self {
         Self {
-            root: TTGTNode::Leaf(LeafNode::new(expr, param_info, indices, tensor_to_expr_position_map)),
+            root: TTGTNode::Leaf(LeafNode::new(
+                expr,
+                param_info,
+                indices,
+                tensor_to_expr_position_map,
+            )),
             expressions,
         }
     }

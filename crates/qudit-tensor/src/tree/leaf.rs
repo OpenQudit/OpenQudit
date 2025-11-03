@@ -17,7 +17,12 @@ pub struct LeafNode {
 }
 
 impl LeafNode {
-    pub fn new(expr: ExpressionId, param_info: ParamInfo, indices: Vec<TensorIndex>, tensor_to_expr_position_map: Vec<Vec<usize>>) -> LeafNode {
+    pub fn new(
+        expr: ExpressionId,
+        param_info: ParamInfo,
+        indices: Vec<TensorIndex>,
+        tensor_to_expr_position_map: Vec<Vec<usize>>,
+    ) -> LeafNode {
         LeafNode {
             expr,
             param_info,
@@ -35,7 +40,10 @@ impl LeafNode {
     }
 
     pub fn convert_tensor_perm_to_expression_perm(&self, perm: &[usize]) -> Vec<usize> {
-        perm.iter().flat_map(|p| &self.tensor_to_expr_position_map[*p]).cloned().collect()
+        perm.iter()
+            .flat_map(|p| &self.tensor_to_expr_position_map[*p])
+            .cloned()
+            .collect()
     }
 }
 

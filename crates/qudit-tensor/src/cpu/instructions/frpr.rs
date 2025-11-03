@@ -1,7 +1,7 @@
-use qudit_core::accel::tensor_fused_reshape_permute_reshape_into_prepare;
 use qudit_core::accel::fused_reshape_permute_reshape_into_impl;
-use qudit_core::ComplexScalar;
+use qudit_core::accel::tensor_fused_reshape_permute_reshape_into_prepare;
 use qudit_core::memory::MemoryBuffer;
+use qudit_core::ComplexScalar;
 use qudit_expr::{DifferentiationLevel, FUNCTION, GRADIENT, HESSIAN};
 
 use super::super::buffer::SizedTensorBuffer;
@@ -30,9 +30,17 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> FRPRStruct<C, D> {
         if D >= FUNCTION {
             let (ins, outs, dims) = tensor_fused_reshape_permute_reshape_into_prepare(
                 &input.shape().to_vec(),
-                &input.strides().iter().map(|&s| s as isize).collect::<Vec<isize>>(),
+                &input
+                    .strides()
+                    .iter()
+                    .map(|&s| s as isize)
+                    .collect::<Vec<isize>>(),
                 &output.shape().to_vec(),
-                &output.strides().iter().map(|&s| s as isize).collect::<Vec<isize>>(),
+                &output
+                    .strides()
+                    .iter()
+                    .map(|&s| s as isize)
+                    .collect::<Vec<isize>>(),
                 shape,
                 perm,
             );
@@ -49,11 +57,26 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> FRPRStruct<C, D> {
             // gives prepare a chance to optimize it.
             let (ins, outs, dims) = tensor_fused_reshape_permute_reshape_into_prepare(
                 &input.shape().gradient_shape(input.nparams() + 1).to_vec(),
-                &input.grad_strides().iter().map(|&s| s as isize).collect::<Vec<isize>>(),
+                &input
+                    .grad_strides()
+                    .iter()
+                    .map(|&s| s as isize)
+                    .collect::<Vec<isize>>(),
                 &output.shape().gradient_shape(input.nparams() + 1).to_vec(),
-                &output.grad_strides().iter().map(|&s| s as isize).collect::<Vec<isize>>(),
-                &([1 + input.nparams()].iter().chain(shape.iter()).copied().collect::<Vec<usize>>()),
-                &([0].into_iter().chain(perm.iter().map(|&p| p + 1)).collect::<Vec<usize>>()),
+                &output
+                    .grad_strides()
+                    .iter()
+                    .map(|&s| s as isize)
+                    .collect::<Vec<isize>>(),
+                &([1 + input.nparams()]
+                    .iter()
+                    .chain(shape.iter())
+                    .copied()
+                    .collect::<Vec<usize>>()),
+                &([0]
+                    .into_iter()
+                    .chain(perm.iter().map(|&p| p + 1))
+                    .collect::<Vec<usize>>()),
             );
 
             all_ins.push(ins);
@@ -63,12 +86,31 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> FRPRStruct<C, D> {
 
         if D >= HESSIAN {
             let (ins, outs, dims) = tensor_fused_reshape_permute_reshape_into_prepare(
-                &(input.shape().gradient_shape(input.nparams() + 1) + input.shape().hessian_shape(input.nparams())).to_vec(),
-                &input.grad_strides().iter().map(|&s| s as isize).collect::<Vec<isize>>(),
-                &(output.shape().gradient_shape(output.nparams() + 1) + output.shape().hessian_shape(output.nparams())).to_vec(),
-                &output.grad_strides().iter().map(|&s| s as isize).collect::<Vec<isize>>(),
-                &([1 + input.nparams() + (input.nparams() * (input.nparams()+1) / 2)].iter().chain(shape.iter()).copied().collect::<Vec<usize>>()),
-                &([0].into_iter().chain(perm.iter().map(|&p| p + 1)).collect::<Vec<usize>>()),
+                &(input.shape().gradient_shape(input.nparams() + 1)
+                    + input.shape().hessian_shape(input.nparams()))
+                .to_vec(),
+                &input
+                    .grad_strides()
+                    .iter()
+                    .map(|&s| s as isize)
+                    .collect::<Vec<isize>>(),
+                &(output.shape().gradient_shape(output.nparams() + 1)
+                    + output.shape().hessian_shape(output.nparams()))
+                .to_vec(),
+                &output
+                    .grad_strides()
+                    .iter()
+                    .map(|&s| s as isize)
+                    .collect::<Vec<isize>>(),
+                &([1 + input.nparams() + (input.nparams() * (input.nparams() + 1) / 2)]
+                    .iter()
+                    .chain(shape.iter())
+                    .copied()
+                    .collect::<Vec<usize>>()),
+                &([0]
+                    .into_iter()
+                    .chain(perm.iter().map(|&p| p + 1))
+                    .collect::<Vec<usize>>()),
             );
 
             all_ins.push(ins);
@@ -76,9 +118,15 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> FRPRStruct<C, D> {
             all_dims.push(dims);
         }
 
-        let ins = all_ins.try_into().expect("Failed to calculate input strides.");
-        let outs = all_outs.try_into().expect("Failed to calculate output strides.");
-        let dims = all_dims.try_into().expect("Failed to calculate tensor dimensions.");
+        let ins = all_ins
+            .try_into()
+            .expect("Failed to calculate input strides.");
+        let outs = all_outs
+            .try_into()
+            .expect("Failed to calculate output strides.");
+        let dims = all_dims
+            .try_into()
+            .expect("Failed to calculate tensor dimensions.");
 
         Self {
             ins,

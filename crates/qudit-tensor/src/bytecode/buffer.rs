@@ -8,10 +8,7 @@ pub struct TensorBuffer {
 
 impl TensorBuffer {
     pub fn new(shape: GenerationShape, num_params: usize) -> Self {
-        TensorBuffer {
-            shape,
-            num_params,
-        }
+        TensorBuffer { shape, num_params }
     }
     pub fn ncols(&self) -> usize {
         self.shape.ncols()
@@ -33,4 +30,3 @@ impl TensorBuffer {
         self.shape
     }
 }
-

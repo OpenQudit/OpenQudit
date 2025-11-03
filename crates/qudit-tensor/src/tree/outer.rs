@@ -1,10 +1,10 @@
 use std::hash::Hash;
 
 use super::fmt::PrintTree;
+use super::tree::TTGTNode;
 use qudit_core::ParamInfo;
 use qudit_expr::index::IndexDirection;
 use qudit_expr::index::TensorIndex;
-use super::tree::TTGTNode;
 
 /// A kron node in the computation tree that stacks two nodes.
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
@@ -21,21 +21,42 @@ impl OuterProductNode {
         let right_indices = right.indices();
 
         // assert left and right have the same batch dimensions
-        let left_batch_size = left_indices.iter().filter(|idx| idx.direction() == IndexDirection::Batch).map(|idx| idx.index_size()).product::<usize>();
-        let right_batch_size = right_indices.iter().filter(|idx| idx.direction() == IndexDirection::Batch).map(|idx| idx.index_size()).product::<usize>();
+        let left_batch_size = left_indices
+            .iter()
+            .filter(|idx| idx.direction() == IndexDirection::Batch)
+            .map(|idx| idx.index_size())
+            .product::<usize>();
+        let right_batch_size = right_indices
+            .iter()
+            .filter(|idx| idx.direction() == IndexDirection::Batch)
+            .map(|idx| idx.index_size())
+            .product::<usize>();
         assert_eq!(left_batch_size, right_batch_size);
 
         // new indices = batch (shared) | (left, right)::output | (left, right)::input
-        let indices = left_indices.iter()
+        let indices = left_indices
+            .iter()
             .filter(|idx| idx.direction() == IndexDirection::Batch)
-            .chain(left_indices.iter()
-                .filter(|idx| idx.direction() == IndexDirection::Output))
-            .chain(right_indices.iter()
-                .filter(|idx| idx.direction() == IndexDirection::Output))
-            .chain(left_indices.iter()
-                .filter(|idx| idx.direction() == IndexDirection::Input))
-            .chain(right_indices.iter()
-                .filter(|idx| idx.direction() == IndexDirection::Input))
+            .chain(
+                left_indices
+                    .iter()
+                    .filter(|idx| idx.direction() == IndexDirection::Output),
+            )
+            .chain(
+                right_indices
+                    .iter()
+                    .filter(|idx| idx.direction() == IndexDirection::Output),
+            )
+            .chain(
+                left_indices
+                    .iter()
+                    .filter(|idx| idx.direction() == IndexDirection::Input),
+            )
+            .chain(
+                right_indices
+                    .iter()
+                    .filter(|idx| idx.direction() == IndexDirection::Input),
+            )
             .copied()
             .collect();
 
@@ -67,4 +88,3 @@ impl PrintTree for OuterProductNode {
         self.right.write_tree(&right_prefix, fmt);
     }
 }
-

@@ -42,7 +42,6 @@ pub struct ContractionPath {
     pub subnetwork: SubNetwork,
 }
 
-
 impl ContractionPath {
     /// Calculates the computational cost of contracting two `ContractionPath`s.
     ///
@@ -58,11 +57,13 @@ impl ContractionPath {
     /// Returns:
     /// The calculated cost as a `usize`.
     pub fn calculate_cost(t_a: &Self, t_b: &Self) -> usize {
-        let total_indices = t_a.indices
-            .union(&t_b.indices)
-            .copied()
-            .collect::<Vec<_>>();
-        t_a.cost + t_b.cost + total_indices.iter().map(|(_, size)| size).product::<usize>()
+        let total_indices = t_a.indices.union(&t_b.indices).copied().collect::<Vec<_>>();
+        t_a.cost
+            + t_b.cost
+            + total_indices
+                .iter()
+                .map(|(_, size)| size)
+                .product::<usize>()
     }
 
     pub fn total_dimension(&self) -> isize {
@@ -82,13 +83,25 @@ impl ContractionPath {
     /// A new `ContractionPath` representing the result of the contraction.
     pub fn contract(&self, other: &Self) -> Self {
         let subnetwork = self.subnetwork.union(&other.subnetwork).collect();
-        let output_indices: BTreeSet<IndexId> = self.output_indices.union(&other.output_indices).copied().collect();
-        let indices = self.indices.iter().chain(&other.indices).filter(|idx| {
-            output_indices.contains(&idx.0) || !self.indices.contains(idx) || !other.indices.contains(idx)
-        }).copied()
-        .collect();
+        let output_indices: BTreeSet<IndexId> = self
+            .output_indices
+            .union(&other.output_indices)
+            .copied()
+            .collect();
+        let indices = self
+            .indices
+            .iter()
+            .chain(&other.indices)
+            .filter(|idx| {
+                output_indices.contains(&idx.0)
+                    || !self.indices.contains(idx)
+                    || !other.indices.contains(idx)
+            })
+            .copied()
+            .collect();
         let cost = Self::calculate_cost(self, other);
-        let path = self.path
+        let path = self
+            .path
             .iter()
             .chain(other.path.iter())
             .copied()
@@ -118,7 +131,11 @@ impl ContractionPath {
     ///
     /// Returns:
     /// A new `ContractionPath` representing the trivial case of a single tensor.
-    pub fn trivial(idx: IndexId, indices: BTreeSet<WeightedIndex>, output_indices: BTreeSet<IndexId>) -> Self {
+    pub fn trivial(
+        idx: IndexId,
+        indices: BTreeSet<WeightedIndex>,
+        output_indices: BTreeSet<IndexId>,
+    ) -> Self {
         let path = vec![idx];
         let cost = 0;
         // let subnetwork = 1 << idx;
@@ -146,7 +163,7 @@ impl ContractionPath {
         let mut best_contractions = HashMap::new();
 
         for c in 1..n {
-            for d in 0..((c+1)/2) {
+            for d in 0..((c + 1) / 2) {
                 let sd = &contractions[d]; // optimal d + 1 tensor paths
                 let scd = &contractions[c - 1 - d]; // optimal c - d tensor paths
                 for path_a in sd {
@@ -175,15 +192,19 @@ impl ContractionPath {
 
             // Update the contractions for the current size
             best_contractions.drain().for_each(|(_subnetwork, path)| {
-                contractions[c].push(path);  // best_contractions has c + 1 length contractions
+                contractions[c].push(path); // best_contractions has c + 1 length contractions
             });
             best_costs.clear();
         }
 
         // Retrieve and return the best contraction path for the entire network
-        contractions[n - 1].iter().next().unwrap_or_else(|| {
-            panic!("No contraction path found for the entire network");
-        }).clone()
+        contractions[n - 1]
+            .iter()
+            .next()
+            .unwrap_or_else(|| {
+                panic!("No contraction path found for the entire network");
+            })
+            .clone()
     }
 
     pub fn solve_by_size_simple(mut initial_paths: Vec<Self>) -> Self {
@@ -198,13 +219,18 @@ impl ContractionPath {
             let min1 = initial_paths.pop().expect("Should have atleast 2 paths.");
             let min2 = initial_paths.pop().expect("Should have atleast 2 paths.");
             let new_path = min1.contract(&min2);
-            match initial_paths.binary_search_by_key(&new_path.total_dimension(), |x| x.total_dimension()) {
+            match initial_paths
+                .binary_search_by_key(&new_path.total_dimension(), |x| x.total_dimension())
+            {
                 Ok(pos) => initial_paths.insert(pos, new_path),
-                Err(pos) => initial_paths.insert(pos, new_path), 
+                Err(pos) => initial_paths.insert(pos, new_path),
             }
         }
 
-        initial_paths.into_iter().next().expect("Exactly one path must be left.")
+        initial_paths
+            .into_iter()
+            .next()
+            .expect("Exactly one path must be left.")
     }
 
     // TODO: add parameters for cost function
@@ -216,7 +242,10 @@ impl ContractionPath {
             panic!("No tensors to solve");
         }
 
-        let mut active_paths = initial_paths.into_iter().enumerate().collect::<BTreeMap<_, _>>();
+        let mut active_paths = initial_paths
+            .into_iter()
+            .enumerate()
+            .collect::<BTreeMap<_, _>>();
         let mut counter = active_paths.len();
         let mut remaining = BTreeSet::new();
         let mut contractions = BinaryHeap::new();
@@ -226,7 +255,7 @@ impl ContractionPath {
             for j in (i + 1)..active_paths.len() {
                 let path_i = &active_paths.get(&i).expect("Just constructed.");
                 let path_j = &active_paths.get(&j).expect("Just constructed.");
-                
+
                 if !path_i.subnetwork.is_disjoint(&path_j.subnetwork) {
                     // Non-disjoint subnetworks
                     continue;
@@ -234,10 +263,13 @@ impl ContractionPath {
 
                 let path_k = path_i.contract(&path_j);
 
-                let cost = -(path_k.total_dimension() - (path_i.total_dimension() + path_j.total_dimension()));
+                let cost = -(path_k.total_dimension()
+                    - (path_i.total_dimension() + path_j.total_dimension()));
 
                 let pc = PotentialContraction {
-                    i, j, k: counter,
+                    i,
+                    j,
+                    k: counter,
                     result: path_k,
                     cost,
                 };
@@ -252,7 +284,7 @@ impl ContractionPath {
                 // Rather than remove from BinaryHeap, skip ones already contracted.
                 continue;
             }
-            
+
             active_paths.remove(&pc.i);
             active_paths.remove(&pc.j);
             remaining.remove(&pc.i);
@@ -262,11 +294,17 @@ impl ContractionPath {
             let j = pc.k;
             let path_j = active_paths.get(&pc.k).expect("Just inserted.");
 
-            for (&i, path_i) in active_paths.iter().filter(|(_path_id, path_i)| path_i.subnetwork.is_disjoint(&path_j.subnetwork)) {
+            for (&i, path_i) in active_paths
+                .iter()
+                .filter(|(_path_id, path_i)| path_i.subnetwork.is_disjoint(&path_j.subnetwork))
+            {
                 let new_path_k = path_i.contract(&path_j);
-                let new_cost = -(new_path_k.total_dimension() - (path_i.total_dimension() + path_j.total_dimension()));
+                let new_cost = -(new_path_k.total_dimension()
+                    - (path_i.total_dimension() + path_j.total_dimension()));
                 let pc = PotentialContraction {
-                    i, j, k: counter,
+                    i,
+                    j,
+                    k: counter,
                     result: new_path_k,
                     cost: new_cost,
                 };
@@ -330,7 +368,10 @@ mod tests {
         // Product of sizes: 2 * 3 * 4 = 24
         // Expected cost: 5 + 10 + 24 = 39
         let expected_cost = path_a.cost + path_b.cost + (2 * 3 * 4);
-        assert_eq!(ContractionPath::calculate_cost(&path_a, &path_b), expected_cost);
+        assert_eq!(
+            ContractionPath::calculate_cost(&path_a, &path_b),
+            expected_cost
+        );
 
         // Test with no common indices
         let mut set3 = BitSet::new();
@@ -340,12 +381,18 @@ mod tests {
         // Product of sizes: 2 * 3 * 5 * 6 = 180
         // Expected cost: 5 + 2 + 180 = 187
         let expected_cost_no_common = path_a.cost + path_c.cost + (2 * 3 * 5 * 6);
-        assert_eq!(ContractionPath::calculate_cost(&path_a, &path_c), expected_cost_no_common);
+        assert_eq!(
+            ContractionPath::calculate_cost(&path_a, &path_c),
+            expected_cost_no_common
+        );
 
         // Test with empty paths (unlikely in real use, but good for robustness)
         let path_empty_a = create_test_path(&[], &[], 0, BitSet::new(), vec![]);
         let path_empty_b = create_test_path(&[], &[], 0, BitSet::new(), vec![]);
-        assert_eq!(ContractionPath::calculate_cost(&path_empty_a, &path_empty_b), 1);
+        assert_eq!(
+            ContractionPath::calculate_cost(&path_empty_a, &path_empty_b),
+            1
+        );
     }
 
     #[test]
@@ -403,7 +450,7 @@ mod tests {
         expected.insert(2);
         assert_eq!(contracted_path_ac.subnetwork, expected);
         assert_eq!(contracted_path_ac.output_indices, path_a.output_indices); // Only path_a has output_indices
-        
+
         let mut expected_indices_ac = BTreeSet::new();
         expected_indices_ac.insert((0, 2)); // from A, is output
         expected_indices_ac.insert((1, 3)); // from A

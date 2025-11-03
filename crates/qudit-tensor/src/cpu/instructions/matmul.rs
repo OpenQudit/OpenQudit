@@ -1,12 +1,11 @@
-
+use super::{cache_grad_offset_list, cache_hess_offset_list, GradOffsetList, HessOffsetList};
 use qudit_core::{ComplexScalar, ParamInfo};
-use super::{GradOffsetList, HessOffsetList, cache_grad_offset_list, cache_hess_offset_list};
 
 use super::super::buffer::SizedTensorBuffer;
+use qudit_core::accel::MatMulPlan;
+use qudit_core::memory::MemoryBuffer;
 use qudit_expr::DifferentiationLevel;
 use qudit_expr::{GRADIENT, HESSIAN};
-use qudit_core::memory::MemoryBuffer;
-use qudit_core::accel::MatMulPlan;
 
 pub struct MatmulStruct<C: ComplexScalar> {
     left: SizedTensorBuffer<C>,
@@ -25,10 +24,19 @@ impl<C: ComplexScalar> MatmulStruct<C> {
         left_param_info: ParamInfo,
         right_param_info: ParamInfo,
     ) -> Self {
-        let grad_offset_list = cache_grad_offset_list(&left, &right, &out, &left_param_info, &right_param_info);
-        let hess_offset_list = cache_hess_offset_list(&left, &right, &out, &left_param_info, &right_param_info);
+        let grad_offset_list =
+            cache_grad_offset_list(&left, &right, &out, &left_param_info, &right_param_info);
+        let hess_offset_list =
+            cache_hess_offset_list(&left, &right, &out, &left_param_info, &right_param_info);
         let plan = MatMulPlan::new(left.nrows(), right.ncols(), left.ncols());
-        Self { left, right, out, grad_offset_list, hess_offset_list, plan }
+        Self {
+            left,
+            right,
+            out,
+            grad_offset_list,
+            hess_offset_list,
+            plan,
+        }
     }
 
     #[inline(always)]
@@ -95,7 +103,7 @@ impl<C: ComplexScalar> MatmulStruct<C> {
                 let out = memory.as_mut_ptr().add(*o_off);
                 self.matmul(left, right, out);
 
-                if *prod {    
+                if *prod {
                     let left = memory.as_ptr().add(*l2_off);
                     let right = memory.as_ptr().add(*r2_off);
                     self.matmul_add(left, right, out);
@@ -104,13 +112,15 @@ impl<C: ComplexScalar> MatmulStruct<C> {
         }
 
         if D >= HESSIAN {
-            for (l_off, r_off, o_off, prod, l2_off, r2_off, l3_off, r3_off, l4_off, r4_off) in &self.hess_offset_list {
+            for (l_off, r_off, o_off, prod, l2_off, r2_off, l3_off, r3_off, l4_off, r4_off) in
+                &self.hess_offset_list
+            {
                 let left = memory.as_ptr().add(*l_off);
                 let right = memory.as_ptr().add(*r_off);
                 let out = memory.as_mut_ptr().add(*o_off);
                 self.matmul(left, right, out);
 
-                if *prod {    
+                if *prod {
                     let left = memory.as_ptr().add(*l2_off);
                     let right = memory.as_ptr().add(*r2_off);
                     self.matmul_add(left, right, out);
@@ -127,7 +137,10 @@ impl<C: ComplexScalar> MatmulStruct<C> {
         }
     }
     #[inline(always)]
-    pub unsafe fn batched_evaluate<const D: DifferentiationLevel>(&self, memory: &mut MemoryBuffer<C>) {
+    pub unsafe fn batched_evaluate<const D: DifferentiationLevel>(
+        &self,
+        memory: &mut MemoryBuffer<C>,
+    ) {
         let left = memory.as_ptr().add(self.left.offset());
         let right = memory.as_ptr().add(self.right.offset());
         let out = memory.as_mut_ptr().add(self.out.offset());
@@ -140,7 +153,7 @@ impl<C: ComplexScalar> MatmulStruct<C> {
                 let out = memory.as_mut_ptr().add(*o_off);
                 self.batched_matmul(left, right, out);
 
-                if *prod {    
+                if *prod {
                     let left = memory.as_ptr().add(*l2_off);
                     let right = memory.as_ptr().add(*r2_off);
                     self.batched_matmul_add(left, right, out);
@@ -149,13 +162,15 @@ impl<C: ComplexScalar> MatmulStruct<C> {
         }
 
         if D >= HESSIAN {
-            for (l_off, r_off, o_off, prod, l2_off, r2_off, l3_off, r3_off, l4_off, r4_off) in &self.hess_offset_list {
+            for (l_off, r_off, o_off, prod, l2_off, r2_off, l3_off, r3_off, l4_off, r4_off) in
+                &self.hess_offset_list
+            {
                 let left = memory.as_ptr().add(*l_off);
                 let right = memory.as_ptr().add(*r_off);
                 let out = memory.as_mut_ptr().add(*o_off);
                 self.batched_matmul(left, right, out);
 
-                if *prod {    
+                if *prod {
                     let left = memory.as_ptr().add(*l2_off);
                     let right = memory.as_ptr().add(*r2_off);
                     self.batched_matmul_add(left, right, out);
@@ -172,4 +187,3 @@ impl<C: ComplexScalar> MatmulStruct<C> {
         }
     }
 }
-

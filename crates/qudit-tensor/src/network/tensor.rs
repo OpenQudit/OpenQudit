@@ -2,8 +2,8 @@ use qudit_core::ParamInfo;
 use qudit_expr::ExpressionId;
 use qudit_expr::GenerationShape;
 
-use qudit_expr::index::TensorIndex;
 use qudit_expr::index::IndexDirection;
+use qudit_expr::index::TensorIndex;
 
 #[derive(Debug, Clone)]
 pub struct QuditTensor {
@@ -32,7 +32,8 @@ impl QuditTensor {
 
     /// Returns a vector of index IDs for all batch legs of the tensor.
     pub fn batch_indices(&self) -> Vec<usize> {
-        self.indices.iter()
+        self.indices
+            .iter()
             .filter_map(|index| match index.direction() {
                 IndexDirection::Batch => Some(index.index_id()),
                 _ => None,
@@ -42,7 +43,8 @@ impl QuditTensor {
 
     /// Returns a vector of index IDs for all output legs of the tensor.
     pub fn output_indices(&self) -> Vec<usize> {
-        self.indices.iter()
+        self.indices
+            .iter()
             .filter_map(|index| match index.direction() {
                 IndexDirection::Output => Some(index.index_id()),
                 _ => None,
@@ -52,7 +54,8 @@ impl QuditTensor {
 
     /// Returns a vector of index IDs for all input legs of the tensor.
     pub fn input_indices(&self) -> Vec<usize> {
-        self.indices.iter()
+        self.indices
+            .iter()
             .filter_map(|index| match index.direction() {
                 IndexDirection::Input => Some(index.index_id()),
                 _ => None,
@@ -62,7 +65,8 @@ impl QuditTensor {
 
     /// Returns a vector of sizes for all batch legs of the tensor.
     pub fn batch_sizes(&self) -> Vec<usize> {
-        self.indices.iter()
+        self.indices
+            .iter()
             .filter_map(|index| match index.direction() {
                 IndexDirection::Batch => Some(index.index_size()),
                 _ => None,
@@ -72,7 +76,8 @@ impl QuditTensor {
 
     /// Returns a vector of sizes for all output legs of the tensor.
     pub fn output_sizes(&self) -> Vec<usize> {
-        self.indices.iter()
+        self.indices
+            .iter()
             .filter_map(|index| match index.direction() {
                 IndexDirection::Output => Some(index.index_size()),
                 _ => None,
@@ -82,7 +87,8 @@ impl QuditTensor {
 
     /// Returns a vector of sizes for all input legs of the tensor.
     pub fn input_sizes(&self) -> Vec<usize> {
-        self.indices.iter()
+        self.indices
+            .iter()
             .filter_map(|index| match index.direction() {
                 IndexDirection::Input => Some(index.index_size()),
                 _ => None,
@@ -92,7 +98,6 @@ impl QuditTensor {
 
     /// Returns the rank of the tensor.
     pub fn rank(&self) -> usize {
-        return self.indices.len()
+        return self.indices.len();
     }
 }
-

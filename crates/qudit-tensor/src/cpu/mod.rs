@@ -1,10 +1,10 @@
-mod instructions;
-mod instruction;
-mod tnvm;
-mod result;
 mod buffer;
+mod instruction;
+mod instructions;
+mod result;
+mod tnvm;
 
-pub use tnvm::TNVM;
-pub use tnvm::PinnedTNVM;
 pub use result::TNVMResult;
 pub use result::TNVMReturnType;
+pub use tnvm::PinnedTNVM;
+pub use tnvm::TNVM;
