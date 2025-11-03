@@ -93,6 +93,7 @@ impl<R: RealScalar> ParamBuffer<R> {
 pub struct TNVM<C: ComplexScalar, const D: DifferentiationLevel> {
     const_instructions: Vec<TNVMInstruction<C, D>>,
     dynamic_instructions: Vec<TNVMInstruction<C, D>>,
+    #[allow(dead_code)] // Necessary to hold handle on expressions for safety.
     expressions: Arc<Mutex<ExpressionCache>>,
     memory: MemoryBuffer<C>,
     param_buffer: ParamBuffer<C::R>,

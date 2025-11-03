@@ -26,7 +26,7 @@ pub struct QuditTensorNetwork {
 // TODO: handle partial trace
 impl QuditTensorNetwork {
     pub fn new(tensors: Vec<QuditTensor>, expressions: Arc<Mutex<ExpressionCache>>, local_to_network_index_map: Vec<Vec<IndexId>>, indices: Vec<NetworkEdge>) -> Self {
-        for (index, edge) in indices.iter() {
+        for (_, edge) in indices.iter() {
             if edge.is_empty() {
                 panic!("Index not attached to any tensor detected. Empty indices, must have explicit identity/copy tensors attached before final network construction.");
             }
@@ -48,6 +48,7 @@ impl QuditTensorNetwork {
         self.indices.len()
     }
     
+    #[allow(dead_code)] // Left for documentation purposes
     fn index_id(&self, idx: &NetworkIndex) -> Option<IndexId> {
         self.indices.iter().position(|x| &x.0 == idx)
     }
@@ -68,6 +69,7 @@ impl QuditTensorNetwork {
         }
     }
 
+    #[allow(dead_code)] // Left for documentation purposes
     fn get_output_indices(&self) -> Vec<TensorIndex> {
         self.indices.iter().filter_map(|x| match &x.0 {
             NetworkIndex::Output(idx) => Some(idx),
@@ -75,8 +77,9 @@ impl QuditTensorNetwork {
         }).copied().collect()
     }
 
+    #[allow(dead_code)] // Left for documentation purposes
     fn get_output_shape(&self) -> GenerationShape {
-        /// Calculate dimension totals for each direction
+        // Calculate dimension totals for each direction
         let mut total_batch_dim = None;
         let mut total_output_dim = None;
         let mut total_input_dim = None;
@@ -119,6 +122,7 @@ impl QuditTensorNetwork {
         }
     }
 
+    #[allow(dead_code)] // Left for documentation purposes
     fn get_tensor_unique_network_indices(&self, tensor_id: TensorId) -> BTreeSet<NetworkIndex> {
         self.local_to_network_index_map[tensor_id].iter().map(|&idx_id| self.indices[idx_id].0.clone()).collect()
     }

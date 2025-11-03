@@ -23,13 +23,10 @@ pub fn compile_network(network: QuditTensorNetwork) -> Bytecode {
 
 #[cfg(test)]
 mod tests {
-    use qudit_expr::DifferentiationLevel;
-
     use crate::bytecode::BytecodeGenerator;
-    // use crate::qvm::QVM;
     use qudit_core::{ParamInfo, Radices};
     use qudit_expr::TensorExpression;
-    use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
+    use qudit_expr::GRADIENT;
 
     use super::*;
 
@@ -49,7 +46,7 @@ mod tests {
         //     ]
         // }");
         let classically_controlled_u3 = u3.stack_with_identity(&[1], 2);
-        let ZZ = TensorExpression::new("ZZParity() {
+        let zz = TensorExpression::new("ZZParity() {
             [
                 [
                     [ 1, 0, 0, 0 ], 
@@ -66,8 +63,8 @@ mod tests {
             ]
         }");
         
-        let mut network = QuditCircuitTensorNetworkBuilder::new(Radices::new([2, 2]), None)
-            .prepend_expression(ZZ.clone(), ParamInfo::empty(), vec![0, 1], vec![0, 1], vec!["a".to_string()])
+        let network = QuditCircuitTensorNetworkBuilder::new(Radices::new([2, 2]), None)
+            .prepend_expression(zz.clone(), ParamInfo::empty(), vec![0, 1], vec![0, 1], vec!["a".to_string()])
             .prepend_expression(classically_controlled_u3.clone(), ParamInfo::parameterized(vec![0, 1, 2]), vec![0], vec![0], vec!["a".to_string()])
             .build();
 

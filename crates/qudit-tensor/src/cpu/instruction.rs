@@ -137,21 +137,6 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVMInstruction<C, D> {
     }
 
     #[inline(always)]
-    pub fn get_output_buffer(&self) -> &SizedTensorBuffer<C> {
-        match self {
-            TNVMInstruction::FRPR(s) => s.get_output_buffer(),
-            TNVMInstruction::HadamardB(s) => s.get_output_buffer(),
-            TNVMInstruction::HadamardS(s) => s.get_output_buffer(),
-            TNVMInstruction::KronB(s) => s.get_output_buffer(),
-            TNVMInstruction::KronS(s) => s.get_output_buffer(),
-            TNVMInstruction::MatMulB(s) => s.get_output_buffer(),
-            TNVMInstruction::MatMulS(s) => s.get_output_buffer(),
-            TNVMInstruction::Trace(s) => s.get_output_buffer(),
-            TNVMInstruction::Write(s) => s.get_output_buffer(),
-        }
-    }
-
-    #[inline(always)]
     pub unsafe fn evaluate<const E: DifferentiationLevel>(&self, params: &[C::R], memory: &mut MemoryBuffer<C>) {
         match self {
             TNVMInstruction::FRPR(s) => s.evaluate::<E>(memory),

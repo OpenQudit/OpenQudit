@@ -31,11 +31,6 @@ impl<C: ComplexScalar> HadamardStruct<C> {
     }
 
     #[inline(always)]
-    pub fn get_output_buffer(&self) -> &SizedTensorBuffer<C> {
-        &self.out
-    }
-
-    #[inline(always)]
     unsafe fn hadamard(&self, left: *const C, right: *const C, out: *mut C) {
         hadamard_kernel_raw(
             self.left.nrows(),

@@ -40,10 +40,5 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> WriteStruct<C, D> {
             (self.write_fns[E - 1])(params.as_ptr(), ptr, self.param_map.as_ptr(), self.output_map.as_ptr(), (self.buffer.unit_memory_size()*2) as u64, self.const_map.as_ptr());
         }
     }
-
-    #[inline(always)]
-    pub fn get_output_buffer(&self) -> &SizedTensorBuffer<C> {
-        &self.buffer
-    }
 }
 

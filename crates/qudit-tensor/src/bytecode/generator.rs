@@ -3,7 +3,6 @@ use std::sync::{Arc, Mutex};
 
 use super::buffer::TensorBuffer;
 use super::{Bytecode, BytecodeInstruction};
-use qudit_core::HasParams;
 use crate::tree::{TTGTTree, TTGTNode, LeafNode, TraceNode, TransposeNode};
 use qudit_expr::{ExpressionCache, GenerationShape};
 
@@ -49,7 +48,7 @@ impl BytecodeGenerator {
         //  no need for second write, just make kron: kron 0 0 2
 
         match tree {
-            TTGTNode::Leaf(LeafNode { expr, param_info, indices, .. } ) => {
+            TTGTNode::Leaf(LeafNode { expr, param_info, .. } ) => {
                 let shape = expressions.lock().unwrap().generation_shape(expr);
                 let out = self.new_buffer(shape, param_info.num_var_params());
                 let total_num_params = param_info.num_params();

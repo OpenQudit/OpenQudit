@@ -99,9 +99,4 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> FRPRStruct<C, D> {
             &self.dims[E - 1],
         );
     }
-
-    #[inline(always)]
-    pub fn get_output_buffer(&self) -> &SizedTensorBuffer<C> {
-        &self.output
-    }
 }

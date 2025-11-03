@@ -32,11 +32,6 @@ impl<C: ComplexScalar> MatmulStruct<C> {
     }
 
     #[inline(always)]
-    pub fn get_output_buffer(&self) -> &SizedTensorBuffer<C> {
-        &self.out
-    }
-
-    #[inline(always)]
     unsafe fn matmul(&self, left: *const C, right: *const C, out: *mut C) {
         self.plan.execute_raw_unchecked(
             left,

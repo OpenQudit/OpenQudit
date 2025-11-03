@@ -35,7 +35,7 @@ impl TraceNode {
             indices_to_remove.push(*idx2);
         }
 
-        let indices = child_indices.into_iter().enumerate().filter(|(i, idx)| !indices_to_remove.contains(i)).map(|(_, idx)| idx).collect();
+        let indices = child_indices.into_iter().enumerate().filter(|(i, _idx)| !indices_to_remove.contains(i)).map(|(_, idx)| idx).collect();
 
         TraceNode {
             child: Box::new(child),

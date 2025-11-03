@@ -358,15 +358,15 @@ impl QuditCircuitTensorNetworkBuilder {
         self
     }
 
-    pub fn append(
-        self,
-        tensor: QuditTensor,
-        left_qudit_map: Vec<usize>,
-        right_qudit_map: Vec<usize>,
-        batch_index_map: Vec<String>,
-    ) -> Self {
-        todo!()
-    }
+    // pub fn append(
+    //     self,
+    //     tensor: QuditTensor,
+    //     left_qudit_map: Vec<usize>,
+    //     right_qudit_map: Vec<usize>,
+    //     batch_index_map: Vec<String>,
+    // ) -> Self {
+    //     todo!()
+    // }
 
     pub fn prepend_unitary<C: ComplexScalar>(mut self, utry: UnitaryMatrix<C>, qudits: Vec<usize>) -> Self {
         let expr: TensorExpression = UnitaryExpression::from(utry).into();
@@ -484,7 +484,6 @@ impl QuditCircuitTensorNetworkBuilder {
                     Some(id) => id,
                 };
                 let identity_tensor = QuditTensor::new(identity_indices, identity_expr_id, ParamInfo::empty());
-                let tensor_id = tensors.len();
                 tensors.push(identity_tensor);
                 local_to_network_index_map.push(vec![NetworkBuilderIndex::Front(qudit_id), NetworkBuilderIndex::Rear(qudit_id)]);
             }

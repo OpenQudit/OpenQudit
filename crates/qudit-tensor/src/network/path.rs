@@ -52,17 +52,17 @@ impl ContractionPath {
     /// complexity of the resulting matrix multiplication.
     ///
     /// Arguments:
-    /// * `T_a` - The first `ContractionPath`.
-    /// * `T_b` - The second `ContractionPath`.
+    /// * `t_a` - The first `ContractionPath`.
+    /// * `t_b` - The second `ContractionPath`.
     ///
     /// Returns:
     /// The calculated cost as a `usize`.
-    pub fn calculate_cost(T_a: &Self, T_b: &Self) -> usize {
-        let total_indices = T_a.indices
-            .union(&T_b.indices)
+    pub fn calculate_cost(t_a: &Self, t_b: &Self) -> usize {
+        let total_indices = t_a.indices
+            .union(&t_b.indices)
             .copied()
             .collect::<Vec<_>>();
-        T_a.cost + T_b.cost + total_indices.iter().map(|(_, size)| size).product::<usize>()
+        t_a.cost + t_b.cost + total_indices.iter().map(|(_, size)| size).product::<usize>()
     }
 
     pub fn total_dimension(&self) -> isize {
@@ -174,7 +174,7 @@ impl ContractionPath {
             }
 
             // Update the contractions for the current size
-            best_contractions.drain().for_each(|(subnetwork, path)| {
+            best_contractions.drain().for_each(|(_subnetwork, path)| {
                 contractions[c].push(path);  // best_contractions has c + 1 length contractions
             });
             best_costs.clear();
@@ -262,7 +262,7 @@ impl ContractionPath {
             let j = pc.k;
             let path_j = active_paths.get(&pc.k).expect("Just inserted.");
 
-            for (&i, path_i) in active_paths.iter().filter(|(path_id, path_i)| path_i.subnetwork.is_disjoint(&path_j.subnetwork)) {
+            for (&i, path_i) in active_paths.iter().filter(|(_path_id, path_i)| path_i.subnetwork.is_disjoint(&path_j.subnetwork)) {
                 let new_path_k = path_i.contract(&path_j);
                 let new_cost = -(new_path_k.total_dimension() - (path_i.total_dimension() + path_j.total_dimension()));
                 let pc = PotentialContraction {
@@ -287,7 +287,6 @@ mod tests {
 
     // Helper function to create a simple ContractionPath for testing
     fn create_test_path(
-        idx: IndexId,
         indices: &[WeightedIndex],
         output_indices: &[IndexId],
         cost: usize,
@@ -321,11 +320,11 @@ mod tests {
         // Path A: cost 5, indices (0,2), (1,3)
         let mut set1 = BitSet::new();
         set1.insert(0);
-        let path_a = create_test_path(0, &[(0, 2), (1, 3)], &[], 5, set1, vec![0]);
+        let path_a = create_test_path(&[(0, 2), (1, 3)], &[], 5, set1, vec![0]);
         // Path B: cost 10, indices (1,3), (2,4)
         let mut set2 = BitSet::new();
         set2.insert(1);
-        let path_b = create_test_path(1, &[(1, 3), (2, 4)], &[], 10, set2, vec![1]);
+        let path_b = create_test_path(&[(1, 3), (2, 4)], &[], 10, set2, vec![1]);
 
         // Expected total indices: (0,2), (1,3), (2,4)
         // Product of sizes: 2 * 3 * 4 = 24
@@ -336,7 +335,7 @@ mod tests {
         // Test with no common indices
         let mut set3 = BitSet::new();
         set3.insert(2);
-        let path_c = create_test_path(2, &[(3, 5), (4, 6)], &[], 2, set3, vec![2]);
+        let path_c = create_test_path(&[(3, 5), (4, 6)], &[], 2, set3, vec![2]);
         // Expected total indices: (0,2), (1,3), (3,5), (4,6)
         // Product of sizes: 2 * 3 * 5 * 6 = 180
         // Expected cost: 5 + 2 + 180 = 187
@@ -344,8 +343,8 @@ mod tests {
         assert_eq!(ContractionPath::calculate_cost(&path_a, &path_c), expected_cost_no_common);
 
         // Test with empty paths (unlikely in real use, but good for robustness)
-        let path_empty_a = create_test_path(0, &[], &[], 0, BitSet::new(), vec![]);
-        let path_empty_b = create_test_path(1, &[], &[], 0, BitSet::new(), vec![]);
+        let path_empty_a = create_test_path(&[], &[], 0, BitSet::new(), vec![]);
+        let path_empty_b = create_test_path(&[], &[], 0, BitSet::new(), vec![]);
         assert_eq!(ContractionPath::calculate_cost(&path_empty_a, &path_empty_b), 1);
     }
 
@@ -354,11 +353,11 @@ mod tests {
         // Path A: cost 5, indices (0,2), (1,3), output {0}
         let mut set1 = BitSet::new();
         set1.insert(0);
-        let path_a = create_test_path(0, &[(0, 2), (1, 3)], &[0], 5, set1, vec![0]);
+        let path_a = create_test_path(&[(0, 2), (1, 3)], &[0], 5, set1, vec![0]);
         // Path B: cost 10, indices (1,3), (2,4), output {2}
         let mut set2 = BitSet::new();
         set2.insert(1);
-        let path_b = create_test_path(1, &[(1, 3), (2, 4)], &[2], 10, set2, vec![1]);
+        let path_b = create_test_path(&[(1, 3), (2, 4)], &[2], 10, set2, vec![1]);
 
         let contracted_path = path_a.contract(&path_b);
 
@@ -397,7 +396,7 @@ mod tests {
         // Test with no common indices, no output indices
         let mut set = BitSet::new();
         set.insert(2);
-        let path_c = create_test_path(2, &[(3, 5), (4, 6)], &[], 2, set, vec![2]);
+        let path_c = create_test_path(&[(3, 5), (4, 6)], &[], 2, set, vec![2]);
         let contracted_path_ac = path_a.contract(&path_c);
         let mut expected = BitSet::new();
         expected.insert(0);
@@ -422,12 +421,12 @@ mod tests {
         // Path A: cost 5, indices (0,2), (1,3), output {0}
         let mut set1 = BitSet::new();
         set1.insert(0);
-        let path_a = create_test_path(0, &[(0, 2), (1, 3)], &[0], 5, set1, vec![0]);
+        let path_a = create_test_path(&[(0, 2), (1, 3)], &[0], 5, set1, vec![0]);
         // Path B: cost 10, indices (0,2), (2,4), output {0}
         // Index 0 is common and is an output index for both paths.
         let mut set2 = BitSet::new();
         set2.insert(1);
-        let path_b = create_test_path(1, &[(0, 2), (2, 4)], &[0], 10, set2, vec![1]);
+        let path_b = create_test_path(&[(0, 2), (2, 4)], &[0], 10, set2, vec![1]);
 
         let contracted_path = path_a.contract(&path_b);
 

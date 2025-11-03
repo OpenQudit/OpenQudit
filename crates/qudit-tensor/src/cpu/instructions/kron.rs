@@ -31,11 +31,6 @@ impl<C: ComplexScalar> KronStruct<C> {
     }
 
     #[inline(always)]
-    pub fn get_output_buffer(&self) -> &SizedTensorBuffer<C> {
-        &self.out
-    }
-
-    #[inline(always)]
     unsafe fn kron(&self, left: *const C, right: *const C, out: *mut C) {
         kron_kernel_raw(
             out,
