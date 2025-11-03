@@ -1,30 +1,20 @@
-use std::cell::RefCell;
-use std::marker::PhantomData;
 use std::marker::PhantomPinned;
 use std::pin::Pin;
-use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::Mutex;
 
-use faer::reborrow::ReborrowMut;
 use qudit_core::RealScalar;
 use qudit_expr::DifferentiationLevel;
 use qudit_expr::GenerationShape;
-use qudit_expr::Module;
-use qudit_expr::ModuleBuilder;
 use qudit_expr::ExpressionCache;
 use qudit_expr::FUNCTION;
 use rustc_hash::FxHashMap;
-
 
 use crate::bytecode::Bytecode;
 use crate::cpu::TNVMResult;
 use super::buffer::SizedTensorBuffer;
 use super::instruction::TNVMInstruction;
 
-use qudit_core::accel::fused_reshape_permute_reshape_into_impl;
-use faer::MatMut;
-use faer::MatRef;
 use qudit_core::memory::MemoryBuffer;
 use qudit_core::memory::alloc_zeroed_memory;
 use qudit_core::ComplexScalar;
@@ -47,7 +37,7 @@ impl<R: RealScalar> ParamBuffer<R> {
 
         let variable_map = if let Some(const_map) = const_map {
             for (idx, arg) in const_map.iter() {
-                buffer[idx] = arg;
+                buffer[*idx] = *arg;
             }
 
             let mut variable_map = Vec::with_capacity(num_params - const_map.len());
@@ -75,7 +65,7 @@ impl<R: RealScalar> ParamBuffer<R> {
         debug_assert_eq!(var_args.len(), self.variable_map.len());
 
         for (arg, idx) in var_args.iter().zip(self.variable_map.iter()) {
-            self.buffer[idx] = arg;
+            self.buffer[*idx] = *arg;
         }
     }
 
@@ -91,7 +81,7 @@ pub struct TNVM<C: ComplexScalar, const D: DifferentiationLevel> {
     dynamic_instructions: Vec<TNVMInstruction<C, D>>,
     expressions: Arc<Mutex<ExpressionCache>>,
     memory: MemoryBuffer<C>,
-    param_buffer: ParamBuffer<R>,
+    param_buffer: ParamBuffer<C::R>,
     out_buffer: SizedTensorBuffer<C>,
     _pin: PhantomPinned,
     // TODO: hold a mutable borrow of the expressions to prevent any uncompiling of it

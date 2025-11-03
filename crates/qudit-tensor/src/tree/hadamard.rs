@@ -28,7 +28,7 @@ impl HadamardProductNode {
 
         assert!(left_indices.iter().zip(right_indices.iter()).all(|(l, r)| l.index_size() == r.index_size() && l.direction() == r.direction()));
 
-        let param_info = left.param_info().concat(&right.param_info());
+        let param_info = left.param_info().union(&right.param_info());
 
         HadamardProductNode {
             left: Box::new(left),

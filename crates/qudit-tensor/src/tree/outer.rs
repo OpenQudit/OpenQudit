@@ -45,7 +45,7 @@ impl OuterProductNode {
             .copied()
             .collect();
 
-        let param_info = left.param_info().concat(&right.param_info());
+        let param_info = left.param_info().union(&right.param_info());
 
         OuterProductNode {
             left: Box::new(left),

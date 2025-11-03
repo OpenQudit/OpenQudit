@@ -40,7 +40,7 @@ impl MatMulNode {
             .copied()
             .collect::<Vec<TensorIndex>>();
 
-        let param_info = left.param_info().concat(&right.param_info());
+        let param_info = left.param_info().union(&right.param_info());
 
         MatMulNode {
             left: Box::new(left),
