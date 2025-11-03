@@ -192,8 +192,10 @@ mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for Radix {
-        fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+    impl<'a, 'py> FromPyObject<'a, 'py> for Radix {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             let value: u8 = obj.extract()?;
             if value < 2 {
                 Err(pyo3::exceptions::PyValueError::new_err(format!(

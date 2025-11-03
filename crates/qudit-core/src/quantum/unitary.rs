@@ -851,8 +851,10 @@ mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for UnitaryMatrix<c64> {
-        fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+    impl<'a, 'py> FromPyObject<'a, 'py> for UnitaryMatrix<c64> {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             if let Ok(py_unitary) = obj.extract::<PyRef<PyUnitaryMatrix>>() {
                 Ok(py_unitary.inner.clone())
             } else if let Ok(py_unitary) = obj.extract::<PyReadonlyArray2<c64>>() {

@@ -77,7 +77,7 @@ impl ParamIndices {
     /// # Returns
     ///
     /// A `ParamIndices` representing an empty set of parameter indices.
-    pub fn constant() -> ParamIndices {
+    pub fn empty() -> ParamIndices {
         ParamIndices::Joint(0, 0)
     }
 
@@ -550,7 +550,7 @@ mod python {
 
         /// Returns all parameter indices as a list.
         fn to_list(&self) -> Vec<usize> {
-            self.inner.to_vec()
+            self.inner.as_vec()
         }
 
         /// Returns a sorted copy of these parameter indices.
@@ -578,7 +578,7 @@ mod python {
         #[staticmethod]
         fn constant() -> PyParamIndices {
             PyParamIndices {
-                inner: ParamIndices::constant(),
+                inner: ParamIndices::empty(),
             }
         }
 
@@ -598,7 +598,7 @@ mod python {
         }
 
         fn __str__(&self) -> String {
-            let indices = self.inner.to_vec();
+            let indices = self.inner.as_vec();
             if indices.len() <= 3 {
                 format!("{:?}", indices)
             } else {
@@ -616,7 +616,7 @@ mod python {
 
         fn __iter__(slf: PyRef<'_, Self>) -> PyParamIndicesIterator {
             PyParamIndicesIterator {
-                indices: slf.inner.to_vec(),
+                indices: slf.inner.as_vec(),
                 index: 0,
             }
         }
@@ -672,8 +672,10 @@ mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for ParamIndices {
-        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+    impl<'a, 'py> FromPyObject<'a, 'py> for ParamIndices {
+        type Error = PyErr;
+
+        fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             let py_indices: PyParamIndices = ob.extract()?;
             Ok(py_indices.into())
         }

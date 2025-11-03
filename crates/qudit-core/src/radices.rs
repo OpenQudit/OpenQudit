@@ -625,10 +625,10 @@ mod python {
     use super::*;
     use pyo3::{exceptions::PyTypeError, prelude::*};
 
-    impl<'py> FromPyObject<'py> for Radices {
-        // const INPUT_TYPE: &'static str = "int | typing.Iterable[int]";
+    impl<'a, 'py> FromPyObject<'a, 'py> for Radices {
+        type Error = PyErr;
 
-        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+        fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             if let Ok(num) = ob.extract::<usize>() {
                 Ok(Radices::new(&[num]))
             } else if let Ok(nums) = ob.extract::<Vec<usize>>() {

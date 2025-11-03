@@ -1,14 +1,15 @@
 [package]
 name = "qudit-tensor"
 version = { workspace = true }
-edition = { workspace = true }
+# edition = { workspace = true }
+edition = "2021"
 license = { workspace = true }
 
-[lints.rust]
-unused = { level = "allow", priority = -1 }
+# [lints.rust]
+# unused = { level = "allow", priority = -1 }
 
 [dependencies]
-qudit-core = { path = "../qudit-core" }
-qudit-expr = { path = "../qudit-expr" }
-bit-set = "0.8.0"
-faer = "0.23.2"
+qudit-core = { workspace = true }
+qudit-expr = { workspace = true }
+bit-set = { workspace = true }
+faer = { workspace = true }

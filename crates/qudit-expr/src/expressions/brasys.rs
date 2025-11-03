@@ -214,8 +214,10 @@ mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for BraSystemExpression {
-        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+    impl<'a, 'py> FromPyObject<'a, 'py> for BraSystemExpression {
+        type Error = PyErr;
+
+        fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             let py_expr: PyRef<PyBraSystemExpression> = ob.extract()?;
             Ok(py_expr.expr.clone())
         }
