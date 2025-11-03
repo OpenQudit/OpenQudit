@@ -199,7 +199,7 @@ impl Instruction {
     /// 
     /// * `op` - The quantum operation code
     /// * `wires` - Target wires for the operation  
-    /// * `param_indices` - Indices referencing parameters in the owner's parameter vector
+    /// * `param_indices` - Indices referencing parameters (by id) in the owner's parameter vector
     pub fn new(op: OpCode, wires: WireList, param_indices: ParamIndices) -> Self {
         let wires: CompactVec<Wire> = wires.into();
 
@@ -275,6 +275,10 @@ impl Instruction {
     }
 
     /// Returns the parameter indices for this instruction.
+    ///
+    /// Note: these are persistent identifiers that do not correspond to direct
+    /// parameter vector positions. One must consult the parameter vector directly
+    /// to translate between ids and indices.
     #[inline]
     pub fn params(&self) -> ParamIndices {
         match self {

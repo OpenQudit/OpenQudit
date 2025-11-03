@@ -492,9 +492,9 @@ impl QuditCircuit {
             todo!()
         }
 
-        let param_indices = self.params.parse(&args);
+        let param_ids = self.params.parse(&args); // persistent ids; not indices
         let wires = wires.into();
-        self._append_ref(op, wires, param_indices);
+        self._append_ref(op, wires, param_ids);
         InstructionId::new(CycleId(0), InstId::null())
     }
 
@@ -508,7 +508,7 @@ impl QuditCircuit {
         let loc: WireList = loc.into();
         let args: ArgumentList = params.into();
 
-        let param_indices = self.params.parse(&args);
+        let param_ids = self.params.parse(&args); // persistent ids; not indices
 
         // Modify expression with new parameter expressions
         let new_variables = args.variables();
@@ -544,7 +544,7 @@ impl QuditCircuit {
         };
 
         let op_code = self.operations.insert_expression_with_dits(subbed_op, &loc.dits().map(|d| self.dit_radices[d].into()).collect::<Vec<_>>());
-        self._append_ref(op_code, loc, param_indices);
+        self._append_ref(op_code, loc, param_ids);
         InstructionId::new(CycleId(0), InstId::null())
     }
 
@@ -877,7 +877,7 @@ impl QuditCircuit {
     pub fn kraus_ops<C: ComplexScalar>(&self, args: &[C::R]) -> Tensor<C, 3> {
         let network = self.to_tensor_network();
         let code = qudit_tensor::compile_network(network);
-        let mut tnvm = qudit_tensor::TNVM::<C, FUNCTION>::new(&code);
+        let mut tnvm = qudit_tensor::TNVM::<C, FUNCTION>::new(&code, Some(&self.params.const_map()));
         let result = tnvm.evaluate::<FUNCTION>(args);
         result.get_fn_result2().unpack_tensor3d().to_owned()
     }
@@ -890,17 +890,12 @@ impl QuditCircuit {
     pub fn as_tensor_network_builder(&self) -> QuditCircuitTensorNetworkBuilder {
         let mut network = QuditCircuitTensorNetworkBuilder::new(self.qudit_radices(), Some(self.operations.expressions()));
 
-        // TODO: indices need to be calculated in addition to inst.classical_wires;
-        // i.e. for some of these cases, the batch dimension needs to have its love
-        // spread around over the target dits.
         for inst in self.iter() {
             if inst.op_code().kind() == OpKind::Expression {
                 let indices = self.operations.indices(inst.op_code());
-                // TODO: Providing ParamInfo is unnecessary, the TNVM will need to
-                // additionally know the parametervector anyways for the constant values,
-                // unless we provide the constant values here
-                let constant = inst.params().iter().map(|i| self.params[i].is_constant()).collect();
-                let param_info = ParamInfo::new(inst.params().clone(), constant); 
+                let param_indices = self.params.convert_ids_to_indices(inst.params());
+                let constant = param_indices.iter().map(|i| self.params[i].is_constant()).collect();
+                let param_info = ParamInfo::new(param_indices, constant); 
                 let input_index_map = if indices.iter().any(|idx| idx.direction() == IndexDirection::Input && idx.index_size() > 1) { inst.wires().qudits().collect() } else { vec![] };
                 let output_index_map = if indices.iter().any(|idx| idx.direction() == IndexDirection::Output && idx.index_size() > 1) { inst.wires().qudits().collect() } else { vec![] };
                 let batch_index_map: Vec<String> = inst.wires().dits()

@@ -41,7 +41,7 @@ impl ParameterVector {
             let new_id = self.id_counter;
             self.id_counter += 1;
             self.id_to_index.insert(new_id, self.params.len());
-            self.ref_counts.insert(new_id, 1);
+            self.ref_counts.insert(new_id, 1); // TODO: mr. stupid only knows how to count to 1
             new_id
         };
 
@@ -97,6 +97,41 @@ impl ParameterVector {
             false => ParamIndices::Disjoint(param_indices),
         }
     } 
+
+    /// Convert parameters given by persistent ids to their vector indices.
+    pub fn convert_ids_to_indices(&self, param_ids: ParamIndices) -> ParamIndices {
+        if param_ids.is_empty() {
+            return ParamIndices::empty();
+        }
+
+        let indices: Vec<_> = param_ids.iter()
+            .map(|id| *self.id_to_index.get(&id).expect("Cannot find parameter id."))
+            .collect();
+        
+        if indices.len() == 1 {
+            return ParamIndices::Joint(indices[0], 1);
+        }
+        
+        let consecutive = indices.windows(2).all(|w| w[1] == w[0] + 1);
+        
+        if consecutive {
+            ParamIndices::Joint(indices[0], indices.len())
+        } else {
+            ParamIndices::Disjoint(indices)
+        }
+    }
+
+    pub fn const_map<R: qudit_core::RealScalar>(&self) -> FxHashMap<usize, R> {
+        let mut const_map = FxHashMap::default();
+
+        for (i, param) in self.params.iter().enumerate() {
+            if param.is_constant() {
+                const_map.insert(i, param.extract_float().expect("Unexpected non-constant."));
+            }
+        }
+
+        const_map
+    }
 }
 
 impl std::ops::Deref for ParameterVector {

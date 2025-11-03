@@ -1,4 +1,6 @@
+use qudit_core::RealScalar;
 use qudit_expr::Constant;
+use num::ToPrimitive;
 
 /// Represents different types of parameters that can be used in a quantum circuit.
 /// These parameters can be assigned constant values or be dynamic and resolved later.
@@ -21,7 +23,18 @@ pub enum Parameter {
 }
 
 impl Parameter {
+    pub fn extract_float<R: RealScalar>(&self) -> Option<R> {
+        match self {
+            Self::Constant32(val) => Some(R::from32(*val)),
+            Self::Constant64(val) => Some(R::from64(*val)),
+            Self::ConstantRatio(val) => val.to_f64().map(|f| R::from64(f)),
+            Self::Indexed => None,
+            Self::Named(_) => None,
+        }
+    }
+
     pub fn is_constant(&self) -> bool {
+        // TODO: Consider changing the nomenclature from constant to assigned
         match self {
             Parameter::Constant32(_) => true,
             Parameter::Constant64(_) => true,
