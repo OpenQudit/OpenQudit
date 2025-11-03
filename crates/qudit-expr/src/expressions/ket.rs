@@ -114,13 +114,8 @@ impl TryFrom<TensorExpression> for KetExpression {
 mod python {
     use super::*;
     use crate::python::PyExpressionRegistrar;
-    use ndarray::ArrayViewMut2;
-    use numpy::PyArray2;
-    use numpy::PyArrayMethods;
     use pyo3::prelude::*;
-    use pyo3::types::PyTuple;
     use qudit_core::Radix;
-    use qudit_core::c64;
 
     #[pyclass]
     #[pyo3(name = "KetExpression")]

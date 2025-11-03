@@ -134,13 +134,9 @@ impl TryFrom<TensorExpression> for KrausOperatorsExpression {
 mod python {
     use super::*;
     use crate::python::PyExpressionRegistrar;
-    use ndarray::ArrayViewMut3;
-    use numpy::PyArray3;
-    use numpy::PyArrayMethods;
     use pyo3::prelude::*;
-    use pyo3::types::PyTuple;
     use qudit_core::Radix;
-    use qudit_core::c64;
+    
 
     #[pyclass]
     #[pyo3(name = "KrausOperatorsExpression")]
