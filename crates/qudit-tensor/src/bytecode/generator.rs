@@ -20,19 +20,6 @@ impl BytecodeGenerator {
         Self::default()
     }
 
-    // pub fn from_ttgt_tree(tree: TTGTTree) -> Self {
-    //     let TTGTTree { root, expressions } = tree;
-
-    //     Self {
-    //         root,
-    //         expressions,
-    //         const_code: Vec::default(),
-    //         dynamic_code: Vec::default(),
-    //         buffers: Vec::default(),
-    //         const_buffers: BTreeSet::default(),
-    //     }
-    // }
-
     pub fn new_buffer(&mut self, shape: GenerationShape, nparams: usize) -> usize {
         let out = self.buffers.len();
         self.buffers.push(TensorBuffer::new(shape, nparams));

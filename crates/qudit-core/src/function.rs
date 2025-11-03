@@ -590,7 +590,7 @@ impl ParamInfo {
     ///
     /// The number of non-constant parameters tracked by this `ParamInfo`.
     pub fn num_var_params(&self) -> usize {
-        self.indices.num_params() - self.constant.len()
+        self.indices.num_params() - self.constant.iter().filter(|&x| *x).count()
     }
 
     /// Returns the parameter indices as a vector of u64 values.
