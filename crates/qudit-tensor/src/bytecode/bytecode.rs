@@ -18,6 +18,7 @@ pub struct Bytecode {
     pub dynamic_code: Vec<BytecodeInstruction>,
     pub buffers: Vec<TensorBuffer>,
     pub out_buffer: usize,
+    pub num_params: usize,
 }
 
 impl Bytecode {

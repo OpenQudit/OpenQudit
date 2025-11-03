@@ -45,25 +45,19 @@ impl BytecodeGenerator {
 
     pub fn generate(mut self, tree: TTGTTree) -> Bytecode {
         let TTGTTree { root, expressions } = tree;
-        let out_buffer = self.parse(root, &expressions);
+        let (out_buffer, num_params) = self.parse(root, &expressions);
 
         Bytecode {
-            // expressions: self.expression_set
-            //     .into_iter()
-            //     .map(|(e, v)| v.into_iter()
-            //         .map(|(p, n)| (e.clone(), p.clone(), n.clone()))
-            //         .collect::<Vec<(TensorExpression, Option<ParamInfo>, String)>>()
-            //     ).flatten()
-            //     .collect(),
             expressions,
             const_code: self.const_code,
             dynamic_code: self.dynamic_code,
             buffers: self.buffers,
             out_buffer,
+            num_params,
         }
     }
 
-    fn parse(&mut self, tree: TTGTNode, expressions: &Arc<Mutex<ExpressionCache>>) -> usize {
+    fn parse(&mut self, tree: TTGTNode, expressions: &Arc<Mutex<ExpressionCache>>) -> (usize, usize) {
         // TODO: Look out for potential recalculations:
         //  write u3(a, b, c) -> 0
         //  write u3(a, b, c) -> 1
@@ -74,7 +68,8 @@ impl BytecodeGenerator {
         match tree {
             TTGTNode::Leaf(LeafNode { expr, param_info, indices, .. } ) => {
                 let shape = expressions.lock().unwrap().generation_shape(expr);
-                let out = self.new_buffer(shape, param_info.num_params());
+                let out = self.new_buffer(shape, param_info.num_var_params());
+                let total_num_params = param_info.num_params();
                 let constant = param_info.is_empty();
                 let inst = BytecodeInstruction::Write(expr, param_info, out.clone());
 
@@ -85,18 +80,19 @@ impl BytecodeGenerator {
                     self.dynamic_code.push(inst);
                 }
 
-                out
+                (out, total_num_params)
             },
             TTGTNode::MatMul(node) => {
                 let left_indices = node.left.param_info();
                 let right_indices = node.right.param_info();
                 let gen_shape = node.indices().into();
-                let left = self.parse(*node.left, expressions);
-                let right = self.parse(*node.right, expressions);
+                let (left, _) = self.parse(*node.left, expressions);
+                let (right, _) = self.parse(*node.right, expressions);
+                let total_num_params = left_indices.union(&right_indices).num_params();
                 let overlap = left_indices.intersect(&right_indices);
                 let out = self.new_buffer(
                     gen_shape,
-                    left_indices.num_params() + right_indices.num_params() - overlap.num_params(),
+                    left_indices.num_var_params() + right_indices.num_var_params() - overlap.num_var_params(),
                 );
                 let instruction = BytecodeInstruction::Matmul(
                     left,
@@ -111,13 +107,13 @@ impl BytecodeGenerator {
                 } else {
                     self.dynamic_code.push(instruction);
                 }
-                out
+                (out, total_num_params)
             },
             TTGTNode::Transpose(node) => {
-                let num_params = node.param_info().num_params();
+                let num_params = node.param_info().num_var_params();
                 let child_indices = node.child.indices();
                 let TransposeNode { child, perm, indices } = node;
-                let child_buffer = self.parse(*child, expressions);
+                let (child_buffer, total_num_params) = self.parse(*child, expressions);
                 let out_buffer = self.new_buffer(
                     indices.into(),
                     num_params,
@@ -134,12 +130,12 @@ impl BytecodeGenerator {
                 } else {
                     self.dynamic_code.push(instruction);
                 }
-               out_buffer 
+                (out_buffer, total_num_params)
             },
             TTGTNode::Trace(node) => {
-                let num_params = node.param_info().num_params();
+                let num_params = node.param_info().num_var_params();
                 let TraceNode { child, dimension_pairs, indices } = node;
-                let child_buffer = self.parse(*child, expressions);
+                let (child_buffer, total_num_params) = self.parse(*child, expressions);
                 let out_buffer = self.new_buffer(
                     indices.into(),
                     num_params,
@@ -155,18 +151,19 @@ impl BytecodeGenerator {
                 } else {
                     self.dynamic_code.push(instruction);
                 }
-                out_buffer
+                (out_buffer, total_num_params)
             },
             TTGTNode::Outer(node) => {
                 let left_indices = node.left.param_info();
                 let right_indices = node.right.param_info();
                 let gen_shape = node.indices().into();
-                let left = self.parse(*node.left, expressions);
-                let right = self.parse(*node.right, expressions);
+                let (left, _) = self.parse(*node.left, expressions);
+                let (right, _) = self.parse(*node.right, expressions);
+                let total_num_params = left_indices.union(&right_indices).num_params();
                 let overlap = left_indices.intersect(&right_indices);
                 let out = self.new_buffer(
                     gen_shape,
-                    left_indices.num_params() + right_indices.num_params() - overlap.num_params(),
+                    left_indices.num_var_params() + right_indices.num_var_params() - overlap.num_var_params(),
                 );
                 let instruction = BytecodeInstruction::Kron(
                     left,
@@ -181,18 +178,19 @@ impl BytecodeGenerator {
                 } else {
                     self.dynamic_code.push(instruction);
                 }
-                out
+                (out, total_num_params)
             },
             TTGTNode::Hadamard(node) => {
                 let left_indices = node.left.param_info();
                 let right_indices = node.right.param_info();
                 let gen_shape = node.indices().into();
-                let left = self.parse(*node.left, expressions);
-                let right = self.parse(*node.right, expressions);
+                let (left, _) = self.parse(*node.left, expressions);
+                let (right, _) = self.parse(*node.right, expressions);
+                let total_num_params = left_indices.union(&right_indices).num_params();
                 let overlap = left_indices.intersect(&right_indices);
                 let out = self.new_buffer(
                     gen_shape,
-                    left_indices.num_params() + right_indices.num_params() - overlap.num_params(),
+                    left_indices.num_var_params() + right_indices.num_var_params() - overlap.num_var_params(),
                 );
                 let instruction = BytecodeInstruction::Hadamard(
                     left,
@@ -207,7 +205,7 @@ impl BytecodeGenerator {
                 } else {
                     self.dynamic_code.push(instruction);
                 }
-                out
+                (out, total_num_params)
             },
         }
     }

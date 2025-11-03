@@ -81,7 +81,7 @@ mod tests {
         // let code = Bytecode { expressions, const_code, dynamic_code: dynamic_code[..1].to_vec(), buffers };
 
         let params = [1.7, 1.7, 1.7];
-        let mut tnvm = TNVM::<qudit_core::c64, GRADIENT>::new(&code);
+        let mut tnvm = TNVM::<qudit_core::c64, GRADIENT>::new(&code, None);
         let out = tnvm.evaluate::<GRADIENT>(&params);
         let out_fn = out.get_fn_result().unpack_tensor3d();
         println!("{:?}", out_fn);

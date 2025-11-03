@@ -158,7 +158,7 @@ impl ParamIndices {
     /// # Returns
     ///
     /// A new `ParamIndices` representing the concatenation of the two input `ParamIndices`.
-    pub fn concat(&self, other: &ParamIndices) -> ParamIndices {
+    pub fn union(&self, other: &ParamIndices) -> ParamIndices {
         match (self, other) {
             (ParamIndices::Joint(start1, length1), ParamIndices::Joint(start2, length2)) => {
                 if *start2 > *start1 && *start2 < *start1 + *length1 {
@@ -487,7 +487,7 @@ impl ParamInfo {
         }
     }
 
-    /// Concatenates this `ParamInfo` with another, combining their parameter indices and constant flags.
+    /// Unions this `ParamInfo` with another, combining their parameter indices and constant flags.
     ///
     /// This operation combines parameter indices from both `ParamInfo` instances. If a parameter
     /// index appears in both instances, their constant flags must match or an assertion will fail.
@@ -499,8 +499,8 @@ impl ParamInfo {
     /// # Returns
     ///
     /// A new `ParamInfo` containing the combined parameters and their constant status.
-    pub fn concat(&self, other: &ParamInfo) -> ParamInfo {
-        let combined_indices = self.indices.concat(&other.indices);
+    pub fn union(&self, other: &ParamInfo) -> ParamInfo {
+        let combined_indices = self.indices.union(&other.indices);
 
         let self_index_to_constant: std::collections::HashMap<usize, bool> = self.indices.iter()
             .zip(self.constant.iter().cloned())
@@ -582,6 +582,15 @@ impl ParamInfo {
     /// The number of parameters tracked by this `ParamInfo`.
     pub fn num_params(&self) -> usize {
         self.indices.num_params()
+    }
+
+    /// Returns the total number of variable parameters.
+    ///
+    /// # Returns
+    ///
+    /// The number of non-constant parameters tracked by this `ParamInfo`.
+    pub fn num_var_params(&self) -> usize {
+        self.indices.num_params() - self.constant.len()
     }
 
     /// Returns the parameter indices as a vector of u64 values.
@@ -814,10 +823,10 @@ mod python {
             }
         }
 
-        /// Concatenates with another ParamIndices.
-        fn concat(&self, other: &PyParamIndices) -> PyParamIndices {
+        /// Unions with another ParamIndices.
+        fn union(&self, other: &PyParamIndices) -> PyParamIndices {
             PyParamIndices {
-                inner: self.inner.concat(&other.inner),
+                inner: self.inner.union(&other.inner),
             }
         }
 

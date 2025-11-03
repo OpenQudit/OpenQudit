@@ -13,3 +13,4 @@ qudit-core = { workspace = true }
 qudit-expr = { workspace = true }
 bit-set = { workspace = true }
 faer = { workspace = true }
+rustc-hash = { workspace = true }
