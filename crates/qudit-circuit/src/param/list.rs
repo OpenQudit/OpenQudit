@@ -157,7 +157,7 @@ mod python {
         /// - Single argument-like values → `ArgumentList` with one element
         /// - Empty iterables → Empty `ArgumentList`
         /// 
-        /// Each element in the iterable is converted using `Argument::extract_bound()`.
+        /// Each element in the iterable is converted using `Argument::extract()`.
         /// 
         /// # Errors
         /// Returns `PyValueError` if any element cannot be converted to an `Argument`,
@@ -194,14 +194,14 @@ mod python {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use pyo3::types::{PyBool, PyDict, PyFloat, PyInt, PyList, PyString, PyTuple};
+        use pyo3::types::{PyDict, PyFloat, PyList, PyString, PyTuple};
         use pyo3::Python;
         #[test]
         fn test_from_py_empty_list() {
             Python::initialize();
             Python::attach(|py| {
                 let empty_list = PyList::empty(py);
-                let result = ArgumentList::extract_bound(&empty_list).unwrap();
+                let result = ArgumentList::extract(empty_list.as_any().as_borrowed()).unwrap();
                 assert_eq!(result.len(), 0);
                 assert!(result.is_empty());
             });
@@ -211,7 +211,7 @@ mod python {
             Python::initialize();
             Python::attach(|py| {
                 let py_list = PyList::new(py, &[1.0, 2.5, 3.14]).unwrap();
-                let result = ArgumentList::extract_bound(&py_list).unwrap();
+                let result = ArgumentList::extract(py_list.as_any().as_borrowed()).unwrap();
                 assert_eq!(result.len(), 3);
                 
                 let args = result.arguments();
@@ -231,7 +231,7 @@ mod python {
                     one.as_any(), two.as_any(), &none,
                 ];
                 let py_tuple = PyTuple::new(py, items).unwrap();
-                let result = ArgumentList::extract_bound(&py_tuple).unwrap();
+                let result = ArgumentList::extract(py_tuple.as_any().as_borrowed()).unwrap();
                 assert_eq!(result.len(), 3);
                 
                 let args = result.arguments();
@@ -245,7 +245,7 @@ mod python {
             Python::initialize();
             Python::attach(|py| {
                 let float_val = PyFloat::new(py, 42.0);
-                let result = ArgumentList::extract_bound(&float_val).unwrap();
+                let result = ArgumentList::extract(float_val.as_any().as_borrowed()).unwrap();
                 assert_eq!(result.len(), 1);
                 
                 let args = result.arguments();
@@ -262,7 +262,7 @@ mod python {
                 let three = PyString::new(py, "pi/4");
                 let expressions = vec![one.as_any(), two.as_any(), three.as_any()];
                 let py_list = PyList::new(py, expressions).unwrap();
-                let result = ArgumentList::extract_bound(&py_list).unwrap();
+                let result = ArgumentList::extract(py_list.as_any().as_borrowed()).unwrap();
                 assert_eq!(result.len(), 3);
                 
                 let args = result.arguments();
@@ -281,7 +281,7 @@ mod python {
                     one.as_any(), two.as_any(),
                 ];
                 let py_list = PyList::new(py, items).unwrap();
-                let result = ArgumentList::extract_bound(&py_list);
+                let result = ArgumentList::extract(py_list.as_any().as_borrowed());
                 assert!(result.is_err());
                 let err = result.unwrap_err();
                 assert!(err.is_instance_of::<pyo3::exceptions::PyValueError>(py));
@@ -297,7 +297,7 @@ mod python {
                     complex_expr.as_any(),  // Complex expression
                 ];
                 let py_list = PyList::new(py, items).unwrap();
-                let result = ArgumentList::extract_bound(&py_list);
+                let result = ArgumentList::extract(py_list.as_any().as_borrowed());
                 assert!(result.is_err());
                 let err = result.unwrap_err();
                 assert!(err.is_instance_of::<pyo3::exceptions::PyValueError>(py));
@@ -312,7 +312,7 @@ mod python {
                     unnamed_expr.as_any(),
                 ];
                 let py_list = PyList::new(py, items).unwrap();
-                let result = ArgumentList::extract_bound(&py_list);
+                let result = ArgumentList::extract(py_list.as_any().as_borrowed());
                 assert!(result.is_err());
                 let err = result.unwrap_err();
                 assert!(err.is_instance_of::<pyo3::exceptions::PyValueError>(py));
@@ -325,7 +325,7 @@ mod python {
             Python::initialize();
             Python::attach(|py| {
                 let string_val = PyString::new(py, "x*y + z");
-                let result = ArgumentList::extract_bound(&string_val).unwrap();
+                let result = ArgumentList::extract(string_val.as_any().as_borrowed()).unwrap();
                 assert_eq!(result.len(), 1);
                 
                 let args = result.arguments();
@@ -344,7 +344,7 @@ mod python {
                     one.as_any(), two.as_any(), three.as_any()
                 ];
                 let py_list = PyList::new(py, expressions).unwrap();
-                let result = ArgumentList::extract_bound(&py_list).unwrap();
+                let result = ArgumentList::extract(py_list.as_any().as_borrowed()).unwrap();
                 
                 let params = result.parameters();
                 // Should have named parameters for x, y and a constant parameter

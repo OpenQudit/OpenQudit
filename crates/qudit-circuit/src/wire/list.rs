@@ -1053,7 +1053,7 @@ mod python {
             }
 
             // Try to extract as a tuple of two lists
-            if let Ok(tuple) = obj.downcast::<PyTuple>() {
+            if let Ok(tuple) = obj.cast::<PyTuple>() {
                 if tuple.len() == 2 {
                     let qudits: Vec<usize> = tuple.get_item(0)?.extract()?;
                     let dits: Vec<usize> = tuple.get_item(1)?.extract()?;

@@ -1149,7 +1149,7 @@ mod python {
             // 2. Parse 'loc' as an int, iterable of ints, or tuple of iterables
             let parsed_loc = if let Ok(single_loc) = loc.extract::<usize>() {
                 WireList::pure(&[single_loc])
-            } else if let Ok(tuple) = loc.downcast::<PyTuple>() {
+            } else if let Ok(tuple) = loc.cast::<PyTuple>() {
                 if tuple.len() == 2 {
                     let item0 = tuple.get_item(0)?;
                     let item1 = tuple.get_item(1)?;

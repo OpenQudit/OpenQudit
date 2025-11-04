@@ -304,7 +304,7 @@ mod python {
             Python::initialize();
             Python::attach(|py| {
                 let none = py.None().into_bound(py);
-                let result = Argument::extract_bound(&none).unwrap();
+                let result = Argument::extract(none.as_any().as_borrowed()).unwrap();
                 matches!(result, Argument::Unspecified);
             });
         }
@@ -314,7 +314,7 @@ mod python {
             Python::initialize();
             Python::attach(|py| {
                 let int_val = PyInt::new(py, 42);
-                let result = Argument::extract_bound(&int_val).unwrap();
+                let result = Argument::extract(int_val.as_any().as_borrowed()).unwrap();
                 matches!(result, Argument::Float64(42.0));
             });
         }
@@ -324,7 +324,7 @@ mod python {
             Python::initialize();
             Python::attach(|py| {
                 let float_val = PyFloat::new(py, 3.14);
-                let result = Argument::extract_bound(&float_val).unwrap();
+                let result = Argument::extract(float_val.as_any().as_borrowed()).unwrap();
                 matches!(result, Argument::Float64(3.14));
             });
         }
@@ -334,7 +334,7 @@ mod python {
             Python::initialize();
             Python::attach(|py| {
                 let string_val = PyString::new(py, "x + 1");
-                let result = Argument::extract_bound(&string_val).unwrap();
+                let result = Argument::extract(string_val.as_any().as_borrowed()).unwrap();
                 matches!(result, Argument::Expression(_));
             });
         }
@@ -344,7 +344,7 @@ mod python {
             Python::initialize();
             Python::attach(|py| {
                 let string_val = PyString::new(py, "1 + i");
-                let result = Argument::extract_bound(&string_val);
+                let result = Argument::extract(string_val.as_any().as_borrowed());
                 assert!(result.is_err());
                 assert!(result.unwrap_err().is_instance_of::<pyo3::exceptions::PyValueError>(py));
             });
@@ -355,7 +355,7 @@ mod python {
              Python::initialize();
              Python::attach(|py| {
                  let string_val = PyString::new(py, "unnamed_123");
-                 let result = Argument::extract_bound(&string_val);
+                 let result = Argument::extract(string_val.as_any().as_borrowed());
                  assert!(result.is_err());
                  let err = result.unwrap_err();
                  assert!(err.is_instance_of::<pyo3::exceptions::PyValueError>(py));
@@ -368,7 +368,7 @@ mod python {
              Python::initialize();
              Python::attach(|py| {
                  let string_val = PyString::new(py, "x + unnamed_var");
-                 let result = Argument::extract_bound(&string_val);
+                 let result = Argument::extract(string_val.as_any().as_borrowed());
                  assert!(result.is_err());
                  let err = result.unwrap_err();
                  assert!(err.is_instance_of::<pyo3::exceptions::PyValueError>(py));
@@ -381,7 +381,7 @@ mod python {
              Python::initialize();
              Python::attach(|py| {
                  let string_val = PyString::new(py, "named_var");
-                 let result = Argument::extract_bound(&string_val);
+                 let result = Argument::extract(string_val.as_any().as_borrowed());
                  assert!(result.is_ok());
                  matches!(result.unwrap(), Argument::Expression(_));
              });
@@ -392,7 +392,7 @@ mod python {
             Python::initialize();
             Python::attach(|py| {
                 let dict_val = PyDict::new(py);
-                let result = Argument::extract_bound(&dict_val);
+                let result = Argument::extract(dict_val.as_any().as_borrowed());
                 assert!(result.is_err());
                 assert!(result.unwrap_err().is_instance_of::<pyo3::exceptions::PyTypeError>(py));
             });

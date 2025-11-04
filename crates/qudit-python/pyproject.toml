@@ -1,5 +1,5 @@
 [build-system]
-requires = ["maturin>=1.8,<2.0"]
+requires = ["maturin>=1.9.4,<2.0"]
 build-backend = "maturin"
 
 [project]
@@ -17,6 +17,9 @@ build = "cp39-*"
 container-engine = "podman"
 skip = "*musllinux*"
 test-command = 'python -c "import openqudit"'
+
+[tool.cibuildwheel.environment]
+PYO3_BUILD_EXTENSION_MODULE = "True"
 
 [tool.cibuildwheel.linux]
 manylinux-x86_64-image = "manylinux_2_28"
