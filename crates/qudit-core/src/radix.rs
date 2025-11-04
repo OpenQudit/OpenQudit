@@ -215,7 +215,8 @@ mod python {
 
         #[test]
         fn test_into_pyobject() {
-            Python::with_gil(|py| {
+            Python::initialize();
+            Python::attach(|py| {
                 let radix = Radix::from(10u8);
                 let py_obj = radix.into_pyobject(py).unwrap();
                 let value: u8 = py_obj.extract().unwrap();
@@ -225,7 +226,8 @@ mod python {
 
         #[test]
         fn test_from_pyobject() {
-            Python::with_gil(|py| {
+            Python::initialize();
+            Python::attach(|py| {
                 let py_int = 16u8.into_pyobject(py).unwrap();
                 let radix: Radix = py_int.extract().unwrap();
                 assert_eq!(usize::from(radix), 16);
@@ -234,7 +236,8 @@ mod python {
 
         #[test]
         fn test_from_pyobject_invalid() {
-            Python::with_gil(|py| {
+            Python::initialize();
+            Python::attach(|py| {
                 let py_int = 1u8.into_pyobject(py).unwrap();
                 let result: PyResult<Radix> = py_int.extract();
                 assert!(result.is_err());

@@ -34,7 +34,7 @@ impl<R: RealScalar> Default for Uniform<R> {
 
 impl<R: RealScalar> InitialGuessGenerator<R> for Uniform<R> {
     fn generate(&self, num_params: usize) -> Vec<R> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let distribution = RandUniform::new(
             self.lower_bound.to64(),
             self.upper_bound.to64(),

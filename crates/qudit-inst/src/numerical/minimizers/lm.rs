@@ -1,3 +1,5 @@
+#![allow(non_snake_case)] // A lot of math in here, okay to be flexible with var names.
+
 use qudit_core::ComplexScalar;
 use qudit_core::RealScalar;
 use faer::prelude::*;

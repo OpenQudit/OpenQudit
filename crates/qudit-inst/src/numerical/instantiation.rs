@@ -51,28 +51,9 @@ where
     }
 }
 
-// #[cfg(test)]
-// mod tests {
-
-//     use qudit_core::c64;
-//     use qudit_core::QuditRadices;
-
-//     #[test]
-//     fn can_build_minimizing_instantiater() {
-//         let runner = MultiStartRunner { minimizer: LBFGS, guess_generator: Zeros::default(), num_starts: 1, _phantom: std::marker::PhantomData::<c64> };
-//         let instantiater = MinimizingInstantiater { runner, _phantom: std::marker::PhantomData::<c64> };
-
-//         let circuit = qudit_circuit::QuditCircuit::new(QuditRadices::new(&[2, 2]), 4);
-//         let target = InstantiationTarget::UnitaryMatrix(UnitaryMatrix::identity(&[2, 2]));
-//         let data = std::collections::HashMap::new();
-
-//         let result = instantiater.instantiate(&circuit, &target, &data);
-//     }
-// }
-//
-
 #[cfg(feature = "python")]
 mod python {
+    #![allow(non_snake_case)]
     use crate::{instantiater::python::{BoxedInstantiater, InstantiaterWrapper}, numerical::{functions::HSProblem, initializers::Uniform, minimizers::LM, runners::MultiStartRunner}, python::PyInstantiationRegistrar};
 
     use super::*;

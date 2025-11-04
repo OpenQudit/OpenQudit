@@ -5,7 +5,7 @@ use pyo3::prelude::*;
 /// import the module.
 #[pymodule]
 fn openqudit(m: &Bound<'_, PyModule>) -> PyResult<()> {
-    #[allow(unused_imports)]
+    #![allow(unused_imports)]
     use qudit_core;
     use qudit_expr;
     use qudit_circuit;

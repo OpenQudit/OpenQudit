@@ -141,7 +141,7 @@ pub mod python {
         }
     }
 
-    struct PyInstantiaterTrampoline {
+    pub struct PyInstantiaterTrampoline {
         instantiater: Py<PyAny>,
     }
 

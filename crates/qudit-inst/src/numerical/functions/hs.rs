@@ -102,7 +102,7 @@ impl<R: RealScalar> ProvidesCostFunction<R> for HSProblem<R> {
     type CostFunction = HSFunction<R, 0>;
 
     fn build_cost_function(&self) -> Self::CostFunction {
-        HSFunction { tnvm: self.build_cost(), N: R::from64(4.0) } // TODO: N comes from circuit
+        HSFunction { tnvm: self.build_cost(), n: R::from64(4.0) } // TODO: N comes from circuit
     }
 }
 
@@ -110,7 +110,7 @@ impl<R: RealScalar> ProvidesResidualFunction<R> for HSProblem<R> {
     type ResidualFunction = HSFunction<R, 0>;
 
     fn build_residual_function(&self) -> Self::ResidualFunction {
-        HSFunction { tnvm: self.build_residual(), N: R::from64(4.0) } 
+        HSFunction { tnvm: self.build_residual(), n: R::from64(4.0) } 
     }
 }
 
@@ -118,13 +118,13 @@ impl<R: RealScalar> ProvidesJacobian<R> for HSProblem<R> {
     type Jacobian = HSFunction<R, GRADIENT>;
 
     fn build_jacobian(&self) -> Self::Jacobian {
-        HSFunction { tnvm: self.build_residual(), N: R::from64(4.0) }
+        HSFunction { tnvm: self.build_residual(), n: R::from64(4.0) }
     }
 }
 
 pub struct HSFunction<R: RealScalar, const D: DifferentiationLevel> {
     tnvm: PinnedTNVM<R::C, D>,
-    N: R,
+    n: R,
 }
 
 impl<R: RealScalar, const D: DifferentiationLevel> Function for HSFunction<R, D> {
@@ -141,7 +141,7 @@ impl<R: RealScalar, const D: DifferentiationLevel> CostFunction<R> for HSFunctio
         let result = self.tnvm.evaluate::<FUNCTION>(params);
         let trace = result.get_fn_result().unpack_scalar(); // This isn't a scalar if kraus
         // dimension // TODO: add unpack vector able to handle scalar
-        let inner = trace.abs() / self.N;
+        let inner = trace.abs() / self.n;
         R::from64(1.0) - inner
         // (1 - (trace.clone().abs() / self.N).square()).sqrt()
         // TODO: consider using proper norm (might be faster to use for gradient and hessian due
@@ -165,10 +165,10 @@ impl<R: RealScalar, const D: DifferentiationLevel> Gradient<R> for HSFunction<R,
             let trace_re_d = trace.real();
             let trace_im_d = trace.imag();
             let num = trace_re*trace_re_d + trace_im*trace_im_d;
-            let dem = self.N * trace.abs();
+            let dem = self.n * trace.abs();
             *out = -(num / dem)
         }
-        R::from64(1.0) - (trace.abs() / self.N) 
+        R::from64(1.0) - (trace.abs() / self.n) 
     }
 }
 

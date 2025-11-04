@@ -123,7 +123,7 @@ impl GenerationShape {
     /// use qudit_expr::GenerationShape;
     ///
     /// let scalar_shape = GenerationShape::Scalar;
-    /// assert_eq!(scalar_shape.to_vec(), vec![]);
+    /// assert_eq!(scalar_shape.to_vec(), Vec::<usize>::new());
     ///
     /// let vector_shape = GenerationShape::Vector(5);
     /// assert_eq!(vector_shape.to_vec(), vec![5]);

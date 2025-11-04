@@ -31,7 +31,7 @@ impl<R: RealScalar> GreedyFurthestPoint<R> {
     }
 
     fn generate_candidates(&self, num_params: usize) -> Vec<Vec<R>> {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let distribution = RandUniform::new(
             self.lower_bound.to64(),
             self.upper_bound.to64(),
@@ -81,8 +81,8 @@ impl<R: RealScalar> GreedyFurthestPoint<R> {
         let mut result = Vec::with_capacity(num_points);
 
         // Select first point randomly
-        let mut rng = rand::thread_rng();
-        let first_idx = rng.gen_range(0..candidates.len());
+        let mut rng = rand::rng();
+        let first_idx = rng.random_range(0..candidates.len());
         result.push(candidates[first_idx].clone());
         self.selected_points.push(candidates[first_idx].clone());
 
@@ -139,8 +139,8 @@ impl<R: RealScalar> InitialGuessGenerator<R> for GreedyFurthestPoint<R> {
         
         if generator.selected_points.is_empty() {
             // First point - select randomly
-            let mut rng = rand::thread_rng();
-            let idx = rng.gen_range(0..candidates.len());
+            let mut rng = rand::rng();
+            let idx = rng.random_range(0..candidates.len());
             return candidates[idx].clone();
         }
 
