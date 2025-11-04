@@ -20,6 +20,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
+      - name: Install LLVM
+        uses: KyleMayes/install-llvm-action@v2
+        with:
+          version: "18.1.8"
       - run: cargo build --verbose --features python
       - run: cargo test --verbose --features python
 
