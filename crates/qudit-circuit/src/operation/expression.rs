@@ -6,7 +6,6 @@ use qudit_expr::KrausOperatorsExpression;
 use qudit_expr::BraSystemExpression;
 use qudit_expr::TensorExpression;
 use qudit_expr::KetExpression;
-use qudit_expr::ExpressionGenerator;
 use qudit_expr::UnitarySystemExpression;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]

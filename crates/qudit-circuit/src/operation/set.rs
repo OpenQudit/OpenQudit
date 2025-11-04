@@ -1,6 +1,6 @@
-use std::{cell::RefCell, collections::BTreeMap, rc::Rc, sync::{Arc, Mutex}};
+use std::{collections::BTreeMap, sync::{Arc, Mutex}};
 
-use qudit_expr::{index::{IndexDirection, TensorIndex}, ExpressionCache, ExpressionId, TensorExpression};
+use qudit_expr::{index::{IndexDirection, TensorIndex}, ExpressionCache, TensorExpression};
 use slotmap::{Key, KeyData};
 
 use super::kind::OpKind;
@@ -106,6 +106,7 @@ impl OperationSet {
         }
     }
     
+    #[allow(dead_code)]
     pub fn num_params(&self, index: &OpCode) -> Option<usize> {
         match index.kind() {
             OpKind::Expression => {

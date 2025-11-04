@@ -1,10 +1,10 @@
-use qudit_core::{HasParams, ParamIndices, ParamInfo, RealScalar};
+use qudit_core::{HasParams, ParamIndices};
 use crate::{OpCode, Wire, WireList};
 use qudit_core::{CompactVec, LimitedSizeVec};
 
 /// Compact storage for parameter indices within instruction memory layout.
 #[derive(Clone, Copy, Debug)]
-enum CompactParamIndices {
+pub enum CompactParamIndices {
     /// Up to 3 parameter indices stored as u8 values.
     /// 
     /// The first element is the length (0-3), and the array contains

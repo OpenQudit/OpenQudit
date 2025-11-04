@@ -1,11 +1,13 @@
 use slotmap::new_key_type;
 use std::ops::{Add, Sub, AddAssign, SubAssign};
 
-/// A unique internal identifier for instruction instances within a cycle.
-///
-/// Generated automatically by the cycle when instructions are inserted,
-/// providing persistent, type-safe access and preventing use-after-free errors.
-new_key_type! { pub struct InstId; }
+new_key_type! { 
+    /// A unique internal identifier for instruction instances within a cycle.
+    ///
+    /// Generated automatically by the cycle when instructions are inserted,
+    /// providing persistent, type-safe access and preventing use-after-free errors.
+    pub struct InstId;
+}
 
 /// A persistent identifier for a cycle.
 ///

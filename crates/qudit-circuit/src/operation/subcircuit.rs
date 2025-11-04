@@ -42,12 +42,14 @@ pub struct CircuitCache {
 }
 
 impl CircuitCache {
+    /// Initialize a circuit cache
     pub fn new() -> Self {
         CircuitCache {
             circuits: SlotMap::with_key(),
         }
     }
 
+    /// Insert a circuit into the cache
     pub fn insert(&mut self, circuit: CircuitOperation) -> CircuitId {
         let id = self.circuits.insert(circuit);
         if id.data().as_ffi() & (0b111 << 61) != 0 {
@@ -56,10 +58,12 @@ impl CircuitCache {
         id
     }
 
+    #[allow(dead_code)]
     pub fn get(&self, circuit_id: CircuitId) -> Option<&CircuitOperation> {
         self.circuits.get(circuit_id)
     }
 
+    #[allow(dead_code)]
     pub fn num_params(&self, circuit_id: CircuitId) -> Option<usize> {
         self.get(circuit_id).map(|c| c.num_params())
     }

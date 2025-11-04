@@ -9,7 +9,6 @@ use super::CycleId;
 
 use crate::instruction::Instruction;
 use crate::Wire;
-use crate::WireList;
 
 
 

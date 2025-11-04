@@ -5,19 +5,26 @@ use crate::operation::directive::DirectiveOperation;
 use crate::operation::expression::ExpressionOperation;
 use crate::operation::subcircuit::CircuitOperation;
 
+/// An operation in a circuit
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Operation {
+    /// Operations described by a symbolical expression
     Expression(ExpressionOperation),
+
+    /// Operations capturing an entire subcircuit
     Subcircuit(CircuitOperation),
+
+    /// Compiler directives
     Directive(DirectiveOperation),
 }
 
 impl Operation {
+    /// Return the number of qudits this operation acts on
     pub fn num_qudits(&self) -> Option<usize> {
         match self {
             Operation::Expression(e) => Some(e.num_qudits()),
             Operation::Subcircuit(c) => Some(c.num_qudits()),
-            Operation::Directive(d) => None,
+            Operation::Directive(_) => None,
         }
     }
 }

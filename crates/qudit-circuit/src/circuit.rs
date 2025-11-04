@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use qudit_core::array::Tensor;
 use qudit_core::{ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, ParamInfo, QuditSystem};
-use qudit_core::{Radices, RealScalar};
-use qudit_expr::index::{IndexDirection, TensorIndex};
+use qudit_core::Radices;
+use qudit_expr::index::IndexDirection;
 use qudit_expr::{BraSystemExpression, KetExpression, KrausOperatorsExpression, TensorExpression, UnitaryExpression, UnitarySystemExpression, FUNCTION};
 use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
 use rustc_hash::FxHashMap;
@@ -15,7 +15,7 @@ use crate::wire::WireList;
 use crate::operation::{CircuitOperation, DirectiveOperation, ExpressionOperation, OpKind, Operation};
 use crate::operation::OperationSet;
 use crate::operation::OpCode;
-use crate::{cycle::QuditCycle, cycle::CycleList};
+use crate::cycle::CycleList;
 
 /// A quantum circuit that can be defined with qudits and classical bits.
 #[derive(Clone)]
@@ -220,6 +220,7 @@ impl QuditCircuit {
     }
 
     /// Decrement internal instruction type counter.
+    #[allow(dead_code)]
     fn dec_inst_counter(&mut self, op_type: &OpCode) -> bool {
         // TODO: sort inst and op names
         if !self.op_info.contains_key(op_type) {
@@ -239,11 +240,6 @@ impl QuditCircuit {
         else {
             false
         }
-    }
-
-    /// Retrieve the cycle at the logical `index` in the circuit.
-    pub(super) fn get_cycle(&self, idx: CycleIndex) -> &QuditCycle {
-        &self.cycles[idx]
     }
 
     /// Checks if `location` is a valid location in the circuit.
@@ -322,7 +318,7 @@ impl QuditCircuit {
     //         }
     // }
 
-    pub fn is_valid_id<P: Into<InstructionId>>(&self, inst_id: P) -> bool {
+    pub fn is_valid_id<P: Into<InstructionId>>(&self, _inst_id: P) -> bool {
         todo!()
         // let inst_id = inst_id.into();
         // let valid_dit = match inst_id.dit() {
@@ -446,10 +442,14 @@ impl QuditCircuit {
         self.cycles[cycle_index].push(inst_ref);
     }
 
+    /// Intern an operation in the circuit's operation cache
+    ///
+    /// This allows further additions by OpCodes.
     pub fn cache_operation<O: Into<Operation>>(&mut self, op: O) -> OpCode {
         self.operations.insert(op.into())
     }
 
+    /// Append an operation to the circuit
     pub fn append<O, W, A>(&mut self, op: O, wires: W, args: A) -> InstructionId
     where
         O: Into<Operation>,
@@ -478,6 +478,7 @@ impl QuditCircuit {
         }
     }
 
+    /// Append an operation already interned by the circuit provided by an OpCode
     pub fn append_by_code<W, A>(&mut self, op: OpCode, wires: W, args: A) -> InstructionId
     where
         W: Into<WireList>,
@@ -498,6 +499,7 @@ impl QuditCircuit {
         InstructionId::new(CycleId(0), InstId::null())
     }
 
+    /// Append an expression to the circuit
     pub fn append_expression<O, L, P>(&mut self, op: O, loc: L, params: P) -> InstructionId
     where
         O: Into<ExpressionOperation>,
@@ -548,33 +550,37 @@ impl QuditCircuit {
         InstructionId::new(CycleId(0), InstId::null())
     }
 
-    pub fn append_subcircuit<L, P>(&mut self, op: CircuitOperation, loc: L, params: P) -> InstructionId
+    /// Append a subcircuit to the circuit
+    pub fn append_subcircuit<L, P>(&mut self, _op: CircuitOperation, loc: L, params: P) -> InstructionId
     where
         L: Into<WireList>,
         P: Into<ArgumentList>,
     {
-        let loc = loc.into();
-        let params = params.into();
+        let _loc = loc.into();
+        let _params = params.into();
 
         todo!()
     }
 
-    pub fn append_directive<L, P>(&mut self, op: DirectiveOperation, loc: L, params: P) -> InstructionId
+    /// Append a circuit directive to the circuit
+    pub fn append_directive<L, P>(&mut self, _op: DirectiveOperation, loc: L, params: P) -> InstructionId
     where
         L: Into<WireList>,
         P: Into<ArgumentList>,
     {
-        let loc = loc.into();
-        let params = params.into();
+        let _loc = loc.into();
+        let _params = params.into();
 
         todo!()
     }
 
 
+    /// Checks if a qudit is inactive
     pub fn is_qudit_inactive(&self, index: usize) -> bool {
         self.front.get(&Wire::quantum(index)).is_none()
     }
     
+    /// Initialize the qudits specified in a zero state
     pub fn zero_initialize<W: Into<WireList>>(&mut self, wires: W) {
         let wires = wires.into();
         let location_radices = wires.qudits().map(|q| self.qudit_radices[q]).collect::<Radices>();
@@ -583,8 +589,8 @@ impl QuditCircuit {
         self.append(op, wires, None::<ArgumentList>);
     }
 
-    /// Remove the operation at `point` from the circuit.
-    pub fn remove(&mut self, inst_id: InstructionId) {
+    /// Remove the operation at `point` from the circuit
+    pub fn remove(&mut self, _inst_id: InstructionId) {
         todo!()
         //
         // Need to make sure I remove parameters as well; may need to reference count them
@@ -789,7 +795,7 @@ impl QuditCircuit {
     /// assert_eq!(circuit.next(CircuitPoint::new(0, 0))[&CircuitDitId::Quantum(0)],
     /// CircuitPoint::new(1, 0));
     /// ```
-    pub fn next(&self, inst_id: InstructionId) -> HashMap<Wire, InstructionId> {
+    pub fn next(&self, _inst_id: InstructionId) -> HashMap<Wire, InstructionId> {
         todo!()
         // let cycle = self.cycles.get_from_id(inst_id.cycle());
         // let location = cycle.get_location_from_id(inst_id.inner());
@@ -819,7 +825,7 @@ impl QuditCircuit {
     /// operation.
     ///
     /// See [`QuditCircuit::next`] for more information.
-    pub fn prev(&self, inst_id: InstructionId) -> HashMap<Wire, InstructionId> {
+    pub fn prev(&self, _inst_id: InstructionId) -> HashMap<Wire, InstructionId> {
         todo!()
         // let cycle = self.cycles.get_from_id(inst_id.cycle());
         // let location = cycle.get_location(inst_id.dit());
@@ -874,6 +880,7 @@ impl QuditCircuit {
 //         QuditCircuitFastIteratorWithCycles::new(self)
 //     }
 
+    /// Calculate the Kraus Operators that describe this circuit as a program
     pub fn kraus_ops<C: ComplexScalar>(&self, args: &[C::R]) -> Tensor<C, 3> {
         let network = self.to_tensor_network();
         let code = qudit_tensor::compile_network(network);
@@ -882,11 +889,12 @@ impl QuditCircuit {
         result.get_fn_result2().unpack_tensor3d().to_owned()
     }
 
-    /// Convert the circuit to a symbolic tensor network.
+    /// Convert the circuit to a symbolic tensor network
     pub fn to_tensor_network(&self) -> QuditTensorNetwork {
         self.as_tensor_network_builder().build()
     }
 
+    /// Convert the circuit to a tensor network builder
     pub fn as_tensor_network_builder(&self) -> QuditCircuitTensorNetworkBuilder {
         let mut network = QuditCircuitTensorNetworkBuilder::new(self.qudit_radices(), Some(self.operations.expressions()));
 
@@ -946,7 +954,7 @@ impl ClassicalSystem for QuditCircuit {
 
 impl HybridSystem for QuditCircuit {}
 
-#[cfg(feature = "never")]
+#[cfg(test)]
 mod tests {
     use core::f32;
 
