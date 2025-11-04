@@ -84,11 +84,13 @@ mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for Operation {
-        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-            if let Ok(py_operation) = ob.extract::<PyOperation>() {
+    impl<'a, 'py> FromPyObject<'a, 'py> for Operation {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+            if let Ok(py_operation) = obj.extract::<PyOperation>() {
                 Ok(py_operation.inner)
-            } else if let Ok(expr_op) = ob.extract::<ExpressionOperation>() {
+            } else if let Ok(expr_op) = obj.extract::<ExpressionOperation>() {
                 Ok(Operation::Expression(expr_op))
             } else {
                 return Err(PyTypeError::new_err("Unrecognized operation type."));

@@ -76,8 +76,10 @@ mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for Parameter {
-        fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+    impl<'a, 'py> FromPyObject<'a, 'py> for Parameter {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             // Check for None first (represents indexed parameters)
             if obj.is_none() {
                 return Ok(Parameter::Indexed);

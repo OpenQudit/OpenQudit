@@ -375,9 +375,11 @@ mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for InstantiationResult<c64> {
-        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-            let py_result: PyInstantiationResult = ob.extract()?;
+    impl<'a, 'py> FromPyObject<'a, 'py> for InstantiationResult<c64> {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+            let py_result: PyInstantiationResult = obj.extract()?;
             Ok(py_result.into())
         }
     }

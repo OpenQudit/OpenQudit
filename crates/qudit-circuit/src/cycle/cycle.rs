@@ -9,8 +9,7 @@ use super::CycleId;
 
 use crate::instruction::Instruction;
 use crate::Wire;
-
-
+use crate::WireList;
 
 #[derive(Clone)]
 #[repr(align(128))]
@@ -78,19 +77,27 @@ impl QuditCycle {
         inst
     }
 
-//     pub fn get_location(&self, wire: Wire) -> Option<&CircuitLocation> {
-//         let inst_id = match self.reg_map.get(&wire) {
-//             None => return None,
-//             Some(inst_id) => inst_id,
-//         };
+    /// If an instruction is on this wire, retrieve all wires associated with it.
+    pub fn get_wires(&self, wire: Wire) -> Option<WireList> {
+        let inst_id = match self.reg_map.get(&wire) {
+            None => return None,
+            Some(inst_id) => inst_id,
+        };
         
-//         self.get_location_from_id(*inst_id)
-//     }
+        self.get_wires_from_id(*inst_id)
+    }
 
-    // #[inline]
-    // pub fn get_location_from_id(&self, inst_id: InstId) -> Option<&CircuitLocation> {
-    //     self.insts.get(inst_id).map(|inst_ref| &inst_ref.location)
-    // }
+    /// Gather all wires associated with an internal instruction id.
+    #[inline]
+    pub fn get_wires_from_id(&self, inst_id: InstId) -> Option<WireList> {
+        self.insts.get(inst_id).map(|inst_ref| inst_ref.wires())
+    }
+
+    /// Find the internal id associated with an instruction on a wire, if it exists
+    #[inline]
+    pub fn get_id_from_wire(&self, wire: Wire) -> Option<InstId> {
+        self.reg_map.get(&wire).copied()
+    }
 
     pub fn set_next(&mut self, wire: Wire, next_cycle_id: CycleId) {
         self.dag_ptrs.entry(wire)
@@ -104,11 +111,11 @@ impl QuditCycle {
             .or_insert((prev_cycle_id, INVALID_CYCLE_ID));
     }
 
-    pub fn get_next(&mut self, wire: Wire) -> Option<CycleId> {
+    pub fn get_next(&self, wire: Wire) -> Option<CycleId> {
         self.dag_ptrs.get(&wire).map(|(_, n)| *n)
     }
 
-    pub fn get_prev(&mut self, wire: Wire) -> Option<CycleId> {
+    pub fn get_prev(&self, wire: Wire) -> Option<CycleId> {
         self.dag_ptrs.get(&wire).map(|(p, _)| *p)
     }
 
@@ -122,6 +129,10 @@ impl QuditCycle {
 
     pub fn iter_with_keys(&self) -> impl Iterator<Item = (InstId, &Instruction)> + '_ {
         self.insts.iter()
+    }
+
+    pub fn is_valid_id(&self, id: InstId) -> bool {
+        self.insts.contains_key(id)
     }
 }
 

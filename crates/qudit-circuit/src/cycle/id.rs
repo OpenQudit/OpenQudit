@@ -140,6 +140,27 @@ impl<T: Into<CycleIndex>> SubAssign<T> for CycleIndex {
     }
 }
 
+impl PartialEq<u64> for CycleIndex {
+    fn eq(&self, other: &u64) -> bool {
+        self.0 == *other
+    }
+}
+
+impl PartialEq<usize> for CycleIndex {
+    fn eq(&self, other: &usize) -> bool {
+        self.0 as usize == *other
+    }
+}
+
+impl PartialEq<i32> for CycleIndex {
+    fn eq(&self, other: &i32) -> bool {
+        if *other < 0 {
+            return false;
+        }
+        self.0 == *other as u64
+    }
+}
+
 #[cfg(feature = "python")]
 mod python {
     use super::*;
@@ -156,8 +177,10 @@ mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for InstId {
-        fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+    impl<'a, 'py> FromPyObject<'a, 'py> for InstId {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             let value: u64 = obj.extract()?;
             Ok(InstId::from(KeyData::from_ffi(value)))
         }
@@ -173,8 +196,10 @@ mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for CycleId {
-        fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+    impl<'a, 'py> FromPyObject<'a, 'py> for CycleId {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             let value: u64 = obj.extract()?;
             Ok(CycleId(value))
         }
@@ -190,8 +215,10 @@ mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for CycleIndex {
-        fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+    impl<'a, 'py> FromPyObject<'a, 'py> for CycleIndex {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             let value: u64 = obj.extract()?;
             Ok(CycleIndex(value))
         }

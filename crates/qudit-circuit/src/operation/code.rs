@@ -122,8 +122,10 @@ mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for OpCode {
-        fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+    impl<'a, 'py> FromPyObject<'a, 'py> for OpCode {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             if let Ok(py_opcode) = obj.extract::<PyOpCode>() {
                 Ok(py_opcode.into())
             } else if let Ok(value) = obj.extract::<u64>() {

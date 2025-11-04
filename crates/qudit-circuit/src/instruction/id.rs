@@ -105,8 +105,10 @@ mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for InstructionId {
-        fn extract_bound(obj: &Bound<'py, PyAny>) -> PyResult<Self> {
+    impl<'a, 'py> FromPyObject<'a, 'py> for InstructionId {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             let py_inst_id: PyInstructionId = obj.extract()?;
             Ok(py_inst_id.inner)
         }

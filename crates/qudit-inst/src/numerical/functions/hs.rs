@@ -59,7 +59,7 @@ impl<R: RealScalar> HSProblem<R> {
         }
 
         let code = compile_network(builder.trace_all_open_wires().build());
-        TNVM::<R::C, D>::new(&code)
+        TNVM::<R::C, D>::new(&code, Some(&self.circuit.params().const_map()))
     }
 
     pub fn build_residual<const D: DifferentiationLevel>(&self) -> PinnedTNVM<R::C, D> {
@@ -77,7 +77,7 @@ impl<R: RealScalar> HSProblem<R> {
 
         let code = compile_network(builder.build());
         // dbg!(&code);
-        TNVM::<R::C, D>::new(&code)
+        TNVM::<R::C, D>::new(&code, Some(&self.circuit.params().const_map()))
 
     }
 }

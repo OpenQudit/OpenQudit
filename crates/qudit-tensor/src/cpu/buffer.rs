@@ -246,6 +246,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
     }
 
     #[inline(always)]
+    #[allow(clippy::mut_from_ref)] // mut comes from indexing memory which is mutable
     pub unsafe fn as_scalar_mut(&self, memory: &mut MemoryBuffer<C>) -> &mut C {
         &mut *memory.as_mut_ptr().add(self.offset)
     }

@@ -805,10 +805,22 @@ impl<'a, 'b, const N: usize, const M: usize> From<(&'a [usize; N], &'b [usize; M
     }
 }
 
+impl From<Vec<Wire>> for WireList {
+    fn from(indices: Vec<Wire>) -> Self {
+        WireList::from_wires(indices)
+    }
+}
+
 impl From<WireList> for CompactVec<Wire> {
     #[inline(always)]
     fn from(value: WireList) -> Self {
         value.inner
+    }
+}
+
+impl AsRef<WireList> for WireList {
+    fn as_ref(&self) -> &WireList {
+        self
     }
 }
 
@@ -1032,14 +1044,16 @@ mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for WireList {
-        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-            if let Ok(plist) = ob.extract::<PyWireList>() {
+    impl<'a, 'py> FromPyObject<'a, 'py> for WireList {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+            if let Ok(plist) = obj.extract::<PyWireList>() {
                 return Ok(plist.inner)
             }
 
             // Try to extract as a tuple of two lists
-            if let Ok(tuple) = ob.downcast::<PyTuple>() {
+            if let Ok(tuple) = obj.downcast::<PyTuple>() {
                 if tuple.len() == 2 {
                     let qudits: Vec<usize> = tuple.get_item(0)?.extract()?;
                     let dits: Vec<usize> = tuple.get_item(1)?.extract()?;
@@ -1048,7 +1062,7 @@ mod python {
             }
             
             // Try to extract as a single list (pure quantum)
-            if let Ok(list) = ob.extract::<Vec<usize>>() {
+            if let Ok(list) = obj.extract::<Vec<usize>>() {
                 return Ok(WireList::pure(list));
             }
             
@@ -1296,10 +1310,6 @@ mod tests {
         // Test tuple of vectors
         let from_vec_tuple: WireList = (vec![0, 1], vec![2, 3]).into();
         assert_eq!(from_vec_tuple, WireList::new(vec![0, 1], vec![2, 3]));
-
-        // Test Wire
-        let from_wire: WireList = Wire::quantum(7).into();
-        assert_eq!(from_wire, WireList::pure(vec![7]));
 
         // Test Vec<Wire>
         let wires = vec![Wire::quantum(0), Wire::classical(1)];

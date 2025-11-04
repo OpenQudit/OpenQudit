@@ -472,9 +472,11 @@ mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for Wire {
-        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-            let py_wire: PyWire = ob.extract()?;
+    impl<'a, 'py> FromPyObject<'a, 'py> for Wire {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+            let py_wire: PyWire = obj.extract()?;
             Ok(py_wire.inner)
         }
     }

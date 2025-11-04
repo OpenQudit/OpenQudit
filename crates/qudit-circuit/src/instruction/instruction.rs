@@ -415,9 +415,11 @@ mod python {
         }
     }
     
-    impl<'py> FromPyObject<'py> for Instruction {
-        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-            let py_instruction: PyInstruction = ob.extract()?;
+    impl<'a, 'py> FromPyObject<'a, 'py> for Instruction {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+            let py_instruction: PyInstruction = obj.extract()?;
             Ok(py_instruction.into())
         }
     }

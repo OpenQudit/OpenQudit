@@ -147,7 +147,9 @@ mod python {
     use pyo3::prelude::*;
     use pyo3::exceptions::{PyTypeError, PyValueError};
 
-    impl<'py> FromPyObject<'py> for ArgumentList {
+    impl<'a, 'py> FromPyObject<'a, 'py> for ArgumentList {
+        type Error = PyErr;
+
         /// Converts a Python object to an `ArgumentList`.
         /// 
         /// # Supported conversions
@@ -160,18 +162,18 @@ mod python {
         /// # Errors
         /// Returns `PyValueError` if any element cannot be converted to an `Argument`,
         /// or `PyTypeError` if the Python object is not iterable and not convertible to an `Argument`.
-        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             // First, try to convert as a single argument
-            if let Ok(arg) = Argument::extract_bound(ob) {
+            if let Ok(arg) = Argument::extract(obj) {
                 return Ok(ArgumentList::new(vec![arg]));
             }
             
             // If it's not a single argument, try to treat as an iterable (list, tuple, etc.)
-            if let Ok(iter) = pyo3::types::PyIterator::from_object(ob) {
+            if let Ok(iter) = pyo3::types::PyIterator::from_object(&*obj) {
                 let mut arguments = Vec::new();
                 for item in iter {
                     let item = item?;
-                    match Argument::extract_bound(&item) {
+                    match Argument::extract(item.as_borrowed()) {
                         Ok(arg) => arguments.push(arg),
                         Err(e) => return Err(PyValueError::new_err(format!(
                             "Cannot convert item to Argument: {}", e
@@ -184,7 +186,7 @@ mod python {
             // If neither worked, return an error
             Err(PyTypeError::new_err(format!(
                 "Cannot convert {} to ArgumentList: must be iterable or convertible to Argument", 
-                ob.get_type().name()?,
+                obj.get_type().name()?,
             )))
         }
     }

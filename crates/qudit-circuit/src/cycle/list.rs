@@ -56,8 +56,8 @@ impl CycleList {
         self.len() == 0
     }
 
-    pub fn id_to_index(&self, id: CycleId) -> CycleIndex {
-        self.id_to_index[&id]
+    pub fn id_to_index(&self, id: CycleId) -> Option<CycleIndex> {
+        self.id_to_index.get(&id).copied()
     }
 
     pub fn index_to_id(&self, idx: CycleIndex) -> CycleId {
@@ -81,16 +81,18 @@ impl CycleList {
     }
 
     pub fn remove_id(&mut self, id: CycleId) {
-        self.remove_index(self.id_to_index(id));
+        match self.id_to_index(id) {
+            None => {}, // TODO: log a warning? 
+            Some(idx) => self.remove_index(idx),
+        }
     }
 
-    pub fn get_from_id(&self, id: CycleId) -> &QuditCycle {
-        &self.cycles[self.id_to_index(id).0 as usize]
+    pub fn get_from_id(&self, id: CycleId) -> Option<&QuditCycle> {
+        self.id_to_index(id).map(|idx| &self.cycles[idx.0 as usize])
     }
 
-    pub fn get_mut_from_id(&mut self, id: CycleId) -> &mut QuditCycle {
-        let idx = self.id_to_index(id);
-        &mut self.cycles[usize::from(idx)]
+    pub fn get_mut_from_id(&mut self, id: CycleId) -> Option<&mut QuditCycle> {
+        self.id_to_index(id).map(|idx| &mut self.cycles[idx.0 as usize])
     }
 
     pub fn is_id(&self, id: CycleId) -> bool {
@@ -130,14 +132,14 @@ impl Index<CycleId> for CycleList {
     type Output = QuditCycle;
 
     fn index(&self, id: CycleId) -> &Self::Output {
-        let idx = self.id_to_index(id);
+        let idx = self.id_to_index(id).expect("Cycle id does not exist.");
         &self.cycles[usize::from(idx)]
     }
 }
 
 impl IndexMut<CycleId> for CycleList {
     fn index_mut(&mut self, id: CycleId) -> &mut Self::Output {
-        let idx = self.id_to_index(id);
+        let idx = self.id_to_index(id).expect("Cycle id does not exist.");
         &mut self.cycles[usize::from(idx)]
     }
 }

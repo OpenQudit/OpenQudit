@@ -237,12 +237,14 @@ pub mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for PyInstantiater {
-        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-            if let Ok(dyn_trait) = ob.extract::<PyRef<BoxedInstantiater>>() {
+    impl<'a, 'py> FromPyObject<'a, 'py> for PyInstantiater {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+            if let Ok(dyn_trait) = obj.extract::<PyRef<BoxedInstantiater>>() {
                 Ok(PyInstantiater::Native(BoxedInstantiater { inner: dyn_clone::clone_box(&*dyn_trait.inner) }))
-            } else if ob.hasattr("instantiate")? {
-                let trampoline = PyInstantiaterTrampoline { instantiater: ob.to_owned().unbind() };
+            } else if obj.hasattr("instantiate")? {
+                let trampoline = PyInstantiaterTrampoline { instantiater: obj.to_owned().unbind() };
                 Ok(PyInstantiater::Python(trampoline))
             } else {
                 Err(PyTypeError::new_err(

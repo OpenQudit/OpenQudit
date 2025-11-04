@@ -119,17 +119,19 @@ mod python {
     use super::*;
     use pyo3::{exceptions::PyTypeError, prelude::*};
 
-    impl FromPyObject<'_> for ExpressionOperation {
-        fn extract_bound(ob: &Bound<'_, PyAny>) -> PyResult<Self> {
-            if let Ok(expr) = ob.extract::<UnitaryExpression>() {
+    impl<'a, 'py> FromPyObject<'a, 'py> for ExpressionOperation {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+            if let Ok(expr) = obj.extract::<UnitaryExpression>() {
                 Ok(ExpressionOperation::UnitaryGate(expr))
-            } else if let Ok(expr) = ob.extract::<KrausOperatorsExpression>() {
+            } else if let Ok(expr) = obj.extract::<KrausOperatorsExpression>() {
                 Ok(ExpressionOperation::KrausOperators(expr))
-            } else if let Ok(expr) = ob.extract::<BraSystemExpression>() {
+            } else if let Ok(expr) = obj.extract::<BraSystemExpression>() {
                 Ok(ExpressionOperation::TerminatingMeasurement(expr))
-            } else if let Ok(expr) = ob.extract::<UnitarySystemExpression>() {
+            } else if let Ok(expr) = obj.extract::<UnitarySystemExpression>() {
                 Ok(ExpressionOperation::ClassicallyControlledUnitary(expr))
-            } else if let Ok(expr) = ob.extract::<KetExpression>() {
+            } else if let Ok(expr) = obj.extract::<KetExpression>() {
                 Ok(ExpressionOperation::QuditInitialization(expr))
             } else {
                 return Err(PyTypeError::new_err("Unrecognized operation type."));

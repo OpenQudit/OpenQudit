@@ -254,7 +254,9 @@ mod python {
     use pyo3::prelude::*;
     use pyo3::exceptions::{PyTypeError, PyValueError};
 
-    impl<'py> FromPyObject<'py> for Argument {
+    impl<'a, 'py> FromPyObject<'a, 'py> for Argument {
+        type Error = PyErr;
+
         /// Converts a Python object to an `Argument`.
         /// 
         /// # Supported conversions
@@ -264,19 +266,19 @@ mod python {
         /// 
         /// # Errors
         /// Returns `PyValueError` for invalid expression strings or `PyTypeError` for unsupported types.
-        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             // Handle None -> Unspecified
-            if ob.is_none() {
+            if obj.is_none() {
                 return Ok(Argument::Unspecified);
             }
             
             // Try extracting as float (handles both Python float and int)
-            if let Ok(val) = ob.extract::<f64>() {
+            if let Ok(val) = obj.extract::<f64>() {
                 return Ok(Argument::Float64(val));
             }
             
             // Try extracting as string and parsing as expression
-            if let Ok(val) = ob.extract::<String>() {
+            if let Ok(val) = obj.extract::<String>() {
                 match Argument::try_from(val) {
                     Ok(entry) => return Ok(entry),
                     Err(e) => return Err(PyValueError::new_err(e)),
@@ -286,7 +288,7 @@ mod python {
             // If none of the above worked, return a type error
             Err(PyTypeError::new_err(format!(
                 "Cannot convert {} to Argument", 
-                ob.get_type().name()?
+                obj.get_type().name()?
             )))
         }
     }

@@ -22,7 +22,7 @@ const INLINE_CAPACITY: usize = 7;
 /// assert_eq!(vec.len(), 3);
 /// assert!(vec.is_inline());
 /// ```
-#[derive(Debug, Clone, Hash)] // TODO: The HASH derive here is invalid.
+#[derive(Debug, Clone)]
 pub enum CompactVec<T: CompactStorage> {
     /// Inline storage for up to INLINE_CAPACITY elements.
     Inline([T::InlineType; INLINE_CAPACITY], u8),
@@ -1015,6 +1015,14 @@ where
                 vec
             }
             CompactVec::Heap(vec) => vec.into(),
+        }
+    }
+}
+
+impl<T: CompactStorage + Hash> Hash for CompactVec<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        for item in self.iter() {
+            item.hash(state);
         }
     }
 }

@@ -66,13 +66,15 @@ mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for InstantiationTarget<c64> {
-        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-            if let Ok(py_target) = ob.extract::<PyInstantiationTarget>() {
+    impl<'a, 'py> FromPyObject<'a, 'py> for InstantiationTarget<c64> {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+            if let Ok(py_target) = obj.extract::<PyInstantiationTarget>() {
                 return Ok(py_target.inner);
             }
 
-            let py_target = PyInstantiationTarget::new(ob)?;
+            let py_target = PyInstantiationTarget::new(&*obj)?;
             Ok(py_target.inner)
         }
     }

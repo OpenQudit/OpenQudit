@@ -77,11 +77,13 @@ mod python {
         }
     }
 
-    impl<'py> FromPyObject<'py> for OpKind {
-        fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-            if let Ok(py_kind) = ob.extract::<PyOpKind>() {
+    impl<'a, 'py> FromPyObject<'a, 'py> for OpKind {
+        type Error = PyErr;
+
+        fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+            if let Ok(py_kind) = obj.extract::<PyOpKind>() {
                 Ok(py_kind.0)
-            } else if let Ok(value) = ob.extract::<u8>() {
+            } else if let Ok(value) = obj.extract::<u8>() {
                 match value {
                     0 => Ok(OpKind::Expression),
                     1 => Ok(OpKind::Subcircuit),
