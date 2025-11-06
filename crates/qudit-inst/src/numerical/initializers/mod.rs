@@ -1,7 +1,7 @@
-mod zeros;
-mod uniform;
 mod greedy;
+mod uniform;
+mod zeros;
 
-pub use zeros::Zeros;
-pub use uniform::Uniform;
 pub use greedy::GreedyFurthestPoint;
+pub use uniform::Uniform;
+pub use zeros::Zeros;

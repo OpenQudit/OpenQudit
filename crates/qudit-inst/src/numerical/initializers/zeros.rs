@@ -1,6 +1,6 @@
-use qudit_core::RealScalar;
-use qudit_core::BitWidthConvertible;
 use super::super::InitialGuessGenerator;
+use qudit_core::BitWidthConvertible;
+use qudit_core::RealScalar;
 
 #[derive(Default, Clone)]
 pub struct Zeros<R: RealScalar> {

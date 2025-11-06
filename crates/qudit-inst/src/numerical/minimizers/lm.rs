@@ -1,16 +1,16 @@
 #![allow(non_snake_case)] // A lot of math in here, okay to be flexible with var names.
 
-use qudit_core::ComplexScalar;
-use qudit_core::RealScalar;
-use faer::prelude::*;
-use faer::{Accum, Par, Col, Mat, MatRef, MatMut, Scale, linalg::matmul::matmul};
+use crate::numerical::Function;
+use crate::numerical::Jacobian;
 use crate::numerical::MinimizationAlgorithm;
 use crate::numerical::MinimizationResult;
 use crate::numerical::ProvidesJacobian;
-use crate::numerical::Jacobian;
 use crate::numerical::ResidualFunction;
-use crate::numerical::Function;
 use faer::linalg::solvers::Solve;
+use faer::prelude::*;
+use faer::{Accum, Col, Mat, MatMut, MatRef, Par, Scale, linalg::matmul::matmul};
+use qudit_core::ComplexScalar;
+use qudit_core::RealScalar;
 
 /// Levenberg-Marquardt (LM) optimization algorithm.
 ///
@@ -52,9 +52,9 @@ impl<R: RealScalar> Default for LM<R> {
             tau: R::from64(1e-3),
             lambda_increase_factor: R::from64(2.0),
             lambda_decrease_factor: R::from64(3.0),
-            minimum_lambda: R::from64(10.0)*R::epsilon(),
+            minimum_lambda: R::from64(10.0) * R::epsilon(),
             maximum_lambda: R::from64(1e12),
-            minimum_gradient_norm: R::from64(10.0)*R::epsilon(),
+            minimum_gradient_norm: R::from64(10.0) * R::epsilon(),
             diff_tol_a: R::from64(1e-10),
             diff_tol_r: R::from64(1e-6),
         }
@@ -68,8 +68,7 @@ where
 {
     type Func = P::Jacobian;
 
-    fn initialize(&self, problem: &P) -> P::Jacobian 
-    {
+    fn initialize(&self, problem: &P) -> P::Jacobian {
         problem.build_jacobian()
     }
 
@@ -165,9 +164,23 @@ where
         }
 
         // Calculate hessian and gradient approximation to form new linear system problem
-        matmul(&mut JtJ, Accum::Replace, &Jbuf.transpose(), &Jbuf, R::one(), Par::Seq);
-        matmul(&mut Jtr, Accum::Replace, &Jbuf.transpose(), &Rbuf.as_mat(), R::one(), Par::Seq);
-   
+        matmul(
+            &mut JtJ,
+            Accum::Replace,
+            &Jbuf.transpose(),
+            &Jbuf,
+            R::one(),
+            Par::Seq,
+        );
+        matmul(
+            &mut Jtr,
+            Accum::Replace,
+            &Jbuf.transpose(),
+            &Rbuf.as_mat(),
+            R::one(),
+            Par::Seq,
+        );
+
         // Check gradient norm
         let gradient_norm = Jtr.norm_l2();
         if gradient_norm < self.minimum_gradient_norm {
@@ -178,10 +191,10 @@ where
                 message: Some("Gradient norm too small - optimization stagnated".to_string()),
             };
         }
-   
+
         // Start lambda scaled to problem if not specified
         let mut lambda = match self.initial_lambda {
-            None => { 
+            None => {
                 let mut iter = JtJ.diagonal().column_vector().iter();
                 let mut l = iter.next().expect("Empty Jacobian");
                 for cand_l in iter {
@@ -195,20 +208,22 @@ where
         };
 
         for iter in 0..self.max_iterations {
-
             // Check if lambda has grown too large (ill-conditioned problem)
             if lambda > self.maximum_lambda {
                 return MinimizationResult {
                     params: Vec::from_iter(x.iter().copied()),
                     fun: current_cost,
                     status: 3,
-                    message: Some("Lambda exceeded maximum threshold - problem is ill-conditioned".to_string()),
+                    message: Some(
+                        "Lambda exceeded maximum threshold - problem is ill-conditioned"
+                            .to_string(),
+                    ),
                 };
             }
 
             // Damp hessian approximation
             for j in JtJ.diagonal_mut().column_vector_mut().iter_mut() {
-                *j += lambda * j.clamp(R::epsilon()*R::from64(10.0), R::from64(10.0));
+                *j += lambda * j.clamp(R::epsilon() * R::from64(10.0), R::from64(10.0));
             }
 
             // Check JTJ for NaN or infinity values
@@ -223,7 +238,14 @@ where
             if has_invalid_jtj {
                 // println!("Step rejected due to NaN or infinity in JtJ matrix.");
                 // Recalculate JtJ to reset it to the undamped version before increasing lambda
-                matmul(&mut JtJ, Accum::Replace, &Jbuf.transpose(), &Jbuf, R::one(), Par::Seq);
+                matmul(
+                    &mut JtJ,
+                    Accum::Replace,
+                    &Jbuf.transpose(),
+                    &Jbuf,
+                    R::one(),
+                    Par::Seq,
+                );
                 lambda *= self.lambda_increase_factor;
                 // println!("New lambda: {}", lambda);
                 continue;
@@ -239,10 +261,9 @@ where
             //     dbg!(max_s.to64() / min_s.to64());
             // }
 
-
             // Solve for delta_x
             let delta_x = match JtJ.llt(faer::Side::Lower) {
-                Ok(llt) => { llt.solve(&Jtr) },
+                Ok(llt) => llt.solve(&Jtr),
                 Err(e) => {
                     // Step rejected
                     // println!("Step rejected due to invalid llt: {}", e);
@@ -280,13 +301,16 @@ where
 
             // Calculate gain ratio for proper LM updates
             let actual_reduction = current_cost - new_cost;
-            
+
             // Simplified predicted reduction: step_norm^2 * (lambda + gradient_norm)
             let step_norm = delta_x.norm_l2();
             let gradient_norm = Jtr.norm_l2();
             let predicted_reduction = step_norm * step_norm * (lambda + gradient_norm);
-            
-            let gain_ratio = if predicted_reduction < R::from64(1e-14) || predicted_reduction.is_nan() || predicted_reduction.is_infinite() {
+
+            let gain_ratio = if predicted_reduction < R::from64(1e-14)
+                || predicted_reduction.is_nan()
+                || predicted_reduction.is_infinite()
+            {
                 R::from64(-1.0) // Treat as bad step
             } else {
                 actual_reduction / predicted_reduction
@@ -296,17 +320,20 @@ where
             if gain_ratio > R::zero() {
                 // Step accepted
                 x = x_new;
-                if new_cost.is_close_with_tolerance(current_cost, self.diff_tol_r, self.diff_tol_a) {
-                // if RealScalar::abs(new_cost - current_cost) <= self.diff_tol_a + self.diff_tol_r * RealScalar::abs(current_cost) {
+                if new_cost.is_close_with_tolerance(current_cost, self.diff_tol_r, self.diff_tol_a)
+                {
+                    // if RealScalar::abs(new_cost - current_cost) <= self.diff_tol_a + self.diff_tol_r * RealScalar::abs(current_cost) {
                     return MinimizationResult {
                         params: Vec::from_iter(x.iter().copied()),
                         fun: new_cost,
                         status: 7,
-                        message: Some("Terminated because lack of sufficient cost improvement.".to_string()),
-                    }
+                        message: Some(
+                            "Terminated because lack of sufficient cost improvement.".to_string(),
+                        ),
+                    };
                 }
                 current_cost = new_cost;
-                
+
                 // Update lambda based on gain ratio quality
                 if gain_ratio > R::from64(0.75) {
                     // Very good step, decrease damping aggressively
@@ -316,8 +343,12 @@ where
                     lambda /= R::from64(2.0);
                 }
                 // For gain_ratio <= 0.25, keep lambda unchanged
-                
-                lambda = if lambda < self.minimum_lambda { self.minimum_lambda } else { lambda };
+
+                lambda = if lambda < self.minimum_lambda {
+                    self.minimum_lambda
+                } else {
+                    lambda
+                };
 
                 // Check for invalid parameters
                 for param in x.iter() {
@@ -326,7 +357,9 @@ where
                             params: Vec::from_iter(x.iter().copied()),
                             fun: current_cost,
                             status: 5,
-                            message: Some("Parameters became invalid (NaN or infinity)".to_string()),
+                            message: Some(
+                                "Parameters became invalid (NaN or infinity)".to_string(),
+                            ),
                         };
                     }
                 }
@@ -335,13 +368,31 @@ where
                 unsafe {
                     // Calculate new residuals and jacobian
                     let param_slice = std::slice::from_raw_parts(x.as_ptr(), x.nrows());
-                    objective.residuals_and_jacobian_into(param_slice, Rbuf.as_mut(), Jbuf.as_mut());
+                    objective.residuals_and_jacobian_into(
+                        param_slice,
+                        Rbuf.as_mut(),
+                        Jbuf.as_mut(),
+                    );
                     // dbg!(&Jbuf);
                 }
 
                 // Calculate hessian and gradient approximation to form new linear system problem
-                matmul(&mut JtJ, Accum::Replace, &Jbuf.transpose(), &Jbuf, R::one(), Par::Seq);
-                matmul(&mut Jtr, Accum::Replace, &Jbuf.transpose(), &Rbuf.as_mat(), R::one(), Par::Seq);
+                matmul(
+                    &mut JtJ,
+                    Accum::Replace,
+                    &Jbuf.transpose(),
+                    &Jbuf,
+                    R::one(),
+                    Par::Seq,
+                );
+                matmul(
+                    &mut Jtr,
+                    Accum::Replace,
+                    &Jbuf.transpose(),
+                    &Rbuf.as_mat(),
+                    R::one(),
+                    Par::Seq,
+                );
 
                 // Check gradient norm after step acceptance
                 let gradient_norm = Jtr.norm_l2();
@@ -350,13 +401,22 @@ where
                         params: Vec::from_iter(x.iter().copied()),
                         fun: current_cost,
                         status: 6,
-                        message: Some("Gradient norm too small - optimization stagnated".to_string()),
+                        message: Some(
+                            "Gradient norm too small - optimization stagnated".to_string(),
+                        ),
                     };
                 }
             } else {
                 // Step rejected - poor gain ratio
-                matmul(&mut JtJ, Accum::Replace, &Jbuf.transpose(), &Jbuf, R::one(), Par::Seq);
-                
+                matmul(
+                    &mut JtJ,
+                    Accum::Replace,
+                    &Jbuf.transpose(),
+                    &Jbuf,
+                    R::one(),
+                    Par::Seq,
+                );
+
                 // Update lambda based on how bad the step was
                 if gain_ratio < R::from64(-0.5) {
                     // Very bad step, increase damping aggressively
@@ -367,10 +427,10 @@ where
                 }
             }
 
-            // Check for convergence 
+            // Check for convergence
             if delta_x.norm_l2() < self.tolerance {
                 let params_out = Vec::from_iter(x.iter().copied());
-                return MinimizationResult::simple_success(params_out, current_cost)
+                return MinimizationResult::simple_success(params_out, current_cost);
             }
         }
 

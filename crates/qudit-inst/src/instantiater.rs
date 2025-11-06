@@ -2,12 +2,12 @@ use std::any::Any;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use qudit_core::ComplexScalar;
 use qudit_circuit::QuditCircuit;
+use qudit_core::ComplexScalar;
 
-use crate::instantiater;
 use crate::InstantiationResult;
 use crate::InstantiationTarget;
+use crate::instantiater;
 
 pub trait DataItem: Any + ToString {}
 
@@ -23,25 +23,31 @@ pub trait Instantiater<C: ComplexScalar> {
         data: Arc<DataMap>,
     ) -> InstantiationResult<C>;
 
-
     fn batched_instantiate(
         &self,
         circuit: Arc<QuditCircuit>,
         targets: &[Arc<InstantiationTarget<C>>],
         data: Arc<DataMap>,
     ) -> Vec<InstantiationResult<C>> {
-        targets.iter().map(|t| self.instantiate(circuit.clone(), t.clone(), data.clone())).collect()
+        targets
+            .iter()
+            .map(|t| self.instantiate(circuit.clone(), t.clone(), data.clone()))
+            .collect()
     }
 }
 
 #[cfg(feature = "python")]
 pub mod python {
-    use pyo3::{exceptions::{PyNotImplementedError, PyTypeError}, prelude::*, types::{PyDict, PyList}};
     use super::*;
-    use qudit_core::c64;
     use crate::python::PyInstantiationRegistrar;
     use dyn_clone::DynClone;
-   
+    use pyo3::{
+        exceptions::{PyNotImplementedError, PyTypeError},
+        prelude::*,
+        types::{PyDict, PyList},
+    };
+    use qudit_core::c64;
+
     fn pydict_to_datamap(py_dict: Option<&Bound<'_, PyDict>>) -> PyResult<Arc<DataMap>> {
         let mut data_map = HashMap::new();
 
@@ -67,7 +73,6 @@ pub mod python {
 
     #[pymethods]
     impl BoxedInstantiater {
-
         #[pyo3(name = "instantiate")]
         #[pyo3(signature = (circuit, target, data = None))]
         fn instantiate_python(
@@ -77,12 +82,8 @@ pub mod python {
             data: Option<&Bound<'_, PyDict>>,
         ) -> PyResult<InstantiationResult<c64>> {
             let data_map = pydict_to_datamap(data)?;
-            let result = Instantiater::instantiate(
-                self,
-                Arc::new(circuit),
-                Arc::new(target),
-                data_map,
-            );
+            let result =
+                Instantiater::instantiate(self, Arc::new(circuit), Arc::new(target), data_map);
             Ok(result)
         }
 
@@ -95,16 +96,10 @@ pub mod python {
             data: Option<&Bound<'_, PyDict>>,
         ) -> PyResult<Vec<InstantiationResult<c64>>> {
             let data_map = pydict_to_datamap(data)?;
-            let target_arcs: Vec<Arc<InstantiationTarget<c64>>> = targets
-                .into_iter()
-                .map(Arc::new)
-                .collect();
-            let result = Instantiater::batched_instantiate(
-                self,
-                Arc::new(circuit),
-                &target_arcs,
-                data_map,
-            );
+            let target_arcs: Vec<Arc<InstantiationTarget<c64>>> =
+                targets.into_iter().map(Arc::new).collect();
+            let result =
+                Instantiater::batched_instantiate(self, Arc::new(circuit), &target_arcs, data_map);
             Ok(result)
         }
     }
@@ -134,7 +129,12 @@ pub mod python {
 
     #[pymethods]
     impl PyInstantiaterABC {
-        fn instantiate(&self, circuit: QuditCircuit, target: InstantiationTarget<c64>, data: &Bound<'_, PyDict>) -> PyResult<InstantiationResult<c64>> {
+        fn instantiate(
+            &self,
+            circuit: QuditCircuit,
+            target: InstantiationTarget<c64>,
+            data: &Bound<'_, PyDict>,
+        ) -> PyResult<InstantiationResult<c64>> {
             Err(PyNotImplementedError::new_err(
                 "Instantiaters must implement the instantiate method.",
             ))
@@ -154,7 +154,6 @@ pub mod python {
         ) -> InstantiationResult<c64> {
             // TODO: handle failures by not panicking, and propagating a python error
             Python::attach(|py| {
-
                 let py_data = PyDict::new(py);
                 for (key, val) in data.iter() {
                     py_data.set_item(key, val.to_string());
@@ -162,7 +161,11 @@ pub mod python {
 
                 self.instantiater
                     .bind(py)
-                    .call_method("instantiate", ((*circuit).clone(), (*target).clone(), py_data), None)
+                    .call_method(
+                        "instantiate",
+                        ((*circuit).clone(), (*target).clone(), py_data),
+                        None,
+                    )
                     .unwrap()
                     .extract()
                     .expect("Invalid return type from instantiate.")
@@ -185,18 +188,33 @@ pub mod python {
                 }
 
                 if bound.hasattr("batched_instantiate").is_ok_and(|x| x) {
-                    let py_targets = PyList::new(py, targets.into_iter().map(|t| (**t).clone())).unwrap();
-                    bound.call_method("batched_instantiate", ((*circuit).clone(), py_targets, py_data), None)
+                    let py_targets =
+                        PyList::new(py, targets.into_iter().map(|t| (**t).clone())).unwrap();
+                    bound
+                        .call_method(
+                            "batched_instantiate",
+                            ((*circuit).clone(), py_targets, py_data),
+                            None,
+                        )
                         .unwrap()
                         .extract()
                         .expect("Invalid return type from batched instantiate.")
                 } else {
                     let circuit = (*circuit).clone().into_pyobject(py).unwrap();
-                    targets.iter().map(|t| bound.call_method("instantiate", (&circuit, (**t).clone(), &py_data), None)
-                        .unwrap()
-                        .extract()
-                        .expect("Invalid return type from instantiate.")
-                    ).collect()
+                    targets
+                        .iter()
+                        .map(|t| {
+                            bound
+                                .call_method(
+                                    "instantiate",
+                                    (&circuit, (**t).clone(), &py_data),
+                                    None,
+                                )
+                                .unwrap()
+                                .extract()
+                                .expect("Invalid return type from instantiate.")
+                        })
+                        .collect()
                 }
             })
         }
@@ -242,16 +260,19 @@ pub mod python {
 
         fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             if let Ok(dyn_trait) = obj.extract::<PyRef<BoxedInstantiater>>() {
-                Ok(PyInstantiater::Native(BoxedInstantiater { inner: dyn_clone::clone_box(&*dyn_trait.inner) }))
+                Ok(PyInstantiater::Native(BoxedInstantiater {
+                    inner: dyn_clone::clone_box(&*dyn_trait.inner),
+                }))
             } else if obj.hasattr("instantiate")? {
-                let trampoline = PyInstantiaterTrampoline { instantiater: obj.to_owned().unbind() };
+                let trampoline = PyInstantiaterTrampoline {
+                    instantiater: obj.to_owned().unbind(),
+                };
                 Ok(PyInstantiater::Python(trampoline))
             } else {
                 Err(PyTypeError::new_err(
                     "Cannot extract an 'Instantiater' during conversion to native code.",
-                )) 
+                ))
             }
         }
     }
 }
-

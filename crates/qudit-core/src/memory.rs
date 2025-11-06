@@ -2,9 +2,9 @@
 
 use std::mem::size_of;
 
-use aligned_vec::avec;
 use aligned_vec::AVec;
 use aligned_vec::CACHELINE_ALIGN;
+use aligned_vec::avec;
 use bytemuck::Zeroable;
 
 /// A trait for types that can be stored in memory buffers.

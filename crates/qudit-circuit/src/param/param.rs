@@ -1,6 +1,6 @@
+use num::ToPrimitive;
 use qudit_core::RealScalar;
 use qudit_expr::Constant;
-use num::ToPrimitive;
 
 /// Represents different types of parameters that can be used in a quantum circuit.
 /// These parameters can be assigned constant values or be dynamic and resolved later.
@@ -48,9 +48,9 @@ impl Parameter {
 #[cfg(feature = "python")]
 mod python {
     use super::Parameter;
+    use num::ToPrimitive;
     use pyo3::prelude::*;
     use pyo3::types::{PyFloat, PyString};
-    use num::ToPrimitive;
 
     impl<'py> IntoPyObject<'py> for Parameter {
         type Target = PyAny;
@@ -66,12 +66,8 @@ mod python {
                     let float_val = constant.to_f64().unwrap();
                     Ok(PyFloat::new(py, float_val).into_any())
                 }
-                Parameter::Indexed => {
-                    Ok(py.None().into_bound(py))
-                }
-                Parameter::Named(name) => {
-                    Ok(PyString::new(py, &name).into_any())
-                }
+                Parameter::Indexed => Ok(py.None().into_bound(py)),
+                Parameter::Named(name) => Ok(PyString::new(py, &name).into_any()),
             }
         }
     }
@@ -96,7 +92,7 @@ mod python {
             }
 
             Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                "Cannot convert Python object to Parameter"
+                "Cannot convert Python object to Parameter",
             ))
         }
     }
@@ -228,7 +224,7 @@ mod python {
                 for original_param in params {
                     let py_obj = original_param.clone().into_pyobject(py).unwrap();
                     let converted_param: Parameter = py_obj.extract().unwrap();
-                    
+
                     match (&original_param, &converted_param) {
                         (Parameter::Constant32(a), Parameter::Constant64(b)) => {
                             // f32 -> f64 conversion expected

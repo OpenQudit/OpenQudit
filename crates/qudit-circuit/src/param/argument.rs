@@ -8,9 +8,9 @@
 //!
 //! The module also provides conversions from various Rust and Python types.
 
-use qudit_expr::Expression;
-use qudit_expr::ComplexExpression;
 use super::Parameter;
+use qudit_expr::ComplexExpression;
+use qudit_expr::Expression;
 
 /// Represents an argument in a quantum circuit.
 ///
@@ -54,7 +54,7 @@ impl Argument {
                         .map(|var| Parameter::Named(var))
                         .collect()
                 }
-            },
+            }
         }
     }
 
@@ -79,7 +79,7 @@ impl Argument {
                 } else {
                     e.get_unique_variables()
                 }
-            },
+            }
             _ => {
                 let out = vec![String::from(format!("unnamed_{counter}"))];
                 *counter += 1;
@@ -121,14 +121,12 @@ impl Argument {
     /// expression associated with this argument.
     pub fn requires_expression_modification(&self) -> bool {
         match self {
-            Argument::Expression(e) => {
-                match &e {
-                    Expression::Pi => false,
-                    Expression::Constant(_) => false,
-                    Expression::Variable(_) => false,
-                    _ => true,
-                }
-            }
+            Argument::Expression(e) => match &e {
+                Expression::Pi => false,
+                Expression::Constant(_) => false,
+                Expression::Variable(_) => false,
+                _ => true,
+            },
             _ => false,
         }
     }
@@ -154,7 +152,7 @@ impl TryFrom<&str> for Argument {
     /// let arg = Argument::try_from("x + 2.5").unwrap();
     /// let arg2 = Argument::try_from("sin(pi/4)").unwrap();
     /// ```
-    fn try_from(value: &str) -> Result<Self, Self::Error> { 
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
         if value.contains("unnamed_") {
             return Err("Expression arguments cannot contain 'unnamed_'");
         }
@@ -163,7 +161,7 @@ impl TryFrom<&str> for Argument {
 
         if !parsed.is_real_fast() {
             Result::Err("Unable to handle complex parameter entries currently.")
-        } else { 
+        } else {
             Ok(Argument::Expression(parsed.real))
         }
     }
@@ -183,7 +181,7 @@ impl TryFrom<String> for Argument {
     /// # Returns
     /// * `Ok(Argument::Expression)` if the string represents a valid real expression
     /// * `Err` if the expression contains complex components
-    fn try_from(value: String) -> Result<Self, Self::Error> { 
+    fn try_from(value: String) -> Result<Self, Self::Error> {
         if value.contains("unnamed_") {
             return Err("Expression arguments cannot contain 'unnamed_'");
         }
@@ -192,7 +190,7 @@ impl TryFrom<String> for Argument {
 
         if !parsed.is_real_fast() {
             Result::Err("Unable to handle complex parameter entries currently.")
-        } else { 
+        } else {
             Ok(Argument::Expression(parsed.real))
         }
     }
@@ -251,19 +249,19 @@ impl<T: TryInto<Argument>> TryFrom<Option<T>> for Argument {
 #[cfg(feature = "python")]
 mod python {
     use super::Argument;
-    use pyo3::prelude::*;
     use pyo3::exceptions::{PyTypeError, PyValueError};
+    use pyo3::prelude::*;
 
     impl<'a, 'py> FromPyObject<'a, 'py> for Argument {
         type Error = PyErr;
 
         /// Converts a Python object to an `Argument`.
-        /// 
+        ///
         /// # Supported conversions
         /// - `None` → `Argument::Unspecified`
         /// - Python numbers (int/float) → `Argument::Float64`
         /// - Python strings → `Argument::Expression` (if valid)
-        /// 
+        ///
         /// # Errors
         /// Returns `PyValueError` for invalid expression strings or `PyTypeError` for unsupported types.
         fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
@@ -271,12 +269,12 @@ mod python {
             if obj.is_none() {
                 return Ok(Argument::Unspecified);
             }
-            
+
             // Try extracting as float (handles both Python float and int)
             if let Ok(val) = obj.extract::<f64>() {
                 return Ok(Argument::Float64(val));
             }
-            
+
             // Try extracting as string and parsing as expression
             if let Ok(val) = obj.extract::<String>() {
                 match Argument::try_from(val) {
@@ -284,10 +282,10 @@ mod python {
                     Err(e) => return Err(PyValueError::new_err(e)),
                 }
             }
-            
+
             // If none of the above worked, return a type error
             Err(PyTypeError::new_err(format!(
-                "Cannot convert {} to Argument", 
+                "Cannot convert {} to Argument",
                 obj.get_type().name()?
             )))
         }
@@ -296,8 +294,8 @@ mod python {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use pyo3::types::{PyFloat, PyInt, PyString, PyDict};
         use pyo3::Python;
+        use pyo3::types::{PyDict, PyFloat, PyInt, PyString};
 
         #[test]
         fn test_from_py_bound_none() {
@@ -346,55 +344,69 @@ mod python {
                 let string_val = PyString::new(py, "1 + i");
                 let result = Argument::extract(string_val.as_any().as_borrowed());
                 assert!(result.is_err());
-                assert!(result.unwrap_err().is_instance_of::<pyo3::exceptions::PyValueError>(py));
+                assert!(
+                    result
+                        .unwrap_err()
+                        .is_instance_of::<pyo3::exceptions::PyValueError>(py)
+                );
             });
         }
 
         #[test]
-         fn test_from_py_bound_string_with_unnamed_rejected() {
-             Python::initialize();
-             Python::attach(|py| {
-                 let string_val = PyString::new(py, "unnamed_123");
-                 let result = Argument::extract(string_val.as_any().as_borrowed());
-                 assert!(result.is_err());
-                 let err = result.unwrap_err();
-                 assert!(err.is_instance_of::<pyo3::exceptions::PyValueError>(py));
-                 assert!(err.to_string().contains("Expression arguments cannot contain 'unnamed_'"));
-             });
-         }
+        fn test_from_py_bound_string_with_unnamed_rejected() {
+            Python::initialize();
+            Python::attach(|py| {
+                let string_val = PyString::new(py, "unnamed_123");
+                let result = Argument::extract(string_val.as_any().as_borrowed());
+                assert!(result.is_err());
+                let err = result.unwrap_err();
+                assert!(err.is_instance_of::<pyo3::exceptions::PyValueError>(py));
+                assert!(
+                    err.to_string()
+                        .contains("Expression arguments cannot contain 'unnamed_'")
+                );
+            });
+        }
 
-         #[test]
-         fn test_from_py_bound_string_with_unnamed_in_expression_rejected() {
-             Python::initialize();
-             Python::attach(|py| {
-                 let string_val = PyString::new(py, "x + unnamed_var");
-                 let result = Argument::extract(string_val.as_any().as_borrowed());
-                 assert!(result.is_err());
-                 let err = result.unwrap_err();
-                 assert!(err.is_instance_of::<pyo3::exceptions::PyValueError>(py));
-                 assert!(err.to_string().contains("Expression arguments cannot contain 'unnamed_'"));
-             });
-         }
+        #[test]
+        fn test_from_py_bound_string_with_unnamed_in_expression_rejected() {
+            Python::initialize();
+            Python::attach(|py| {
+                let string_val = PyString::new(py, "x + unnamed_var");
+                let result = Argument::extract(string_val.as_any().as_borrowed());
+                assert!(result.is_err());
+                let err = result.unwrap_err();
+                assert!(err.is_instance_of::<pyo3::exceptions::PyValueError>(py));
+                assert!(
+                    err.to_string()
+                        .contains("Expression arguments cannot contain 'unnamed_'")
+                );
+            });
+        }
 
-         #[test]
-         fn test_from_py_bound_string_similar_pattern_accepted() {
-             Python::initialize();
-             Python::attach(|py| {
-                 let string_val = PyString::new(py, "named_var");
-                 let result = Argument::extract(string_val.as_any().as_borrowed());
-                 assert!(result.is_ok());
-                 matches!(result.unwrap(), Argument::Expression(_));
-             });
-         }
+        #[test]
+        fn test_from_py_bound_string_similar_pattern_accepted() {
+            Python::initialize();
+            Python::attach(|py| {
+                let string_val = PyString::new(py, "named_var");
+                let result = Argument::extract(string_val.as_any().as_borrowed());
+                assert!(result.is_ok());
+                matches!(result.unwrap(), Argument::Expression(_));
+            });
+        }
 
-         #[test]
+        #[test]
         fn test_from_py_bound_invalid_type() {
             Python::initialize();
             Python::attach(|py| {
                 let dict_val = PyDict::new(py);
                 let result = Argument::extract(dict_val.as_any().as_borrowed());
                 assert!(result.is_err());
-                assert!(result.unwrap_err().is_instance_of::<pyo3::exceptions::PyTypeError>(py));
+                assert!(
+                    result
+                        .unwrap_err()
+                        .is_instance_of::<pyo3::exceptions::PyTypeError>(py)
+                );
             });
         }
     }
@@ -519,7 +531,10 @@ mod tests {
     fn test_try_from_str_complex_invalid() {
         let result = Argument::try_from("1 + i");
         assert!(result.is_err());
-        assert_eq!(result.unwrap_err(), "Unable to handle complex parameter entries currently.");
+        assert_eq!(
+            result.unwrap_err(),
+            "Unable to handle complex parameter entries currently."
+        );
     }
 
     #[test]
@@ -570,114 +585,141 @@ mod tests {
     }
 
     #[test]
-     fn test_try_from_str_contains_unnamed_rejected() {
-         let result = Argument::try_from("unnamed_");
-         assert!(result.is_err());
-         assert_eq!(result.unwrap_err(), "Expression arguments cannot contain 'unnamed_'");
-     }
+    fn test_try_from_str_contains_unnamed_rejected() {
+        let result = Argument::try_from("unnamed_");
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "Expression arguments cannot contain 'unnamed_'"
+        );
+    }
 
-     #[test]
-     fn test_try_from_str_contains_unnamed_with_suffix_rejected() {
-         let result = Argument::try_from("unnamed_123");
-         assert!(result.is_err());
-         assert_eq!(result.unwrap_err(), "Expression arguments cannot contain 'unnamed_'");
-     }
+    #[test]
+    fn test_try_from_str_contains_unnamed_with_suffix_rejected() {
+        let result = Argument::try_from("unnamed_123");
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "Expression arguments cannot contain 'unnamed_'"
+        );
+    }
 
-     #[test]
-     fn test_try_from_str_contains_unnamed_in_expression_rejected() {
-         let result = Argument::try_from("x + unnamed_var");
-         assert!(result.is_err());
-         assert_eq!(result.unwrap_err(), "Expression arguments cannot contain 'unnamed_'");
-     }
+    #[test]
+    fn test_try_from_str_contains_unnamed_in_expression_rejected() {
+        let result = Argument::try_from("x + unnamed_var");
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "Expression arguments cannot contain 'unnamed_'"
+        );
+    }
 
-     #[test]
-     fn test_try_from_str_contains_unnamed_in_middle_rejected() {
-         let result = Argument::try_from("prefix_unnamed_suffix");
-         assert!(result.is_err());
-         assert_eq!(result.unwrap_err(), "Expression arguments cannot contain 'unnamed_'");
-     }
+    #[test]
+    fn test_try_from_str_contains_unnamed_in_middle_rejected() {
+        let result = Argument::try_from("prefix_unnamed_suffix");
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "Expression arguments cannot contain 'unnamed_'"
+        );
+    }
 
-     #[test]
-     fn test_try_from_str_multiple_unnamed_rejected() {
-         let result = Argument::try_from("unnamed_1 + unnamed_2");
-         assert!(result.is_err());
-         assert_eq!(result.unwrap_err(), "Expression arguments cannot contain 'unnamed_'");
-     }
+    #[test]
+    fn test_try_from_str_multiple_unnamed_rejected() {
+        let result = Argument::try_from("unnamed_1 + unnamed_2");
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "Expression arguments cannot contain 'unnamed_'"
+        );
+    }
 
-     #[test]
-     fn test_try_from_string_contains_unnamed_rejected() {
-         let result = Argument::try_from("unnamed_".to_string());
-         assert!(result.is_err());
-         assert_eq!(result.unwrap_err(), "Expression arguments cannot contain 'unnamed_'");
-     }
+    #[test]
+    fn test_try_from_string_contains_unnamed_rejected() {
+        let result = Argument::try_from("unnamed_".to_string());
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "Expression arguments cannot contain 'unnamed_'"
+        );
+    }
 
-     #[test]
-     fn test_try_from_string_contains_unnamed_with_suffix_rejected() {
-         let result = Argument::try_from("unnamed_456".to_string());
-         assert!(result.is_err());
-         assert_eq!(result.unwrap_err(), "Expression arguments cannot contain 'unnamed_'");
-     }
+    #[test]
+    fn test_try_from_string_contains_unnamed_with_suffix_rejected() {
+        let result = Argument::try_from("unnamed_456".to_string());
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "Expression arguments cannot contain 'unnamed_'"
+        );
+    }
 
-     #[test]
-     fn test_try_from_string_contains_unnamed_in_expression_rejected() {
-         let result = Argument::try_from("sin(unnamed_theta)".to_string());
-         assert!(result.is_err());
-         assert_eq!(result.unwrap_err(), "Expression arguments cannot contain 'unnamed_'");
-     }
+    #[test]
+    fn test_try_from_string_contains_unnamed_in_expression_rejected() {
+        let result = Argument::try_from("sin(unnamed_theta)".to_string());
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err(),
+            "Expression arguments cannot contain 'unnamed_'"
+        );
+    }
 
-     #[test]
-     fn test_try_from_str_similar_patterns_accepted() {
-         // These should work because they don't contain the exact "unnamed_" pattern
-         let result1 = Argument::try_from("named_var");
-         assert!(result1.is_ok());
+    #[test]
+    fn test_try_from_str_similar_patterns_accepted() {
+        // These should work because they don't contain the exact "unnamed_" pattern
+        let result1 = Argument::try_from("named_var");
+        assert!(result1.is_ok());
 
-         let result2 = Argument::try_from("unnamedvar"); // no underscore
-         assert!(result2.is_ok());
+        let result2 = Argument::try_from("unnamedvar"); // no underscore
+        assert!(result2.is_ok());
 
-         let result3 = Argument::try_from("unnamed"); // no underscore
-         assert!(result3.is_ok());
+        let result3 = Argument::try_from("unnamed"); // no underscore
+        assert!(result3.is_ok());
 
-         let result4 = Argument::try_from("my_unnamed"); // doesn't start with unnamed_
-         assert!(result4.is_ok());
-     }
+        let result4 = Argument::try_from("my_unnamed"); // doesn't start with unnamed_
+        assert!(result4.is_ok());
+    }
 
-     #[test]
-     fn test_try_from_string_similar_patterns_accepted() {
-         // These should work because they don't contain the exact "unnamed_" pattern
-         let result1 = Argument::try_from("named_123".to_string());
-         assert!(result1.is_ok());
+    #[test]
+    fn test_try_from_string_similar_patterns_accepted() {
+        // These should work because they don't contain the exact "unnamed_" pattern
+        let result1 = Argument::try_from("named_123".to_string());
+        assert!(result1.is_ok());
 
-         let result2 = Argument::try_from("unnamedvariable".to_string());
-         assert!(result2.is_ok());
+        let result2 = Argument::try_from("unnamedvariable".to_string());
+        assert!(result2.is_ok());
 
-         let result3 = Argument::try_from("var_name".to_string());
-         assert!(result3.is_ok());
-     }
+        let result3 = Argument::try_from("var_name".to_string());
+        assert!(result3.is_ok());
+    }
 
-     #[test]
-     fn test_try_from_str_case_sensitive_unnamed_check() {
-         // Uppercase variants should be accepted since the check is case-sensitive
-         let result1 = Argument::try_from("UNNAMED_var");
-         assert!(result1.is_ok());
+    #[test]
+    fn test_try_from_str_case_sensitive_unnamed_check() {
+        // Uppercase variants should be accepted since the check is case-sensitive
+        let result1 = Argument::try_from("UNNAMED_var");
+        assert!(result1.is_ok());
 
-         let result2 = Argument::try_from("Unnamed_123");
-         assert!(result2.is_ok());
-     }
+        let result2 = Argument::try_from("Unnamed_123");
+        assert!(result2.is_ok());
+    }
 
-     #[test]
+    #[test]
     fn test_multivariate_expression_parameters() {
         let result = Argument::try_from("a*c").unwrap();
         if let Argument::Expression(expr) = result {
             let arg = Argument::Expression(expr);
             let params = arg.parameters();
             assert_eq!(params.len(), 2);
-            
+
             // Check that we get Named parameters for both variables
-            let param_names: Vec<String> = params.into_iter().map(|p| match p {
-                Parameter::Named(name) => name,
-                _ => panic!("Expected Named parameter"),
-            }).collect();
-            
+            let param_names: Vec<String> = params
+                .into_iter()
+                .map(|p| match p {
+                    Parameter::Named(name) => name,
+                    _ => panic!("Expected Named parameter"),
+                })
+                .collect();
+
             // Should contain both "a" and "c"
             assert!(param_names.contains(&"a".to_string()));
             assert!(param_names.contains(&"c".to_string()));
@@ -693,7 +735,7 @@ mod tests {
             let arg = Argument::Expression(expr);
             let mut counter = 0;
             let vars = arg.variables(&mut counter);
-            
+
             // Should return the actual variable names, not generated ones
             assert_eq!(vars.len(), 2);
             assert!(vars.contains(&"a".to_string()));
@@ -710,7 +752,7 @@ mod tests {
         if let Argument::Expression(original_expr) = &result {
             let mut counter = 0;
             let substitution_expr = result.as_substitution_expression(&mut counter);
-            
+
             // Should return the same expression for parameterized expressions
             assert_eq!(substitution_expr, *original_expr);
             assert_eq!(counter, 0); // Counter should not increment
@@ -725,15 +767,18 @@ mod tests {
         if let Argument::Expression(expr) = result {
             let arg = Argument::Expression(expr);
             let params = arg.parameters();
-            
+
             // Should get Named parameters for all variables
             assert!(params.len() >= 3); // At least x, y, z, theta
-            
-            let param_names: Vec<String> = params.into_iter().map(|p| match p {
-                Parameter::Named(name) => name,
-                _ => panic!("Expected Named parameter for complex expression"),
-            }).collect();
-            
+
+            let param_names: Vec<String> = params
+                .into_iter()
+                .map(|p| match p {
+                    Parameter::Named(name) => name,
+                    _ => panic!("Expected Named parameter for complex expression"),
+                })
+                .collect();
+
             // Check for expected variables
             assert!(param_names.contains(&"x".to_string()));
             assert!(param_names.contains(&"y".to_string()));
@@ -751,7 +796,7 @@ mod tests {
             let arg = Argument::Expression(expr);
             let mut counter = 0;
             let vars = arg.variables(&mut counter);
-            
+
             assert_eq!(vars.len(), 2);
             assert!(vars.contains(&"a".to_string()));
             assert!(vars.contains(&"b".to_string()));

@@ -1,18 +1,18 @@
-use qudit_core::{HasParams, ParamIndices};
 use crate::{OpCode, Wire, WireList};
 use qudit_core::{CompactVec, LimitedSizeVec};
+use qudit_core::{HasParams, ParamIndices};
 
 /// Compact storage for parameter indices within instruction memory layout.
 #[derive(Clone, Copy, Debug)]
 pub enum CompactParamIndices {
     /// Up to 3 parameter indices stored as u8 values.
-    /// 
+    ///
     /// The first element is the length (0-3), and the array contains
     /// the actual parameter indices. Only the first `length` elements
     /// of the array are valid.
     Array(u8, [u8; 3]),
     /// Contiguous parameter range stored as start and length.
-    /// 
+    ///
     /// Represents parameters `start..start+length`. The NonZero enables
     /// null pointer optimization on the enum size.
     Range(u32, std::num::NonZero<u32>),
@@ -20,7 +20,7 @@ pub enum CompactParamIndices {
 
 impl CompactParamIndices {
     /// Creates an empty parameter indices representation.
-    /// 
+    ///
     /// This is used when an instruction has no parameters, storing
     /// the information in the most compact way possible.
     fn empty() -> Self {
@@ -41,10 +41,11 @@ impl PartialEq for CompactParamIndices {
         match (self, other) {
             (CompactParamIndices::Array(len1, data1), CompactParamIndices::Array(len2, data2)) => {
                 len1 == len2 && data1[0..(*len1 as usize)] == data2[0..(*len2 as usize)]
-            },
-            (CompactParamIndices::Range(start1, len1), CompactParamIndices::Range(start2, len2)) => {
-                start1 == start2 && len1 == len2
-            },
+            }
+            (
+                CompactParamIndices::Range(start1, len1),
+                CompactParamIndices::Range(start2, len2),
+            ) => start1 == start2 && len1 == len2,
 
             // Cross-variant comparison requires logical comparison
             (CompactParamIndices::Array(len1, _), CompactParamIndices::Range(_, len2)) => {
@@ -74,8 +75,8 @@ impl Eq for CompactParamIndices {}
 impl std::hash::Hash for CompactParamIndices {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         match self {
-            CompactParamIndices::Range(start, len) =>  {
-                for i in *start..(*start+len.get()) {
+            CompactParamIndices::Range(start, len) => {
+                for i in *start..(*start + len.get()) {
                     i.hash(state);
                 }
             }
@@ -90,7 +91,7 @@ impl std::hash::Hash for CompactParamIndices {
 
 impl From<CompactParamIndices> for ParamIndices {
     /// Converts compact parameter storage back to full ParamIndices representation.
-    /// 
+    ///
     /// This conversion is used when extracting parameter information from
     /// stored instructions. The compact format saves memory but needs to be
     /// expanded for use with the rest of the system.
@@ -101,9 +102,14 @@ impl From<CompactParamIndices> for ParamIndices {
                 if length == 0 {
                     ParamIndices::Joint(0, 0)
                 } else {
-                    ParamIndices::Disjoint(data.into_iter().take(length as usize).map(|idx| idx as usize).collect())
+                    ParamIndices::Disjoint(
+                        data.into_iter()
+                            .take(length as usize)
+                            .map(|idx| idx as usize)
+                            .collect(),
+                    )
                 }
-            },
+            }
 
             CompactParamIndices::Range(start, length) => {
                 ParamIndices::Joint(start as usize, length.get() as usize)
@@ -120,7 +126,7 @@ impl From<CompactParamIndices> for ParamIndices {
 #[derive(Clone, Debug)]
 pub enum Instruction {
     /// Inline storage for small instructions (up to 7 wires, limited parameters).
-    /// 
+    ///
     /// Fields:
     /// - `OpCode`: The quantum operation to perform
     /// - `[i8; 7]`: Wire data stored directly (classical wires are negative)
@@ -129,7 +135,7 @@ pub enum Instruction {
     Inline(OpCode, [i8; 7], u8, CompactParamIndices),
 
     /// Heap storage for large or complex instructions.
-    /// 
+    ///
     /// Fields:
     /// - `OpCode`: The quantum operation to perform
     /// - `LimitedSizeVec<usize>`: Combined wire and parameter data
@@ -173,30 +179,30 @@ impl Instruction {
     fn new_heap(op: OpCode, wire_data: [i8; 7], wire_len: u8, param_indices: ParamIndices) -> Self {
         // Use heap variant - exceeds inline limits
         let mut data = LimitedSizeVec::new();
-        
+
         // Add wires first (as usize for heap storage)
         for i in 0..wire_len as usize {
             data.push(wire_data[i] as usize);
         }
-        
+
         let split_point = data.len() as u64;
-        
+
         // Add parameters after split point
         for param in param_indices.iter() {
             data.push(param);
         }
-        
+
         Instruction::Heap(op, data, split_point)
     }
 
     /// Creates a new instruction from operation code, target wires, and parameter indices.
-    /// 
+    ///
     /// This constructor automatically chooses between inline and heap storage based on
     /// the size and complexity of the instruction data. Small instructions with few
     /// wires and simple parameter patterns are stored inline for better performance.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `op` - The quantum operation code
     /// * `wires` - Target wires for the operation  
     /// * `param_indices` - Indices referencing parameters (by id) in the owner's parameter vector
@@ -209,34 +215,67 @@ impl Instruction {
                 match param_indices {
                     ParamIndices::Joint(start, length) => {
                         if length == 0 {
-                            Instruction::Inline(op, wire_data, wire_len, CompactParamIndices::empty())
-                        } else if start < std::u32::MAX as usize && length < std::u32::MAX as usize {
+                            Instruction::Inline(
+                                op,
+                                wire_data,
+                                wire_len,
+                                CompactParamIndices::empty(),
+                            )
+                        } else if start < std::u32::MAX as usize && length < std::u32::MAX as usize
+                        {
                             // Safety: length has just been checked to not be zero.
-                            let compact_params = CompactParamIndices::Range(start as u32, unsafe { std::num::NonZero::new_unchecked(length as u32) });
+                            let compact_params = CompactParamIndices::Range(start as u32, unsafe {
+                                std::num::NonZero::new_unchecked(length as u32)
+                            });
                             Instruction::Inline(op, wire_data, wire_len, compact_params)
                         } else {
-                            Instruction::new_heap(op, wire_data, wire_len, ParamIndices::Joint(start, length))
+                            Instruction::new_heap(
+                                op,
+                                wire_data,
+                                wire_len,
+                                ParamIndices::Joint(start, length),
+                            )
                         }
-                    },
+                    }
                     ParamIndices::Disjoint(vec) => {
                         if vec.is_empty() {
-                            Instruction::Inline(op, wire_data, wire_len, CompactParamIndices::empty())
+                            Instruction::Inline(
+                                op,
+                                wire_data,
+                                wire_len,
+                                CompactParamIndices::empty(),
+                            )
                         } else if vec.len() <= 3 {
                             if vec.iter().all(|&idx| idx < std::u8::MAX as usize) {
                                 let mut array_params = [0u8; 3];
                                 for (i, &idx) in vec.iter().enumerate() {
                                     array_params[i] = idx as u8;
                                 }
-                                Instruction::Inline(op, wire_data, wire_len, CompactParamIndices::Array(vec.len() as u8, array_params))
+                                Instruction::Inline(
+                                    op,
+                                    wire_data,
+                                    wire_len,
+                                    CompactParamIndices::Array(vec.len() as u8, array_params),
+                                )
                             } else {
-                                Instruction::new_heap(op, wire_data, wire_len, ParamIndices::Disjoint(vec))
+                                Instruction::new_heap(
+                                    op,
+                                    wire_data,
+                                    wire_len,
+                                    ParamIndices::Disjoint(vec),
+                                )
                             }
                         } else {
-                            Instruction::new_heap(op, wire_data, wire_len, ParamIndices::Disjoint(vec))
+                            Instruction::new_heap(
+                                op,
+                                wire_data,
+                                wire_len,
+                                ParamIndices::Disjoint(vec),
+                            )
                         }
                     }
                 }
-            },
+            }
 
             // The the wires are not inlined, then we need to create a heap instruction and can
             // reuse the wires vector, to avoid unnecessary allocations.
@@ -266,7 +305,7 @@ impl Instruction {
         match self {
             Instruction::Inline(_, wire_data, wire_len, _) => {
                 Self::create_inline_wirelist(*wire_data, *wire_len)
-            },
+            }
             Instruction::Heap(_, data, split) => {
                 let wire_slice = Self::extract_wires_from_heap(data.as_slice(), *split);
                 Self::create_heap_wirelist(wire_slice)
@@ -282,13 +321,11 @@ impl Instruction {
     #[inline]
     pub fn params(&self) -> ParamIndices {
         match self {
-            Instruction::Inline(_, _, _, params) => {
-                params.clone().into()
-            },
+            Instruction::Inline(_, _, _, params) => params.clone().into(),
             Instruction::Heap(_, data, split) => {
                 let param_data = data.as_slice().split_at(*split as usize).1;
                 ParamIndices::Disjoint(param_data.to_owned())
-            },
+            }
         }
     }
 }
@@ -306,20 +343,19 @@ impl PartialEq for Instruction {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             // Same-variant comparisons can compare storage directly
-            (Instruction::Inline(op1, wires1, len1, params1), 
-             Instruction::Inline(op2, wires2, len2, params2)) => {
-                op1 == op2 && len1 == len2 && wires1 == wires2 && params1 == params2
-            },
-            
-            (Instruction::Heap(op1, data1, split1), 
-             Instruction::Heap(op2, data2, split2)) => {
+            (
+                Instruction::Inline(op1, wires1, len1, params1),
+                Instruction::Inline(op2, wires2, len2, params2),
+            ) => op1 == op2 && len1 == len2 && wires1 == wires2 && params1 == params2,
+
+            (Instruction::Heap(op1, data1, split1), Instruction::Heap(op2, data2, split2)) => {
                 op1 == op2 && split1 == split2 && data1 == data2
-            },
-            
+            }
+
             // Cross-variant comparison requires logical comparison
             _ => {
-                self.op_code() == other.op_code() 
-                    && self.wires() == other.wires() 
+                self.op_code() == other.op_code()
+                    && self.wires() == other.wires()
                     && self.params() == other.params()
             }
         }
@@ -345,9 +381,9 @@ const _: () = assert!(std::mem::align_of::<Wire>() == std::mem::align_of::<usize
 mod python {
     use super::*;
     use pyo3::prelude::*;
-    
+
     /// Python wrapper for quantum instructions.
-    /// 
+    ///
     /// This provides a read-only view of instructions from Python, with
     /// access to operation codes, target wires, and parameter indices.
     #[pyclass(name = "Instruction", frozen, eq, hash)]
@@ -355,7 +391,7 @@ mod python {
     pub struct PyInstruction {
         inner: Instruction,
     }
-    
+
     #[pymethods]
     impl PyInstruction {
         /// Returns the operation code for this instruction.
@@ -363,25 +399,25 @@ mod python {
         fn op_code(&self) -> OpCode {
             self.inner.op_code()
         }
-        
+
         /// Returns the target wires for this instruction.
-        #[getter] 
+        #[getter]
         fn wires(&self) -> WireList {
             self.inner.wires()
         }
-        
+
         /// Returns the parameter indices for this instruction.
         #[getter]
         fn params(&self) -> ParamIndices {
             self.inner.params()
         }
-        
+
         /// Returns the number of parameters for this instruction.
         #[getter]
         fn num_params(&self) -> usize {
             self.inner.num_params()
         }
-        
+
         fn __repr__(&self) -> String {
             format!(
                 "Instruction(op_code={:?}, wires={:?}, num_params={})",
@@ -391,30 +427,30 @@ mod python {
             )
         }
     }
-    
+
     impl From<Instruction> for PyInstruction {
         fn from(instruction: Instruction) -> Self {
             PyInstruction { inner: instruction }
         }
     }
-    
+
     impl From<PyInstruction> for Instruction {
         fn from(py_instruction: PyInstruction) -> Self {
             py_instruction.inner
         }
     }
-    
+
     impl<'py> IntoPyObject<'py> for Instruction {
         type Target = PyInstruction;
         type Output = Bound<'py, Self::Target>;
         type Error = PyErr;
-        
+
         fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
             let py_instruction = PyInstruction::from(self);
             Bound::new(py, py_instruction)
         }
     }
-    
+
     impl<'a, 'py> FromPyObject<'a, 'py> for Instruction {
         type Error = PyErr;
 
@@ -438,13 +474,13 @@ mod tests {
         let op = OpCode::new(OpKind::Expression, 0);
         let wires = WireList::from_wires(&[Wire::quantum(0), Wire::quantum(1)]);
         let params = ParamIndices::Joint(0, 0);
-        
+
         let instruction = Instruction::new(op, wires.clone(), params);
-        
+
         assert_eq!(instruction.op_code(), op);
         assert_eq!(instruction.wires(), wires);
         assert_eq!(instruction.params(), ParamIndices::Joint(0, 0));
-        
+
         // Should be inline variant
         assert!(matches!(instruction, Instruction::Inline(..)));
     }
@@ -454,13 +490,13 @@ mod tests {
         let op = OpCode::new(OpKind::Expression, 1);
         let wires = WireList::from_wires(&[Wire::quantum(0)]);
         let params = ParamIndices::Joint(5, 2);
-        
+
         let instruction = Instruction::new(op, wires.clone(), params.clone());
-        
+
         assert_eq!(instruction.op_code(), op);
         assert_eq!(instruction.wires(), wires);
         assert_eq!(instruction.params(), params);
-        
+
         assert!(matches!(instruction, Instruction::Inline(..)));
     }
 
@@ -469,13 +505,13 @@ mod tests {
         let op = OpCode::new(OpKind::Expression, 2);
         let wires = WireList::from_wires(&[Wire::quantum(0)]);
         let params = ParamIndices::Disjoint(vec![10, 20, 30]);
-        
+
         let instruction = Instruction::new(op, wires.clone(), params.clone());
-        
+
         assert_eq!(instruction.op_code(), op);
         assert_eq!(instruction.wires(), wires);
         assert_eq!(instruction.params(), params);
-        
+
         assert!(matches!(instruction, Instruction::Inline(..)));
     }
 
@@ -485,13 +521,13 @@ mod tests {
         let wires = WireList::from_wires(&[Wire::quantum(0)]);
         // Use parameters that exceed u32::MAX to force heap allocation
         let params = ParamIndices::Joint(std::u32::MAX as usize + 1, 1);
-        
+
         let instruction = Instruction::new(op, wires.clone(), params.clone());
-        
+
         assert_eq!(instruction.op_code(), op);
         assert_eq!(instruction.wires(), wires);
         assert_eq!(instruction.params(), params);
-        
+
         assert!(matches!(instruction, Instruction::Heap(..)));
     }
 
@@ -501,13 +537,13 @@ mod tests {
         let wires = WireList::from_wires(&[Wire::quantum(0), Wire::quantum(1)]);
         // Use more than 3 parameters to force heap allocation
         let params = ParamIndices::Disjoint(vec![10, 20, 30, 40, 50]);
-        
+
         let instruction = Instruction::new(op, wires.clone(), params.clone());
-        
+
         assert_eq!(instruction.op_code(), op);
         assert_eq!(instruction.wires(), wires);
         assert_eq!(instruction.params(), params);
-        
+
         assert!(matches!(instruction, Instruction::Heap(..)));
     }
 
@@ -517,13 +553,13 @@ mod tests {
         let wires = WireList::from_wires(&[Wire::quantum(0)]);
         // Use parameter indices that exceed u8::MAX to force heap allocation
         let params = ParamIndices::Disjoint(vec![300, 400]);
-        
+
         let instruction = Instruction::new(op, wires.clone(), params.clone());
-        
+
         assert_eq!(instruction.op_code(), op);
         assert_eq!(instruction.wires(), wires);
         assert_eq!(instruction.params(), params);
-        
+
         assert!(matches!(instruction, Instruction::Heap(..)));
     }
 
@@ -534,13 +570,13 @@ mod tests {
         let wire_vec: Vec<Wire> = (0..20).map(Wire::quantum).collect();
         let wires = WireList::from_wires(&wire_vec);
         let params = ParamIndices::Joint(0, 0);
-        
+
         let instruction = Instruction::new(op, wires.clone(), params.clone());
-        
+
         assert_eq!(instruction.op_code(), op);
         assert_eq!(instruction.wires(), wires);
         assert_eq!(instruction.params(), params);
-        
+
         assert!(matches!(instruction, Instruction::Heap(..)));
     }
 
@@ -551,12 +587,12 @@ mod tests {
             Wire::classical(0),
             Wire::quantum(1),
             Wire::classical(2),
-            Wire::quantum(3)
+            Wire::quantum(3),
         ]);
         let params = ParamIndices::Joint(0, 0);
-        
+
         let instruction = Instruction::new(op, wires.clone(), params);
-        
+
         assert_eq!(instruction.op_code(), op);
         assert_eq!(instruction.wires(), wires);
     }
@@ -566,13 +602,13 @@ mod tests {
         let op = OpCode::new(OpKind::Expression, 0);
         let wires = WireList::from_wires(&[Wire::quantum(0)]);
         let params = ParamIndices::Disjoint(vec![]);
-        
+
         let instruction = Instruction::new(op, wires.clone(), params);
-        
+
         assert_eq!(instruction.op_code(), op);
         assert_eq!(instruction.wires(), wires);
         assert_eq!(instruction.params(), ParamIndices::Joint(0, 0));
-        
+
         assert!(matches!(instruction, Instruction::Inline(..)));
     }
 
@@ -582,12 +618,12 @@ mod tests {
         let array_params = CompactParamIndices::Array(2, [10, 20, 0]);
         let param_indices: ParamIndices = array_params.into();
         assert_eq!(param_indices, ParamIndices::Disjoint(vec![10, 20]));
-        
+
         // Test Range variant
         let range_params = CompactParamIndices::Range(5, std::num::NonZero::new(3).unwrap());
         let param_indices: ParamIndices = range_params.into();
         assert_eq!(param_indices, ParamIndices::Joint(5, 3));
-        
+
         // Test empty
         let empty_params = CompactParamIndices::empty();
         let param_indices: ParamIndices = empty_params.into();
@@ -601,17 +637,17 @@ mod tests {
         let array2 = CompactParamIndices::Array(2, [10, 20, 0]);
         let array3 = CompactParamIndices::Array(2, [10, 21, 0]);
         let array4 = CompactParamIndices::Array(1, [10, 20, 0]); // different length
-        
+
         assert_eq!(array1, array2);
         assert_ne!(array1, array3); // different values
         assert_ne!(array1, array4); // different length
-        
+
         // Range variant equality
         let range1 = CompactParamIndices::Range(5, std::num::NonZero::new(3).unwrap());
         let range2 = CompactParamIndices::Range(5, std::num::NonZero::new(3).unwrap());
         let range3 = CompactParamIndices::Range(6, std::num::NonZero::new(3).unwrap());
         let range4 = CompactParamIndices::Range(5, std::num::NonZero::new(2).unwrap());
-        
+
         assert_eq!(range1, range2);
         assert_ne!(range1, range3); // different start
         assert_ne!(range1, range4); // different length
@@ -622,15 +658,15 @@ mod tests {
         // Array [5, 6, 7] should equal Range(5, 3)
         let array = CompactParamIndices::Array(3, [5, 6, 7]);
         let range = CompactParamIndices::Range(5, std::num::NonZero::new(3).unwrap());
-        
+
         assert_eq!(array, range);
         assert_eq!(range, array); // symmetry
-        
+
         // Array [5, 7, 9] should NOT equal Range(5, 3) [5, 6, 7]
         let array_non_contiguous = CompactParamIndices::Array(3, [5, 7, 9]);
         assert_ne!(array_non_contiguous, range);
         assert_ne!(range, array_non_contiguous);
-        
+
         // Different lengths should be caught early
         let array_short = CompactParamIndices::Array(2, [5, 6, 0]);
         assert_ne!(array_short, range);
@@ -642,7 +678,7 @@ mod tests {
         let empty1 = CompactParamIndices::empty();
         let empty2 = CompactParamIndices::Array(0, [0, 0, 0]);
         let empty3 = CompactParamIndices::Array(0, [1, 2, 3]); // unused data shouldn't matter
-        
+
         assert_eq!(empty1, empty2);
         assert_eq!(empty1, empty3);
         assert_eq!(empty2, empty3);
@@ -652,28 +688,28 @@ mod tests {
     fn test_compact_param_indices_hash_consistency() {
         use std::collections::hash_map::DefaultHasher;
         use std::hash::{Hash, Hasher};
-        
+
         fn hash_value<T: Hash>(value: &T) -> u64 {
             let mut hasher = DefaultHasher::new();
             value.hash(&mut hasher);
             hasher.finish()
         }
-        
+
         // Equal values should have equal hashes
         let array1 = CompactParamIndices::Array(2, [10, 20, 0]);
         let array2 = CompactParamIndices::Array(2, [10, 20, 99]); // unused data
         assert_eq!(hash_value(&array1), hash_value(&array2));
-        
+
         let range1 = CompactParamIndices::Range(5, std::num::NonZero::new(3).unwrap());
         let range2 = CompactParamIndices::Range(5, std::num::NonZero::new(3).unwrap());
         assert_eq!(hash_value(&range1), hash_value(&range2));
-        
+
         // Cross-variant equal values should have equal hashes
         let array = CompactParamIndices::Array(3, [5, 6, 7]);
         let range = CompactParamIndices::Range(5, std::num::NonZero::new(3).unwrap());
         assert_eq!(array, range); // Verify they're equal first
         assert_eq!(hash_value(&array), hash_value(&range));
-        
+
         // Different values should (usually) have different hashes
         let array_diff = CompactParamIndices::Array(3, [5, 7, 9]);
         assert_ne!(hash_value(&array), hash_value(&array_diff));
@@ -684,11 +720,15 @@ mod tests {
         let op = OpCode::new(OpKind::Expression, 0);
         let wires = WireList::from_wires(&[Wire::quantum(0), Wire::quantum(1)]);
         let params = ParamIndices::Joint(5, 2);
-        
+
         let inst1 = Instruction::new(op, wires.clone(), params.clone());
         let inst2 = Instruction::new(op, wires.clone(), params.clone());
-        let inst3 = Instruction::new(OpCode::new(OpKind::Directive, 0), wires.clone(), params.clone());
-        
+        let inst3 = Instruction::new(
+            OpCode::new(OpKind::Directive, 0),
+            wires.clone(),
+            params.clone(),
+        );
+
         assert_eq!(inst1, inst2);
         assert_ne!(inst1, inst3); // different opcode
     }
@@ -696,24 +736,24 @@ mod tests {
     #[test]
     fn test_instruction_cross_variant_equality() {
         let op = OpCode::new(OpKind::Expression, 0);
-        
+
         // Create one instruction that will be inline
         let small_wires = WireList::from_wires(&[Wire::quantum(0)]);
         let small_params = ParamIndices::Joint(0, 0);
         let inline_inst = Instruction::new(op, small_wires.clone(), small_params.clone());
-        
+
         // Create one instruction that will be heap (many wires)
         let large_wire_vec: Vec<Wire> = (0..20).map(Wire::quantum).collect();
         let large_wires = WireList::from_wires(&large_wire_vec);
         let heap_inst = Instruction::new(op, large_wires, small_params.clone());
-        
+
         // They should not be equal (different wires)
         assert_ne!(inline_inst, heap_inst);
-        
+
         // But instructions with same logical content should be equal regardless of storage
         let another_inline = Instruction::new(op, small_wires, small_params);
         assert_eq!(inline_inst, another_inline);
-        
+
         // Verify storage types as expected
         assert!(matches!(inline_inst, Instruction::Inline(..)));
         assert!(matches!(heap_inst, Instruction::Heap(..)));
@@ -726,18 +766,18 @@ mod tests {
     }
 
     #[test]
-    fn test_instruction_hash_consistency() {        
+    fn test_instruction_hash_consistency() {
         let op = OpCode::new(OpKind::Expression, 0);
         let wires = WireList::from_wires(&[Wire::quantum(0), Wire::quantum(1)]);
         let params = ParamIndices::Joint(5, 2);
-        
+
         let inst1 = Instruction::new(op, wires.clone(), params.clone());
         let inst2 = Instruction::new(op, wires.clone(), params.clone());
-        
+
         // Equal instructions should have equal hashes
         assert_eq!(inst1, inst2);
         assert_eq!(hash_value(&inst1), hash_value(&inst2));
-        
+
         // Different instructions should (usually) have different hashes
         let inst3 = Instruction::new(OpCode::new(OpKind::Directive, 0), wires, params);
         assert_ne!(hash_value(&inst1), hash_value(&inst3));
@@ -751,10 +791,10 @@ mod tests {
         // These should create the same logical parameters but might use different storage
         let joint_params = ParamIndices::Joint(10, 3); // [10, 11, 12]
         let disjoint_params = ParamIndices::Disjoint(vec![10, 11, 12]);
-        
+
         let inst1 = Instruction::new(op, wires.clone(), joint_params);
         let inst2 = Instruction::new(op, wires, disjoint_params);
-        
+
         // Should be logically equal
         assert_eq!(inst1, inst2);
         assert_eq!(hash_value(&inst1), hash_value(&inst2));
@@ -764,11 +804,14 @@ mod tests {
     fn test_wire_roundtrip() {
         let original_wires = [Wire::quantum(5), Wire::classical(0), Wire::quantum(100)];
         let wire_list = WireList::from_wires(&original_wires);
-        
-        let instruction = Instruction::new(OpCode::new(OpKind::Expression, 0), wire_list.clone(), ParamIndices::Joint(0, 0));
+
+        let instruction = Instruction::new(
+            OpCode::new(OpKind::Expression, 0),
+            wire_list.clone(),
+            ParamIndices::Joint(0, 0),
+        );
         let recovered_wires = instruction.wires();
-        
+
         assert_eq!(recovered_wires, wire_list);
     }
 }
-

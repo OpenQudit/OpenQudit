@@ -1,5 +1,5 @@
-use std::fmt;
 use std::cmp::Ordering;
+use std::fmt;
 
 use qudit_core::CompactStorage;
 
@@ -257,7 +257,7 @@ impl Ord for Wire {
                 match (self.is_quantum(), other.is_quantum()) {
                     (true, true) => self.index().cmp(&other.index()), // both quantum: compare by index
                     (false, false) => self.index().cmp(&other.index()), // both classical: compare by index
-                    (true, false) => Ordering::Less,    // quantum comes before classical
+                    (true, false) => Ordering::Less, // quantum comes before classical
                     (false, true) => Ordering::Greater, // quantum comes before classical
                 }
             }
@@ -340,11 +340,15 @@ impl CompactStorage for Wire {
     }
 
     #[inline(always)]
-    fn from_inline(value: Self::InlineType) -> Self { Self::from_raw(value as isize) }
+    fn from_inline(value: Self::InlineType) -> Self {
+        Self::from_raw(value as isize)
+    }
 
     #[inline(always)]
-    fn to_inline_unchecked(value: Self) -> Self::InlineType { value.raw_value() as i8 }
-}       
+    fn to_inline_unchecked(value: Self) -> Self::InlineType {
+        value.raw_value() as i8
+    }
+}
 
 #[cfg(feature = "python")]
 mod python {
@@ -368,7 +372,7 @@ mod python {
         fn quantum(idx: usize) -> PyResult<Self> {
             if idx > super::MAX_QUANTUM_INDEX {
                 return Err(pyo3::exceptions::PyOverflowError::new_err(
-                    "Quantum wire index overflow"
+                    "Quantum wire index overflow",
                 ));
             }
             Ok(PyWire {
@@ -381,7 +385,7 @@ mod python {
         fn classical(idx: usize) -> PyResult<Self> {
             if idx > super::MAX_CLASSICAL_INDEX {
                 return Err(pyo3::exceptions::PyOverflowError::new_err(
-                    "Classical wire index overflow"
+                    "Classical wire index overflow",
                 ));
             }
             Ok(PyWire {
@@ -622,19 +626,19 @@ mod tests {
         let classical = Wire::classical(42);
         let from_raw = Wire::from_raw(999);
 
-        assert_eq!(quantum.raw_value(), 43);  // 42 + 1
+        assert_eq!(quantum.raw_value(), 43); // 42 + 1
         assert_eq!(classical.raw_value(), -43); // -(42 + 1)
         assert_eq!(from_raw.raw_value(), 999);
     }
 
     #[test]
     fn test_wire_ordering_and_comparison() {
-        let null = Wire::from_raw(0); 
-        let q0 = Wire::quantum(0);    
-        let q1 = Wire::quantum(1);    
+        let null = Wire::from_raw(0);
+        let q0 = Wire::quantum(0);
+        let q1 = Wire::quantum(1);
         let q2 = Wire::quantum(2);
-        let c0 = Wire::classical(0);  
-        let c1 = Wire::classical(1);  
+        let c0 = Wire::classical(0);
+        let c1 = Wire::classical(1);
         let c2 = Wire::classical(2);
 
         // Test custom ordering: null < quantum(by index) < classical(by index)
@@ -644,15 +648,15 @@ mod tests {
         assert!(q2 < c0);
         assert!(c0 < c1);
         assert!(c1 < c2);
-        
+
         // Test quantum ordering
         assert!(q0 < q1);
         assert!(q1 < q2);
-        
+
         // Test classical ordering
         assert!(c0 < c1);
         assert!(c1 < c2);
-        
+
         // Test cross-category ordering
         assert!(null < q0);
         assert!(q1 < c0);
@@ -694,7 +698,7 @@ mod tests {
     fn test_maximum_valid_quantum_wire_creation() {
         let max_idx = MAX_QUANTUM_INDEX;
         let max_wire = Wire::quantum(max_idx);
-        
+
         assert!(max_wire.is_quantum());
         assert_eq!(max_wire.index(), max_idx);
         assert_eq!(max_wire.raw_value(), std::isize::MAX);
@@ -704,10 +708,9 @@ mod tests {
     fn test_maximum_valid_classical_wire_creation() {
         let max_idx = MAX_CLASSICAL_INDEX;
         let max_wire = Wire::classical(max_idx);
-        
+
         assert!(max_wire.is_classical());
         assert_eq!(max_wire.index(), max_idx);
         assert_eq!(max_wire.raw_value(), std::isize::MIN + 1);
     }
 }
-

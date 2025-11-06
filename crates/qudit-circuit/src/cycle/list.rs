@@ -2,9 +2,9 @@ use std::ops::{Index, IndexMut};
 
 use rustc_hash::FxHashMap;
 
-use super::QuditCycle;
 use super::CycleId;
 use super::CycleIndex;
+use super::QuditCycle;
 
 /// A list of cycles in a circuit.
 ///
@@ -82,7 +82,7 @@ impl CycleList {
 
     pub fn remove_id(&mut self, id: CycleId) {
         match self.id_to_index(id) {
-            None => {}, // TODO: log a warning? 
+            None => {} // TODO: log a warning?
             Some(idx) => self.remove_index(idx),
         }
     }
@@ -92,7 +92,8 @@ impl CycleList {
     }
 
     pub fn get_mut_from_id(&mut self, id: CycleId) -> Option<&mut QuditCycle> {
-        self.id_to_index(id).map(|idx| &mut self.cycles[idx.0 as usize])
+        self.id_to_index(id)
+            .map(|idx| &mut self.cycles[idx.0 as usize])
     }
 
     pub fn is_id(&self, id: CycleId) -> bool {

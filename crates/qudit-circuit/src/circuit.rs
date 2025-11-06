@@ -1,20 +1,27 @@
-use std::collections::HashMap;
-use qudit_core::array::Tensor;
-use qudit_core::{ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, ParamInfo, QuditSystem};
-use qudit_core::Radices;
-use qudit_expr::index::IndexDirection;
-use qudit_expr::{BraSystemExpression, KetExpression, KrausOperatorsExpression, TensorExpression, UnitaryExpression, UnitarySystemExpression, FUNCTION};
-use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
-use rustc_hash::FxHashMap;
+use crate::cycle::CycleList;
 use crate::cycle::{CycleId, CycleIndex};
 use crate::instruction::{Instruction, InstructionId};
+use crate::operation::OpCode;
+use crate::operation::OperationSet;
+use crate::operation::{
+    CircuitOperation, DirectiveOperation, ExpressionOperation, OpKind, Operation,
+};
 use crate::param::{Argument as ParameterEntry, ArgumentList, ParameterVector};
 use crate::wire::Wire;
 use crate::wire::WireList;
-use crate::operation::{CircuitOperation, DirectiveOperation, ExpressionOperation, OpKind, Operation};
-use crate::operation::OperationSet;
-use crate::operation::OpCode;
-use crate::cycle::CycleList;
+use qudit_core::Radices;
+use qudit_core::array::Tensor;
+use qudit_core::{
+    ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, ParamInfo, QuditSystem,
+};
+use qudit_expr::index::IndexDirection;
+use qudit_expr::{
+    BraSystemExpression, FUNCTION, KetExpression, KrausOperatorsExpression, TensorExpression,
+    UnitaryExpression, UnitarySystemExpression,
+};
+use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
+use rustc_hash::FxHashMap;
+use std::collections::HashMap;
 
 /// A quantum circuit that can be defined with qudits and classical bits.
 ///
@@ -59,7 +66,7 @@ impl QuditCircuit {
     ///
     /// * `qudit_radices` - The radices that describes the qudit system.
     ///
-    /// * `dit_radices` - The radices that describes the classical system. 
+    /// * `dit_radices` - The radices that describes the classical system.
     ///
     /// # Examples
     ///
@@ -70,7 +77,10 @@ impl QuditCircuit {
     /// let two_qubit_circuit = QuditCircuit::new([2, 2], [2, 2]);
     /// let two_qutrit_circuit = QuditCircuit::new([3, 3], [3, 3]);
     /// ```
-    pub fn new<T1: Into<Radices>, T2: Into<Radices>>(qudit_radices: T1, dit_radices: T2) -> QuditCircuit {
+    pub fn new<T1: Into<Radices>, T2: Into<Radices>>(
+        qudit_radices: T1,
+        dit_radices: T2,
+    ) -> QuditCircuit {
         QuditCircuit::with_capacity(qudit_radices, dit_radices, 4)
     }
 
@@ -99,7 +109,7 @@ impl QuditCircuit {
     ///
     /// * `qudit_radices` - The radices that describes the qudit system.
     ///
-    /// * `dit_radices` - The radices that describes the classical system. 
+    /// * `dit_radices` - The radices that describes the classical system.
     ///
     /// * `capacity` - The number of cycles to pre-allocate.
     ///
@@ -171,8 +181,15 @@ impl QuditCircuit {
     /// This method is O(w) where
     ///     - `w` is the number of wires in the circuit.
     pub fn active_qudits(&self) -> Vec<usize> {
-        self.front.iter()
-            .filter_map(|(wire, _)| if wire.is_quantum() { Some(wire.index()) } else { None })
+        self.front
+            .iter()
+            .filter_map(|(wire, _)| {
+                if wire.is_quantum() {
+                    Some(wire.index())
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 
@@ -189,8 +206,15 @@ impl QuditCircuit {
     /// This method is O(w) where
     ///     - `w` is the number of wires in the circuit.
     pub fn active_dits(&self) -> Vec<usize> {
-        self.front.iter()
-            .filter_map(|(wire, _)| if wire.is_classical() { Some(wire.index()) } else { None })
+        self.front
+            .iter()
+            .filter_map(|(wire, _)| {
+                if wire.is_classical() {
+                    Some(wire.index())
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 
@@ -198,7 +222,7 @@ impl QuditCircuit {
     pub fn params(&self) -> &ParameterVector {
         &self.params
     }
-    
+
     /// Checks if the circuit is empty.
     ///
     /// # Returns
@@ -222,8 +246,6 @@ impl QuditCircuit {
 }
 
 impl QuditCircuit {
-
-
     /// Checks if `wires` is a valid set of wires in the circuit.
     ///
     /// A wire list is valid if all qudit indices are less than the
@@ -258,8 +280,7 @@ impl QuditCircuit {
     /// ```
     pub fn is_valid_wires<W: AsRef<WireList>>(&self, wires: W) -> bool {
         let wires = wires.as_ref();
-        wires.qudits().all(|q| q < self.num_qudits())
-            && wires.dits().all(|c| c < self.num_dits())
+        wires.qudits().all(|q| q < self.num_qudits()) && wires.dits().all(|c| c < self.num_dits())
     }
 
     /// Check if an instruction identifier points to a valid instruction in the circuit.
@@ -336,10 +357,15 @@ impl QuditCircuit {
             return None;
         }
 
-        let last_occupied_cycle_option = wires.as_ref()
+        let last_occupied_cycle_option = wires
+            .as_ref()
             .wires()
             .filter_map(|w| self.rear.get(&w))
-            .map(|cycle_id| self.cycles.id_to_index(*cycle_id).expect("Expected cycle to exist."))
+            .map(|cycle_id| {
+                self.cycles
+                    .id_to_index(*cycle_id)
+                    .expect("Expected cycle to exist.")
+            })
             .max_by(Ord::cmp);
 
         match last_occupied_cycle_option {
@@ -358,7 +384,7 @@ impl QuditCircuit {
         }
     }
 
-    /// Find first or create new available cycle and return its index 
+    /// Find first or create new available cycle and return its index
     fn find_available_or_append_cycle<W: AsRef<WireList>>(&mut self, wires: W) -> CycleIndex {
         // Location validity implicitly checked in find_available_cycle
         if let Some(cycle_index) = self.find_available_cycle(wires) {
@@ -377,8 +403,13 @@ impl QuditCircuit {
         self.operations.insert(op.into())
     }
 
-    fn _append_ref(&mut self, op_code: OpCode, wires: WireList, params: ParamIndices) -> InstructionId {
-        // TODO: check valid operation for radix match, measurement bandwidth etc 
+    fn _append_ref(
+        &mut self,
+        op_code: OpCode,
+        wires: WireList,
+        params: ParamIndices,
+    ) -> InstructionId {
+        // TODO: check valid operation for radix match, measurement bandwidth etc
         // TODO: check params is valid: length is equal to op_params, existing exist, etc..
         // TODO: have to something about static entries...
         // TODO: have to do something about gate parameters mapped within same gate
@@ -390,7 +421,10 @@ impl QuditCircuit {
         // Update quantum DAG info
         for wire in wires.wires() {
             if let Some(&rear_cycle_id) = self.rear.get(&wire) {
-                self.cycles.get_mut_from_id(rear_cycle_id).expect("Expected cycle to exist.").set_next(wire, cycle_id);
+                self.cycles
+                    .get_mut_from_id(rear_cycle_id)
+                    .expect("Expected cycle to exist.")
+                    .set_next(wire, cycle_id);
                 self.cycles[cycle_index].set_prev(wire, rear_cycle_id);
             } else {
                 // If rear is none, nothing exists on this wire, so update front too.
@@ -429,7 +463,7 @@ impl QuditCircuit {
         //         Ok(args) => args,
         //     }
         // };
-        
+
         match op {
             Operation::Expression(e) => self.append_expression(e, wires, args),
             Operation::Subcircuit(s) => self.append_subcircuit(s, wires, args),
@@ -454,7 +488,7 @@ impl QuditCircuit {
 
         let param_ids = self.params.parse(&args); // persistent ids; not indices
         let wires = wires.into();
-        self.operations.increment(op);  // Need to inform self.operations
+        self.operations.increment(op); // Need to inform self.operations
         self._append_ref(op, wires, param_ids)
     }
 
@@ -479,37 +513,62 @@ impl QuditCircuit {
         let subbed_op = match op {
             ExpressionOperation::UnitaryGate(e) => {
                 let e: TensorExpression = e.into();
-                let subbed_expr: UnitaryExpression = e.substitute_parameters(&new_variables, &expressions).try_into().unwrap();
+                let subbed_expr: UnitaryExpression = e
+                    .substitute_parameters(&new_variables, &expressions)
+                    .try_into()
+                    .unwrap();
                 ExpressionOperation::UnitaryGate(subbed_expr)
             }
             ExpressionOperation::KrausOperators(e) => {
                 let e: TensorExpression = e.into();
-                let subbed_expr: KrausOperatorsExpression = e.substitute_parameters(&new_variables, &expressions).try_into().unwrap();
+                let subbed_expr: KrausOperatorsExpression = e
+                    .substitute_parameters(&new_variables, &expressions)
+                    .try_into()
+                    .unwrap();
                 ExpressionOperation::KrausOperators(subbed_expr)
             }
             ExpressionOperation::TerminatingMeasurement(e) => {
                 let e: TensorExpression = e.into();
-                let subbed_expr: BraSystemExpression = e.substitute_parameters(&new_variables, &expressions).try_into().unwrap();
+                let subbed_expr: BraSystemExpression = e
+                    .substitute_parameters(&new_variables, &expressions)
+                    .try_into()
+                    .unwrap();
                 ExpressionOperation::TerminatingMeasurement(subbed_expr)
             }
             ExpressionOperation::ClassicallyControlledUnitary(e) => {
                 let e: TensorExpression = e.into();
-                let subbed_expr: UnitarySystemExpression = e.substitute_parameters(&new_variables, &expressions).try_into().unwrap();
+                let subbed_expr: UnitarySystemExpression = e
+                    .substitute_parameters(&new_variables, &expressions)
+                    .try_into()
+                    .unwrap();
                 ExpressionOperation::ClassicallyControlledUnitary(subbed_expr)
             }
             ExpressionOperation::QuditInitialization(e) => {
                 let e: TensorExpression = e.into();
-                let subbed_expr: KetExpression = e.substitute_parameters(&new_variables, &expressions).try_into().unwrap();
+                let subbed_expr: KetExpression = e
+                    .substitute_parameters(&new_variables, &expressions)
+                    .try_into()
+                    .unwrap();
                 ExpressionOperation::QuditInitialization(subbed_expr)
             }
         };
 
-        let op_code = self.operations.insert_expression_with_dits(subbed_op, &loc.dits().map(|d| self.dit_radices[d].into()).collect::<Vec<_>>());
+        let op_code = self.operations.insert_expression_with_dits(
+            subbed_op,
+            &loc.dits()
+                .map(|d| self.dit_radices[d].into())
+                .collect::<Vec<_>>(),
+        );
         self._append_ref(op_code, loc, param_ids)
     }
 
     /// Append a subcircuit to the circuit
-    pub fn append_subcircuit<L, P>(&mut self, _op: CircuitOperation, loc: L, params: P) -> InstructionId
+    pub fn append_subcircuit<L, P>(
+        &mut self,
+        _op: CircuitOperation,
+        loc: L,
+        params: P,
+    ) -> InstructionId
     where
         L: Into<WireList>,
         P: Into<ArgumentList>,
@@ -521,7 +580,12 @@ impl QuditCircuit {
     }
 
     /// Append a circuit directive to the circuit
-    pub fn append_directive<L, P>(&mut self, _op: DirectiveOperation, loc: L, params: P) -> InstructionId
+    pub fn append_directive<L, P>(
+        &mut self,
+        _op: DirectiveOperation,
+        loc: L,
+        params: P,
+    ) -> InstructionId
     where
         L: Into<WireList>,
         P: Into<ArgumentList>,
@@ -532,16 +596,18 @@ impl QuditCircuit {
         todo!()
     }
 
-
     /// Checks if a qudit is inactive
     pub fn is_qudit_inactive(&self, index: usize) -> bool {
         self.front.get(&Wire::quantum(index)).is_none()
     }
-    
+
     /// Initialize the qudits specified in a zero state
     pub fn zero_initialize<W: Into<WireList>>(&mut self, wires: W) {
         let wires = wires.into();
-        let location_radices = wires.qudits().map(|q| self.qudit_radices[q]).collect::<Radices>();
+        let location_radices = wires
+            .qudits()
+            .map(|q| self.qudit_radices[q])
+            .collect::<Radices>();
         let state = KetExpression::zero(location_radices);
         let op = ExpressionOperation::QuditInitialization(state);
         self.append(op, wires, None::<ArgumentList>);
@@ -554,46 +620,76 @@ impl QuditCircuit {
             return;
         }
 
-        let wires = self.cycles.get_from_id(inst_id.cycle()).expect("Expected valid cycle.").get_wires_from_id(inst_id.inner()).expect("Expected valid instruction.");
+        let wires = self
+            .cycles
+            .get_from_id(inst_id.cycle())
+            .expect("Expected valid cycle.")
+            .get_wires_from_id(inst_id.inner())
+            .expect("Expected valid instruction.");
 
         // Update circuit quantum DAG info
         for wire in &wires {
-            let cycle = self.cycles.get_from_id(inst_id.cycle()).expect("Expected valid cycle.");
+            let cycle = self
+                .cycles
+                .get_from_id(inst_id.cycle())
+                .expect("Expected valid cycle.");
             let next = cycle.get_next(wire);
             let prev = cycle.get_prev(wire);
 
             match (next, prev) {
                 (Some(next_cycle_id), Some(prev_cycle_id)) => {
-                    self.cycles.get_mut_from_id(next_cycle_id).expect("Expected valid cycle.").set_prev(wire, prev_cycle_id);
-                    self.cycles.get_mut_from_id(prev_cycle_id).expect("Expected valid cycle.").set_next(wire, next_cycle_id);
-                },
+                    self.cycles
+                        .get_mut_from_id(next_cycle_id)
+                        .expect("Expected valid cycle.")
+                        .set_prev(wire, prev_cycle_id);
+                    self.cycles
+                        .get_mut_from_id(prev_cycle_id)
+                        .expect("Expected valid cycle.")
+                        .set_next(wire, next_cycle_id);
+                }
                 (Some(next_cycle_id), None) => {
-                    self.cycles.get_mut_from_id(next_cycle_id).expect("Expected valid cycle.").reset_prev(wire);
+                    self.cycles
+                        .get_mut_from_id(next_cycle_id)
+                        .expect("Expected valid cycle.")
+                        .reset_prev(wire);
                     debug_assert!(*self.front.get(&wire).unwrap() == inst_id.cycle());
                     self.front.insert(wire, next_cycle_id);
-                },
+                }
                 (None, Some(prev_cycle_id)) => {
-                    self.cycles.get_mut_from_id(prev_cycle_id).expect("Expected valid cycle.").reset_next(wire);
+                    self.cycles
+                        .get_mut_from_id(prev_cycle_id)
+                        .expect("Expected valid cycle.")
+                        .reset_next(wire);
                     debug_assert!(*self.rear.get(&wire).unwrap() == inst_id.cycle());
                     self.rear.insert(wire, prev_cycle_id);
-                },
+                }
                 (None, None) => {
                     debug_assert!(*self.front.get(&wire).unwrap() == inst_id.cycle());
                     debug_assert!(*self.rear.get(&wire).unwrap() == inst_id.cycle());
                     self.front.remove(&wire);
                     self.rear.remove(&wire);
-                },
+                }
             }
         }
 
-        let cycle = self.cycles.get_mut_from_id(inst_id.cycle()).expect("Expected valid cycle.");
-        let inst = cycle.remove(wires.wires().next().expect("Corrupted instruction acting on no wires.")).expect("Expected instruction to remove.");
+        let cycle = self
+            .cycles
+            .get_mut_from_id(inst_id.cycle())
+            .expect("Expected valid cycle.");
+        let inst = cycle
+            .remove(
+                wires
+                    .wires()
+                    .next()
+                    .expect("Corrupted instruction acting on no wires."),
+            )
+            .expect("Expected instruction to remove.");
 
         if cycle.num_ops() == 0 {
             // Empty cycles cannot exist; must be removed
             self.cycles.remove_id(inst_id.cycle());
         }
-        
+
         for param in &inst.params() {
             self.params.decrement(param);
         }
@@ -638,24 +734,38 @@ impl QuditCircuit {
     /// assert_eq!(circuit.front()[&Wire::quantum(1)], h_id);
     /// ```
     pub fn front(&self) -> HashMap<Wire, InstructionId> {
-        self.front.iter().map(|(wire, front_cycle_id)| { 
-            let front_cycle = self.cycles.get_from_id(*front_cycle_id).expect("Expected cycle to exist.");
-            let front_inst_id = front_cycle.get_id_from_wire(*wire)
-                .expect("Expected there to be an instruction here?");
-            (*wire, InstructionId::new(*front_cycle_id, front_inst_id))
-        }).collect()
+        self.front
+            .iter()
+            .map(|(wire, front_cycle_id)| {
+                let front_cycle = self
+                    .cycles
+                    .get_from_id(*front_cycle_id)
+                    .expect("Expected cycle to exist.");
+                let front_inst_id = front_cycle
+                    .get_id_from_wire(*wire)
+                    .expect("Expected there to be an instruction here?");
+                (*wire, InstructionId::new(*front_cycle_id, front_inst_id))
+            })
+            .collect()
     }
 
     /// Distill the circuit rear nodes into a hashmap.
     ///
     /// See [`QuditCircuit::front`] for more information.
     pub fn rear(&self) -> HashMap<Wire, InstructionId> {
-        self.rear.iter().map(|(wire, rear_cycle_id)| { 
-            let rear_cycle = self.cycles.get_from_id(*rear_cycle_id).expect("Expected cycle to exist.");
-            let rear_inst_id = rear_cycle.get_id_from_wire(*wire)
-                .expect("Expected there to be an instruction here?");
-            (*wire, InstructionId::new(*rear_cycle_id, rear_inst_id))
-        }).collect()
+        self.rear
+            .iter()
+            .map(|(wire, rear_cycle_id)| {
+                let rear_cycle = self
+                    .cycles
+                    .get_from_id(*rear_cycle_id)
+                    .expect("Expected cycle to exist.");
+                let rear_inst_id = rear_cycle
+                    .get_id_from_wire(*wire)
+                    .expect("Expected there to be an instruction here?");
+                (*wire, InstructionId::new(*rear_cycle_id, rear_inst_id))
+            })
+            .collect()
     }
 
     /// Get the first instruction on a wire.
@@ -681,7 +791,14 @@ impl QuditCircuit {
     /// ```
     pub fn first_on<W: Into<Wire>>(&self, wire: W) -> Option<InstructionId> {
         let wire = wire.into();
-        self.front.get(&wire).map(|cycle_id| InstructionId::new(*cycle_id, self.cycles[*cycle_id].get_id_from_wire(wire).expect("Expected instruction to exist.")))
+        self.front.get(&wire).map(|cycle_id| {
+            InstructionId::new(
+                *cycle_id,
+                self.cycles[*cycle_id]
+                    .get_id_from_wire(wire)
+                    .expect("Expected instruction to exist."),
+            )
+        })
     }
 
     /// Get the last instruction on a wire.
@@ -689,7 +806,14 @@ impl QuditCircuit {
     /// See [`QuditCircuit::first_on`] for more information.
     pub fn last_on<W: Into<Wire>>(&self, wire: W) -> Option<InstructionId> {
         let wire = wire.into();
-        self.rear.get(&wire).map(|cycle_id| InstructionId::new(*cycle_id, self.cycles[*cycle_id].get_id_from_wire(wire).expect("Expected instruction to exist.")))
+        self.rear.get(&wire).map(|cycle_id| {
+            InstructionId::new(
+                *cycle_id,
+                self.cycles[*cycle_id]
+                    .get_id_from_wire(wire)
+                    .expect("Expected instruction to exist."),
+            )
+        })
     }
 
     /// Gather the points of the next operations from the point of an operation.
@@ -737,20 +861,28 @@ impl QuditCircuit {
     /// assert_eq!(next_insts[&Wire::quantum(0)], second_inst);
     /// ```
     pub fn next(&self, inst_id: InstructionId) -> HashMap<Wire, InstructionId> {
-        let cycle = self.cycles.get_from_id(inst_id.cycle()).expect("Invalid instruction id.");
+        let cycle = self
+            .cycles
+            .get_from_id(inst_id.cycle())
+            .expect("Invalid instruction id.");
         let wires = cycle.get_wires_from_id(inst_id.inner());
 
         match wires {
-            Some(wires) => { 
-                wires.wires().filter_map(|wire| 
+            Some(wires) => wires
+                .wires()
+                .filter_map(|wire| {
                     cycle.get_next(wire).map(|next_cycle_id| {
-                        let next_cycle = self.cycles.get_from_id(next_cycle_id).expect("Expected cycle to exist.");
-                        let next_inst_id = next_cycle.get_id_from_wire(wire)
+                        let next_cycle = self
+                            .cycles
+                            .get_from_id(next_cycle_id)
+                            .expect("Expected cycle to exist.");
+                        let next_inst_id = next_cycle
+                            .get_id_from_wire(wire)
                             .expect("Expected there to be an instruction here?");
                         (wire, InstructionId::new(next_cycle_id, next_inst_id))
                     })
-                ).collect()
-            },
+                })
+                .collect(),
             None => HashMap::new(),
         }
     }
@@ -760,20 +892,28 @@ impl QuditCircuit {
     ///
     /// See [`QuditCircuit::next`] for more information.
     pub fn prev(&self, inst_id: InstructionId) -> HashMap<Wire, InstructionId> {
-        let cycle = self.cycles.get_from_id(inst_id.cycle()).expect("Invalid instruction id.");
+        let cycle = self
+            .cycles
+            .get_from_id(inst_id.cycle())
+            .expect("Invalid instruction id.");
         let wires = cycle.get_wires_from_id(inst_id.inner());
 
         match wires {
-            Some(wires) => { 
-                wires.wires().filter_map(|wire| 
+            Some(wires) => wires
+                .wires()
+                .filter_map(|wire| {
                     cycle.get_prev(wire).map(|prev_cycle_id| {
-                        let prev_cycle = self.cycles.get_from_id(prev_cycle_id).expect("Expected cycle to exist.");
-                        let prev_inst_id = prev_cycle.get_id_from_wire(wire)
+                        let prev_cycle = self
+                            .cycles
+                            .get_from_id(prev_cycle_id)
+                            .expect("Expected cycle to exist.");
+                        let prev_inst_id = prev_cycle
+                            .get_id_from_wire(wire)
                             .expect("Expected there to be an instruction here?");
                         (wire, InstructionId::new(prev_cycle_id, prev_inst_id))
                     })
-                ).collect()
-            },
+                })
+                .collect(),
             None => HashMap::new(),
         }
     }
@@ -787,7 +927,7 @@ impl QuditCircuit {
     /// be in a simulation/topological order. For more control over the
     /// ordering of iteration see [`QuditCircuit::iter_df`] or
     /// [`QuditCircuit::iter_bf`].
-    pub fn iter(&self) -> impl Iterator<Item = &Instruction> + '_{
+    pub fn iter(&self) -> impl Iterator<Item = &Instruction> + '_ {
         self.cycles.iter().flat_map(|cycle| cycle.iter())
     }
 
@@ -812,7 +952,8 @@ impl QuditCircuit {
     pub fn kraus_ops<C: ComplexScalar>(&self, args: &[C::R]) -> Tensor<C, 3> {
         let network = self.to_tensor_network();
         let code = qudit_tensor::compile_network(network);
-        let mut tnvm = qudit_tensor::TNVM::<C, FUNCTION>::new(&code, Some(&self.params.const_map()));
+        let mut tnvm =
+            qudit_tensor::TNVM::<C, FUNCTION>::new(&code, Some(&self.params.const_map()));
         let result = tnvm.evaluate::<FUNCTION>(args);
         result.get_fn_result2().unpack_tensor3d().to_owned()
     }
@@ -824,22 +965,42 @@ impl QuditCircuit {
 
     /// Convert the circuit to a tensor network builder
     pub fn as_tensor_network_builder(&self) -> QuditCircuitTensorNetworkBuilder {
-        let mut network = QuditCircuitTensorNetworkBuilder::new(self.qudit_radices(), Some(self.operations.expressions()));
+        let mut network = QuditCircuitTensorNetworkBuilder::new(
+            self.qudit_radices(),
+            Some(self.operations.expressions()),
+        );
 
         for inst in self.iter() {
             if inst.op_code().kind() == OpKind::Expression {
                 let indices = self.operations.indices(inst.op_code());
                 let param_indices = self.params.convert_ids_to_indices(inst.params());
-                let constant = param_indices.iter().map(|i| self.params[i].is_constant()).collect();
-                let param_info = ParamInfo::new(param_indices, constant); 
-                let input_index_map = if indices.iter().any(|idx| idx.direction() == IndexDirection::Input && idx.index_size() > 1) { inst.wires().qudits().collect() } else { vec![] };
-                let output_index_map = if indices.iter().any(|idx| idx.direction() == IndexDirection::Output && idx.index_size() > 1) { inst.wires().qudits().collect() } else { vec![] };
-                let batch_index_map: Vec<String> = inst.wires().dits()
-                    .map(|id| id.to_string())
+                let constant = param_indices
+                    .iter()
+                    .map(|i| self.params[i].is_constant())
                     .collect();
+                let param_info = ParamInfo::new(param_indices, constant);
+                let input_index_map = if indices
+                    .iter()
+                    .any(|idx| idx.direction() == IndexDirection::Input && idx.index_size() > 1)
+                {
+                    inst.wires().qudits().collect()
+                } else {
+                    vec![]
+                };
+                let output_index_map = if indices
+                    .iter()
+                    .any(|idx| idx.direction() == IndexDirection::Output && idx.index_size() > 1)
+                {
+                    inst.wires().qudits().collect()
+                } else {
+                    vec![]
+                };
+                let batch_index_map: Vec<String> =
+                    inst.wires().dits().map(|id| id.to_string()).collect();
                 let tensor = QuditTensor::new(indices, inst.op_code().id(), param_info);
                 // println!("Adding new tensor to network builder with in qudits: {:?}; out qudits: {:?}, batch indices: {:?}", input_index_map.clone(), output_index_map.clone(), batch_index_map.clone());
-                network = network.prepend(tensor, input_index_map, output_index_map, batch_index_map)
+                network =
+                    network.prepend(tensor, input_index_map, output_index_map, batch_index_map)
             }
         }
         network
@@ -873,7 +1034,7 @@ impl ClassicalSystem for QuditCircuit {
     fn radices(&self) -> Radices {
         self.dit_radices.clone()
     }
-    
+
     #[inline(always)]
     fn num_dits(&self) -> usize {
         self.dit_radices.num_qudits()
@@ -887,23 +1048,25 @@ mod tests {
     use super::*;
     use qudit_core::c32;
     use qudit_expr::GRADIENT;
-    use qudit_expr::library::U3Gate;
     use qudit_expr::library::Controlled;
+    use qudit_expr::library::U3Gate;
     use qudit_expr::library::XGate;
 
     pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
-        let block_expr = U3Gate().otimes(U3Gate()).dot(Controlled(XGate(2), [2].into(), None));
+        let block_expr = U3Gate()
+            .otimes(U3Gate())
+            .dot(Controlled(XGate(2), [2].into(), None));
         let mut circ = QuditCircuit::pure(vec![2; n]);
         for i in 0..n {
             circ.append(U3Gate(), [i], None);
         }
         for _ in 0..2 {
             for i in 0..(n - 1) {
-                circ.append(block_expr.clone(), [i, i+1], None);
+                circ.append(block_expr.clone(), [i, i + 1], None);
             }
         }
         circ
-    } 
+    }
 
     #[test]
     fn build_qsearch_thin_step_circuit_test() {
@@ -920,8 +1083,9 @@ mod tests {
         let circ = build_qsearch_thin_step_circuit(N);
         let network = circ.to_tensor_network();
         let code = qudit_tensor::compile_network(network);
-        let mut tnvm = qudit_tensor::TNVM::<c32, GRADIENT>::new(&code, Some(&circ.params.const_map()));
-        let result = tnvm.evaluate::<GRADIENT>(&[1.7; (3*N) + (6*(N-1)*2)]);
+        let mut tnvm =
+            qudit_tensor::TNVM::<c32, GRADIENT>::new(&code, Some(&circ.params.const_map()));
+        let result = tnvm.evaluate::<GRADIENT>(&[1.7; (3 * N) + (6 * (N - 1) * 2)]);
         let _unitary = result.get_fn_result().unpack_matrix();
     }
 }
@@ -930,18 +1094,18 @@ mod tests {
 mod python {
     use super::*;
     use crate::python::PyCircuitRegistrar;
-    use pyo3::prelude::*;
-    use pyo3::exceptions::PyTypeError;
-    use pyo3::types::PyTuple;
-    use qudit_core::c64;
+    use ndarray::ArrayViewMut3;
     use numpy::PyArray3;
     use numpy::PyArrayMethods;
-    use ndarray::ArrayViewMut3;
+    use pyo3::exceptions::PyTypeError;
+    use pyo3::prelude::*;
+    use pyo3::types::PyTuple;
+    use qudit_core::c64;
 
     #[pyclass]
     #[pyo3(name = "QuditCircuit")]
     pub struct PyQuditCircuit {
-        circuit: QuditCircuit
+        circuit: QuditCircuit,
     }
 
     #[pymethods]
@@ -949,7 +1113,7 @@ mod python {
         /// Creates a new QuditCircuit instance.
         ///
         /// Args:
-        ///     qudits (int | Iterable[int]): An integer specifying number of qudits 
+        ///     qudits (int | Iterable[int]): An integer specifying number of qudits
         ///         or an iterable of qudit radices.
         ///     dits (int | Iterable[int] | None): An integer, an iterable, or None.
         ///         Defaults to None, which results in no classical dits.
@@ -957,8 +1121,12 @@ mod python {
         #[pyo3(signature = (qudits, dits = None))]
         fn new<'py>(qudits: Radices, dits: Option<Radices>) -> PyResult<PyQuditCircuit> {
             match dits {
-                None => Ok(PyQuditCircuit { circuit: QuditCircuit::pure(qudits) }),
-                Some(dits) => Ok(PyQuditCircuit { circuit: QuditCircuit::new(qudits, dits) })
+                None => Ok(PyQuditCircuit {
+                    circuit: QuditCircuit::pure(qudits),
+                }),
+                Some(dits) => Ok(PyQuditCircuit {
+                    circuit: QuditCircuit::new(qudits, dits),
+                }),
             }
         }
 
@@ -1022,7 +1190,6 @@ mod python {
         // def pop_cycle(self, cycle_index: int) -> None?
         //
 
-
         // DAG Methods:
         #[getter]
         fn front(&self) -> HashMap<Wire, InstructionId> {
@@ -1053,7 +1220,7 @@ mod python {
         // At Methods:
         //
         // def get_operation(self, point: CircuitPointLike) -> Operation:
-        // 
+        //
         // def point(
         //     self,
         //     op: Operation | Gate,
@@ -1075,7 +1242,7 @@ mod python {
                 None => {
                     if self.circuit.num_params() != 0 {
                         return Err(PyTypeError::new_err(
-                            "Circuit has parameters, but no arguments were provided to kraus_ops."
+                            "Circuit has parameters, but no arguments were provided to kraus_ops.",
                         ));
                     }
                     Vec::new()
@@ -1123,18 +1290,24 @@ mod python {
                     let item1 = tuple.get_item(1)?;
 
                     // Try parsing as (iterable, iterable)
-                    if let (Ok(vec0), Ok(vec1)) = (item0.extract::<Vec<usize>>(), item1.extract::<Vec<usize>>()) {
+                    if let (Ok(vec0), Ok(vec1)) =
+                        (item0.extract::<Vec<usize>>(), item1.extract::<Vec<usize>>())
+                    {
                         WireList::new(vec0, vec1)
-                    } 
+                    }
                     // Else, try parsing as (int, int)
-                    else if let (Ok(int0), Ok(int1)) = (item0.extract::<usize>(), item1.extract::<usize>()) {
+                    else if let (Ok(int0), Ok(int1)) =
+                        (item0.extract::<usize>(), item1.extract::<usize>())
+                    {
                         if num_qudits.is_some() && num_qudits == Some(1) {
                             WireList::new(vec![int0], vec![int1])
                         } else {
                             WireList::pure(&[int0, int1])
                         }
                     } else {
-                        return Err(PyTypeError::new_err("A 2-element 'loc' tuple must contain (int, int) or (iterable, iterable)"));
+                        return Err(PyTypeError::new_err(
+                            "A 2-element 'loc' tuple must contain (int, int) or (iterable, iterable)",
+                        ));
                     }
                 } else {
                     let mut qudit_register = tuple.extract::<Vec<usize>>()?;
@@ -1154,8 +1327,6 @@ mod python {
             self.circuit.append(op, parsed_loc, args);
             Ok(())
         }
-
-        
 
         // def append_gate
         // def append_circuit
@@ -1196,7 +1367,7 @@ mod python {
         // For this, might need to add a new type of Parameter => Frozen({value: Constant, name:
         // Option<String>}), when a named parameter is frozen, the name is stored for future thaws
         // Also, if I add an expression with the same parameter, it should also be frozen.
-        // 
+        //
         // Advanced Algorithms
         //
         // def compress()
@@ -1240,7 +1411,7 @@ mod python {
         type Target = <PyQuditCircuit as IntoPyObject<'py>>::Target;
         type Output = <PyQuditCircuit as IntoPyObject<'py>>::Output;
         type Error = <PyQuditCircuit as IntoPyObject<'py>>::Error;
-        
+
         fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
             PyQuditCircuit::from(self).into_pyobject(py)
         }
@@ -1273,5 +1444,4 @@ mod python {
         Ok(())
     }
     inventory::submit!(PyCircuitRegistrar { func: register });
-
 }

@@ -6,9 +6,9 @@ use pyo3::prelude::*;
 #[pymodule]
 fn openqudit(m: &Bound<'_, PyModule>) -> PyResult<()> {
     #![allow(unused_imports)]
+    use qudit_circuit;
     use qudit_core;
     use qudit_expr;
-    use qudit_circuit;
     use qudit_inst;
     for registrar in inventory::iter::<qudit_core::PyRegistrar> {
         (registrar.func)(m)?;

@@ -1,5 +1,5 @@
-mod lm;
 mod lbfgs;
+mod lm;
 
-pub use lm::LM;
 pub use lbfgs::LBFGS;
+pub use lm::LM;

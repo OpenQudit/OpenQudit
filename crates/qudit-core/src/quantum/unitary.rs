@@ -13,14 +13,14 @@ use faer::unzip;
 use faer::zip;
 use num_traits::Float;
 
-use crate::bitwidth::BitWidthConvertible;
-use crate::c32;
-use crate::c64;
 use crate::ComplexScalar;
 use crate::QuditPermutation;
 use crate::QuditSystem;
 use crate::Radices;
 use crate::RealScalar;
+use crate::bitwidth::BitWidthConvertible;
+use crate::c32;
+use crate::c64;
 use faer::Mat;
 use faer::MatMut;
 use faer::MatRef;

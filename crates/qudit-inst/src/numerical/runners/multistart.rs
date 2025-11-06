@@ -1,9 +1,9 @@
-use qudit_core::RealScalar;
-use super::super::Runner;
-use super::super::Problem;
 use super::super::InitialGuessGenerator;
 use super::super::MinimizationAlgorithm;
 use super::super::MinimizationResult;
+use super::super::Problem;
+use super::super::Runner;
+use qudit_core::RealScalar;
 
 #[derive(Clone)]
 pub struct MultiStartRunner<M, G> {

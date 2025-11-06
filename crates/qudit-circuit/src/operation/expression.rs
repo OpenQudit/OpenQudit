@@ -1,11 +1,11 @@
 use qudit_core::HasParams;
 use qudit_core::QuditSystem;
-use qudit_expr::NamedExpression;
-use qudit_expr::UnitaryExpression;
-use qudit_expr::KrausOperatorsExpression;
 use qudit_expr::BraSystemExpression;
-use qudit_expr::TensorExpression;
 use qudit_expr::KetExpression;
+use qudit_expr::KrausOperatorsExpression;
+use qudit_expr::NamedExpression;
+use qudit_expr::TensorExpression;
+use qudit_expr::UnitaryExpression;
 use qudit_expr::UnitarySystemExpression;
 
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -18,12 +18,12 @@ pub enum ExpressionOpKind {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ExpressionOperation { 
-    UnitaryGate(UnitaryExpression), // No batch, input = output
+pub enum ExpressionOperation {
+    UnitaryGate(UnitaryExpression),           // No batch, input = output
     KrausOperators(KrausOperatorsExpression), // batch, input, output
     TerminatingMeasurement(BraSystemExpression), // batch, input, no output
     ClassicallyControlledUnitary(UnitarySystemExpression), // batch, input, output
-    QuditInitialization(KetExpression), // no batch, no input, only output
+    QuditInitialization(KetExpression),       // no batch, no input, only output
 }
 
 impl ExpressionOperation {
@@ -41,8 +41,12 @@ impl ExpressionOperation {
         match self {
             ExpressionOperation::UnitaryGate(_) => ExpressionOpKind::UnitaryGate,
             ExpressionOperation::KrausOperators(_) => ExpressionOpKind::KrausOperators,
-            ExpressionOperation::TerminatingMeasurement(_) => ExpressionOpKind::TerminatingMeasurement,
-            ExpressionOperation::ClassicallyControlledUnitary(_) => ExpressionOpKind::ClassicallyControlledUnitary,
+            ExpressionOperation::TerminatingMeasurement(_) => {
+                ExpressionOpKind::TerminatingMeasurement
+            }
+            ExpressionOperation::ClassicallyControlledUnitary(_) => {
+                ExpressionOpKind::ClassicallyControlledUnitary
+            }
             ExpressionOperation::QuditInitialization(_) => ExpressionOpKind::QuditInitialization,
         }
     }

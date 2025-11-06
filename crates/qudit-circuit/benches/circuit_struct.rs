@@ -1,12 +1,12 @@
-use criterion::criterion_group;
-use criterion::criterion_main;
 use criterion::BenchmarkId;
 use criterion::Criterion;
+use criterion::criterion_group;
+use criterion::criterion_main;
 
 mod common;
-use common::build_qft_circuit;
 use common::FlamegraphProfiler;
-use pprof::criterion::{PProfProfiler, Output};
+use common::build_qft_circuit;
+use pprof::criterion::{Output, PProfProfiler};
 use pprof::flamegraph::Options;
 
 use crate::common::build_dtc_circuit;
@@ -15,13 +15,11 @@ pub fn circuit_struct_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("build_qft");
 
     for num_qudits in [4, 8, 16, 32, 64, 128, 256, 512, 1023].iter() {
-    // for num_qudits in [128].iter() {
+        // for num_qudits in [128].iter() {
         group.bench_with_input(
             BenchmarkId::from_parameter(num_qudits),
             num_qudits,
-            |b, &num_qudits| {
-                b.iter_with_large_drop(|| build_qft_circuit(num_qudits))
-            },
+            |b, &num_qudits| b.iter_with_large_drop(|| build_qft_circuit(num_qudits)),
         );
     }
     group.finish();
@@ -29,13 +27,11 @@ pub fn circuit_struct_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("build_dtc");
 
     for num_qudits in [4, 8, 16, 32, 64, 128, 256, 512].iter() {
-    // for num_qudits in [64].iter() {
+        // for num_qudits in [64].iter() {
         group.bench_with_input(
             BenchmarkId::from_parameter(num_qudits),
             num_qudits,
-            |b, &num_qudits| {
-                b.iter_with_large_drop(|| build_dtc_circuit(num_qudits))
-            },
+            |b, &num_qudits| b.iter_with_large_drop(|| build_dtc_circuit(num_qudits)),
         );
     }
     group.finish();

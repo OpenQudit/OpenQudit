@@ -16,7 +16,7 @@ pub use target::InstantiationTarget;
 ////////////////////////////////////////////////////////////////////////
 #[cfg(feature = "python")]
 pub(crate) mod python {
-    use pyo3::prelude::{Bound, PyModule, PyResult, PyAnyMethods, PyModuleMethods};
+    use pyo3::prelude::{Bound, PyAnyMethods, PyModule, PyModuleMethods, PyResult};
 
     /// A trait for objects that can register importables with a PyO3 module.
     pub struct PyInstantiationRegistrar {
@@ -35,7 +35,9 @@ pub(crate) mod python {
         }
 
         parent_module.add_submodule(&submodule)?;
-        parent_module.py().import("sys")?
+        parent_module
+            .py()
+            .import("sys")?
             .getattr("modules")?
             .set_item("openqudit.instantiation", submodule)?;
 
@@ -46,55 +48,57 @@ pub(crate) mod python {
 }
 ////////////////////////////////////////////////////////////////////////
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use faer::mat;
-    use qudit_circuit::ArgumentList;
-    use qudit_core::c32;
-    use qudit_core::c64;
-    use qudit_core::UnitaryMatrix;
-    use qudit_core::Radices;
-    use qudit_circuit::QuditCircuit;
-    use qudit_expr::BraSystemExpression;
-    use qudit_expr::KrausOperatorsExpression;
-    use qudit_expr::UnitaryExpression;
-    use qudit_tensor::TNVM;
-    use qudit_expr::FUNCTION;
-    use qudit_expr::GRADIENT;
-    use std::sync::Arc;
+    use crate::numerical::MinimizingInstantiater;
     use crate::numerical::functions::HSProblem;
     use crate::numerical::initializers::GreedyFurthestPoint;
-    use crate::numerical::runners::MultiStartRunner;
-    use crate::numerical::minimizers::LM;
-    use crate::numerical::initializers::Zeros;
     use crate::numerical::initializers::Uniform;
-    use crate::numerical::MinimizingInstantiater;
-    use qudit_core::QuditSystem;
-    use qudit_expr::ExpressionGenerator;
+    use crate::numerical::initializers::Zeros;
+    use crate::numerical::minimizers::LM;
+    use crate::numerical::runners::MultiStartRunner;
+    use faer::mat;
+    use qudit_circuit::ArgumentList;
     use qudit_circuit::Operation;
-    use qudit_expr::library::U3Gate;
+    use qudit_circuit::QuditCircuit;
+    use qudit_core::QuditSystem;
+    use qudit_core::Radices;
+    use qudit_core::UnitaryMatrix;
+    use qudit_core::c32;
+    use qudit_core::c64;
+    use qudit_expr::BraSystemExpression;
+    use qudit_expr::ExpressionGenerator;
+    use qudit_expr::FUNCTION;
+    use qudit_expr::GRADIENT;
+    use qudit_expr::KrausOperatorsExpression;
+    use qudit_expr::UnitaryExpression;
     use qudit_expr::library::Controlled;
-    use qudit_expr::library::XGate;
     use qudit_expr::library::PGate;
+    use qudit_expr::library::U3Gate;
+    use qudit_expr::library::XGate;
+    use qudit_tensor::TNVM;
+    use std::sync::Arc;
 
     pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
-        let block_expr = U3Gate().otimes(&U3Gate()).dot(&Controlled(XGate(2), [2].into(), None));
+        let block_expr = U3Gate()
+            .otimes(&U3Gate())
+            .dot(&Controlled(XGate(2), [2].into(), None));
         let mut circ = QuditCircuit::pure(vec![2; n]);
         for i in 0..n {
             circ.append(U3Gate(), [i], None);
         }
         for _ in 0..2 {
             for i in 0..(n - 1) {
-                circ.append(block_expr.clone(), [i, i+1], None);
+                circ.append(block_expr.clone(), [i, i + 1], None);
             }
         }
         circ
-    } 
+    }
 
     pub fn build_qutrit_thin_step_circuit(n: usize) -> QuditCircuit {
-        let csum = UnitaryExpression::new("CSUM() {
+        let csum = UnitaryExpression::new(
+            "CSUM() {
             [
                 [ 1, 0, 0, 0, 0, 0, 0, 0, 0 ],
                 [ 0, 1, 0, 0, 0, 0, 0, 0, 0 ],
@@ -106,7 +110,8 @@ mod tests {
                 [ 0, 0, 0, 0, 0, 0, 0, 0, 1 ],
                 [ 0, 0, 0, 0, 0, 0, 1, 0, 0 ],
             ]
-        }");
+        }",
+        );
 
         let block_expr = PGate(3).otimes(&PGate(3)).dot(&csum);
         let mut circ = QuditCircuit::pure(vec![3; n]);
@@ -115,7 +120,7 @@ mod tests {
         }
         for _ in 0..2 {
             for i in 0..(n - 1) {
-                circ.append(block_expr.clone(), [i, i+1], None);
+                circ.append(block_expr.clone(), [i, i + 1], None);
             }
         }
         circ
@@ -130,23 +135,35 @@ mod tests {
             circ.append(qudit_expr::library::U3Gate(), [i], None);
         }
 
-        let block_expr = U3Gate().otimes(U3Gate()).dot(Controlled(XGate(2), [2].into(), None));
+        let block_expr = U3Gate()
+            .otimes(U3Gate())
+            .dot(Controlled(XGate(2), [2].into(), None));
         circ.append(block_expr.clone(), [1, 2], None);
-        circ.append(block_expr.clone(), [0, 1], ArgumentList::new(vec![None::<f64>.try_into().unwrap(); 6]));
+        circ.append(
+            block_expr.clone(),
+            [0, 1],
+            ArgumentList::new(vec![None::<f64>.try_into().unwrap(); 6]),
+        );
         circ.append(block_expr.clone(), [2, 3], None);
 
-        let one_qubit_basis_measurement = BraSystemExpression::new("OneQMeasure() {
+        let one_qubit_basis_measurement = BraSystemExpression::new(
+            "OneQMeasure() {
             [
                 [[ 1, 0, ]],
                 [[ 0, 1, ]],
             ]
-        }");
+        }",
+        );
 
         circ.append(one_qubit_basis_measurement.clone(), ([1], [0]), None);
         circ.append(one_qubit_basis_measurement, ([2], [1]), None);
 
         let u3_u3 = U3Gate().otimes(U3Gate());
-        circ.append(UnitaryExpression::classically_multiplex(&[&u3_u3, &u3_u3, &u3_u3, &u3_u3], &[2, 2]), ([0, 3], [0, 1]), None);
+        circ.append(
+            UnitaryExpression::classically_multiplex(&[&u3_u3, &u3_u3, &u3_u3, &u3_u3], &[2, 2]),
+            ([0, 3], [0, 1]),
+            None,
+        );
 
         //////// START CNOT TELEPORTATION
         // circ.zero_initialize([1, 2]);
@@ -172,7 +189,6 @@ mod tests {
         circ
     }
 
-
     #[test]
     fn test_lm_minimization_simple() {
         // create simple circuit
@@ -189,12 +205,35 @@ mod tests {
         //     [c64::new(1.0, 0.0), c64::new(0.0, 0.0)],
         //     [c64::new(0.0, 0.0), c64::new(1.0, 0.0)],
         // ]);
-        let target_utry = UnitaryMatrix::new([2, 2], mat![
-            [c64::new(1.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0)],
-            [c64::new(0.0, 0.0), c64::new(1.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0)],
-            [c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(1.0, 0.0)],
-            [c64::new(0.0, 0.0), c64::new(0.0, 0.0), c64::new(1.0, 0.0), c64::new(0.0, 0.0)],
-        ]);
+        let target_utry = UnitaryMatrix::new(
+            [2, 2],
+            mat![
+                [
+                    c64::new(1.0, 0.0),
+                    c64::new(0.0, 0.0),
+                    c64::new(0.0, 0.0),
+                    c64::new(0.0, 0.0)
+                ],
+                [
+                    c64::new(0.0, 0.0),
+                    c64::new(1.0, 0.0),
+                    c64::new(0.0, 0.0),
+                    c64::new(0.0, 0.0)
+                ],
+                [
+                    c64::new(0.0, 0.0),
+                    c64::new(0.0, 0.0),
+                    c64::new(0.0, 0.0),
+                    c64::new(1.0, 0.0)
+                ],
+                [
+                    c64::new(0.0, 0.0),
+                    c64::new(0.0, 0.0),
+                    c64::new(1.0, 0.0),
+                    c64::new(0.0, 0.0)
+                ],
+            ],
+        );
         let target = InstantiationTarget::UnitaryMatrix(target_utry);
 
         // build instantiater
@@ -202,7 +241,11 @@ mod tests {
         // let initializer = Zeros::default();
         let initializer = Uniform::default();
         // let initializer = GreedyFurthestPoint::default();
-        let runner = MultiStartRunner { minimizer, guess_generator: initializer, num_starts: 16 };
+        let runner = MultiStartRunner {
+            minimizer,
+            guess_generator: initializer,
+            num_starts: 16,
+        };
         let instantiater = MinimizingInstantiater::<_, HSProblem<f64>>::new(runner);
         let data = std::collections::HashMap::new();
 
@@ -231,15 +274,22 @@ mod tests {
         println!("Number of successes: {:?}", success_times.len());
         println!("Number of failures: {:?}", failure_times.len());
         if success_times.len() != 0 {
-            let average_success_time = success_times.iter().cloned().sum::<std::time::Duration>()/(success_times.len() as u32);
-            println!("Average success time: {:?}", average_success_time); 
+            let average_success_time = success_times.iter().cloned().sum::<std::time::Duration>()
+                / (success_times.len() as u32);
+            println!("Average success time: {:?}", average_success_time);
         }
         if failure_times.len() != 0 {
-            let average_failure_time = failure_times.iter().cloned().sum::<std::time::Duration>()/(failure_times.len() as u32);
-            println!("Average failure time: {:?}", average_failure_time); 
+            let average_failure_time = failure_times.iter().cloned().sum::<std::time::Duration>()
+                / (failure_times.len() as u32);
+            println!("Average failure time: {:?}", average_failure_time);
         }
-        let average_time = success_times.iter().chain(failure_times.iter()).cloned().sum::<std::time::Duration>()/n;
-        println!("Average overall time: {:?}", average_time); 
+        let average_time = success_times
+            .iter()
+            .chain(failure_times.iter())
+            .cloned()
+            .sum::<std::time::Duration>()
+            / n;
+        println!("Average overall time: {:?}", average_time);
         // println!("Instantiation took: {:?}", elapsed/100);
     }
 }
@@ -261,20 +311,16 @@ mod tests {
 //      Explicitly for now; need to determine if sum of square residuals works just fine
 //      In theory, LM minimizes sum of square, the residual function is just API design by CERES
 
-
-
-
 // pub trait LeastSquaresSolver<C: ComplexScalar> {
 //     fn minimize(&self, cost, BoxedResidualFunction, x0: Vec<C::R>) -> InstantiationResult<Vec<C::R>>;
 // }
-
 
 // Desired Features:
 //  - Enable instantiation experimentation for better results
 //      - expose API so that users can swap out components and test end to end results
 //          - instantiation algorithms, optimizers, settings, x0 generation
 //
-//  - Provide a suite of instantiaters that work well across the spectrum of standard problems 
+//  - Provide a suite of instantiaters that work well across the spectrum of standard problems
 
 // pub trait Synthesizer {
 //     fn synthesize<C: ComplexScalar>(&self, target: InstantiationTarget<C>) -> QuditCircuit<C>;
@@ -288,7 +334,6 @@ mod tests {
 // Use Cases
 // let synthesizer = SomeSynthesizer(..., BoxedInstantiater<C>, ...);
 // synthesizer.synthesize(unitary.into())
-
 
 // impl<C: ComplexScalar, I: Instantiater<C>> Synthesizer for QSearchSynthesizer<C, I> {
 //     fn synthesize(&self, target: InstantiationTarget<C>) -> QuditCircuit<C> {

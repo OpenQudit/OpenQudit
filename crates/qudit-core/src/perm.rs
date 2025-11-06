@@ -1,13 +1,13 @@
 use std::collections::HashSet;
 
+use faer::Mat;
 use faer::mat::AsMatMut;
 use faer::mat::AsMatRef;
+use faer::perm::Perm;
 use faer::perm::permute_cols;
 use faer::perm::permute_rows;
-use faer::perm::Perm;
 use faer::reborrow::Reborrow;
 use faer::reborrow::ReborrowMut;
-use faer::Mat;
 use faer_traits::ComplexField;
 
 use crate::QuditSystem;

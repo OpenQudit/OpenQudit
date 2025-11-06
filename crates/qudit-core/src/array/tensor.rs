@@ -5,7 +5,7 @@ use std::fmt::{self, Debug, Display, Formatter};
 use std::ptr::NonNull;
 
 use super::check_bounds;
-use crate::memory::{alloc_zeroed_memory, Memorable, MemoryBuffer};
+use crate::memory::{Memorable, MemoryBuffer, alloc_zeroed_memory};
 
 /// Helper for flat index calculation from multi-dimensional indices.
 #[inline(always)]
@@ -170,9 +170,9 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
     ///
     /// Calling this method with out-of-bounds `indices` is undefined behavior.
     #[inline(always)]
-    pub unsafe fn get_unchecked(&self, indices: &[usize; D]) -> &C { unsafe {
-        &*self.ptr_at(indices)
-    }}
+    pub unsafe fn get_unchecked(&self, indices: &[usize; D]) -> &C {
+        unsafe { &*self.ptr_at(indices) }
+    }
 
     /// Returns a mutable reference to an element at the given indices, without performing bounds checks.
     ///
@@ -180,9 +180,9 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
     ///
     /// Calling this method with out-of-bounds `indices` is undefined behavior.
     #[inline(always)]
-    pub unsafe fn get_mut_unchecked(&mut self, indices: &[usize; D]) -> &mut C { unsafe {
-        &mut *self.ptr_at_mut(indices)
-    }}
+    pub unsafe fn get_mut_unchecked(&mut self, indices: &[usize; D]) -> &mut C {
+        unsafe { &mut *self.ptr_at_mut(indices) }
+    }
 
     /// Returns a raw pointer to an element at the given indices, without performing bounds checks.
     ///
@@ -190,10 +190,12 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
     ///
     /// Calling this method with out-of-bounds `indices` is undefined behavior.
     #[inline(always)]
-    pub unsafe fn ptr_at(&self, indices: &[usize; D]) -> *const C { unsafe {
-        let flat_idx = calculate_flat_index(indices, &self.strides);
-        self.as_ptr().add(flat_idx)
-    }}
+    pub unsafe fn ptr_at(&self, indices: &[usize; D]) -> *const C {
+        unsafe {
+            let flat_idx = calculate_flat_index(indices, &self.strides);
+            self.as_ptr().add(flat_idx)
+        }
+    }
 
     /// Returns a mutable raw pointer to an element at the given indices, without performing bounds checks.
     ///
@@ -201,10 +203,12 @@ impl<C: Memorable, const D: usize> Tensor<C, D> {
     ///
     /// Calling this method with out-of-bounds `indices` is undefined behavior.
     #[inline(always)]
-    pub unsafe fn ptr_at_mut(&mut self, indices: &[usize; D]) -> *mut C { unsafe {
-        let flat_idx = calculate_flat_index(indices, &self.strides);
-        self.as_ptr_mut().add(flat_idx)
-    }}
+    pub unsafe fn ptr_at_mut(&mut self, indices: &[usize; D]) -> *mut C {
+        unsafe {
+            let flat_idx = calculate_flat_index(indices, &self.strides);
+            self.as_ptr_mut().add(flat_idx)
+        }
+    }
 
     /// Creates a new `Tensor` from a flat `Vec` and its dimensions.
     ///
@@ -515,9 +519,9 @@ impl<'a, C: Memorable, const D: usize> TensorRef<'a, C, D> {
     ///
     /// Calling this method with out-of-bounds `indices` is undefined behavior.
     #[inline(always)]
-    pub unsafe fn get_unchecked(&self, indices: &[usize; D]) -> &C { unsafe {
-        &*self.ptr_at(indices)
-    }}
+    pub unsafe fn get_unchecked(&self, indices: &[usize; D]) -> &C {
+        unsafe { &*self.ptr_at(indices) }
+    }
 
     /// Returns a raw pointer to an element at the given indices, without performing bounds checks.
     ///
@@ -525,10 +529,12 @@ impl<'a, C: Memorable, const D: usize> TensorRef<'a, C, D> {
     ///
     /// Calling this method with out-of-bounds `indices` is undefined behavior.
     #[inline(always)]
-    pub unsafe fn ptr_at(&self, indices: &[usize; D]) -> *const C { unsafe {
-        let flat_idx = calculate_flat_index(indices, &self.strides);
-        self.as_ptr().add(flat_idx)
-    }}
+    pub unsafe fn ptr_at(&self, indices: &[usize; D]) -> *const C {
+        unsafe {
+            let flat_idx = calculate_flat_index(indices, &self.strides);
+            self.as_ptr().add(flat_idx)
+        }
+    }
 
     /// Creates an owned `Tensor` by copying the data from this `TensorRef`.
     pub fn to_owned(self) -> Tensor<C, D> {
@@ -578,14 +584,16 @@ impl<'a, C: Memorable, const D: usize> TensorMut<'a, C, D> {
     /// and that `dims` and `strides` accurately describe the layout of the tensor
     /// within that memory block. The `data` pointer must be valid for the lifetime `'a`
     /// and that it is safe to mutate the data.
-    pub unsafe fn from_raw_parts(data: *mut C, dims: [usize; D], strides: [usize; D]) -> Self { unsafe {
-        Self {
-            data: NonNull::new_unchecked(data),
-            dims,
-            strides,
-            __marker: std::marker::PhantomData,
+    pub unsafe fn from_raw_parts(data: *mut C, dims: [usize; D], strides: [usize; D]) -> Self {
+        unsafe {
+            Self {
+                data: NonNull::new_unchecked(data),
+                dims,
+                strides,
+                __marker: std::marker::PhantomData,
+            }
         }
-    }}
+    }
 
     /// Returns a reference to the dimensions of the tensor.
     pub fn dims(&self) -> &[usize; D] {
@@ -645,9 +653,9 @@ impl<'a, C: Memorable, const D: usize> TensorMut<'a, C, D> {
     ///
     /// Calling this method with out-of-bounds `indices` is undefined behavior.
     #[inline(always)]
-    pub unsafe fn get_unchecked(&self, indices: &[usize; D]) -> &C { unsafe {
-        &*self.ptr_at(indices)
-    }}
+    pub unsafe fn get_unchecked(&self, indices: &[usize; D]) -> &C {
+        unsafe { &*self.ptr_at(indices) }
+    }
 
     /// Returns a mutable reference to an element at the given indices, without performing bounds checks.
     ///
@@ -655,9 +663,9 @@ impl<'a, C: Memorable, const D: usize> TensorMut<'a, C, D> {
     ///
     /// Calling this method with out-of-bounds `indices` is undefined behavior.
     #[inline(always)]
-    pub unsafe fn get_mut_unchecked(&mut self, indices: &[usize; D]) -> &mut C { unsafe {
-        &mut *self.ptr_at_mut(indices)
-    }}
+    pub unsafe fn get_mut_unchecked(&mut self, indices: &[usize; D]) -> &mut C {
+        unsafe { &mut *self.ptr_at_mut(indices) }
+    }
 
     /// Returns a raw pointer to an element at the given indices, without performing bounds checks.
     ///
@@ -665,10 +673,12 @@ impl<'a, C: Memorable, const D: usize> TensorMut<'a, C, D> {
     ///
     /// Calling this method with out-of-bounds `indices` is undefined behavior.
     #[inline(always)]
-    pub unsafe fn ptr_at(&self, indices: &[usize; D]) -> *const C { unsafe {
-        let flat_idx = calculate_flat_index(indices, &self.strides);
-        self.as_ptr().add(flat_idx)
-    }}
+    pub unsafe fn ptr_at(&self, indices: &[usize; D]) -> *const C {
+        unsafe {
+            let flat_idx = calculate_flat_index(indices, &self.strides);
+            self.as_ptr().add(flat_idx)
+        }
+    }
 
     /// Returns a mutable raw pointer to an element at the given indices, without performing bounds checks.
     ///
@@ -676,10 +686,12 @@ impl<'a, C: Memorable, const D: usize> TensorMut<'a, C, D> {
     ///
     /// Calling this method with out-of-bounds `indices` is undefined behavior.
     #[inline(always)]
-    pub unsafe fn ptr_at_mut(&mut self, indices: &[usize; D]) -> *mut C { unsafe {
-        let flat_idx = calculate_flat_index(indices, &self.strides);
-        self.as_ptr_mut().add(flat_idx)
-    }}
+    pub unsafe fn ptr_at_mut(&mut self, indices: &[usize; D]) -> *mut C {
+        unsafe {
+            let flat_idx = calculate_flat_index(indices, &self.strides);
+            self.as_ptr_mut().add(flat_idx)
+        }
+    }
 }
 
 impl<'a, C: Memorable, const D: usize> std::ops::Index<[usize; D]> for TensorMut<'a, C, D> {
@@ -714,23 +726,27 @@ impl<C: Memorable> Tensor<C, 4> {
 
     #[inline(always)]
     /// Returns an immutable view of a 3D subtensor at the given index without bounds checking.
-    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> TensorRef<'_, C, 3> { unsafe {
-        TensorRef::from_raw_parts(
-            self.ptr_at(&[m, 0, 0, 0]),
-            [self.dims[1], self.dims[2], self.dims[3]],
-            [self.strides[1], self.strides[2], self.strides[3]],
-        )
-    }}
+    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> TensorRef<'_, C, 3> {
+        unsafe {
+            TensorRef::from_raw_parts(
+                self.ptr_at(&[m, 0, 0, 0]),
+                [self.dims[1], self.dims[2], self.dims[3]],
+                [self.strides[1], self.strides[2], self.strides[3]],
+            )
+        }
+    }
 
     #[inline(always)]
     /// Returns a mutable view of a 3D subtensor at the given index without bounds checking.
-    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> TensorMut<'_, C, 3> { unsafe {
-        TensorMut::from_raw_parts(
-            self.ptr_at_mut(&[m, 0, 0, 0]),
-            [self.dims[1], self.dims[2], self.dims[3]],
-            [self.strides[1], self.strides[2], self.strides[3]],
-        )
-    }}
+    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> TensorMut<'_, C, 3> {
+        unsafe {
+            TensorMut::from_raw_parts(
+                self.ptr_at_mut(&[m, 0, 0, 0]),
+                [self.dims[1], self.dims[2], self.dims[3]],
+                [self.strides[1], self.strides[2], self.strides[3]],
+            )
+        }
+    }
 }
 
 impl<C: Memorable> Tensor<C, 3> {
@@ -750,27 +766,31 @@ impl<C: Memorable> Tensor<C, 3> {
 
     #[inline(always)]
     /// Returns an immutable matrix view of a 2D subtensor at the given index without bounds checking.
-    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> MatRef<'_, C> { unsafe {
-        MatRef::from_raw_parts(
-            self.ptr_at(&[m, 0, 0]),
-            self.dims[1],
-            self.dims[2],
-            self.strides[1] as isize,
-            self.strides[2] as isize,
-        )
-    }}
+    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> MatRef<'_, C> {
+        unsafe {
+            MatRef::from_raw_parts(
+                self.ptr_at(&[m, 0, 0]),
+                self.dims[1],
+                self.dims[2],
+                self.strides[1] as isize,
+                self.strides[2] as isize,
+            )
+        }
+    }
 
     #[inline(always)]
     /// Returns a mutable matrix view of a 2D subtensor at the given index without bounds checking.
-    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> MatMut<'_, C> { unsafe {
-        MatMut::from_raw_parts_mut(
-            self.ptr_at_mut(&[m, 0, 0]),
-            self.dims[1],
-            self.dims[2],
-            self.strides[1] as isize,
-            self.strides[2] as isize,
-        )
-    }}
+    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> MatMut<'_, C> {
+        unsafe {
+            MatMut::from_raw_parts_mut(
+                self.ptr_at_mut(&[m, 0, 0]),
+                self.dims[1],
+                self.dims[2],
+                self.strides[1] as isize,
+                self.strides[2] as isize,
+            )
+        }
+    }
 }
 
 impl<C: Memorable> Tensor<C, 2> {
@@ -790,19 +810,23 @@ impl<C: Memorable> Tensor<C, 2> {
 
     #[inline(always)]
     /// Returns an immutable row view of a 1D subtensor at the given index without bounds checking.
-    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> RowRef<'_, C> { unsafe {
-        RowRef::from_raw_parts(self.ptr_at(&[m, 0]), self.dims[1], self.strides[1] as isize)
-    }}
+    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> RowRef<'_, C> {
+        unsafe {
+            RowRef::from_raw_parts(self.ptr_at(&[m, 0]), self.dims[1], self.strides[1] as isize)
+        }
+    }
 
     #[inline(always)]
     /// Returns a mutable row view of a 1D subtensor at the given index without bounds checking.
-    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> RowMut<'_, C> { unsafe {
-        RowMut::from_raw_parts_mut(
-            self.ptr_at_mut(&[m, 0]),
-            self.dims[1],
-            self.strides[1] as isize,
-        )
-    }}
+    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> RowMut<'_, C> {
+        unsafe {
+            RowMut::from_raw_parts_mut(
+                self.ptr_at_mut(&[m, 0]),
+                self.dims[1],
+                self.strides[1] as isize,
+            )
+        }
+    }
 }
 
 impl<C: Memorable> Tensor<C, 1> {
@@ -818,15 +842,15 @@ impl<C: Memorable> Tensor<C, 1> {
 
     #[inline(always)]
     /// Returns an immutable reference to an element at the given index without bounds checking.
-    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> &C { unsafe {
-        self.get_unchecked(&[m])
-    }}
+    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> &C {
+        unsafe { self.get_unchecked(&[m]) }
+    }
 
     #[inline(always)]
     /// Returns a mutable reference to an element at the given index without bounds checking.
-    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> &mut C { unsafe {
-        self.get_mut_unchecked(&[m])
-    }}
+    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> &mut C {
+        unsafe { self.get_mut_unchecked(&[m]) }
+    }
 }
 
 impl<'a, C: Memorable> TensorRef<'a, C, 4> {
@@ -839,13 +863,15 @@ impl<'a, C: Memorable> TensorRef<'a, C, 4> {
 
     #[inline(always)]
     /// Returns an immutable view of a 3D subtensor at the given index without bounds checking.
-    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> TensorRef<'a, C, 3> { unsafe {
-        TensorRef::from_raw_parts(
-            self.ptr_at(&[m, 0, 0, 0]),
-            [self.dims[1], self.dims[2], self.dims[3]],
-            [self.strides[1], self.strides[2], self.strides[3]],
-        )
-    }}
+    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> TensorRef<'a, C, 3> {
+        unsafe {
+            TensorRef::from_raw_parts(
+                self.ptr_at(&[m, 0, 0, 0]),
+                [self.dims[1], self.dims[2], self.dims[3]],
+                [self.strides[1], self.strides[2], self.strides[3]],
+            )
+        }
+    }
 }
 
 impl<'a, C: Memorable> TensorRef<'a, C, 3> {
@@ -858,15 +884,17 @@ impl<'a, C: Memorable> TensorRef<'a, C, 3> {
 
     #[inline(always)]
     /// Returns an immutable matrix view of a 2D subtensor at the given index without bounds checking.
-    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> MatRef<'a, C> { unsafe {
-        MatRef::from_raw_parts(
-            self.ptr_at(&[m, 0, 0]),
-            self.dims[1],
-            self.dims[2],
-            self.strides[1] as isize,
-            self.strides[2] as isize,
-        )
-    }}
+    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> MatRef<'a, C> {
+        unsafe {
+            MatRef::from_raw_parts(
+                self.ptr_at(&[m, 0, 0]),
+                self.dims[1],
+                self.dims[2],
+                self.strides[1] as isize,
+                self.strides[2] as isize,
+            )
+        }
+    }
 }
 
 impl<'a, C: Memorable> TensorRef<'a, C, 2> {
@@ -879,9 +907,11 @@ impl<'a, C: Memorable> TensorRef<'a, C, 2> {
 
     #[inline(always)]
     /// Returns an immutable row view of a 1D subtensor at the given index without bounds checking.
-    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> RowRef<'a, C> { unsafe {
-        RowRef::from_raw_parts(self.ptr_at(&[m, 0]), self.dims[1], self.strides[1] as isize)
-    }}
+    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> RowRef<'a, C> {
+        unsafe {
+            RowRef::from_raw_parts(self.ptr_at(&[m, 0]), self.dims[1], self.strides[1] as isize)
+        }
+    }
 }
 
 impl<'a, C: Memorable> TensorRef<'a, C, 1> {
@@ -892,9 +922,9 @@ impl<'a, C: Memorable> TensorRef<'a, C, 1> {
 
     #[inline(always)]
     /// Returns an immutable reference to an element at the given index without bounds checking.
-    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> &C { unsafe {
-        self.get_unchecked(&[m])
-    }}
+    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> &C {
+        unsafe { self.get_unchecked(&[m]) }
+    }
 }
 
 impl<'a, C: Memorable> TensorMut<'a, C, 4> {
@@ -914,23 +944,27 @@ impl<'a, C: Memorable> TensorMut<'a, C, 4> {
 
     #[inline(always)]
     /// Returns an immutable view of a 3D subtensor at the given index without bounds checking.
-    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> TensorRef<'a, C, 3> { unsafe {
-        TensorRef::from_raw_parts(
-            self.ptr_at(&[m, 0, 0, 0]),
-            [self.dims[1], self.dims[2], self.dims[3]],
-            [self.strides[1], self.strides[2], self.strides[3]],
-        )
-    }}
+    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> TensorRef<'a, C, 3> {
+        unsafe {
+            TensorRef::from_raw_parts(
+                self.ptr_at(&[m, 0, 0, 0]),
+                [self.dims[1], self.dims[2], self.dims[3]],
+                [self.strides[1], self.strides[2], self.strides[3]],
+            )
+        }
+    }
 
     #[inline(always)]
     /// Returns a mutable view of a 3D subtensor at the given index without bounds checking.
-    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> TensorMut<'a, C, 3> { unsafe {
-        TensorMut::from_raw_parts(
-            self.ptr_at_mut(&[m, 0, 0, 0]),
-            [self.dims[1], self.dims[2], self.dims[3]],
-            [self.strides[1], self.strides[2], self.strides[3]],
-        )
-    }}
+    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> TensorMut<'a, C, 3> {
+        unsafe {
+            TensorMut::from_raw_parts(
+                self.ptr_at_mut(&[m, 0, 0, 0]),
+                [self.dims[1], self.dims[2], self.dims[3]],
+                [self.strides[1], self.strides[2], self.strides[3]],
+            )
+        }
+    }
 }
 
 impl<'a, C: Memorable> TensorMut<'a, C, 3> {
@@ -950,27 +984,31 @@ impl<'a, C: Memorable> TensorMut<'a, C, 3> {
 
     #[inline(always)]
     /// Returns an immutable matrix view of a 2D subtensor at the given index without bounds checking.
-    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> MatRef<'a, C> { unsafe {
-        MatRef::from_raw_parts(
-            self.ptr_at(&[m, 0, 0]),
-            self.dims[1],
-            self.dims[2],
-            self.strides[1] as isize,
-            self.strides[2] as isize,
-        )
-    }}
+    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> MatRef<'a, C> {
+        unsafe {
+            MatRef::from_raw_parts(
+                self.ptr_at(&[m, 0, 0]),
+                self.dims[1],
+                self.dims[2],
+                self.strides[1] as isize,
+                self.strides[2] as isize,
+            )
+        }
+    }
 
     #[inline(always)]
     /// Returns a mutable matrix view of a 2D subtensor at the given index without bounds checking.
-    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> MatMut<'a, C> { unsafe {
-        MatMut::from_raw_parts_mut(
-            self.ptr_at_mut(&[m, 0, 0]),
-            self.dims[1],
-            self.dims[2],
-            self.strides[1] as isize,
-            self.strides[2] as isize,
-        )
-    }}
+    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> MatMut<'a, C> {
+        unsafe {
+            MatMut::from_raw_parts_mut(
+                self.ptr_at_mut(&[m, 0, 0]),
+                self.dims[1],
+                self.dims[2],
+                self.strides[1] as isize,
+                self.strides[2] as isize,
+            )
+        }
+    }
 }
 
 impl<'a, C: Memorable> TensorMut<'a, C, 2> {
@@ -990,19 +1028,23 @@ impl<'a, C: Memorable> TensorMut<'a, C, 2> {
 
     #[inline(always)]
     /// Returns an immutable row view of a 1D subtensor at the given index without bounds checking.
-    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> RowRef<'a, C> { unsafe {
-        RowRef::from_raw_parts(self.ptr_at(&[m, 0]), self.dims[1], self.strides[1] as isize)
-    }}
+    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> RowRef<'a, C> {
+        unsafe {
+            RowRef::from_raw_parts(self.ptr_at(&[m, 0]), self.dims[1], self.strides[1] as isize)
+        }
+    }
 
     #[inline(always)]
     /// Returns a mutable row view of a 1D subtensor at the given index without bounds checking.
-    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> RowMut<'a, C> { unsafe {
-        RowMut::from_raw_parts_mut(
-            self.ptr_at_mut(&[m, 0]),
-            self.dims[1],
-            self.strides[1] as isize,
-        )
-    }}
+    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> RowMut<'a, C> {
+        unsafe {
+            RowMut::from_raw_parts_mut(
+                self.ptr_at_mut(&[m, 0]),
+                self.dims[1],
+                self.strides[1] as isize,
+            )
+        }
+    }
 }
 
 impl<'a, C: Memorable> TensorMut<'a, C, 1> {
@@ -1018,13 +1060,13 @@ impl<'a, C: Memorable> TensorMut<'a, C, 1> {
 
     #[inline(always)]
     /// Returns an immutable reference to an element at the given index without bounds checking.
-    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> &C { unsafe {
-        self.get_unchecked(&[m])
-    }}
+    pub unsafe fn subtensor_ref_unchecked(&self, m: usize) -> &C {
+        unsafe { self.get_unchecked(&[m]) }
+    }
 
     #[inline(always)]
     /// Returns a mutable reference to an element at the given index without bounds checking.
-    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> &mut C { unsafe {
-        self.get_mut_unchecked(&[m])
-    }}
+    pub unsafe fn subtensor_mut_unchecked(&mut self, m: usize) -> &mut C {
+        unsafe { self.get_mut_unchecked(&[m]) }
+    }
 }

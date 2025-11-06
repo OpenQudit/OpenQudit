@@ -1,9 +1,9 @@
 use qudit_core::{ClassicalSystem, HybridSystem, QuditSystem};
 use qudit_core::{HasParams, Radices};
 
-use slotmap::new_key_type;
-use slotmap::SlotMap;
 use slotmap::Key;
+use slotmap::SlotMap;
+use slotmap::new_key_type;
 new_key_type! { pub struct CircuitId; }
 
 use crate::instruction::Instruction;
@@ -72,4 +72,3 @@ impl CircuitCache {
         self.get(circuit_id).map(|c| c.num_params())
     }
 }
-

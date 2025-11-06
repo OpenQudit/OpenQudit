@@ -477,7 +477,9 @@ impl ParamInfo {
     /// The `constant` vector is reordered to match the new order of indices.
     pub fn to_sorted(&self) -> ParamInfo {
         // Create a map from each parameter index to its 'constant' status.
-        let index_to_constant_map: std::collections::HashMap<usize, bool> = self.indices.iter()
+        let index_to_constant_map: std::collections::HashMap<usize, bool> = self
+            .indices
+            .iter()
             .zip(self.constant.iter().cloned())
             .collect();
 
@@ -486,7 +488,8 @@ impl ParamInfo {
 
         // Build the new `constant` vector by iterating through the `new_indices`
         // and looking up their constant status in the map.
-        let new_constant: Vec<bool> = new_indices.iter()
+        let new_constant: Vec<bool> = new_indices
+            .iter()
             .map(|index| *index_to_constant_map.get(&index).unwrap_or(&false))
             .collect();
 
@@ -511,11 +514,15 @@ impl ParamInfo {
     pub fn union(&self, other: &ParamInfo) -> ParamInfo {
         let combined_indices = self.indices.union(&other.indices);
 
-        let self_index_to_constant: std::collections::HashMap<usize, bool> = self.indices.iter()
+        let self_index_to_constant: std::collections::HashMap<usize, bool> = self
+            .indices
+            .iter()
             .zip(self.constant.iter().cloned())
             .collect();
 
-        let other_index_to_constant: std::collections::HashMap<usize, bool> = other.indices.iter()
+        let other_index_to_constant: std::collections::HashMap<usize, bool> = other
+            .indices
+            .iter()
             .zip(other.constant.iter().cloned())
             .collect();
 
@@ -554,11 +561,15 @@ impl ParamInfo {
     pub fn intersect(&self, other: &ParamInfo) -> ParamInfo {
         let combined_indices = self.indices.intersect(&other.indices);
 
-        let self_index_to_constant: std::collections::HashMap<usize, bool> = self.indices.iter()
+        let self_index_to_constant: std::collections::HashMap<usize, bool> = self
+            .indices
+            .iter()
             .zip(self.constant.iter().cloned())
             .collect();
 
-        let other_index_to_constant: std::collections::HashMap<usize, bool> = other.indices.iter()
+        let other_index_to_constant: std::collections::HashMap<usize, bool> = other
+            .indices
+            .iter()
             .zip(other.constant.iter().cloned())
             .collect();
 
@@ -571,10 +582,17 @@ impl ParamInfo {
             match (c_self, c_other) {
                 (Some(&s_const), Some(&o_const)) => {
                     // Their constant status must be the same for the common index
-                    assert_eq!(s_const, o_const, "Constant status mismatch for common index {}", index);
+                    assert_eq!(
+                        s_const, o_const,
+                        "Constant status mismatch for common index {}",
+                        index
+                    );
                     new_constant.push(s_const);
-                },
-                _ => unreachable!("Intersected index {} not found in both original ParamInfos", index),
+                }
+                _ => unreachable!(
+                    "Intersected index {} not found in both original ParamInfos",
+                    index
+                ),
             }
         }
 

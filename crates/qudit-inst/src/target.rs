@@ -14,12 +14,11 @@ pub enum InstantiationTarget<C: ComplexScalar> {
 #[cfg(feature = "python")]
 mod python {
     use super::InstantiationTarget;
+    use crate::python::PyInstantiationRegistrar;
     use pyo3::prelude::*;
-    use qudit_core::c64;
     use qudit_core::ComplexScalar;
     use qudit_core::UnitaryMatrix;
-    use crate::python::PyInstantiationRegistrar;
-
+    use qudit_core::c64;
 
     #[pyclass(name = "InstantiationTarget")]
     #[derive(Clone)]

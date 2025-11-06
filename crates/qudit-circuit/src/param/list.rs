@@ -15,7 +15,7 @@ use qudit_expr::Expression;
 /// Represents a list of arguments for quantum circuit parameters.
 #[derive(Clone, Debug)]
 pub struct ArgumentList {
-    entries: Vec<Argument>
+    entries: Vec<Argument>,
 }
 
 impl ArgumentList {
@@ -75,7 +75,7 @@ impl ArgumentList {
     /// Parameterized expression arguments return their actual variable names.
     /// The output of this can be one part of a `substitute_parameters` call on
     /// an expression informing the expression of the new variable names.
-    pub fn variables(&self) -> Vec<String> { 
+    pub fn variables(&self) -> Vec<String> {
         let mut new_variables = vec![];
         let mut unnamed_counter = 0;
 
@@ -104,7 +104,6 @@ impl ArgumentList {
         new_variables
     }
 
-
     /// Returns true if any non-simple arguments exist in the list
     ///
     /// A Non-simple argument is one that is not a single constant or single
@@ -115,7 +114,9 @@ impl ArgumentList {
     /// get's modified to accomodate a multiplication of two parameters in
     /// place of the one in that argument's slot.
     pub fn requires_expression_modification(&self) -> bool {
-        self.entries.iter().any(|arg| arg.requires_expression_modification())
+        self.entries
+            .iter()
+            .any(|arg| arg.requires_expression_modification())
     }
 }
 
@@ -142,23 +143,23 @@ impl<E: Into<Argument> + Clone, const N: usize> From<&[E; N]> for ArgumentList {
 
 #[cfg(feature = "python")]
 mod python {
-    use super::ArgumentList;
     use super::Argument;
-    use pyo3::prelude::*;
+    use super::ArgumentList;
     use pyo3::exceptions::{PyTypeError, PyValueError};
+    use pyo3::prelude::*;
 
     impl<'a, 'py> FromPyObject<'a, 'py> for ArgumentList {
         type Error = PyErr;
 
         /// Converts a Python object to an `ArgumentList`.
-        /// 
+        ///
         /// # Supported conversions
         /// - Python lists/tuples containing argument-like values → `ArgumentList`
         /// - Single argument-like values → `ArgumentList` with one element
         /// - Empty iterables → Empty `ArgumentList`
-        /// 
+        ///
         /// Each element in the iterable is converted using `Argument::extract()`.
-        /// 
+        ///
         /// # Errors
         /// Returns `PyValueError` if any element cannot be converted to an `Argument`,
         /// or `PyTypeError` if the Python object is not iterable and not convertible to an `Argument`.
@@ -167,7 +168,7 @@ mod python {
             if let Ok(arg) = Argument::extract(obj) {
                 return Ok(ArgumentList::new(vec![arg]));
             }
-            
+
             // If it's not a single argument, try to treat as an iterable (list, tuple, etc.)
             if let Ok(iter) = pyo3::types::PyIterator::from_object(&*obj) {
                 let mut arguments = Vec::new();
@@ -175,17 +176,20 @@ mod python {
                     let item = item?;
                     match Argument::extract(item.as_borrowed()) {
                         Ok(arg) => arguments.push(arg),
-                        Err(e) => return Err(PyValueError::new_err(format!(
-                            "Cannot convert item to Argument: {}", e
-                        ))),
+                        Err(e) => {
+                            return Err(PyValueError::new_err(format!(
+                                "Cannot convert item to Argument: {}",
+                                e
+                            )));
+                        }
                     }
                 }
                 return Ok(ArgumentList::new(arguments));
             }
-            
+
             // If neither worked, return an error
             Err(PyTypeError::new_err(format!(
-                "Cannot convert {} to ArgumentList: must be iterable or convertible to Argument", 
+                "Cannot convert {} to ArgumentList: must be iterable or convertible to Argument",
                 obj.get_type().name()?,
             )))
         }
@@ -194,8 +198,8 @@ mod python {
     #[cfg(test)]
     mod tests {
         use super::*;
-        use pyo3::types::{PyDict, PyFloat, PyList, PyString, PyTuple};
         use pyo3::Python;
+        use pyo3::types::{PyDict, PyFloat, PyList, PyString, PyTuple};
         #[test]
         fn test_from_py_empty_list() {
             Python::initialize();
@@ -213,7 +217,7 @@ mod python {
                 let py_list = PyList::new(py, &[1.0, 2.5, 3.14]).unwrap();
                 let result = ArgumentList::extract(py_list.as_any().as_borrowed()).unwrap();
                 assert_eq!(result.len(), 3);
-                
+
                 let args = result.arguments();
                 assert!(matches!(args[0], Argument::Float64(1.0)));
                 assert!(matches!(args[1], Argument::Float64(2.5)));
@@ -227,13 +231,11 @@ mod python {
                 let one = PyFloat::new(py, 1.5);
                 let two = PyString::new(py, "x + 1");
                 let none = py.None().into_bound(py);
-                let items: Vec<&Bound<'_, PyAny>> = vec![
-                    one.as_any(), two.as_any(), &none,
-                ];
+                let items: Vec<&Bound<'_, PyAny>> = vec![one.as_any(), two.as_any(), &none];
                 let py_tuple = PyTuple::new(py, items).unwrap();
                 let result = ArgumentList::extract(py_tuple.as_any().as_borrowed()).unwrap();
                 assert_eq!(result.len(), 3);
-                
+
                 let args = result.arguments();
                 assert!(matches!(args[0], Argument::Float64(1.5)));
                 assert!(matches!(args[1], Argument::Expression(_)));
@@ -247,7 +249,7 @@ mod python {
                 let float_val = PyFloat::new(py, 42.0);
                 let result = ArgumentList::extract(float_val.as_any().as_borrowed()).unwrap();
                 assert_eq!(result.len(), 1);
-                
+
                 let args = result.arguments();
                 assert!(matches!(args[0], Argument::Float64(42.0)));
             });
@@ -256,7 +258,6 @@ mod python {
         fn test_from_py_list_with_expressions() {
             Python::initialize();
             Python::attach(|py| {
-
                 let one = PyString::new(py, "sin(x)");
                 let two = PyString::new(py, "a*b + c");
                 let three = PyString::new(py, "pi/4");
@@ -264,7 +265,7 @@ mod python {
                 let py_list = PyList::new(py, expressions).unwrap();
                 let result = ArgumentList::extract(py_list.as_any().as_borrowed()).unwrap();
                 assert_eq!(result.len(), 3);
-                
+
                 let args = result.arguments();
                 for arg in args {
                     assert!(matches!(arg, Argument::Expression(_)));
@@ -276,10 +277,8 @@ mod python {
             Python::initialize();
             Python::attach(|py| {
                 let one = PyFloat::new(py, 1.0);
-                let two = PyDict::new(py);  // This should fail
-                let items: Vec<&Bound<'_, PyAny>> = vec![
-                    one.as_any(), two.as_any(),
-                ];
+                let two = PyDict::new(py); // This should fail
+                let items: Vec<&Bound<'_, PyAny>> = vec![one.as_any(), two.as_any()];
                 let py_list = PyList::new(py, items).unwrap();
                 let result = ArgumentList::extract(py_list.as_any().as_borrowed());
                 assert!(result.is_err());
@@ -294,7 +293,7 @@ mod python {
             Python::attach(|py| {
                 let complex_expr = PyString::new(py, "1 + i");
                 let items: Vec<&Bound<'_, PyAny>> = vec![
-                    complex_expr.as_any(),  // Complex expression
+                    complex_expr.as_any(), // Complex expression
                 ];
                 let py_list = PyList::new(py, items).unwrap();
                 let result = ArgumentList::extract(py_list.as_any().as_borrowed());
@@ -308,15 +307,16 @@ mod python {
             Python::initialize();
             Python::attach(|py| {
                 let unnamed_expr = PyString::new(py, "unnamed_var");
-                let items: Vec<&Bound<'_, PyAny>> = vec![
-                    unnamed_expr.as_any(),
-                ];
+                let items: Vec<&Bound<'_, PyAny>> = vec![unnamed_expr.as_any()];
                 let py_list = PyList::new(py, items).unwrap();
                 let result = ArgumentList::extract(py_list.as_any().as_borrowed());
                 assert!(result.is_err());
                 let err = result.unwrap_err();
                 assert!(err.is_instance_of::<pyo3::exceptions::PyValueError>(py));
-                assert!(err.to_string().contains("Expression arguments cannot contain 'unnamed_'"));
+                assert!(
+                    err.to_string()
+                        .contains("Expression arguments cannot contain 'unnamed_'")
+                );
             });
         }
 
@@ -327,7 +327,7 @@ mod python {
                 let string_val = PyString::new(py, "x*y + z");
                 let result = ArgumentList::extract(string_val.as_any().as_borrowed()).unwrap();
                 assert_eq!(result.len(), 1);
-                
+
                 let args = result.arguments();
                 assert!(matches!(args[0], Argument::Expression(_)));
             });
@@ -338,14 +338,12 @@ mod python {
             Python::initialize();
             Python::attach(|py| {
                 let one = PyString::new(py, "x");
-                let two = PyString::new(py, "x + y");  // x should be deduplicated
+                let two = PyString::new(py, "x + y"); // x should be deduplicated
                 let three = PyFloat::new(py, 1.0);
-                let expressions = vec![
-                    one.as_any(), two.as_any(), three.as_any()
-                ];
+                let expressions = vec![one.as_any(), two.as_any(), three.as_any()];
                 let py_list = PyList::new(py, expressions).unwrap();
                 let result = ArgumentList::extract(py_list.as_any().as_borrowed()).unwrap();
-                
+
                 let params = result.parameters();
                 // Should have named parameters for x, y and a constant parameter
                 assert_eq!(params.len(), 3);
@@ -394,13 +392,16 @@ mod tests {
         let args = vec![x_expr, xy_expr];
         let list = ArgumentList::new(args);
         let params = list.parameters();
-        
+
         // Should have 2 unique named parameters: x and y
         assert_eq!(params.len(), 2);
-        let param_names: Vec<String> = params.into_iter().map(|p| match p {
-            Parameter::Named(name) => name,
-            _ => panic!("Expected Named parameter"),
-        }).collect();
+        let param_names: Vec<String> = params
+            .into_iter()
+            .map(|p| match p {
+                Parameter::Named(name) => name,
+                _ => panic!("Expected Named parameter"),
+            })
+            .collect();
         assert!(param_names.contains(&"x".to_string()));
         assert!(param_names.contains(&"y".to_string()));
     }
@@ -414,7 +415,7 @@ mod tests {
         ];
         let list = ArgumentList::new(args);
         let params = list.parameters();
-        
+
         assert_eq!(params.len(), 4);
         assert!(matches!(params[0], Parameter::Constant32(1.0)));
         assert!(matches!(params[1], Parameter::Constant64(2.0)));
@@ -430,7 +431,7 @@ mod tests {
         ];
         let list = ArgumentList::new(args);
         let vars = list.variables();
-        
+
         assert_eq!(vars.len(), 3);
         assert_eq!(vars[0], "unnamed_0");
         assert_eq!(vars[1], "x");
@@ -439,26 +440,20 @@ mod tests {
     #[test]
     fn test_variables_constant_expression() {
         let constant_expr = Expression::from_float_64(3.14);
-        let args = vec![
-            Argument::Expression(constant_expr),
-            Argument::Float64(2.0),
-        ];
+        let args = vec![Argument::Expression(constant_expr), Argument::Float64(2.0)];
         let list = ArgumentList::new(args);
         let vars = list.variables();
-        
+
         assert_eq!(vars.len(), 2);
         assert_eq!(vars[0], "unnamed_0"); // Constant expression gets unnamed
         assert_eq!(vars[1], "unnamed_1"); // Float gets unnamed
     }
     #[test]
     fn test_expressions_generation() {
-        let args = vec![
-            Argument::Float64(1.0),
-            Argument::try_from("x + 1").unwrap(),
-        ];
+        let args = vec![Argument::Float64(1.0), Argument::try_from("x + 1").unwrap()];
         let list = ArgumentList::new(args.clone());
         let exprs = list.expressions();
-        
+
         assert_eq!(exprs.len(), 2);
         // First should be a variable expression with generated name
         assert_eq!(exprs[0], Expression::Variable("unnamed_0".to_string()));
@@ -474,7 +469,7 @@ mod tests {
         let values = vec![1.0f64, 2.0f64, 3.0f64];
         let list = ArgumentList::from(values);
         assert_eq!(list.len(), 3);
-        
+
         let args = list.arguments();
         assert!(matches!(args[0], Argument::Float64(1.0)));
         assert!(matches!(args[1], Argument::Float64(2.0)));
@@ -485,7 +480,7 @@ mod tests {
         let values = [1.0f32, 2.0f32];
         let list = ArgumentList::from(values);
         assert_eq!(list.len(), 2);
-        
+
         let args = list.arguments();
         assert!(matches!(args[0], Argument::Float32(1.0)));
         assert!(matches!(args[1], Argument::Float32(2.0)));
@@ -495,7 +490,7 @@ mod tests {
         let values = [1.0f64, 2.0f64];
         let list = ArgumentList::from(&values);
         assert_eq!(list.len(), 2);
-        
+
         let args = list.arguments();
         assert!(matches!(args[0], Argument::Float64(1.0)));
         assert!(matches!(args[1], Argument::Float64(2.0)));
@@ -505,7 +500,7 @@ mod tests {
         let args = vec![Argument::Float64(42.0), Argument::Unspecified];
         let list1 = ArgumentList::new(args);
         let list2 = list1.clone();
-        
+
         assert_eq!(list1.len(), list2.len());
         assert_eq!(list1.arguments().len(), list2.arguments().len());
     }
@@ -520,19 +515,25 @@ mod tests {
     #[test]
     fn test_complex_multivariate_parameter_extraction() {
         let args = vec![
-            Argument::try_from("a*b").unwrap(),      // Variables: a, b
-            Argument::try_from("c + a").unwrap(),    // Variables: c, a (a deduplicated)
-            Argument::Float64(1.0),                  // Constant parameter
+            Argument::try_from("a*b").unwrap(),   // Variables: a, b
+            Argument::try_from("c + a").unwrap(), // Variables: c, a (a deduplicated)
+            Argument::Float64(1.0),               // Constant parameter
         ];
         let list = ArgumentList::new(args);
         let params = list.parameters();
-        
+
         // Should have 3 named parameters (a, b, c) + 1 constant = 4 total
         assert_eq!(params.len(), 4);
-        
-        let named_count = params.iter().filter(|p| matches!(p, Parameter::Named(_))).count();
-        let constant_count = params.iter().filter(|p| matches!(p, Parameter::Constant64(_))).count();
-        
+
+        let named_count = params
+            .iter()
+            .filter(|p| matches!(p, Parameter::Named(_)))
+            .count();
+        let constant_count = params
+            .iter()
+            .filter(|p| matches!(p, Parameter::Constant64(_)))
+            .count();
+
         assert_eq!(named_count, 3); // a, b, c
         assert_eq!(constant_count, 1); // 1.0
     }
@@ -543,14 +544,14 @@ mod tests {
         for i in 0..100 {
             args.push(Argument::Float64(i as f64));
         }
-        
+
         let list = ArgumentList::new(args);
         assert_eq!(list.len(), 100);
         assert!(!list.is_empty());
-        
+
         let params = list.parameters();
         assert_eq!(params.len(), 100); // Each float becomes a constant parameter
-        
+
         let vars = list.variables();
         assert_eq!(vars.len(), 100); // Each gets an unnamed variable
         for (i, var) in vars.iter().enumerate() {

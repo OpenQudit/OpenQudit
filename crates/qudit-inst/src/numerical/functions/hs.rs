@@ -1,35 +1,35 @@
 use std::sync::Arc;
 
-use faer::ColMut;
-use qudit_circuit::QuditCircuit;
-use faer::MatMut;
-use faer::Row;
-use faer::RowMut;
-use qudit_core::ComplexScalar;
-use qudit_core::RealScalar;
-use qudit_core::BitWidthConvertible;
-use qudit_expr::DifferentiationLevel;
-use qudit_tensor::compile_network;
-use qudit_tensor::QuditTensor;
-use qudit_tensor::TNVM;
-use qudit_tensor::PinnedTNVM;
+use super::super::InstantiationProblem;
+use crate::InstantiationTarget;
 use crate::numerical::Hessian;
 use crate::numerical::Jacobian;
 use crate::numerical::ProvidesJacobian;
 use crate::numerical::ProvidesResidualFunction;
 use crate::numerical::ResidualFunction;
-use crate::InstantiationTarget;
-use super::super::InstantiationProblem;
-use crate::numerical::function::Function;
 use crate::numerical::function::CostFunction;
+use crate::numerical::function::Function;
 use crate::numerical::function::Gradient;
 use crate::numerical::problem::Problem;
 use crate::numerical::problem::ProvidesCostFunction;
 use crate::numerical::problem::ProvidesGradient;
+use faer::ColMut;
+use faer::MatMut;
+use faer::Row;
+use faer::RowMut;
+use faer::reborrow::ReborrowMut;
+use qudit_circuit::QuditCircuit;
+use qudit_core::BitWidthConvertible;
+use qudit_core::ComplexScalar;
+use qudit_core::RealScalar;
+use qudit_expr::DifferentiationLevel;
 use qudit_expr::FUNCTION;
 use qudit_expr::GRADIENT;
 use qudit_expr::HESSIAN;
-use faer::reborrow::ReborrowMut;
+use qudit_tensor::PinnedTNVM;
+use qudit_tensor::QuditTensor;
+use qudit_tensor::TNVM;
+use qudit_tensor::compile_network;
 
 #[derive(Clone)]
 pub struct HSProblem<R: RealScalar> {
@@ -37,16 +37,12 @@ pub struct HSProblem<R: RealScalar> {
     pub target: Arc<InstantiationTarget<R::C>>,
 }
 
-
 impl<R: RealScalar> HSProblem<R> {
     pub fn new(circuit: Arc<QuditCircuit>, target: Arc<InstantiationTarget<R::C>>) -> Self {
-        HSProblem {
-            circuit,
-            target,
-        }
+        HSProblem { circuit, target }
     }
 
-    pub fn build_cost<const D: DifferentiationLevel>(&self) -> PinnedTNVM<R::C, D> { 
+    pub fn build_cost<const D: DifferentiationLevel>(&self) -> PinnedTNVM<R::C, D> {
         let mut builder = self.circuit.as_tensor_network_builder();
         // TODO: assert target.num_outputs = builder.num_open_outputs
         // TODO: assert target.num_inputs = builder.num_open_inputs
@@ -55,7 +51,7 @@ impl<R: RealScalar> HSProblem<R> {
             InstantiationTarget::UnitaryMatrix(u) => {
                 let qudits = builder.open_output_indices();
                 builder = builder.prepend_unitary(u.dagger(), qudits);
-            },
+            }
         }
 
         let code = compile_network(builder.trace_all_open_wires().build());
@@ -72,13 +68,12 @@ impl<R: RealScalar> HSProblem<R> {
             InstantiationTarget::UnitaryMatrix(u) => {
                 let qudits = builder.open_output_indices();
                 builder = builder.prepend_unitary(u.dagger(), qudits);
-            },
+            }
         }
 
         let code = compile_network(builder.build());
         // dbg!(&code);
         TNVM::<R::C, D>::new(&code, Some(&self.circuit.params().const_map()))
-
     }
 }
 
@@ -102,7 +97,10 @@ impl<R: RealScalar> ProvidesCostFunction<R> for HSProblem<R> {
     type CostFunction = HSFunction<R, 0>;
 
     fn build_cost_function(&self) -> Self::CostFunction {
-        HSFunction { tnvm: self.build_cost(), n: R::from64(4.0) } // TODO: N comes from circuit
+        HSFunction {
+            tnvm: self.build_cost(),
+            n: R::from64(4.0),
+        } // TODO: N comes from circuit
     }
 }
 
@@ -110,7 +108,10 @@ impl<R: RealScalar> ProvidesResidualFunction<R> for HSProblem<R> {
     type ResidualFunction = HSFunction<R, 0>;
 
     fn build_residual_function(&self) -> Self::ResidualFunction {
-        HSFunction { tnvm: self.build_residual(), n: R::from64(4.0) } 
+        HSFunction {
+            tnvm: self.build_residual(),
+            n: R::from64(4.0),
+        }
     }
 }
 
@@ -118,7 +119,10 @@ impl<R: RealScalar> ProvidesJacobian<R> for HSProblem<R> {
     type Jacobian = HSFunction<R, GRADIENT>;
 
     fn build_jacobian(&self) -> Self::Jacobian {
-        HSFunction { tnvm: self.build_residual(), n: R::from64(4.0) }
+        HSFunction {
+            tnvm: self.build_residual(),
+            n: R::from64(4.0),
+        }
     }
 }
 
@@ -151,11 +155,11 @@ impl<R: RealScalar, const D: DifferentiationLevel> CostFunction<R> for HSFunctio
 
 // TODO: some safety so D>=1
 impl<R: RealScalar, const D: DifferentiationLevel> Gradient<R> for HSFunction<R, D> {
-    fn gradient_into(&mut self, params: &[R], grad_out: RowMut<R>) { 
+    fn gradient_into(&mut self, params: &[R], grad_out: RowMut<R>) {
         self.cost_and_gradient_into(params, grad_out);
     }
 
-    fn cost_and_gradient_into(&mut self, params: &[R], grad_out: RowMut<R>) -> R { 
+    fn cost_and_gradient_into(&mut self, params: &[R], grad_out: RowMut<R>) -> R {
         let result = self.tnvm.evaluate::<GRADIENT>(params);
         let grad_trace = result.get_grad_result().unpack_vector();
         let trace = result.get_fn_result().unpack_scalar();
@@ -164,11 +168,11 @@ impl<R: RealScalar, const D: DifferentiationLevel> Gradient<R> for HSFunction<R,
         for (out, trace) in grad_out.iter_mut().zip(grad_trace.iter()) {
             let trace_re_d = trace.real();
             let trace_im_d = trace.imag();
-            let num = trace_re*trace_re_d + trace_im*trace_im_d;
+            let num = trace_re * trace_re_d + trace_im * trace_im_d;
             let dem = self.n * trace.abs();
             *out = -(num / dem)
         }
-        R::from64(1.0) - (trace.abs() / self.n) 
+        R::from64(1.0) - (trace.abs() / self.n)
     }
 }
 
@@ -177,7 +181,12 @@ impl<R: RealScalar, const D: DifferentiationLevel> Hessian<R> for HSFunction<R, 
         todo!()
     }
 
-    fn cost_gradient_and_hessian_into(&mut self, params: &[R], grad_out: RowMut<R>, hess_out: faer::MatMut<R>) -> R {        
+    fn cost_gradient_and_hessian_into(
+        &mut self,
+        params: &[R],
+        grad_out: RowMut<R>,
+        hess_out: faer::MatMut<R>,
+    ) -> R {
         let result = self.tnvm.evaluate::<HESSIAN>(params);
         let hess_trace = result.get_hess_result().unpack_symsq_matrix();
         let grad_trace = result.get_grad_result().unpack_vector();
@@ -193,7 +202,7 @@ impl<R: RealScalar, const D: DifferentiationLevel> Hessian<R> for HSFunction<R, 
         // Re_xy = Re(hess_trace @ xy)
         // I = Im..
 
-        // R::new(1.0) - (trace.abs() / self.N) 
+        // R::new(1.0) - (trace.abs() / self.N)
     }
 }
 
@@ -214,7 +223,7 @@ impl<R: RealScalar, const D: DifferentiationLevel> ResidualFunction<R> for HSFun
             for (j, col) in mat.col_iter().enumerate() {
                 for (i, elem) in col.iter().enumerate() {
                     if i == j {
-                        continue
+                        continue;
                     }
                     unsafe {
                         let out = residuals_out.rb_mut().get_mut_unchecked(residual_index);
@@ -228,7 +237,7 @@ impl<R: RealScalar, const D: DifferentiationLevel> ResidualFunction<R> for HSFun
             }
 
             let diag_iter = 0;
-            for diag_iter in 0..(mat.nrows()-1) {
+            for diag_iter in 0..(mat.nrows() - 1) {
                 unsafe {
                     let d_i = mat.get_unchecked(diag_iter, diag_iter);
                     let d_j = mat.get_unchecked(diag_iter + 1, diag_iter + 1);
@@ -245,7 +254,12 @@ impl<R: RealScalar, const D: DifferentiationLevel> ResidualFunction<R> for HSFun
 }
 
 impl<R: RealScalar, const D: DifferentiationLevel> Jacobian<R> for HSFunction<R, D> {
-    fn residuals_and_jacobian_into(&mut self, params: &[R], mut residuals_out: ColMut<R>, mut jacobian_out: MatMut<R>) {
+    fn residuals_and_jacobian_into(
+        &mut self,
+        params: &[R],
+        mut residuals_out: ColMut<R>,
+        mut jacobian_out: MatMut<R>,
+    ) {
         let result = self.tnvm.evaluate::<GRADIENT>(params);
         let kraus_ops = result.get_fn_result2().unpack_tensor3d();
 
@@ -268,7 +282,7 @@ impl<R: RealScalar, const D: DifferentiationLevel> Jacobian<R> for HSFunction<R,
             for (j, col) in mat.col_iter().enumerate() {
                 for (i, elem) in col.iter().enumerate() {
                     if i == j {
-                        continue
+                        continue;
                     }
                     unsafe {
                         let out = residuals_out.rb_mut().get_mut_unchecked(residual_index);
@@ -281,7 +295,7 @@ impl<R: RealScalar, const D: DifferentiationLevel> Jacobian<R> for HSFunction<R,
                 }
             }
 
-            for diag_iter in 0..(mat.nrows()-1) {
+            for diag_iter in 0..(mat.nrows() - 1) {
                 unsafe {
                     let d_i = mat.get_unchecked(diag_iter, diag_iter);
                     let d_j = mat.get_unchecked(diag_iter + 1, diag_iter + 1);
@@ -309,7 +323,7 @@ impl<R: RealScalar, const D: DifferentiationLevel> Jacobian<R> for HSFunction<R,
                 for (j, col) in mat.col_iter().enumerate() {
                     for (i, elem) in col.iter().enumerate() {
                         if i == j {
-                            continue
+                            continue;
                         }
                         unsafe {
                             let out = jacobian_col_out.rb_mut().get_mut_unchecked(residual_index);
@@ -322,7 +336,7 @@ impl<R: RealScalar, const D: DifferentiationLevel> Jacobian<R> for HSFunction<R,
                     }
                 }
 
-                for diag_iter in 0..(mat.nrows()-1) {
+                for diag_iter in 0..(mat.nrows() - 1) {
                     unsafe {
                         let d_i = mat.get_unchecked(diag_iter, diag_iter);
                         let d_j = mat.get_unchecked(diag_iter + 1, diag_iter + 1);
@@ -353,7 +367,7 @@ impl<R: RealScalar, const D: DifferentiationLevel> Jacobian<R> for HSFunction<R,
                 for (j, col) in mat.col_iter().enumerate() {
                     for (i, elem) in col.iter().enumerate() {
                         if i == j {
-                            continue
+                            continue;
                         }
                         unsafe {
                             let out = jacobian_col_out.rb_mut().get_mut_unchecked(residual_index);
@@ -367,7 +381,7 @@ impl<R: RealScalar, const D: DifferentiationLevel> Jacobian<R> for HSFunction<R,
                 }
 
                 let diag_iter = 0;
-                for diag_iter in 0..(mat.nrows()-1) {
+                for diag_iter in 0..(mat.nrows() - 1) {
                     unsafe {
                         let d_i = mat.get_unchecked(diag_iter, diag_iter);
                         let d_j = mat.get_unchecked(diag_iter + 1, diag_iter + 1);

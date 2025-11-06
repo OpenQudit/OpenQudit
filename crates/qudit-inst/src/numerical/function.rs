@@ -1,5 +1,5 @@
 //! This module defines traits for cost functions, gradients, Hessians, residual functions, and Jacobians.
-use faer::{Mat, MatMut, MatRef, Row, RowMut, RowRef, Col, ColRef, ColMut};
+use faer::{Col, ColMut, ColRef, Mat, MatMut, MatRef, Row, RowMut, RowRef};
 use qudit_core::RealScalar;
 
 pub trait Function {
@@ -42,7 +42,12 @@ pub trait Hessian<R: RealScalar>: Gradient<R> {
     fn hessian_into(&mut self, params: &[R], hess_out: MatMut<R>);
 
     /// Calculates the cost, gradient, and Hessian for the given parameters.
-    fn cost_gradient_and_hessian_into(&mut self, params: &[R], grad_out: RowMut<R>, hess_out: MatMut<R>) -> R {
+    fn cost_gradient_and_hessian_into(
+        &mut self,
+        params: &[R],
+        grad_out: RowMut<R>,
+        hess_out: MatMut<R>,
+    ) -> R {
         let cost = self.cost(params);
         self.gradient_into(params, grad_out);
         self.hessian_into(params, hess_out);
@@ -72,7 +77,12 @@ pub trait Jacobian<R: RealScalar>: ResidualFunction<R> {
     fn jacobian_into(&mut self, params: &[R], jacobian_out: MatMut<R>);
 
     /// Calculates the residuals and Jacobian for the given parameters.
-    fn residuals_and_jacobian_into(&mut self, params: &[R], residuals_out: ColMut<R>, jacobian_out: MatMut<R>) {
+    fn residuals_and_jacobian_into(
+        &mut self,
+        params: &[R],
+        residuals_out: ColMut<R>,
+        jacobian_out: MatMut<R>,
+    ) {
         self.residuals_into(params, residuals_out);
         self.jacobian_into(params, jacobian_out);
     }

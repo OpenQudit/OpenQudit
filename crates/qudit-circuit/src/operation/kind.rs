@@ -88,10 +88,14 @@ mod python {
                     0 => Ok(OpKind::Expression),
                     1 => Ok(OpKind::Subcircuit),
                     2 => Ok(OpKind::Directive),
-                    _ => Err(pyo3::exceptions::PyValueError::new_err("Invalid OpKind value")),
+                    _ => Err(pyo3::exceptions::PyValueError::new_err(
+                        "Invalid OpKind value",
+                    )),
                 }
             } else {
-                Err(pyo3::exceptions::PyTypeError::new_err("Expected OpKind or int"))
+                Err(pyo3::exceptions::PyTypeError::new_err(
+                    "Expected OpKind or int",
+                ))
             }
         }
     }
@@ -103,4 +107,3 @@ mod python {
     }
     inventory::submit!(PyCircuitRegistrar { func: register });
 }
-

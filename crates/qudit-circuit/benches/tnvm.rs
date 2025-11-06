@@ -1,16 +1,16 @@
 use common::build_qsearch_thick_step_circuit;
 use common::build_qsearch_thin_step_circuit;
+use criterion::Criterion;
 use criterion::criterion_group;
 use criterion::criterion_main;
-use criterion::Criterion;
 
 mod common;
-use common::build_qft_circuit;
 use common::FlamegraphProfiler;
-use qudit_core::c32;
+use common::build_qft_circuit;
 use qudit_core::BitWidthConvertible;
-use qudit_core::c64;
 use qudit_core::ComplexScalar;
+use qudit_core::c32;
+use qudit_core::c64;
 use qudit_expr::{FUNCTION, GRADIENT, HESSIAN};
 use qudit_tensor::TNVM;
 use qudit_tensor::compile_network;

@@ -1,5 +1,5 @@
-use qudit_core::RealScalar;
 use super::super::InitialGuessGenerator;
+use qudit_core::RealScalar;
 use rand::Rng;
 use rand::distr::Uniform as RandUniform;
 
@@ -35,11 +35,11 @@ impl<R: RealScalar> Default for Uniform<R> {
 impl<R: RealScalar> InitialGuessGenerator<R> for Uniform<R> {
     fn generate(&self, num_params: usize) -> Vec<R> {
         let mut rng = rand::rng();
-        let distribution = RandUniform::new(
-            self.lower_bound.to64(),
-            self.upper_bound.to64(),
-        ).unwrap();
+        let distribution =
+            RandUniform::new(self.lower_bound.to64(), self.upper_bound.to64()).unwrap();
 
-        (0..num_params).map(|_| R::from64(rng.sample(distribution))).collect()
+        (0..num_params)
+            .map(|_| R::from64(rng.sample(distribution)))
+            .collect()
     }
 }

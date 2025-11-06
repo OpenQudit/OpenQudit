@@ -5,12 +5,12 @@ use std::path::Path;
 
 use criterion::profiler::Profiler;
 use pprof::ProfilerGuard;
-use qudit_circuit::WireList;
 use qudit_circuit::QuditCircuit;
+use qudit_circuit::WireList;
+use qudit_core::QuditRadices;
 use qudit_core::radices;
 use qudit_expr::UnitaryExpression;
 use qudit_gates::Gate;
-use qudit_core::QuditRadices;
 use rand::Rng;
 
 /// Build a QFT circuit with `n` qubits.
@@ -33,32 +33,37 @@ pub fn build_qft_circuit(n: usize) -> QuditCircuit {
     circ
 }
 
-
 pub fn build_dtc_circuit(n: usize) {
     let g = 0.95;
 
-    let rx_expr = UnitaryExpression::new("RX(theta) {
+    let rx_expr = UnitaryExpression::new(
+        "RX(theta) {
         [
             [cos(theta/2), ~i*sin(theta/2)],
             [~i*sin(theta/2), cos(theta/2)],
         ]
-    }");
+    }",
+    );
 
-    let rz_expr = UnitaryExpression::new("RZ(theta) {
+    let rz_expr = UnitaryExpression::new(
+        "RZ(theta) {
         [
             [e^(~i*theta/2), 0],
             [0, e^(i*theta/2)],
         ]
-    }");
+    }",
+    );
 
-    let rzz_expr = UnitaryExpression::new("RZZ(theta) {
+    let rzz_expr = UnitaryExpression::new(
+        "RZZ(theta) {
         [
             [e^(~i*theta/2), 0, 0, 0],
             [0, e^(i*theta/2), 0, 0],
             [0, 0, e^(i*theta/2), 0],
             [0, 0, 0, e^(~i*theta/2)],
         ]
-    }");
+    }",
+    );
 
     let mut circ = QuditCircuit::pure(radices![2; n]);
     let rx_ref = circ.cache_operation(rx_expr);
@@ -74,21 +79,21 @@ pub fn build_dtc_circuit(n: usize) {
         for i in (0..(n - 1)).step_by(2) {
             let low = PI / 16.0;
             let high = 3.0 * PI / 16.0;
-            let phi: f64 = rng.gen_range(low..high);  
+            let phi: f64 = rng.gen_range(low..high);
             circ.append_by_code(rzz_ref, [i, i + 1], [phi]);
         }
 
         for i in (1..(n - 1)).step_by(2) {
             let low = PI / 16.0;
             let high = 3.0 * PI / 16.0;
-            let phi: f64 = rng.gen_range(low..high);  
+            let phi: f64 = rng.gen_range(low..high);
             circ.append_by_code(rzz_ref, [i, i + 1], [phi]);
         }
 
         for i in 0..n {
             let low = -PI;
             let high = PI;
-            let phi: f64 = rng.gen_range(low..high);  
+            let phi: f64 = rng.gen_range(low..high);
             circ.append_by_code(rz_ref, i, [phi]);
         }
     }
@@ -132,7 +137,7 @@ use pprof::criterion::{Output, PProfProfiler};
 use pprof::flamegraph::Options;
 
 pub struct FlamegraphProfiler<'a, 'b> {
-    inner: PProfProfiler<'a, 'b>
+    inner: PProfProfiler<'a, 'b>,
 }
 
 impl<'a, 'b> FlamegraphProfiler<'a, 'b> {
@@ -141,7 +146,7 @@ impl<'a, 'b> FlamegraphProfiler<'a, 'b> {
         options.image_width = Some(2560);
         options.hash = true;
         FlamegraphProfiler {
-            inner: PProfProfiler::new(frequency, Output::Flamegraph(Some(options)))
+            inner: PProfProfiler::new(frequency, Output::Flamegraph(Some(options))),
         }
     }
 }

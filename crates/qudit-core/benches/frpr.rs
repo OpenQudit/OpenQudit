@@ -1,7 +1,7 @@
-use criterion::criterion_group;
-use criterion::criterion_main;
 use criterion::BenchmarkId;
 use criterion::Criterion;
+use criterion::criterion_group;
+use criterion::criterion_main;
 
 mod common;
 use common::FlamegraphProfiler;

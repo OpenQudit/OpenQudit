@@ -1,10 +1,10 @@
 mod cycle;
-mod list;
 mod id;
+mod list;
 
 pub use cycle::QuditCycle;
-pub use list::CycleList;
 pub use id::CycleId;
 pub use id::CycleIndex;
-pub use id::InstId;
 pub use id::INVALID_CYCLE_ID;
+pub use id::InstId;
+pub use list::CycleList;

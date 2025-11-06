@@ -1,5 +1,5 @@
-use qudit_core::RealScalar;
 use super::super::InitialGuessGenerator;
+use qudit_core::RealScalar;
 use rand::Rng;
 use rand::distr::Uniform as RandUniform;
 
@@ -32,10 +32,8 @@ impl<R: RealScalar> GreedyFurthestPoint<R> {
 
     fn generate_candidates(&self, num_params: usize) -> Vec<Vec<R>> {
         let mut rng = rand::rng();
-        let distribution = RandUniform::new(
-            self.lower_bound.to64(),
-            self.upper_bound.to64(),
-        ).unwrap();
+        let distribution =
+            RandUniform::new(self.lower_bound.to64(), self.upper_bound.to64()).unwrap();
 
         (0..self.num_candidates)
             .map(|_| {
@@ -72,7 +70,7 @@ impl<R: RealScalar> GreedyFurthestPoint<R> {
 
     pub fn generate_multiple(&mut self, num_params: usize, num_points: usize) -> Vec<Vec<R>> {
         self.reset();
-        
+
         if num_points == 0 {
             return Vec::new();
         }
@@ -94,7 +92,10 @@ impl<R: RealScalar> GreedyFurthestPoint<R> {
             for (idx, candidate) in candidates.iter().enumerate() {
                 // Skip if already selected
                 if self.selected_points.iter().any(|selected| {
-                    selected.iter().zip(candidate.iter()).all(|(a, b)| (*a).is_close(*b))
+                    selected
+                        .iter()
+                        .zip(candidate.iter())
+                        .all(|(a, b)| (*a).is_close(*b))
                 }) {
                     continue;
                 }
@@ -107,7 +108,8 @@ impl<R: RealScalar> GreedyFurthestPoint<R> {
             }
 
             result.push(candidates[best_candidate_idx].clone());
-            self.selected_points.push(candidates[best_candidate_idx].clone());
+            self.selected_points
+                .push(candidates[best_candidate_idx].clone());
         }
 
         result
@@ -126,17 +128,14 @@ impl<R: RealScalar> Default for GreedyFurthestPoint<R> {
 
 impl<R: RealScalar> InitialGuessGenerator<R> for GreedyFurthestPoint<R> {
     fn generate(&self, num_params: usize) -> Vec<R> {
-        let mut generator = GreedyFurthestPoint::new(
-            self.lower_bound,
-            self.upper_bound,
-            self.num_candidates,
-        );
-        
+        let mut generator =
+            GreedyFurthestPoint::new(self.lower_bound, self.upper_bound, self.num_candidates);
+
         // Copy existing selected points
         generator.selected_points = self.selected_points.clone();
-        
+
         let candidates = generator.generate_candidates(num_params);
-        
+
         if generator.selected_points.is_empty() {
             // First point - select randomly
             let mut rng = rand::rng();

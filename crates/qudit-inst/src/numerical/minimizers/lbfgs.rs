@@ -1,7 +1,7 @@
-use qudit_core::RealScalar;
 use super::super::MinimizationAlgorithm;
 use super::super::MinimizationResult;
 use super::super::ProvidesGradient;
+use qudit_core::RealScalar;
 
 #[derive(Clone)]
 pub struct LBFGS;
@@ -17,7 +17,7 @@ where
         problem.build_gradient()
     }
 
-    fn minimize(&self, objective: &mut Self::Func, x0: &[R]) -> MinimizationResult<R> {    
+    fn minimize(&self, objective: &mut Self::Func, x0: &[R]) -> MinimizationResult<R> {
         todo!()
     }
 }

@@ -1,11 +1,10 @@
 use qudit_core::ComplexScalar;
 
+use crate::Instantiater;
 use crate::InstantiationResult;
 use crate::InstantiationTarget;
-use crate::Instantiater;
 
-struct QfactorInstantiater {
-}
+struct QfactorInstantiater {}
 
 // impl<C: ComplexScalar> Instantiater<C> for QfactorInstantiater {
 //     fn instantiate(

@@ -1,7 +1,7 @@
 use slotmap::Key;
 
-use crate::cycle::{CycleId, INVALID_CYCLE_ID};
 use crate::cycle::InstId;
+use crate::cycle::{CycleId, INVALID_CYCLE_ID};
 
 /// A persitent identifier uniquely identifying an instruction within a specific cycle.
 ///
@@ -87,11 +87,19 @@ mod python {
         }
 
         fn __repr__(&self) -> String {
-            format!("InstructionId(cycle={:?}, inner={:?})", self.inner.cycle(), self.inner.inner())
+            format!(
+                "InstructionId(cycle={:?}, inner={:?})",
+                self.inner.cycle(),
+                self.inner.inner()
+            )
         }
 
         fn __str__(&self) -> String {
-            format!("({}, 0x{:016x})", self.inner.cycle().get(), self.inner.inner().data().as_ffi())
+            format!(
+                "({}, 0x{:016x})",
+                self.inner.cycle().get(),
+                self.inner.inner().data().as_ffi()
+            )
         }
     }
 
@@ -138,7 +146,7 @@ mod tests {
 
         assert!(valid_id.is_valid());
         assert!(!valid_id.is_invalid());
-        
+
         assert!(!invalid_id.is_valid());
         assert!(invalid_id.is_invalid());
     }
@@ -148,7 +156,7 @@ mod tests {
         let cycle_id = CycleId::new(42);
         let inst_id = InstId::from(KeyData::from_ffi(0x1234567990abcdef));
         let instruction_id = InstructionId::new(cycle_id, inst_id);
-        
+
         let display_str = format!("{}", instruction_id);
         assert_eq!(display_str, "(42, 0x1234567990abcdef)");
     }

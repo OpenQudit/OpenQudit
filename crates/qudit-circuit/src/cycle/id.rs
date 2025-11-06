@@ -1,7 +1,7 @@
 use slotmap::new_key_type;
-use std::ops::{Add, Sub, AddAssign, SubAssign};
+use std::ops::{Add, AddAssign, Sub, SubAssign};
 
-new_key_type! { 
+new_key_type! {
     /// A unique internal identifier for instruction instances within a cycle.
     ///
     /// Generated automatically by the cycle when instructions are inserted,
@@ -224,4 +224,3 @@ mod python {
         }
     }
 }
-

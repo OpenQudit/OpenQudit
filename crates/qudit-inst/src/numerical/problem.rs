@@ -6,14 +6,14 @@
 //! This design is for performance reasons. Some problems may be computationally expensive to build as well as evaluate.
 //! The separation of a `Problem` from the `Function` it generates allows performance optimizations in these cases.
 
-use qudit_core::ComplexScalar;
-use qudit_core::RealScalar;
 use crate::numerical::function::CostFunction;
 use crate::numerical::function::Function;
 use crate::numerical::function::Gradient;
 use crate::numerical::function::Hessian;
-use crate::numerical::function::ResidualFunction;
 use crate::numerical::function::Jacobian;
+use crate::numerical::function::ResidualFunction;
+use qudit_core::ComplexScalar;
+use qudit_core::RealScalar;
 
 /// A trait for defining optimization problems.
 pub trait Problem {

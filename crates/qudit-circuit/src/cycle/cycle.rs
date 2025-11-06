@@ -3,12 +3,12 @@ use std::fmt;
 
 use slotmap::SlotMap;
 
-use super::InstId;
 use super::CycleId;
+use super::InstId;
 
-use crate::instruction::Instruction;
 use crate::Wire;
 use crate::WireList;
+use crate::instruction::Instruction;
 
 #[derive(Clone)]
 #[repr(align(128))]
@@ -40,11 +40,15 @@ impl QuditCycle {
     }
 
     pub fn get(&self, wire: Wire) -> Option<&Instruction> {
-        self.reg_map.get(&wire).map(|&id| self.insts.get(id).unwrap())
+        self.reg_map
+            .get(&wire)
+            .map(|&id| self.insts.get(id).unwrap())
     }
 
     pub fn get_mut(&mut self, wire: Wire) -> Option<&mut Instruction> {
-        self.reg_map.get(&wire).map(|&id| self.insts.get_mut(id).unwrap())
+        self.reg_map
+            .get(&wire)
+            .map(|&id| self.insts.get_mut(id).unwrap())
     }
 
     pub fn push(&mut self, inst: Instruction) -> InstId {
@@ -82,7 +86,7 @@ impl QuditCycle {
             None => return None,
             Some(inst_id) => inst_id,
         };
-        
+
         self.get_wires_from_id(*inst_id)
     }
 
@@ -99,13 +103,15 @@ impl QuditCycle {
     }
 
     pub fn set_next(&mut self, wire: Wire, next_cycle_id: CycleId) {
-        self.dag_ptrs.entry(wire)
+        self.dag_ptrs
+            .entry(wire)
             .and_modify(|(_, n)| *n = Some(next_cycle_id))
             .or_insert((None, Some(next_cycle_id)));
     }
 
     pub fn set_prev(&mut self, wire: Wire, prev_cycle_id: CycleId) {
-        self.dag_ptrs.entry(wire)
+        self.dag_ptrs
+            .entry(wire)
             .and_modify(|(p, _)| *p = Some(prev_cycle_id))
             .or_insert((Some(prev_cycle_id), None));
     }
@@ -152,4 +158,3 @@ impl fmt::Debug for QuditCycle {
         debug_struct_fmt.finish()
     }
 }
-

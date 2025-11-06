@@ -4,12 +4,12 @@ use crate::memory::Memorable;
 
 use faer_traits::ComplexField;
 use faer_traits::RealField;
-use num::bigint::BigInt;
-use num::complex::ComplexFloat;
-use num::rational::Ratio;
 use num::FromPrimitive;
 use num::Signed;
 use num::ToPrimitive;
+use num::bigint::BigInt;
+use num::complex::ComplexFloat;
+use num::rational::Ratio;
 use num_traits::AsPrimitive;
 use num_traits::ConstOne;
 use num_traits::ConstZero;

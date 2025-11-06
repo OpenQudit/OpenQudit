@@ -1,5 +1,5 @@
-use super::storage::CompactStorage;
 use super::LimitedSizeVec;
+use super::storage::CompactStorage;
 use std::any::TypeId;
 use std::hash::Hash;
 
@@ -271,12 +271,14 @@ impl<T: CompactStorage> CompactVec<T> {
     /// }
     /// ```
     #[inline]
-    pub unsafe fn get_unchecked(&self, index: usize) -> T { unsafe {
-        match self {
-            CompactVec::Inline(storage, _) => T::from_inline(*storage.get_unchecked(index)),
-            CompactVec::Heap(vec) => *vec.get_unchecked(index),
+    pub unsafe fn get_unchecked(&self, index: usize) -> T {
+        unsafe {
+            match self {
+                CompactVec::Inline(storage, _) => T::from_inline(*storage.get_unchecked(index)),
+                CompactVec::Heap(vec) => *vec.get_unchecked(index),
+            }
         }
-    }}
+    }
 
     /// Returns `true` if the vector is currently using inline storage.
     ///
@@ -710,21 +712,23 @@ impl<T: CompactStorage> CompactVec<T> {
     /// }
     /// ```
     #[inline]
-    pub unsafe fn get_mut_unchecked(&mut self, index: usize) -> &mut T { unsafe {
-        // Check if T and T::InlineType are the same type (zero-cost conversion)
-        match self {
-            CompactVec::Inline(storage, _) => {
-                if TypeId::of::<T>() == TypeId::of::<T::InlineType>() {
-                    // Safe because T == T::InlineType and caller guarantees bounds
-                    let ptr = storage.as_mut_ptr() as *mut T;
-                    &mut *ptr.add(index)
-                } else {
-                    self.transition_to_heap().get_mut_unchecked(index)
+    pub unsafe fn get_mut_unchecked(&mut self, index: usize) -> &mut T {
+        unsafe {
+            // Check if T and T::InlineType are the same type (zero-cost conversion)
+            match self {
+                CompactVec::Inline(storage, _) => {
+                    if TypeId::of::<T>() == TypeId::of::<T::InlineType>() {
+                        // Safe because T == T::InlineType and caller guarantees bounds
+                        let ptr = storage.as_mut_ptr() as *mut T;
+                        &mut *ptr.add(index)
+                    } else {
+                        self.transition_to_heap().get_mut_unchecked(index)
+                    }
                 }
+                CompactVec::Heap(vec) => vec.get_mut_unchecked(index),
             }
-            CompactVec::Heap(vec) => vec.get_mut_unchecked(index),
         }
-    }}
+    }
 
     /// Returns the vector's contents as a mutable slice.
     ///

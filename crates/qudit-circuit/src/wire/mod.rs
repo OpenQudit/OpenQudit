@@ -1,5 +1,5 @@
-mod wire;
 mod list;
+mod wire;
 
-pub use wire::Wire;
 pub use list::WireList;
+pub use wire::Wire;

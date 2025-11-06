@@ -5,9 +5,9 @@ use nano_gemm::Plan;
 use num_traits::One;
 use num_traits::Zero;
 
+use crate::ComplexScalar;
 use crate::c32;
 use crate::c64;
-use crate::ComplexScalar;
 use faer::MatMut;
 use faer::MatRef;
 
@@ -139,26 +139,28 @@ impl<C: ComplexScalar> MatMulPlan<C> {
         lhs_cs: isize,
         rhs_rs: isize,
         rhs_cs: isize,
-    ) { unsafe {
-        self.plan.execute_unchecked(
-            self.m,
-            self.n,
-            self.k,
-            out,
-            dst_rs,
-            dst_cs,
-            lhs,
-            lhs_rs,
-            lhs_cs,
-            rhs,
-            rhs_rs,
-            rhs_cs,
-            C::zero(),
-            C::one(),
-            false,
-            false,
-        );
-    }}
+    ) {
+        unsafe {
+            self.plan.execute_unchecked(
+                self.m,
+                self.n,
+                self.k,
+                out,
+                dst_rs,
+                dst_cs,
+                lhs,
+                lhs_rs,
+                lhs_cs,
+                rhs,
+                rhs_rs,
+                rhs_cs,
+                C::zero(),
+                C::one(),
+                false,
+                false,
+            );
+        }
+    }
 
     /// Executes the milikernel of the plan, for matrix multiplication followed by addition.
     /// (`alpha = 1`, `beta = 1`) We do not perform comprehensive checks.
@@ -243,26 +245,28 @@ impl<C: ComplexScalar> MatMulPlan<C> {
         lhs_cs: isize,
         rhs_rs: isize,
         rhs_cs: isize,
-    ) { unsafe {
-        self.plan.execute_unchecked(
-            self.m,
-            self.n,
-            self.k,
-            out,
-            dst_rs,
-            dst_cs,
-            lhs,
-            lhs_rs,
-            lhs_cs,
-            rhs,
-            rhs_rs,
-            rhs_cs,
-            C::one(),
-            C::one(),
-            false,
-            false,
-        );
-    }}
+    ) {
+        unsafe {
+            self.plan.execute_unchecked(
+                self.m,
+                self.n,
+                self.k,
+                out,
+                dst_rs,
+                dst_cs,
+                lhs,
+                lhs_rs,
+                lhs_cs,
+                rhs,
+                rhs_rs,
+                rhs_cs,
+                C::one(),
+                C::one(),
+                false,
+                false,
+            );
+        }
+    }
 }
 
 /// Performs matrix-matrix multiplication. (`alpha = 0`, `beta = 1`)
@@ -374,8 +378,8 @@ pub fn matmul_unchecked<C: ComplexScalar>(lhs: MatRef<C>, rhs: MatRef<C>, out: M
 mod tests {
     use super::*;
     use crate::{c32, c64};
-    use faer::mat;
     use faer::Mat;
+    use faer::mat;
     use num_traits::Zero;
 
     #[test]

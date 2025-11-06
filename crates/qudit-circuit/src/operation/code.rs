@@ -6,7 +6,6 @@ use super::kind::OpKind;
 pub struct OpCode(u64);
 
 impl OpCode {
-
     /// Number of bits reserved for operation kind
     const KIND_BITS: u32 = 3;
 
@@ -20,17 +19,17 @@ impl OpCode {
     const REF_MASK: u64 = !Self::KIND_MASK;
 
     /// Creates an OpCode from an operation kind and reference ID.
-    /// 
+    ///
     /// Packs the operation kind into the upper 3 bits and the reference ID into
     /// the remaining bits of a 64-bit value.
-    /// 
+    ///
     /// # Arguments
-    /// 
+    ///
     /// * `kind` - Operation kind, stored in upper 3 bits
     /// * `id` - Persistent reference ID, must fit in remaining bits
-    /// 
+    ///
     /// # Panics
-    /// 
+    ///
     /// Panics if `id` exceeds capacity and would overflow into kind bits.
     #[inline]
     pub(crate) fn new(kind: OpKind, id: u64) -> Self {
@@ -52,7 +51,7 @@ impl OpCode {
     #[inline(always)]
     pub fn kind(&self) -> OpKind {
         // SAFETY: OpKind is repr(u8) and we only store valid values (0-2)
-        unsafe { std::mem::transmute( Self::kind_bits(self.0)) }
+        unsafe { std::mem::transmute(Self::kind_bits(self.0)) }
     }
 
     /// Returns the persistent reference ID encoded in this OpCode.
@@ -64,9 +63,9 @@ impl OpCode {
 
 #[cfg(feature = "python")]
 mod python {
-    use pyo3::prelude::*;
-    use crate::python::PyCircuitRegistrar;
     use super::*;
+    use crate::python::PyCircuitRegistrar;
+    use pyo3::prelude::*;
 
     /// Python wrapper for the OpCode struct.
     ///
@@ -86,7 +85,7 @@ mod python {
         }
 
         /// Returns the operation reference ID.
-        #[getter] 
+        #[getter]
         fn id(&self) -> u64 {
             self.inner.id()
         }
@@ -132,19 +131,20 @@ mod python {
                 // Validate that the kind bits represent a valid OpKind
                 let kind_bits = OpCode::kind_bits(value);
                 if OpKind::from_u8(kind_bits).is_none() {
-                    return Err(pyo3::exceptions::PyValueError::new_err(
-                        format!("Invalid OpKind value {} in OpCode", kind_bits)
-                    ));
+                    return Err(pyo3::exceptions::PyValueError::new_err(format!(
+                        "Invalid OpKind value {} in OpCode",
+                        kind_bits
+                    )));
                 }
                 Ok(OpCode(value))
             } else {
                 Err(pyo3::exceptions::PyTypeError::new_err(
-                    "Expected OpCode or int"
+                    "Expected OpCode or int",
                 ))
             }
         }
     }
-    
+
     /// Registers the OpCode class with the Python module.
     fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
         parent_module.add_class::<PyOpCode>()?;
@@ -178,4 +178,3 @@ mod tests {
         OpCode::new(OpKind::Expression, OpCode::REF_MASK + 1);
     }
 }
-

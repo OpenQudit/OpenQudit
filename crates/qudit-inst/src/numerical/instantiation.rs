@@ -4,8 +4,8 @@ use qudit_circuit::QuditCircuit;
 use qudit_core::ComplexScalar;
 use qudit_core::RealScalar;
 
-use super::Runner;
 use super::Problem;
+use super::Runner;
 use crate::DataMap;
 use crate::Instantiater;
 use crate::InstantiationResult;
@@ -54,20 +54,35 @@ where
 #[cfg(feature = "python")]
 mod python {
     #![allow(non_snake_case)]
-    use crate::{instantiater::python::{BoxedInstantiater, InstantiaterWrapper}, numerical::{functions::HSProblem, initializers::Uniform, minimizers::LM, runners::MultiStartRunner}, python::PyInstantiationRegistrar};
+    use crate::{
+        instantiater::python::{BoxedInstantiater, InstantiaterWrapper},
+        numerical::{
+            functions::HSProblem, initializers::Uniform, minimizers::LM, runners::MultiStartRunner,
+        },
+        python::PyInstantiationRegistrar,
+    };
 
     use super::*;
     use pyo3::prelude::*;
 
-    impl InstantiaterWrapper for MinimizingInstantiater<MultiStartRunner<LM<f64>, Uniform<f64>>, HSProblem<f64>> {}
-    
+    impl InstantiaterWrapper
+        for MinimizingInstantiater<MultiStartRunner<LM<f64>, Uniform<f64>>, HSProblem<f64>>
+    {
+    }
+
     #[pyfunction]
     fn DefaultInstantiater() -> BoxedInstantiater {
         let minimizer = LM::default();
         let initializer = Uniform::default();
-        let runner = MultiStartRunner { minimizer, guess_generator: initializer, num_starts: 16 };
+        let runner = MultiStartRunner {
+            minimizer,
+            guess_generator: initializer,
+            num_starts: 16,
+        };
         let instantiater = MinimizingInstantiater::<_, HSProblem<f64>>::new(runner);
-        BoxedInstantiater { inner: Box::new(instantiater) }
+        BoxedInstantiater {
+            inner: Box::new(instantiater),
+        }
     }
 
     /// Registers the Instantiaters with the Python module.
@@ -75,5 +90,5 @@ mod python {
         parent_module.add_function(wrap_pyfunction!(DefaultInstantiater, parent_module)?)?;
         Ok(())
     }
-    inventory::submit!(PyInstantiationRegistrar { func: register }); 
+    inventory::submit!(PyInstantiationRegistrar { func: register });
 }

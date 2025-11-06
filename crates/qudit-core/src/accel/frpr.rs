@@ -584,58 +584,60 @@ unsafe fn reshape_outer_kernel<E: Copy>(
     in_strides: &[isize],
     out_strides: &[isize],
     dims: &[usize],
-) { unsafe {
-    let ndims = dims.len();
-    assert!(ndims >= kernel_size);
-    if ndims == kernel_size {
-        inner_kernel(out, inp, dims, in_strides, out_strides);
-        return;
-    }
-
-    let mut current_axis = ndims - 1 - kernel_size;
-    let mut inp_current_offset = Wrapping(0isize); //TODO: investigate why only `inp_current_offset` is wrapped
-    let mut out_current_offset = 0isize;
-
-    'outer: loop {
-        // Through multiple iterations in the `outer` loop, apply the inner kernel
-        // to all (inner tensor) elements along the innermost outer axis.
-        inner_kernel(
-            out.offset(out_current_offset),
-            inp.offset(inp_current_offset.0),
-            &dims[ndims - kernel_size..],
-            &in_strides[ndims - kernel_size..],
-            &out_strides[ndims - kernel_size..],
-        );
-        // Notice `state[current_axis]` goes from 1 ~ `dims[current_axis]`, not 0 ~ `dims[current_axis] - 1`.
-        state[current_axis] += 1;
-        out_current_offset += out_strides[current_axis];
-        inp_current_offset += in_strides[current_axis];
-
-        while state[current_axis] == dims[current_axis] {
-            if current_axis == 0 {
-                break 'outer;
-            } else {
-                // Reset the state and offsets for the current axis. We have to do this because we will
-                // iterate through this axis again once we complete one instance of the next outer loop.
-                state[current_axis] = 0;
-                inp_current_offset -=
-                    (dims[current_axis] as isize).wrapping_mul(in_strides[current_axis]);
-                out_current_offset -=
-                    (dims[current_axis] as isize).wrapping_mul(out_strides[current_axis]);
-
-                // Advance our state and offsets for the next outer axis.
-                state[current_axis - 1] += 1;
-                inp_current_offset += in_strides[current_axis - 1];
-                out_current_offset += out_strides[current_axis - 1];
-            }
-            // Move to the next outer axis. We do this to check if we have iterated through all
-            // (tensor) elements along this outer axis via the while loop condition.
-            current_axis -= 1;
+) {
+    unsafe {
+        let ndims = dims.len();
+        assert!(ndims >= kernel_size);
+        if ndims == kernel_size {
+            inner_kernel(out, inp, dims, in_strides, out_strides);
+            return;
         }
-        // Reset `current_axis` to the innermost outer axis.
-        current_axis = ndims - 1 - kernel_size;
+
+        let mut current_axis = ndims - 1 - kernel_size;
+        let mut inp_current_offset = Wrapping(0isize); //TODO: investigate why only `inp_current_offset` is wrapped
+        let mut out_current_offset = 0isize;
+
+        'outer: loop {
+            // Through multiple iterations in the `outer` loop, apply the inner kernel
+            // to all (inner tensor) elements along the innermost outer axis.
+            inner_kernel(
+                out.offset(out_current_offset),
+                inp.offset(inp_current_offset.0),
+                &dims[ndims - kernel_size..],
+                &in_strides[ndims - kernel_size..],
+                &out_strides[ndims - kernel_size..],
+            );
+            // Notice `state[current_axis]` goes from 1 ~ `dims[current_axis]`, not 0 ~ `dims[current_axis] - 1`.
+            state[current_axis] += 1;
+            out_current_offset += out_strides[current_axis];
+            inp_current_offset += in_strides[current_axis];
+
+            while state[current_axis] == dims[current_axis] {
+                if current_axis == 0 {
+                    break 'outer;
+                } else {
+                    // Reset the state and offsets for the current axis. We have to do this because we will
+                    // iterate through this axis again once we complete one instance of the next outer loop.
+                    state[current_axis] = 0;
+                    inp_current_offset -=
+                        (dims[current_axis] as isize).wrapping_mul(in_strides[current_axis]);
+                    out_current_offset -=
+                        (dims[current_axis] as isize).wrapping_mul(out_strides[current_axis]);
+
+                    // Advance our state and offsets for the next outer axis.
+                    state[current_axis - 1] += 1;
+                    inp_current_offset += in_strides[current_axis - 1];
+                    out_current_offset += out_strides[current_axis - 1];
+                }
+                // Move to the next outer axis. We do this to check if we have iterated through all
+                // (tensor) elements along this outer axis via the while loop condition.
+                current_axis -= 1;
+            }
+            // Reset `current_axis` to the innermost outer axis.
+            current_axis = ndims - 1 - kernel_size;
+        }
     }
-}}
+}
 
 fn tensor_fused_reshape_permute_reshape_into_prepare_helper(
     in_shape: &[usize],
@@ -1295,79 +1297,81 @@ pub unsafe fn fused_reshape_permute_reshape_into_impl<E: Copy>(
     sorted_perm_in_strides: &[isize],
     sorted_out_strides: &[isize],
     sorted_perm_shape: &[usize],
-) { unsafe {
-    // TODO: Investigate PodStack
-    let ndims = sorted_perm_in_strides.len();
-    let mut state = vec![0usize; ndims]; // TODO: Change to stack/heap vec
+) {
+    unsafe {
+        // TODO: Investigate PodStack
+        let ndims = sorted_perm_in_strides.len();
+        let mut state = vec![0usize; ndims]; // TODO: Change to stack/heap vec
 
-    // if ndims >= 6 {
-    //     reshape_outer_kernel(
-    //         6,
-    //         __reshape_kernel_6,
-    //         out,
-    //         inp,
-    //         &mut state,
-    //         sorted_perm_in_strides,
-    //         sorted_out_strides,
-    //         sorted_perm_shape,
-    //     );
-    if ndims == 5 {
-        reshape_outer_kernel(
-            5,
-            __reshape_kernel_5,
-            out,
-            inp,
-            &mut state,
-            sorted_perm_in_strides,
-            sorted_out_strides,
-            sorted_perm_shape,
-        );
-    } else if ndims == 4 {
-        reshape_outer_kernel(
-            4,
-            __reshape_kernel_4,
-            out,
-            inp,
-            &mut state,
-            sorted_perm_in_strides,
-            sorted_out_strides,
-            sorted_perm_shape,
-        );
-    } else if ndims == 3 {
-        reshape_outer_kernel(
-            3,
-            __reshape_kernel_3,
-            out,
-            inp,
-            &mut state,
-            sorted_perm_in_strides,
-            sorted_out_strides,
-            sorted_perm_shape,
-        );
-    } else if ndims == 2 {
-        reshape_outer_kernel(
-            2,
-            __reshape_kernel_2,
-            out,
-            inp,
-            &mut state,
-            sorted_perm_in_strides,
-            sorted_out_strides,
-            sorted_perm_shape,
-        );
-    } else {
-        reshape_outer_kernel(
-            0,
-            __reshape_kernel_0,
-            out,
-            inp,
-            &mut state,
-            sorted_perm_in_strides,
-            sorted_out_strides,
-            sorted_perm_shape,
-        );
+        // if ndims >= 6 {
+        //     reshape_outer_kernel(
+        //         6,
+        //         __reshape_kernel_6,
+        //         out,
+        //         inp,
+        //         &mut state,
+        //         sorted_perm_in_strides,
+        //         sorted_out_strides,
+        //         sorted_perm_shape,
+        //     );
+        if ndims == 5 {
+            reshape_outer_kernel(
+                5,
+                __reshape_kernel_5,
+                out,
+                inp,
+                &mut state,
+                sorted_perm_in_strides,
+                sorted_out_strides,
+                sorted_perm_shape,
+            );
+        } else if ndims == 4 {
+            reshape_outer_kernel(
+                4,
+                __reshape_kernel_4,
+                out,
+                inp,
+                &mut state,
+                sorted_perm_in_strides,
+                sorted_out_strides,
+                sorted_perm_shape,
+            );
+        } else if ndims == 3 {
+            reshape_outer_kernel(
+                3,
+                __reshape_kernel_3,
+                out,
+                inp,
+                &mut state,
+                sorted_perm_in_strides,
+                sorted_out_strides,
+                sorted_perm_shape,
+            );
+        } else if ndims == 2 {
+            reshape_outer_kernel(
+                2,
+                __reshape_kernel_2,
+                out,
+                inp,
+                &mut state,
+                sorted_perm_in_strides,
+                sorted_out_strides,
+                sorted_perm_shape,
+            );
+        } else {
+            reshape_outer_kernel(
+                0,
+                __reshape_kernel_0,
+                out,
+                inp,
+                &mut state,
+                sorted_perm_in_strides,
+                sorted_out_strides,
+                sorted_perm_shape,
+            );
+        }
     }
-}}
+}
 
 /// Perform a fused reshape, permute, and reshape operation.
 ///

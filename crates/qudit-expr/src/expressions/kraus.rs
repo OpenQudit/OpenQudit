@@ -136,7 +136,6 @@ mod python {
     use crate::python::PyExpressionRegistrar;
     use pyo3::prelude::*;
     use qudit_core::Radix;
-    
 
     #[pyclass]
     #[pyo3(name = "KrausOperatorsExpression")]

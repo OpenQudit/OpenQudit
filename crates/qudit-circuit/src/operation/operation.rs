@@ -48,8 +48,8 @@ impl HasParams for Operation {
 #[cfg(feature = "python")]
 mod python {
     use super::*;
-    use pyo3::{exceptions::PyTypeError, prelude::*};
     use crate::python::PyCircuitRegistrar;
+    use pyo3::{exceptions::PyTypeError, prelude::*};
 
     #[pyclass(name = "Operation")]
     #[derive(Clone)]

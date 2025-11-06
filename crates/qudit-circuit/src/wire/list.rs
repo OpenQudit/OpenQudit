@@ -1,5 +1,5 @@
-use qudit_core::CompactVec;
 use crate::wire::Wire;
+use qudit_core::CompactVec;
 use std::collections::HashSet;
 
 /// A WireList describes where an instruction is spatially executed.
@@ -8,8 +8,8 @@ use std::collections::HashSet;
 /// This is commonly used to indicate "where" an instruction acts. Semantically,
 /// this represents two separate lists for quantum and classical wires, so two wire
 /// lists are equal if their quantum and classical sub-lists are equal separately.
-/// 
-/// Order matters. For example, consider the wire list with wires = [q0, q2] 
+///
+/// Order matters. For example, consider the wire list with wires = [q0, q2]
 /// representing the two-qudit purely-quantum register of the first
 /// and third qudits in the circuit. This wire list is not equivalent to the
 /// wire list with wires = [q2, q0], as this describes a permutation of the former.
@@ -110,15 +110,13 @@ impl WireList {
     pub fn pure<T: AsRef<[usize]>>(indices: T) -> WireList {
         let indices = indices.as_ref();
         Self::check_uniqueness(indices, &[]);
-        
+
         let mut vec: CompactVec<Wire> = CompactVec::new();
         for &idx in indices {
             vec.push(Wire::quantum(idx));
         }
-        
-        WireList {
-            inner: vec
-        }
+
+        WireList { inner: vec }
     }
 
     /// Returns a purely-classical WireList object from the given vector.
@@ -143,15 +141,13 @@ impl WireList {
     pub fn classical<T: AsRef<[usize]>>(indices: T) -> WireList {
         let indices = indices.as_ref();
         Self::check_uniqueness(&[], indices);
-        
+
         let mut vec: CompactVec<Wire> = CompactVec::new();
         for &idx in indices {
             vec.push(Wire::classical(idx));
         }
-        
-        WireList {
-            inner: vec
-        }
+
+        WireList { inner: vec }
     }
 
     /// Returns a WireList object from the given vectors of quantum and classical indices.
@@ -176,7 +172,7 @@ impl WireList {
         let quantum_indices = qudits.as_ref();
         let classical_indices = dits.as_ref();
         Self::check_uniqueness(quantum_indices, classical_indices);
-        
+
         let mut vec: CompactVec<Wire> = CompactVec::new();
         for &idx in quantum_indices {
             vec.push(Wire::quantum(idx));
@@ -185,9 +181,7 @@ impl WireList {
             vec.push(Wire::classical(idx));
         }
 
-        WireList {
-            inner: vec,
-        }
+        WireList { inner: vec }
     }
 
     /// Creates a WireList directly from a collection of wires.
@@ -252,7 +246,13 @@ impl WireList {
     /// ```
     #[inline]
     pub fn qudits(&self) -> impl Iterator<Item = usize> + '_ {
-        self.inner.iter().filter_map(|w| if w.is_quantum() { Some(w.index()) } else { None })
+        self.inner.iter().filter_map(|w| {
+            if w.is_quantum() {
+                Some(w.index())
+            } else {
+                None
+            }
+        })
     }
 
     /// Get the classical wire indices in this list.
@@ -267,7 +267,13 @@ impl WireList {
     /// ```
     #[inline]
     pub fn dits(&self) -> impl Iterator<Item = usize> + '_ {
-        self.inner.iter().filter_map(|w| if w.is_classical() { Some(w.index()) } else { None })
+        self.inner.iter().filter_map(|w| {
+            if w.is_classical() {
+                Some(w.index())
+            } else {
+                None
+            }
+        })
     }
 
     /// Returns a new wire list containing all elements in `self` or `other`
@@ -346,7 +352,9 @@ impl WireList {
                 intersection_inner.push(wire);
             }
         }
-        WireList { inner: intersection_inner }
+        WireList {
+            inner: intersection_inner,
+        }
     }
 
     /// Returns a new wire list containing elements in `self` but not in `other`
@@ -390,7 +398,9 @@ impl WireList {
                 difference_inner.push(wire);
             }
         }
-        WireList { inner: difference_inner }
+        WireList {
+            inner: difference_inner,
+        }
     }
 
     /// Returns all possible pairs of qudits in this list.
@@ -470,8 +480,7 @@ impl WireList {
             return true;
         }
 
-        (0..(self.len() - 1))
-            .all(|i| self.inner.get(i).unwrap() < self.inner.get(i + 1).unwrap())
+        (0..(self.len() - 1)).all(|i| self.inner.get(i).unwrap() < self.inner.get(i + 1).unwrap())
     }
 
     /// Returns true if the qudits are sorted and have trivial ordering.
@@ -520,8 +529,7 @@ impl WireList {
             return true;
         }
 
-        (0..(dits_vec.len() - 1))
-            .all(|i| dits_vec.get(i).unwrap() < dits_vec.get(i + 1).unwrap())
+        (0..(dits_vec.len() - 1)).all(|i| dits_vec.get(i).unwrap() < dits_vec.get(i + 1).unwrap())
     }
 
     /// Returns true if the given wire is in the list.
@@ -691,7 +699,7 @@ impl PartialEq for WireList {
         if !self.qudits().eq(other.qudits()) {
             return false;
         }
-        
+
         // Compare classical wires (checks both length and content in one pass)
         self.dits().eq(other.dits())
     }
@@ -706,7 +714,7 @@ impl std::hash::Hash for WireList {
         for q in self.qudits() {
             q.hash(state);
         }
-        
+
         // Hash classical wires in order
         for c in self.dits() {
             c.hash(state);
@@ -734,22 +742,16 @@ impl IntoIterator for WireList {
 
 impl std::fmt::Debug for WireList {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let wires: Vec<String> = self
-            .wires()
-            .map(|wire| format!("{}", wire))
-            .collect();
-        
+        let wires: Vec<String> = self.wires().map(|wire| format!("{}", wire)).collect();
+
         write!(f, "WireList [{}]", wires.join(", "))
     }
 }
 
 impl std::fmt::Display for WireList {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let wires: Vec<String> = self
-            .wires()
-            .map(|wire| format!("{}", wire))
-            .collect();
-        
+        let wires: Vec<String> = self.wires().map(|wire| format!("{}", wire)).collect();
+
         write!(f, "[{}]", wires.join(", "))
     }
 }
@@ -836,9 +838,9 @@ impl AsRef<WireList> for WireList {
 #[cfg(feature = "python")]
 mod python {
     use super::*;
-    use pyo3::{prelude::*, types::PyTuple};
     use crate::python::PyCircuitRegistrar;
     use pyo3::types::PyList;
+    use pyo3::{prelude::*, types::PyTuple};
 
     /// Python wrapper for WireList
     #[pyclass(name = "WireList", frozen, hash, eq)]
@@ -888,11 +890,11 @@ mod python {
         #[pyo3(signature = (qudits_or_wires, dits = None))]
         fn new(qudits_or_wires: &Bound<'_, PyAny>, dits: Option<Vec<usize>>) -> PyResult<Self> {
             let mut all_wires = Vec::new();
-            
+
             // Process the main iterable - can contain usize or Wire objects
             for item in pyo3::types::PyIterator::from_object(qudits_or_wires)? {
                 let item = item?;
-                
+
                 // Try to extract as Wire first
                 if let Ok(wire) = item.extract::<Wire>() {
                     all_wires.push(wire);
@@ -900,21 +902,20 @@ mod python {
                 // Fall back to usize (convert to quantum wire)
                 else if let Ok(index) = item.extract::<usize>() {
                     all_wires.push(Wire::quantum(index));
-                }
-                else {
+                } else {
                     return Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                        "Items in qudits_or_wires must be integers or Wire objects"
+                        "Items in qudits_or_wires must be integers or Wire objects",
                     ));
                 }
             }
-            
+
             // Add classical wires if dits is provided
             if let Some(classical_indices) = dits {
                 for index in classical_indices {
                     all_wires.push(Wire::classical(index));
                 }
             }
-            
+
             Ok(PyWireList {
                 inner: WireList::from_wires(all_wires),
             })
@@ -1058,7 +1059,7 @@ mod python {
 
         fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             if let Ok(plist) = obj.extract::<PyWireList>() {
-                return Ok(plist.inner)
+                return Ok(plist.inner);
             }
 
             // Try to extract as a tuple of two lists
@@ -1069,14 +1070,14 @@ mod python {
                     return Ok(WireList::new(qudits, dits));
                 }
             }
-            
+
             // Try to extract as a single list (pure quantum)
             if let Ok(list) = obj.extract::<Vec<usize>>() {
                 return Ok(WireList::pure(list));
             }
-            
+
             Err(PyErr::new::<pyo3::exceptions::PyTypeError, _>(
-                "WireList expects either a list of indices or a tuple of (qudits, dits)"
+                "WireList expects either a list of indices or a tuple of (qudits, dits)",
             ))
         }
     }
@@ -1155,34 +1156,45 @@ mod tests {
     #[test]
     fn test_equality_semantics() {
         // Two lists with same quantum and classical wires but different interleaving
-        let list1 = WireList::from_wires(vec![Wire::quantum(0), Wire::classical(1), Wire::quantum(2)]);
-        let list2 = WireList::from_wires(vec![Wire::quantum(0), Wire::quantum(2), Wire::classical(1)]);
-        
+        let list1 =
+            WireList::from_wires(vec![Wire::quantum(0), Wire::classical(1), Wire::quantum(2)]);
+        let list2 =
+            WireList::from_wires(vec![Wire::quantum(0), Wire::quantum(2), Wire::classical(1)]);
+
         // Should be equal because quantum lists [0, 2] and classical lists [1] are the same
         assert_eq!(list1, list2);
 
         // Different quantum order should not be equal
-        let list3 = WireList::from_wires(vec![Wire::quantum(2), Wire::quantum(0), Wire::classical(1)]);
+        let list3 =
+            WireList::from_wires(vec![Wire::quantum(2), Wire::quantum(0), Wire::classical(1)]);
         assert_ne!(list1, list3);
 
         // Different classical order should not be equal
         let list4 = WireList::from_wires(vec![
-            Wire::quantum(0), Wire::quantum(2), Wire::classical(1), Wire::classical(3)
+            Wire::quantum(0),
+            Wire::quantum(2),
+            Wire::classical(1),
+            Wire::classical(3),
         ]);
         let list5 = WireList::from_wires(vec![
-            Wire::quantum(0), Wire::quantum(2), Wire::classical(3), Wire::classical(1)
+            Wire::quantum(0),
+            Wire::quantum(2),
+            Wire::classical(3),
+            Wire::classical(1),
         ]);
         assert_ne!(list4, list5);
     }
 
     #[test]
     fn test_hash_consistency_with_equality() {
-        let list1 = WireList::from_wires(vec![Wire::quantum(0), Wire::classical(1), Wire::quantum(2)]);
-        let list2 = WireList::from_wires(vec![Wire::quantum(0), Wire::quantum(2), Wire::classical(1)]);
-        
+        let list1 =
+            WireList::from_wires(vec![Wire::quantum(0), Wire::classical(1), Wire::quantum(2)]);
+        let list2 =
+            WireList::from_wires(vec![Wire::quantum(0), Wire::quantum(2), Wire::classical(1)]);
+
         // Equal objects must have equal hashes
         assert_eq!(list1, list2);
-        
+
         let mut hasher1 = std::collections::hash_map::DefaultHasher::new();
         let mut hasher2 = std::collections::hash_map::DefaultHasher::new();
         list1.hash(&mut hasher1);
@@ -1256,7 +1268,7 @@ mod tests {
         assert!(list.contains_qudit(0));
         assert!(list.contains_qudit(2));
         assert!(!list.contains_qudit(1));
-        
+
         assert!(list.contains_dit(1));
         assert!(list.contains_dit(3));
         assert!(!list.contains_dit(0));
@@ -1284,7 +1296,7 @@ mod tests {
         let list = WireList::pure(vec![0, 3, 1]);
         let pairs = list.get_qudit_pairs();
         let expected = vec![(0, 1), (0, 3), (1, 3)];
-        
+
         assert_eq!(pairs.len(), expected.len());
         for pair in expected {
             assert!(pairs.contains(&pair));
@@ -1329,25 +1341,33 @@ mod tests {
     #[test]
     fn test_display_and_debug() {
         let list = WireList::new(vec![0, 2], vec![1]);
-        
+
         // Test Display (clean format)
         let display_output = format!("{}", list);
-        assert!(display_output.contains("q0") && display_output.contains("q2") && display_output.contains("c1"));
+        assert!(
+            display_output.contains("q0")
+                && display_output.contains("q2")
+                && display_output.contains("c1")
+        );
         assert!(!display_output.contains("WireList")); // Display shouldn't include type name
 
         // Test Debug (includes type name)
         let debug_output = format!("{:?}", list);
         assert!(debug_output.contains("WireList"));
-        assert!(debug_output.contains("q0") && debug_output.contains("q2") && debug_output.contains("c1"));
+        assert!(
+            debug_output.contains("q0")
+                && debug_output.contains("q2")
+                && debug_output.contains("c1")
+        );
     }
 
     #[test]
     fn test_iterator() {
         let list = WireList::new(vec![0, 2], vec![1]);
-        
+
         let collected: Vec<Wire> = (&list).into_iter().collect();
         assert_eq!(collected.len(), 3);
-        
+
         // Test that iteration preserves order
         let mut iter = (&list).into_iter();
         let first = iter.next().unwrap();
@@ -1359,10 +1379,10 @@ mod tests {
         let original = WireList::new(vec![0, 1], vec![2]);
         let cloned = original.clone();
         let owned = original.to_owned();
-        
+
         assert_eq!(original, cloned);
         assert_eq!(original, owned);
-        
+
         // Ensure they're separate objects
         assert!(!std::ptr::eq(&original.inner, &cloned.inner));
         assert!(!std::ptr::eq(&original.inner, &owned.inner));
@@ -1374,7 +1394,7 @@ mod tests {
         let large_indices: Vec<usize> = (0..25).collect();
         let large_list = WireList::pure(&large_indices);
         assert_eq!(large_list.get_num_qudits(), 25);
-        
+
         // This should work without panicking
         let _mixed_large = WireList::new(&large_indices[..15], &large_indices[10..]);
     }
@@ -1385,29 +1405,29 @@ mod tests {
         let empty_pure = WireList::pure(vec![]);
         let empty_classical = WireList::classical(vec![]);
         let empty_mixed = WireList::new(vec![], vec![]);
-        
+
         assert_eq!(empty_pure.len(), 0);
         assert_eq!(empty_classical.len(), 0);
         assert_eq!(empty_mixed.len(), 0);
-        
+
         assert_eq!(empty_pure, empty_classical);
         assert_eq!(empty_pure, empty_mixed);
-        
+
         // Single wire lists
         let single_q = WireList::pure(vec![0]);
         let single_c = WireList::classical(vec![0]);
-        
+
         assert_ne!(single_q, single_c); // Different wire types
         assert_eq!(single_q.len(), 1);
         assert_eq!(single_c.len(), 1);
-        
+
         // Union with self should be identity
         let list = WireList::new(vec![0, 1], vec![2]);
         assert_eq!(list.union(&list), list);
-        
+
         // Intersection with empty should be empty
         assert_eq!(list.intersect(&empty_mixed), empty_mixed);
-        
+
         // Difference with self should be empty
         assert_eq!(list.difference(&list), empty_mixed);
     }

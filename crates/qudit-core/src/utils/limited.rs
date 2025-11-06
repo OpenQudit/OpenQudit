@@ -1,4 +1,4 @@
-use std::alloc::{alloc, dealloc, Layout};
+use std::alloc::{Layout, alloc, dealloc};
 use std::fmt;
 use std::hash::Hash;
 use std::ptr::NonNull;
@@ -350,15 +350,17 @@ impl<T> LimitedSizeVec<T> {
     /// }
     /// ```
     #[inline]
-    pub unsafe fn get_unchecked(&self, index: usize) -> &T { unsafe {
-        debug_assert!(
-            index < self.len as usize,
-            "index out of bounds: {} >= {}",
-            index,
-            self.len
-        );
-        &*self.data.as_ptr().add(index)
-    }}
+    pub unsafe fn get_unchecked(&self, index: usize) -> &T {
+        unsafe {
+            debug_assert!(
+                index < self.len as usize,
+                "index out of bounds: {} >= {}",
+                index,
+                self.len
+            );
+            &*self.data.as_ptr().add(index)
+        }
+    }
 
     /// Returns a mutable reference to an element without bounds checking.
     ///
@@ -383,15 +385,17 @@ impl<T> LimitedSizeVec<T> {
     /// assert_eq!(vec[0], "hello world");
     /// ```
     #[inline]
-    pub unsafe fn get_mut_unchecked(&mut self, index: usize) -> &mut T { unsafe {
-        debug_assert!(
-            index < self.len as usize,
-            "index out of bounds: {} >= {}",
-            index,
-            self.len
-        );
-        &mut *self.data.as_ptr().add(index)
-    }}
+    pub unsafe fn get_mut_unchecked(&mut self, index: usize) -> &mut T {
+        unsafe {
+            debug_assert!(
+                index < self.len as usize,
+                "index out of bounds: {} >= {}",
+                index,
+                self.len
+            );
+            &mut *self.data.as_ptr().add(index)
+        }
+    }
 
     /// Removes the last element from the vector and returns it, or `None` if empty.
     ///
@@ -634,16 +638,18 @@ impl<T> LimitedSizeVec<T> {
     /// assert_eq!(vec[0], 42);
     /// ```
     #[inline]
-    pub unsafe fn push_unchecked(&mut self, value: T) { unsafe {
-        debug_assert!(
-            self.len < self.capacity,
-            "capacity exceeded: {} >= {}",
-            self.len,
-            self.capacity
-        );
-        self.data.as_ptr().add(self.len as usize).write(value);
-        self.len += 1;
-    }}
+    pub unsafe fn push_unchecked(&mut self, value: T) {
+        unsafe {
+            debug_assert!(
+                self.len < self.capacity,
+                "capacity exceeded: {} >= {}",
+                self.len,
+                self.capacity
+            );
+            self.data.as_ptr().add(self.len as usize).write(value);
+            self.len += 1;
+        }
+    }
 
     /// Clears the vector, removing all elements but keeping allocated capacity.
     ///

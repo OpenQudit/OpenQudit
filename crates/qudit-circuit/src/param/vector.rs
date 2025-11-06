@@ -1,5 +1,5 @@
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 
 use qudit_core::ParamIndices;
 use rustc_hash::FxHashMap;
@@ -39,7 +39,8 @@ impl ParameterVector {
     /// Increments the reference counter for the specified parameter.
     #[inline(always)]
     fn increment(&mut self, param_id: ParameterId) {
-        self.ref_counts.entry(param_id)
+        self.ref_counts
+            .entry(param_id)
             .and_modify(|count| *count += 1)
             .or_insert(1);
     }
@@ -97,7 +98,7 @@ impl ParameterVector {
                                 param_indices.push(id);
                                 self.increment(id);
                                 joint = false;
-                                continue
+                                continue;
                             }
                         }
                     }
@@ -111,7 +112,7 @@ impl ParameterVector {
                     param_indices.push(*id);
                     self.increment(*id);
                     joint = false;
-                    continue
+                    continue;
                 }
             }
             param_indices.push(self.push(param));
@@ -121,7 +122,7 @@ impl ParameterVector {
             true => ParamIndices::Joint(param_indices[0], param_indices.len()),
             false => ParamIndices::Disjoint(param_indices),
         }
-    } 
+    }
 
     /// Convert parameters given by persistent ids to their vector indices.
     pub fn convert_ids_to_indices(&self, param_ids: ParamIndices) -> ParamIndices {
@@ -129,16 +130,22 @@ impl ParameterVector {
             return ParamIndices::empty();
         }
 
-        let indices: Vec<_> = param_ids.iter()
-            .map(|id| *self.id_to_index.get(&id).expect("Cannot find parameter id."))
+        let indices: Vec<_> = param_ids
+            .iter()
+            .map(|id| {
+                *self
+                    .id_to_index
+                    .get(&id)
+                    .expect("Cannot find parameter id.")
+            })
             .collect();
-        
+
         if indices.len() == 1 {
             return ParamIndices::Joint(indices[0], 1);
         }
-        
+
         let consecutive = indices.windows(2).all(|w| w[1] == w[0] + 1);
-        
+
         if consecutive {
             ParamIndices::Joint(indices[0], indices.len())
         } else {

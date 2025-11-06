@@ -20,7 +20,12 @@ impl<R: RealScalar> MinimizationResult<R> {
     }
 
     pub fn to_instantiation(self) -> InstantiationResult<R::C> {
-        let Self { params, fun, status, message } = self;
+        let Self {
+            params,
+            fun,
+            status,
+            message,
+        } = self;
         InstantiationResult::new(Some(params), Some(fun), status, message)
     }
 }
