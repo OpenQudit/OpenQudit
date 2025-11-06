@@ -406,6 +406,15 @@ impl<T: AsRef<[usize]>> From<T> for ParamIndices {
     }
 }
 
+impl<'a> IntoIterator for &'a ParamIndices {
+    type Item = usize;
+    type IntoIter = ParamIndicesIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 /// Information about function parameters, including their indices and whether they are constant.
 ///
 /// # Fields

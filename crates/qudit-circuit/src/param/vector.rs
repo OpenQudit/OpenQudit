@@ -1,3 +1,4 @@
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use qudit_core::ParamIndices;
@@ -35,13 +36,35 @@ impl ParameterVector {
         self.id_to_index.contains_key(id)
     }
 
+    /// Increments the reference counter for the specified parameter.
+    #[inline(always)]
+    fn increment(&mut self, param_id: ParameterId) {
+        self.ref_counts.entry(param_id)
+            .and_modify(|count| *count += 1)
+            .or_insert(1);
+    }
+
+    /// Decrements the reference counter for the specified parameter.
+    ///
+    /// Will remove the parameter if the counter hits zero.
+    #[inline(always)]
+    pub(crate) fn decrement(&mut self, param_id: ParameterId) {
+        if let Entry::Occupied(mut entry) = self.ref_counts.entry(param_id) {
+            let count = entry.get_mut();
+            *count -= 1;
+            if *count == 0 {
+                entry.remove();
+            }
+        }
+    }
+
     #[inline(always)]
     fn push(&mut self, param: Parameter) -> ParameterId {
         let id = {
             let new_id = self.id_counter;
             self.id_counter += 1;
             self.id_to_index.insert(new_id, self.params.len());
-            self.ref_counts.insert(new_id, 1); // TODO: mr. stupid only knows how to count to 1
+            self.increment(new_id);
             new_id
         };
 
@@ -72,6 +95,7 @@ impl ParameterVector {
                         if let Ok(id) = s.parse::<ParameterId>() {
                             if self.is_valid_id(&id) {
                                 param_indices.push(id);
+                                self.increment(id);
                                 joint = false;
                                 continue
                             }
@@ -85,6 +109,7 @@ impl ParameterVector {
                 // Named variables that already exist do not need to be appended
                 if let Some(id) = self.named_param_ids.get(name) {
                     param_indices.push(*id);
+                    self.increment(*id);
                     joint = false;
                     continue
                 }

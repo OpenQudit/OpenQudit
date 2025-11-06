@@ -44,10 +44,6 @@ pub struct QuditCircuit {
     /// The stored parameters of the circuit.
     params: ParameterVector,
 
-    /// A map that stores information on each type of operation in the circuit.
-    /// Currently, counts for each type of operation is stored.
-    op_info: HashMap<OpCode, usize>, // TODO: should this get folded into operations?
-
     /// A pointer to the first operation on each wire.
     front: FxHashMap<Wire, CycleId>,
 
@@ -55,8 +51,8 @@ pub struct QuditCircuit {
     rear: FxHashMap<Wire, CycleId>,
 }
 
+/// Constructors
 impl QuditCircuit {
-
     /// Creates a new QuditCircuit object.
     ///
     /// # Arguments
@@ -124,14 +120,16 @@ impl QuditCircuit {
             qudit_radices,
             dit_radices,
             cycles: CycleList::with_capacity(capacity),
-            op_info: HashMap::new(),
             front: FxHashMap::default(),
             rear: FxHashMap::default(),
             operations: OperationSet::new(),
             params: ParameterVector::default(),
         }
     }
+}
 
+/// Properties
+impl QuditCircuit {
     /// Returns the number of cycles in the circuit.
     ///
     /// # Performance
@@ -157,7 +155,7 @@ impl QuditCircuit {
     /// This method is O(|t|) where
     ///     - `t` is the number of distinct instruction types in the circuit.
     pub fn num_operations(&self) -> usize {
-        self.op_info.iter().map(|(_, count)| count).sum()
+        self.operations.num_operations()
     }
 
     /// Returns a vector of active qudit indices.
@@ -200,7 +198,7 @@ impl QuditCircuit {
     pub fn params(&self) -> &ParameterVector {
         &self.params
     }
-
+    
     /// Checks if the circuit is empty.
     ///
     /// # Returns
@@ -221,34 +219,10 @@ impl QuditCircuit {
     pub fn is_empty(&self) -> bool {
         self.cycles.is_empty()
     }
+}
 
-    /// Increment internal instruction type counter.
-    fn inc_op_counter(&mut self, op_type: &OpCode) {
-        *self.op_info.entry(*op_type).or_insert(0) += 1;
-    }
+impl QuditCircuit {
 
-    /// Decrement internal instruction type counter.
-    #[allow(dead_code)]
-    fn dec_inst_counter(&mut self, op_type: &OpCode) -> bool {
-        // TODO: sort inst and op names
-        if !self.op_info.contains_key(op_type) {
-            panic!(
-                "Cannot decrement instruction counter for instruction type that does not exist."
-            );
-        }
-
-        let count = self.op_info.get_mut(op_type).unwrap();
-        *count -= 1;
-
-        if *count == 0 {
-            self.op_info.remove(op_type);
-            // TODO: self.expression_set.remove(op_type)
-            true
-        }
-        else {
-            false
-        }
-    }
 
     /// Checks if `wires` is a valid set of wires in the circuit.
     ///
@@ -395,11 +369,16 @@ impl QuditCircuit {
     }
 
     // TODO: prepend + insert
-    // TODO: param_indices_mapping
+
+    /// Intern an operation in the circuit's operation cache
+    ///
+    /// This allows further additions by OpCodes.
+    pub fn cache_operation<O: Into<Operation>>(&mut self, op: O) -> OpCode {
+        self.operations.insert(op.into())
+    }
 
     fn _append_ref(&mut self, op_code: OpCode, wires: WireList, params: ParamIndices) -> InstructionId {
-        // TODO: check valid operation for radix match, measurement bandwidth etc
-        
+        // TODO: check valid operation for radix match, measurement bandwidth etc 
         // TODO: check params is valid: length is equal to op_params, existing exist, etc..
         // TODO: have to something about static entries...
         // TODO: have to do something about gate parameters mapped within same gate
@@ -407,10 +386,6 @@ impl QuditCircuit {
         // Find cycle placement (location validity implicitly checked here)
         let cycle_index = self.find_available_or_append_cycle(&wires);
         let cycle_id = self.cycles.index_to_id(cycle_index);
-
-        // Update counters
-        self.inc_op_counter(&op_code);
-        // self.inc_graph_counter(&location);
 
         // Update quantum DAG info
         for wire in wires.wires() {
@@ -431,13 +406,6 @@ impl QuditCircuit {
         let inner_id = self.cycles[cycle_index].push(inst_ref);
 
         InstructionId::new(cycle_id, inner_id)
-    }
-
-    /// Intern an operation in the circuit's operation cache
-    ///
-    /// This allows further additions by OpCodes.
-    pub fn cache_operation<O: Into<Operation>>(&mut self, op: O) -> OpCode {
-        self.operations.insert(op.into())
     }
 
     /// Append an operation to the circuit
@@ -486,6 +454,7 @@ impl QuditCircuit {
 
         let param_ids = self.params.parse(&args); // persistent ids; not indices
         let wires = wires.into();
+        self.operations.increment(op);  // Need to inform self.operations
         self._append_ref(op, wires, param_ids)
     }
 
@@ -579,95 +548,62 @@ impl QuditCircuit {
     }
 
     /// Remove the operation at `point` from the circuit
-    pub fn remove(&mut self, _inst_id: InstructionId) {
-        todo!()
-        //
-        // Need to make sure I remove parameters as well; may need to reference count them
-        // and potentially update every instruction reference
-        //
-        //
-        // if !self.is_valid_id(inst_id) {
-        //     // Don't need to panic here... TODO
-        //     panic!("Cannot remove instruction with invalid id.");
-        // }
+    pub fn remove(&mut self, inst_id: InstructionId) {
+        if !self.is_valid_id(inst_id) {
+            // TODO: log warning?
+            return;
+        }
 
-        // let location = match self.cycles.get_inst_id( {
-        //     Some(location) => location.clone(),
-        //     // TODO: Error handling
-        //     None => panic!("Operation not found at {} in cycle {}", point.dit_id, point.cycle),
-        // };
+        let wires = self.cycles.get_from_id(inst_id.cycle()).expect("Expected valid cycle.").get_wires_from_id(inst_id.inner()).expect("Expected valid instruction.");
 
-        // // Update circuit quantum DAG info
-        // for qudit_index in location.qudits() {
-        //     let qnext = self.cycles[point.cycle].get_qnext(qudit_index);
-        //     let qprev = self.cycles[point.cycle].get_qprev(qudit_index);
+        // Update circuit quantum DAG info
+        for wire in &wires {
+            let cycle = self.cycles.get_from_id(inst_id.cycle()).expect("Expected valid cycle.");
+            let next = cycle.get_next(wire);
+            let prev = cycle.get_prev(wire);
 
-        //     match (qnext, qprev) {
-        //         (Some(next_cycle_index), Some(prev_cycle_index)) => {
-        //             self.cycles[next_cycle_index].set_qprev(qudit_index, prev_cycle_index);
-        //             self.cycles[prev_cycle_index].set_qnext(qudit_index, next_cycle_index);
-        //         },
-        //         (Some(next_cycle_index), None) => {
-        //             self.cycles[next_cycle_index].reset_qprev(qudit_index);
-        //             self.qfront[qudit_index] = Some(next_cycle_index);
-        //         },
-        //         (None, Some(prev_cycle_index)) => {
-        //             self.qrear[qudit_index] = Some(prev_cycle_index);
-        //             self.cycles[prev_cycle_index].reset_qnext(qudit_index);
-        //         },
-        //         (None, None) => {
-        //             self.qrear[qudit_index] = None;
-        //             self.qfront[qudit_index] = None;
-        //         },
-        //     }
-        // }
+            match (next, prev) {
+                (Some(next_cycle_id), Some(prev_cycle_id)) => {
+                    self.cycles.get_mut_from_id(next_cycle_id).expect("Expected valid cycle.").set_prev(wire, prev_cycle_id);
+                    self.cycles.get_mut_from_id(prev_cycle_id).expect("Expected valid cycle.").set_next(wire, next_cycle_id);
+                },
+                (Some(next_cycle_id), None) => {
+                    self.cycles.get_mut_from_id(next_cycle_id).expect("Expected valid cycle.").reset_prev(wire);
+                    debug_assert!(*self.front.get(&wire).unwrap() == inst_id.cycle());
+                    self.front.insert(wire, next_cycle_id);
+                },
+                (None, Some(prev_cycle_id)) => {
+                    self.cycles.get_mut_from_id(prev_cycle_id).expect("Expected valid cycle.").reset_next(wire);
+                    debug_assert!(*self.rear.get(&wire).unwrap() == inst_id.cycle());
+                    self.rear.insert(wire, prev_cycle_id);
+                },
+                (None, None) => {
+                    debug_assert!(*self.front.get(&wire).unwrap() == inst_id.cycle());
+                    debug_assert!(*self.rear.get(&wire).unwrap() == inst_id.cycle());
+                    self.front.remove(&wire);
+                    self.rear.remove(&wire);
+                },
+            }
+        }
 
-        // // Update circuit qudit DAG info
-        // for clbit_index in location.dits() {
-        //     let cnext = self.cycles[point.cycle].get_cnext(clbit_index);
-        //     let cprev = self.cycles[point.cycle].get_cprev(clbit_index);
+        let cycle = self.cycles.get_mut_from_id(inst_id.cycle()).expect("Expected valid cycle.");
+        let inst = cycle.remove(wires.wires().next().expect("Corrupted instruction acting on no wires.")).expect("Expected instruction to remove.");
 
-        //     match (cnext, cprev) {
-        //         (Some(next_cycle_index), Some(prev_cycle_index)) => {
-        //             self.cycles[next_cycle_index].set_cprev(clbit_index, prev_cycle_index);
-        //             self.cycles[prev_cycle_index].set_cnext(clbit_index, next_cycle_index);
-        //         },
-        //         (Some(next_cycle_index), None) => {
-        //             self.cycles[next_cycle_index].reset_cprev(clbit_index);
-        //             self.cfront[clbit_index] = Some(next_cycle_index);
-        //         },
-        //         (None, Some(prev_cycle_index)) => {
-        //             self.crear[clbit_index] = Some(prev_cycle_index);
-        //             self.cycles[prev_cycle_index].reset_cnext(clbit_index);
-        //         },
-        //         (None, None) => {
-        //             self.crear[clbit_index] = None;
-        //             self.cfront[clbit_index] = None;
-        //         },
-        //     }
-        // }
+        if cycle.num_ops() == 0 {
+            // Empty cycles cannot exist; must be removed
+            self.cycles.remove_id(inst_id.cycle());
+        }
+        
+        for param in &inst.params() {
+            self.params.decrement(param);
+        }
 
-        // // Remove the instruction from the cycle
-        // match self.cycles[point.cycle].remove(point.dit_id) {
-        //     Some(inst_ref) => {
-        //         // Update counters
-        //         self.dec_graph_counter(&inst_ref.location);
-        //         self.dec_inst_counter(&inst_ref.op);
-        //     },
-        //     // TODO: Error handling
-        //     None => panic!("Operation not found at {} in cycle {}", point.dit_id, point.cycle),
-        // }
-
-        // // If cycle is empty, remove it
-        // if self.cycles[point.cycle].is_empty() {
-        //     self.cycles.remove(point.cycle);
-        // }
+        self.operations.decrement(inst.op_code());
     }
+}
 
-    // /////////////////////////////////////////////////////////////////
-    // DAG Methods
-    // /////////////////////////////////////////////////////////////////
-
+/// DAG Methods
+impl QuditCircuit {
     /// Distill the circuit front nodes into a hashmap.
     ///
     /// # Returns
@@ -682,7 +618,7 @@ impl QuditCircuit {
     ///
     /// # Notes
     ///
-    /// The same operation point (value in return map) may be pointed to
+    /// The same instruction id may be pointed to
     /// by two different keys in the hash map if it is at the front of
     /// the circuit at multiple spots. For example, if a cnot was at the
     /// front of the circuit, then it would be pointed to by both the
@@ -720,6 +656,40 @@ impl QuditCircuit {
                 .expect("Expected there to be an instruction here?");
             (*wire, InstructionId::new(*rear_cycle_id, rear_inst_id))
         }).collect()
+    }
+
+    /// Get the first instruction on a wire.
+    ///
+    /// # Returns
+    ///
+    /// An instruction id pointing to the first instruction on the specified wire
+    /// if it exists. None, otherwise.
+    ///
+    /// # Performance
+    ///
+    /// This method is O(1)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use qudit_circuit::QuditCircuit;
+    /// # use qudit_circuit::Wire;
+    /// # use qudit_expr::library::PGate;
+    /// let mut circuit = QuditCircuit::pure([2]);
+    /// let p_id = circuit.append(PGate(2), 0, None);
+    /// assert_eq!(circuit.first_on(Wire::quantum(0)), Some(p_id));
+    /// ```
+    pub fn first_on<W: Into<Wire>>(&self, wire: W) -> Option<InstructionId> {
+        let wire = wire.into();
+        self.front.get(&wire).map(|cycle_id| InstructionId::new(*cycle_id, self.cycles[*cycle_id].get_id_from_wire(wire).expect("Expected instruction to exist.")))
+    }
+
+    /// Get the last instruction on a wire.
+    ///
+    /// See [`QuditCircuit::first_on`] for more information.
+    pub fn last_on<W: Into<Wire>>(&self, wire: W) -> Option<InstructionId> {
+        let wire = wire.into();
+        self.rear.get(&wire).map(|cycle_id| InstructionId::new(*cycle_id, self.cycles[*cycle_id].get_id_from_wire(wire).expect("Expected instruction to exist.")))
     }
 
     /// Gather the points of the next operations from the point of an operation.
@@ -807,7 +777,10 @@ impl QuditCircuit {
             None => HashMap::new(),
         }
     }
+}
 
+/// Iteration
+impl QuditCircuit {
     /// Return an iterator over the operations in the circuit.
     ///
     /// The ordering is not guaranteed to be consistent, but it will
@@ -831,12 +804,10 @@ impl QuditCircuit {
     // pub fn iter_bf(&self) -> QuditCircuitBFIterator {
     //     QuditCircuitBFIterator::new(self)
     // }
+}
 
-//     /// Return an iterator over the operations in the circuit with cycles.
-//     pub fn iter_with_cycles(&self) -> QuditCircuitFastIteratorWithCycles<C> {
-//         QuditCircuitFastIteratorWithCycles::new(self)
-//     }
-
+/// Evaluation
+impl QuditCircuit {
     /// Calculate the Kraus Operators that describe this circuit as a program
     pub fn kraus_ops<C: ComplexScalar>(&self, args: &[C::R]) -> Tensor<C, 3> {
         let network = self.to_tensor_network();
@@ -967,23 +938,6 @@ mod python {
     use numpy::PyArrayMethods;
     use ndarray::ArrayViewMut3;
 
-    /// Helper function to parse a Python object that can be
-    /// either an integer or an iterable of integers.
-    fn parse_int_or_iterable<'py>(input: &Bound<'py, PyAny>) -> PyResult<Vec<usize>> {
-        // First, try to extract the input as a single integer.
-        if let Ok(val) = input.extract::<usize>() {
-            // If successful, create a Vec of that length filled with the value 2.
-            Ok(vec![2; val])
-        } else {
-            // If it's not an integer, try to treat it as an iterable.
-            // This will raise a TypeError if the object is not iterable
-            // or its elements are not integers.
-            pyo3::types::PyIterator::from_object(input)?
-                .map(|item| item?.extract::<usize>())
-                .collect::<PyResult<Vec<usize>>>()
-        }
-    }
-
     #[pyclass]
     #[pyo3(name = "QuditCircuit")]
     pub struct PyQuditCircuit {
@@ -1001,17 +955,11 @@ mod python {
         ///         Defaults to None, which results in no classical dits.
         #[new]
         #[pyo3(signature = (qudits, dits = None))]
-        fn new<'py>(qudits: &Bound<'py, PyAny>, dits: Option<&Bound<'py, PyAny>>) -> PyResult<PyQuditCircuit> {
-            let qudits_vec = parse_int_or_iterable(qudits)?;
-
-            let dits_vec = match dits {
-                Some(pyany) => parse_int_or_iterable(pyany)?,
-                None => Vec::new(),
-            };
-
-            Ok(PyQuditCircuit {
-                circuit: QuditCircuit::new(qudits_vec, dits_vec),
-            })
+        fn new<'py>(qudits: Radices, dits: Option<Radices>) -> PyResult<PyQuditCircuit> {
+            match dits {
+                None => Ok(PyQuditCircuit { circuit: QuditCircuit::pure(qudits) }),
+                Some(dits) => Ok(PyQuditCircuit { circuit: QuditCircuit::new(qudits, dits) })
+            }
         }
 
         // --- Properties ---
@@ -1073,15 +1021,35 @@ mod python {
         //
         // def pop_cycle(self, cycle_index: int) -> None?
         //
+
+
         // DAG Methods:
-        //
-        // @property def front(self) -> set[CircuitPoint]:
-        // @property def rear(self) -> set[CircuitPoint]:
-        // @property def first_on(self) -> CircuitPoint | None:
-        // @property def last_on(self) -> CircuitPoint | None:
-        // def next(self, current: CircuitPointLike | CircuitRegionLike, /) -> set[CircuitPoint]:
-        // def prev(self, current: CircuitPointLike | CircuitRegionLike, /) -> set[CircuitPoint]:
-        //
+        #[getter]
+        fn front(&self) -> HashMap<Wire, InstructionId> {
+            self.circuit.front()
+        }
+
+        #[getter]
+        fn rear(&self) -> HashMap<Wire, InstructionId> {
+            self.circuit.rear()
+        }
+
+        fn first_on(&self, wire: Wire) -> Option<InstructionId> {
+            self.circuit.first_on(wire)
+        }
+
+        fn last_on(&self, wire: Wire) -> Option<InstructionId> {
+            self.circuit.last_on(wire)
+        }
+
+        fn next(&self, inst_id: InstructionId) -> HashMap<Wire, InstructionId> {
+            self.circuit.next(inst_id)
+        }
+
+        fn prev(&self, inst_id: InstructionId) -> HashMap<Wire, InstructionId> {
+            self.circuit.prev(inst_id)
+        }
+
         // At Methods:
         //
         // def get_operation(self, point: CircuitPointLike) -> Operation:

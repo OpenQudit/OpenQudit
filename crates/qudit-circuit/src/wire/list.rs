@@ -723,6 +723,15 @@ impl<'a> IntoIterator for &'a WireList {
     }
 }
 
+impl IntoIterator for WireList {
+    type Item = Wire;
+    type IntoIter = <CompactVec<Wire> as IntoIterator>::IntoIter;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.inner.into_iter()
+    }
+}
+
 impl std::fmt::Debug for WireList {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let wires: Vec<String> = self

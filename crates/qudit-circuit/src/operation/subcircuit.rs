@@ -58,6 +58,10 @@ impl CircuitCache {
         id
     }
 
+    pub fn remove(&mut self, circuit_id: CircuitId) -> Option<CircuitOperation> {
+        self.circuits.remove(circuit_id)
+    }
+
     #[allow(dead_code)]
     pub fn get(&self, circuit_id: CircuitId) -> Option<&CircuitOperation> {
         self.circuits.get(circuit_id)

@@ -3,7 +3,6 @@ use std::fmt;
 
 use slotmap::SlotMap;
 
-use super::INVALID_CYCLE_ID;
 use super::InstId;
 use super::CycleId;
 
@@ -16,7 +15,7 @@ use crate::WireList;
 pub struct QuditCycle {
     pub insts: SlotMap<InstId, Instruction>,
     pub reg_map: BTreeMap<Wire, InstId>,
-    pub dag_ptrs: BTreeMap<Wire, (CycleId, CycleId)>,
+    pub dag_ptrs: BTreeMap<Wire, (Option<CycleId>, Option<CycleId>)>,
     pub id: CycleId,
 }
 
@@ -101,22 +100,30 @@ impl QuditCycle {
 
     pub fn set_next(&mut self, wire: Wire, next_cycle_id: CycleId) {
         self.dag_ptrs.entry(wire)
-            .and_modify(|(_, n)| *n = next_cycle_id)
-            .or_insert((INVALID_CYCLE_ID, next_cycle_id));
+            .and_modify(|(_, n)| *n = Some(next_cycle_id))
+            .or_insert((None, Some(next_cycle_id)));
     }
 
     pub fn set_prev(&mut self, wire: Wire, prev_cycle_id: CycleId) {
         self.dag_ptrs.entry(wire)
-            .and_modify(|(p, _)| *p = prev_cycle_id)
-            .or_insert((prev_cycle_id, INVALID_CYCLE_ID));
+            .and_modify(|(p, _)| *p = Some(prev_cycle_id))
+            .or_insert((Some(prev_cycle_id), None));
     }
 
     pub fn get_next(&self, wire: Wire) -> Option<CycleId> {
-        self.dag_ptrs.get(&wire).map(|(_, n)| *n)
+        self.dag_ptrs.get(&wire).and_then(|(_, n)| *n)
     }
 
     pub fn get_prev(&self, wire: Wire) -> Option<CycleId> {
-        self.dag_ptrs.get(&wire).map(|(p, _)| *p)
+        self.dag_ptrs.get(&wire).and_then(|(p, _)| *p)
+    }
+
+    pub fn reset_next(&mut self, wire: Wire) {
+        self.dag_ptrs.entry(wire).and_modify(|(_, n)| *n = None);
+    }
+
+    pub fn reset_prev(&mut self, wire: Wire) {
+        self.dag_ptrs.entry(wire).and_modify(|(p, _)| *p = None);
     }
 
     pub fn is_empty(&self) -> bool {

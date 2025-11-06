@@ -342,6 +342,27 @@ impl ExpressionCache {
         self.module64 = None;
     }
 
+    pub fn remove(&mut self, expr_id: ExpressionId) {
+        let mut modified_flag = false;
+        if let Some(base_id) = self.id_lookup.get(&expr_id) {
+            // Only actually remove anything if its a base expression
+            // TODO: This might be incorrect as derived expressions might
+            // still exist. Maybe, just mark this one as removed, and remove
+            // it when it's id_lookup is empty?
+            if *base_id == expr_id {
+                modified_flag = true;
+                let cexpr = self.expressions.remove(base_id).unwrap();
+                self.id_lookup.remove(&expr_id);
+                let name_vec = self.name_lookup.get_mut(&cexpr.name).unwrap();
+                name_vec.swap_remove(name_vec.iter().position(|x| *x == expr_id).unwrap());
+            }
+        }
+
+        if modified_flag {
+            self.uncompile();
+        }
+    }
+
     pub fn insert(&mut self, expr: impl Into<TensorExpression>) -> ExpressionId {
         let expr: TensorExpression = expr.into();
         if let Some(id) = self.lookup(&expr) {

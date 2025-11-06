@@ -1,16 +1,18 @@
-use std::{collections::BTreeMap, sync::{Arc, Mutex}};
+use std::{collections::{hash_map::Entry, BTreeMap}, sync::{Arc, Mutex}};
 
 use qudit_expr::{index::{IndexDirection, TensorIndex}, ExpressionCache, TensorExpression};
+use rustc_hash::FxHashMap;
 use slotmap::{Key, KeyData};
 
 use super::kind::OpKind;
-use crate::{operation::{directive::DirectiveOperation, expression::{ExpressionOpKind, ExpressionOperation}, subcircuit::{CircuitCache, CircuitOperation}, Operation}, OpCode};
+use crate::{operation::{directive::DirectiveOperation, expression::{ExpressionOpKind, ExpressionOperation}, subcircuit::{CircuitCache, CircuitId, CircuitOperation}, Operation}, OpCode};
 
 #[derive(Clone)]
 pub struct OperationSet {
     expressions: Arc<Mutex<ExpressionCache>>,
     subcircuits: CircuitCache,
     op_to_expr_map: BTreeMap<OpCode, ExpressionOpKind>,
+    op_counts: FxHashMap<OpCode, usize>,
 }
 
 impl OperationSet {
@@ -19,7 +21,33 @@ impl OperationSet {
             expressions: ExpressionCache::new_shared(),
             subcircuits: CircuitCache::new(),
             op_to_expr_map: BTreeMap::new(),
+            op_counts: FxHashMap::default(),
         }
+    }
+
+    /// Increment internal instruction type counter.
+    pub(crate) fn increment(&mut self, op_code: OpCode) {
+        self.op_counts.entry(op_code).and_modify(|count| *count += 1).or_insert(1);
+    }
+
+    /// Decrement internal instruction type counter.
+    pub(crate) fn decrement(&mut self, op_code: OpCode) {
+        if let Entry::Occupied(mut entry) = self.op_counts.entry(op_code) {
+            let count = entry.get_mut();
+            *count -= 1;
+            if *count == 0 {
+                entry.remove();
+                match op_code.kind() {
+                    OpKind::Expression => { self.expressions.lock().unwrap().remove(op_code.id()) },
+                    OpKind::Subcircuit => { self.subcircuits.remove(CircuitId::from(KeyData::from_ffi(op_code.id()))); }
+                    OpKind::Directive => {},
+                };
+            }
+        }
+    }
+
+    pub fn num_operations(&self) -> usize {
+        self.op_counts.iter().map(|(_, count)| count).sum()
     }
 
     pub fn expressions(&self) -> Arc<Mutex<ExpressionCache>> {
@@ -27,11 +55,13 @@ impl OperationSet {
     }
 
     pub fn insert(&mut self, op: Operation) -> OpCode {
-        match op {
+        let code = match op {
             Operation::Expression(e) => self.insert_expression(e),
             Operation::Subcircuit(c) => self.insert_subcircuit(c),
             Operation::Directive(d) => self.convert_directive(d),
-        }
+        };
+        self.increment(code);
+        code
     }
 
     pub fn insert_expression(&mut self, op: ExpressionOperation) -> OpCode {
@@ -75,6 +105,7 @@ impl OperationSet {
             None => { self.op_to_expr_map.insert(op_ref.clone(), expression_type); },
             Some(expr_type) => assert_eq!(&expression_type, expr_type),
         }
+        self.increment(op_ref); // Yeah, it's a mess.
         op_ref
     }
 
