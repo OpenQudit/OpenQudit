@@ -28,7 +28,7 @@ impl<C: ComplexScalar> MatMulPlan<C> {
     /// * `m`: Number of rows in the left-hand side matrix.
     /// * `n`: Number of columns in the right-hand side matrix.
     /// * `k`: Number of columns in the left-hand side matrix.
-    ///     This should equal the number of rows in the right-hand side matrix.
+    ///   This should equal the number of rows in the right-hand side matrix.
     ///
     /// # Returns
     ///
@@ -42,7 +42,7 @@ impl<C: ComplexScalar> MatMulPlan<C> {
                 m,
                 n,
                 k,
-                plan: unsafe { std::mem::transmute(plan) },
+                plan: unsafe { std::mem::transmute::<Plan<c32>, Plan<C>>(plan) },
             }
         } else {
             let plan = Plan::new_colmajor_lhs_and_dst_c64(m, n, k);
@@ -50,7 +50,7 @@ impl<C: ComplexScalar> MatMulPlan<C> {
                 m,
                 n,
                 k,
-                plan: unsafe { std::mem::transmute(plan) },
+                plan: unsafe { std::mem::transmute::<Plan<c64>, Plan<C>>(plan) },
             }
         }
     }
@@ -118,8 +118,8 @@ impl<C: ComplexScalar> MatMulPlan<C> {
                 rhs.as_ptr() as _,
                 1,
                 rhs.col_stride(),
-                C::zero().into(),
-                C::one().into(),
+                C::zero(),
+                C::one(),
                 false,
                 false,
             );
@@ -127,7 +127,14 @@ impl<C: ComplexScalar> MatMulPlan<C> {
     }
 
     #[inline(always)]
+    #[allow(clippy::too_many_arguments)]
     /// Perform the matrix multiplication given by the plan without checking bounds.
+    ///
+    /// # Safety
+    ///
+    /// The multiplication defined here must be valid. The pointers must point
+    /// to adequately sized and proper buffers of memory that describe matrices
+    /// with the dimensions and strides given.
     pub unsafe fn execute_raw_unchecked(
         &self,
         lhs: *const C,
@@ -224,8 +231,8 @@ impl<C: ComplexScalar> MatMulPlan<C> {
                 rhs.as_ptr() as _,
                 1,
                 rhs.col_stride(),
-                C::one().into(),
-                C::one().into(),
+                C::one(),
+                C::one(),
                 false,
                 false,
             );
@@ -233,7 +240,14 @@ impl<C: ComplexScalar> MatMulPlan<C> {
     }
 
     #[inline(always)]
+    #[allow(clippy::too_many_arguments)]
     /// Perform the additive matrix multiplication given by the plan without checking bounds.
+    ///
+    /// # Safety
+    ///
+    /// The multiplication defined here must be valid. The pointers must point
+    /// to adequately sized and proper buffers of memory that describe matrices
+    /// with the dimensions and strides given.
     pub unsafe fn execute_add_raw_unchecked(
         &self,
         lhs: *const C,
@@ -338,8 +352,8 @@ pub fn matmul_unchecked<C: ComplexScalar>(lhs: MatRef<C>, rhs: MatRef<C>, out: M
                 rhs.as_ptr() as _,
                 1,
                 rhs.col_stride(),
-                c32::zero().into(),
-                c32::one().into(), // TODO: Figure if I can create custom kernels for one/zero alpha/beta
+                c32::zero(),
+                c32::one(), // TODO: Figure if I can create custom kernels for one/zero alpha/beta
                 false,
                 false,
             );

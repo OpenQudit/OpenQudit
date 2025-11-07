@@ -421,7 +421,7 @@ impl<T: CompactStorage> CompactVec<T> {
 
         match self {
             CompactVec::Inline(storage, length) => {
-                if (*length as usize) >= INLINE_CAPACITY || T::to_inline(element.clone()).is_err() {
+                if (*length as usize) >= INLINE_CAPACITY || T::to_inline(element).is_err() {
                     self.transition_to_heap().insert(index, element);
                 } else {
                     // Shift elements right
@@ -460,7 +460,7 @@ impl<T: CompactStorage> CompactVec<T> {
         let current_len = self.len();
         if new_len > current_len {
             for _ in current_len..new_len {
-                self.push(value.clone());
+                self.push(value);
             }
         } else {
             self.truncate(new_len);
@@ -488,7 +488,7 @@ impl<T: CompactStorage> CompactVec<T> {
     #[inline]
     pub fn extend_from_slice(&mut self, other: &[T]) {
         for item in other {
-            self.push(item.clone());
+            self.push(*item);
         }
     }
 
@@ -642,7 +642,7 @@ impl<T: CompactStorage> CompactVec<T> {
     /// ```
     #[inline]
     pub fn take(&mut self) -> Self {
-        std::mem::replace(self, Self::new())
+        std::mem::take(self)
     }
 
     /// Returns a mutable reference to the element at the given index, or `None` if out of bounds.
@@ -943,7 +943,7 @@ where
     fn from(array: &[T; N]) -> Self {
         let mut compact_vec = Self::new();
         for item in array {
-            compact_vec.push(item.clone());
+            compact_vec.push(*item);
         }
         compact_vec
     }
@@ -968,7 +968,7 @@ where
     fn from(slice: &[T]) -> Self {
         let mut compact_vec = Self::new();
         for item in slice {
-            compact_vec.push(item.clone());
+            compact_vec.push(*item);
         }
         compact_vec
     }
@@ -1092,7 +1092,7 @@ impl<T: CompactStorage> ExactSizeIterator for CompactVecIntoIter<T> {}
 
 impl<T: CompactStorage> FromIterator<T> for CompactVec<T> {
     fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
-        let mut iter = iter.into_iter();
+        let iter = iter.into_iter();
         let (min_len, max_len) = iter.size_hint();
 
         if let Some(len) = max_len {
@@ -1103,7 +1103,7 @@ impl<T: CompactStorage> FromIterator<T> for CompactVec<T> {
                 if T::CONVERSION_INFALLIBLE {
                     let mut storage = [T::InlineType::default(); INLINE_CAPACITY];
                     let mut i = 0;
-                    while let Some(next) = iter.next() {
+                    for next in iter {
                         storage[i] = T::to_inline_unchecked(next);
                         i += 1;
                     }

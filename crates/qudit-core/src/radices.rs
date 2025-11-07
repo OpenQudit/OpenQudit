@@ -71,13 +71,13 @@ impl Radices {
         let mut n = dimension;
         let mut power = 0;
         while n > 1 {
-            if n % 3 != 0 {
+            if !n.is_multiple_of(3) {
                 return [dimension].into();
             }
             n /= 3;
             power += 1;
         }
-        return vec![3; power].into();
+        vec![3; power].into()
     }
 
     /// Construct the expanded form of an index in this numbering system.
@@ -117,8 +117,8 @@ impl Radices {
     ///
     /// # See Also
     ///
-    /// * [`compress`] - The inverse of this function.
-    /// * [`place_values`] - The place values for each position in the expansion.
+    /// * [Self::compress] - The inverse of this function.
+    /// * [Self::place_values] - The place values for each position in the expansion.
     #[track_caller]
     pub fn expand(&self, mut index: usize) -> Vec<usize> {
         if index >= self.dimension() {
@@ -133,8 +133,8 @@ impl Radices {
         for (idx, radix) in self.iter().enumerate().rev() {
             let casted_radix: usize = (*radix).into();
             let coef: usize = index % casted_radix;
-            index = index - coef;
-            index = index / casted_radix;
+            index -= coef;
+            index /= casted_radix;
             expansion[idx] = coef;
         }
 
@@ -171,8 +171,8 @@ impl Radices {
     ///
     /// # See Also
     ///
-    /// * [`expand`] - The inverse of this function.
-    /// * [`place_values`] - The place values for each position in the expansion.
+    /// * [Self::expand] - The inverse of this function.
+    /// * [Self::place_values] - The place values for each position in the expansion.
     #[track_caller]
     pub fn compress(&self, expansion: &[usize]) -> usize {
         if self.len() != expansion.len() {
@@ -187,7 +187,7 @@ impl Radices {
             panic!("Invalid expansion: mismatch in qudit radices.")
         }
 
-        if expansion.len() == 0 {
+        if expansion.is_empty() {
             return 0;
         }
 
@@ -221,8 +221,8 @@ impl Radices {
     /// ```
     ///
     /// # See Also
-    /// * [`expand`] - Expand an decimal value into this numbering system.
-    /// * [`compress`] - Compress an expansion in this numbering system to decimal.
+    /// * [Self::expand] - Expand an decimal value into this numbering system.
+    /// * [Self::compress] - Compress an expansion in this numbering system to decimal.
     pub fn place_values(&self) -> Vec<usize> {
         let mut place_values = vec![0; self.num_qudits()];
         let mut acm = 1;
@@ -491,7 +491,7 @@ impl core::ops::Deref for Radices {
     #[inline(always)]
     fn deref(&self) -> &[Radix] {
         // Safety Radix is a transparent wrapper around u8
-        unsafe { std::mem::transmute(std::mem::transmute::<_, &CompactVec<u8>>(&self.0).deref()) }
+        unsafe { std::mem::transmute(std::mem::transmute::<&CompactVec<Radix>, &CompactVec<u8>>(&self.0).deref()) }
     }
 }
 
@@ -508,7 +508,7 @@ impl<T: Into<Radix> + 'static> From<Vec<T>> for Radices {
         let vec = if std::any::TypeId::of::<T>() == std::any::TypeId::of::<Radix>() {
             // If T is radix, then doing CompactVec::from will provide move semantics efficiently
             // Safety: T == Radix, so Vec<T> == Vec<Radix>
-            CompactVec::<Radix>::from(unsafe { std::mem::transmute::<_, Vec<Radix>>(value) })
+            CompactVec::<Radix>::from(unsafe { std::mem::transmute::<Vec<T>, Vec<Radix>>(value) })
         } else {
             value.into_iter().map(|x| x.into()).collect()
         };
@@ -630,7 +630,7 @@ mod python {
 
         fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             if let Ok(num) = ob.extract::<usize>() {
-                Ok(Radices::new(&[num]))
+                Ok(Radices::new([num]))
             } else if let Ok(nums) = ob.extract::<Vec<usize>>() {
                 Ok(Radices::new(nums))
             } else {

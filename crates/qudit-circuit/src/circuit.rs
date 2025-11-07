@@ -952,8 +952,8 @@ impl QuditCircuit {
     ///
     /// The ordering is not guaranteed to be consistent, but it will
     /// be in a simulation/topological order. For more control over the
-    /// ordering of iteration see [`QuditCircuit::iter_df`] or
-    /// [`QuditCircuit::iter_bf`].
+    /// ordering of iteration see [QuditCircuit::iter_df] or
+    /// [QuditCircuit::iter_bf].
     pub fn iter(&self) -> impl Iterator<Item = &Instruction> + '_ {
         self.cycles.iter().flat_map(|cycle| cycle.iter())
     }

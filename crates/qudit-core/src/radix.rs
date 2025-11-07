@@ -84,7 +84,7 @@ impl From<Radix> for u16 {
 impl From<Radix> for u8 {
     #[inline(always)]
     fn from(value: Radix) -> Self {
-        value.0 as u8
+        value.0
     }
 }
 

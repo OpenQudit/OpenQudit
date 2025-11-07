@@ -229,7 +229,7 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     /// # See Also
     ///
     /// * [ComplexScalar] - The floating point number type used for the matrix.
-    /// * [ComplexScalar::THRESHOLD] - The threshold used to check if a matrix is unitary.
+    /// * [RealScalar::is_close] - The threshold used to check if a matrix is unitary.
     pub fn is_unitary(mat: impl AsMatRef<T = C, Rows = usize, Cols = usize>) -> bool {
         let mat_ref = mat.as_mat_ref();
 
@@ -284,7 +284,7 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     ///
     /// # See Also
     ///
-    /// * [ComplexScalar::THRESHOLD] - The threshold used to check if a matrix is unitary.
+    /// * [RealScalar::is_close] - The threshold used to check if a matrix is unitary.
     pub fn get_distance_from(&self, x: impl AsMatRef<T = C, Rows = usize, Cols = usize>) -> C::R {
         let mat_ref = x.as_mat_ref();
 
@@ -443,7 +443,7 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
         Self::new(self.radices.clone(), self.matrix.adjoint().to_owned())
     }
 
-    /// Adjoint or dagger the unitary matrix (Alias for [`dagger`]).
+    /// Adjoint or dagger the unitary matrix (Alias for [Self::dagger]).
     pub fn adjoint(&self) -> Self {
         self.dagger()
     }
@@ -482,7 +482,7 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     ///
     /// # See Also
     ///
-    /// * [accel::matmul] - The accelerated version of the matrix multiplication.
+    /// * [crate::accel::matmul_unchecked] - The accelerated version of the matrix multiplication.
     pub fn dot(&self, rhs: impl AsMatRef<T = C, Rows = usize, Cols = usize>) -> Self {
         Self::new(
             self.radices.clone(),
@@ -527,7 +527,7 @@ impl<C: ComplexScalar> UnitaryMatrix<C> {
     /// # See Also
     ///
     /// * [Mat::kron] - The method used to perform the kronecker product.
-    /// * [accel::kron] - The accelerated version of the kronecker product.
+    /// * [crate::accel::kron] - The accelerated version of the kronecker product.
     pub fn kron(&self, rhs: &UnitaryMatrix<C>) -> Self {
         let mut dst = Mat::zeros(self.nrows() * rhs.nrows(), self.ncols() * rhs.ncols());
         faer::linalg::kron::kron(dst.as_mut(), self.matrix.as_ref(), rhs.as_mat_ref());

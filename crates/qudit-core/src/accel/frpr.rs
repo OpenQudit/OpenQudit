@@ -370,7 +370,7 @@ fn __reshape_kernel_3<E: Copy>(
 /// * `out` - Mutable pointer to the output tensor
 /// * `inp` - Constant pointer to the input tensor
 /// * `dims` - Reference to an array that holds the
-///     dimensions of the input and output tensors
+///   dimensions of the input and output tensors
 /// * `in_strides` - Input tensor's strides for each axis
 /// * `out_strides` - Output tensor's strides for each axis
 ///
@@ -409,7 +409,7 @@ fn __reshape_kernel_2<E: Copy>(
 /// * `out` - Mutable pointer to the output tensor
 /// * `inp` - Constant pointer to the input tensor
 /// * `dims` - Reference to an array that holds the
-///     dimensions of the input and output tensors
+///   dimensions of the input and output tensors
 /// * `in_strides` - Input tensor's strides for each axis
 /// * `out_strides` - Output tensor's strides for each axis
 ///
@@ -455,7 +455,7 @@ fn __reshape_kernel_4<E: Copy>(
 /// * `out` - Mutable pointer to the output tensor
 /// * `inp` - Constant pointer to the input tensor
 /// * `dims` - Reference to an array that holds the
-///     dimensions of the input and output tensors
+///   dimensions of the input and output tensors
 /// * `in_strides` - Input tensor's strides for each axis
 /// * `out_strides` - Output tensor's strides for each axis
 ///
@@ -506,7 +506,7 @@ fn __reshape_kernel_5<E: Copy>(
 /// * `out` - Mutable pointer to the output tensor
 /// * `inp` - Constant pointer to the input tensor
 /// * `dims` - Reference to an array that holds the
-///     dimensions of the input and output tensors
+///   dimensions of the input and output tensors
 /// * `in_strides` - Input tensor's strides for each axis
 /// * `out_strides` - Output tensor's strides for each axis
 ///
@@ -575,6 +575,7 @@ fn __reshape_kernel_6<E: Copy>(
 /// * `inp` and `out` must be valid pointers to memory with shapes compatible
 ///   with the dimensions and input/output strides.
 ///
+#[allow(clippy::too_many_arguments)]
 unsafe fn reshape_outer_kernel<E: Copy>(
     kernel_size: usize,
     inner_kernel: impl Fn(*mut E, *const E, &[usize], &[isize], &[isize]),
@@ -730,7 +731,7 @@ fn tensor_fused_reshape_permute_reshape_into_prepare_helper(
         "Lengths aren't matching up in the helper function!"
     );
 
-    return (tensor_in_strides, virtual_axes_map, true_shape);
+    (tensor_in_strides, virtual_axes_map, true_shape)
 }
 
 /// Prepare optimized parameters for `fused_reshape_permute_reshape_into_impl`. Specifically,
@@ -746,7 +747,7 @@ fn tensor_fused_reshape_permute_reshape_into_prepare_helper(
 /// * `out_shape` - Output tensor shape
 /// * `out_strides` - Output tensor strides
 /// * `shape` - Shape that the input tensor must be reshaped into
-///     before the permutation.
+///   before the permutation.
 /// * `perm` - Permutation of the axes of the reshaped input tensor.
 ///
 /// # Returns
@@ -793,8 +794,8 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
 
     // Duplicate check: Quadratic check is faster than hashset for most inputs
     for (i, &p) in perm.iter().enumerate() {
-        for j in (i + 1)..perm.len() {
-            if p == perm[j] {
+        for item in perm.iter().skip(i + 1) {
+            if p == *item {
                 panic!("perm must not contain duplicate elements");
             }
         }
@@ -820,9 +821,9 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
     let mut permuted_shape: Vec<usize> = Vec::new();
     let mut index_accumulator: usize = 0;
     for &p in perm {
-        for index in 0..virtual_axes_map_in.len() {
-            if virtual_axes_map_in[index] == p {
-                index_accumulator = index;
+        for axis in &virtual_axes_map_in {
+            if *axis == p {
+                index_accumulator = *axis;
                 break;
             }
         }
@@ -927,6 +928,7 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
         (opt_perm_in_strides, opt_out_strides, opt_dims)
     };
 
+    #[allow(clippy::let_and_return)] // Documentation purposes
     let candidate_outputs2 = {
         // We sort the axes of the permuted tensor in descending order of their strides in the output
         // tensor's memory layout. Compared to `candidate_outputs1`, this increases the likelihood that
@@ -1045,11 +1047,11 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
 ///
 /// # See Also
 ///
-/// * [`fused_reshape_permute_reshape_into`] - All-in-one function for the frpr operation.
-/// * [`fused_reshape_permute_reshape_into_impl`] - Low-level implementation for the frpr operation.
-/// * [`tensor_fused_reshape_permute_reshape_into_prepare`] - A generalized version of this function
-///     for higher-dimensional input and output tensors.
-///
+/// * [fused_reshape_permute_reshape_into] - All-in-one function for the frpr operation.
+/// * [fused_reshape_permute_reshape_into_impl] - Low-level implementation for the frpr operation.
+/// * [tensor_fused_reshape_permute_reshape_into_prepare] - A generalized version of this function
+///   for higher-dimensional input and output tensors.
+#[allow(clippy::too_many_arguments)]
 pub fn fused_reshape_permute_reshape_into_prepare(
     in_nrows: usize,
     in_ncols: usize,
@@ -1067,8 +1069,8 @@ pub fn fused_reshape_permute_reshape_into_prepare(
 
     // Quadratic check is faster than hashset for most inputs
     for (i, &p) in perm.iter().enumerate() {
-        for j in (i + 1)..perm.len() {
-            if p == perm[j] {
+        for item in perm.iter().skip(i + 1) {
+            if p == *item {
                 panic!("perm must not contain duplicate elements");
             }
         }

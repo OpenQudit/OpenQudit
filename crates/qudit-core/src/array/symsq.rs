@@ -486,6 +486,10 @@ impl<C: Memorable> SymSqTensor<C, 5> {
     }
 
     /// Returns an immutable reference to the 3D subtensor at the given matrix indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> TensorRef<'_, C, 3> {
         unsafe {
             TensorRef::from_raw_parts(
@@ -497,6 +501,10 @@ impl<C: Memorable> SymSqTensor<C, 5> {
     }
 
     /// Returns a mutable reference to the 3D subtensor at the given matrix indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m1: usize, m2: usize) -> TensorMut<'_, C, 3> {
         unsafe {
             TensorMut::from_raw_parts(
@@ -524,6 +532,10 @@ impl<C: Memorable> SymSqTensor<C, 4> {
     }
 
     /// Returns an immutable matrix reference to the subtensor at the given indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> MatRef<'_, C> {
         unsafe {
             MatRef::from_raw_parts(
@@ -537,6 +549,10 @@ impl<C: Memorable> SymSqTensor<C, 4> {
     }
 
     /// Returns a mutable matrix reference to the subtensor at the given indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m1: usize, m2: usize) -> MatMut<'_, C> {
         unsafe {
             MatMut::from_raw_parts_mut(
@@ -566,6 +582,10 @@ impl<C: Memorable> SymSqTensor<C, 3> {
     }
 
     /// Returns an immutable row reference to the subtensor at the given indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> RowRef<'_, C> {
         unsafe {
             RowRef::from_raw_parts(
@@ -577,6 +597,10 @@ impl<C: Memorable> SymSqTensor<C, 3> {
     }
 
     /// Returns a mutable row reference to the subtensor at the given indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m1: usize, m2: usize) -> RowMut<'_, C> {
         unsafe {
             RowMut::from_raw_parts_mut(
@@ -600,11 +624,19 @@ impl<C: Memorable> SymSqTensor<C, 2> {
     }
 
     /// Returns an immutable reference to the element at the given indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> &C {
         unsafe { self.get_unchecked(&[m1, m2]) }
     }
 
     /// Returns a mutable reference to the element at the given indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m1: usize, m2: usize) -> &mut C {
         unsafe { self.get_mut_unchecked(&[m1, m2]) }
     }
@@ -619,6 +651,10 @@ impl<'a, C: Memorable> SymSqTensorRef<'a, C, 5> {
     }
 
     /// Returns an immutable reference to the 3D subtensor at the given matrix indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> TensorRef<'a, C, 3> {
         unsafe {
             TensorRef::from_raw_parts(
@@ -639,6 +675,10 @@ impl<'a, C: Memorable> SymSqTensorRef<'a, C, 4> {
     }
 
     /// Returns an immutable matrix reference to the subtensor at the given indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> MatRef<'a, C> {
         unsafe {
             MatRef::from_raw_parts(
@@ -661,6 +701,10 @@ impl<'a, C: Memorable> SymSqTensorRef<'a, C, 3> {
     }
 
     /// Returns an immutable row reference to the subtensor at the given indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> RowRef<'a, C> {
         unsafe {
             RowRef::from_raw_parts(
@@ -679,6 +723,10 @@ impl<'a, C: Memorable> SymSqTensorRef<'a, C, 2> {
     }
 
     /// Returns an immutable reference to the element at the given indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> &C {
         unsafe { self.get_unchecked(&[m1, m2]) }
     }
@@ -700,6 +748,10 @@ impl<'a, C: Memorable> SymSqTensorMut<'a, C, 5> {
     }
 
     /// Returns an immutable reference to the 3D subtensor at the given matrix indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> TensorRef<'a, C, 3> {
         unsafe {
             TensorRef::from_raw_parts(
@@ -711,6 +763,10 @@ impl<'a, C: Memorable> SymSqTensorMut<'a, C, 5> {
     }
 
     /// Returns a mutable reference to the 3D subtensor at the given matrix indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m1: usize, m2: usize) -> TensorMut<'a, C, 3> {
         unsafe {
             TensorMut::from_raw_parts(
@@ -738,6 +794,10 @@ impl<'a, C: Memorable> SymSqTensorMut<'a, C, 4> {
     }
 
     /// Returns an immutable matrix reference to the subtensor at the given indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> MatRef<'a, C> {
         unsafe {
             MatRef::from_raw_parts(
@@ -751,6 +811,10 @@ impl<'a, C: Memorable> SymSqTensorMut<'a, C, 4> {
     }
 
     /// Returns a mutable matrix reference to the subtensor at the given indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m1: usize, m2: usize) -> MatMut<'a, C> {
         unsafe {
             MatMut::from_raw_parts_mut(
@@ -780,6 +844,10 @@ impl<'a, C: Memorable> SymSqTensorMut<'a, C, 3> {
     }
 
     /// Returns an immutable row reference to the subtensor at the given indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> RowRef<'a, C> {
         unsafe {
             RowRef::from_raw_parts(
@@ -791,6 +859,10 @@ impl<'a, C: Memorable> SymSqTensorMut<'a, C, 3> {
     }
 
     /// Returns a mutable row reference to the subtensor at the given indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m1: usize, m2: usize) -> RowMut<'a, C> {
         unsafe {
             RowMut::from_raw_parts_mut(
@@ -814,11 +886,19 @@ impl<'a, C: Memorable> SymSqTensorMut<'a, C, 2> {
     }
 
     /// Returns an immutable reference to the element at the given indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_ref_unchecked(&self, m1: usize, m2: usize) -> &C {
         unsafe { self.get_unchecked(&[m1, m2]) }
     }
 
     /// Returns a mutable reference to the element at the given indices without bounds checking.
+    ///
+    /// # Safety
+    ///
+    /// Caller should ensure that m1 and m2 are in bounds.
     pub unsafe fn subtensor_mut_unchecked(&mut self, m1: usize, m2: usize) -> &mut C {
         unsafe { self.get_mut_unchecked(&[m1, m2]) }
     }

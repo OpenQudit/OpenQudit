@@ -305,7 +305,7 @@ impl ParamIndices {
                 current: 0,
             },
             ParamIndices::Disjoint(indices) => ParamIndicesIter::Disjoint {
-                indices: &indices,
+                indices,
                 current: 0,
             },
         }

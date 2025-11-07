@@ -92,12 +92,6 @@ impl Expression {
         return String::from("(") + &inner + &String::from(")");
     }
 
-    /// Hard in general: https://math.stackexchange.com/questions/164221/period-of-the-sum-product-of-two-functions
-    /// Start with simiplier problem
-    pub fn calculate_period<R: RealScalar>(&self, _var: &str) -> Option<std::ops::Range<R>> {
-        todo!()
-    }
-
     pub fn gather_context(&self) -> HashSet<String> {
         let mut context = HashSet::new();
         context.insert(self.to_string());

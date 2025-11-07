@@ -14,6 +14,11 @@ use faer::MatRef;
 // TODO: Add proper documentation to raw methods and add higher level
 // functions that call them with the cartesian_match for loop unrolling.
 /// Perform a kroneckor product between two matrix buffers.
+///
+/// # Safety
+///
+/// Caller must ensure that pointers point to properly addressable memory
+/// that describe matrices with dimensions and strides given.
 pub unsafe fn kron_kernel_raw<C: Mul<Output = C> + Copy>(
     dst: *mut C,
     dst_rs: isize,
@@ -56,6 +61,11 @@ pub unsafe fn kron_kernel_raw<C: Mul<Output = C> + Copy>(
 }
 
 /// Perform a kroneckor product between two matrix buffers and add the result to the output.
+///
+/// # Safety
+///
+/// Caller must ensure that pointers point to properly addressable memory
+/// that describe matrices with dimensions and strides given.
 pub unsafe fn kron_kernel_add_raw<C: Mul<Output = C> + Copy + AddAssign>(
     dst: *mut C,
     dst_rs: isize,
@@ -252,7 +262,7 @@ pub unsafe fn kron_sq_unchecked<C: ComplexField>(dst: MatMut<C>, lhs: MatRef<C>,
 /// # Panics
 ///
 /// * If `dst` does not have the correct dimensions. The dimensions
-///     of `dst` must be `nrows(A) * nrows(B)` by `ncols(A) * ncols(B)`.
+///   of `dst` must be `nrows(A) * nrows(B)` by `ncols(A) * ncols(B)`.
 ///
 /// # Example
 /// ```
@@ -320,7 +330,7 @@ pub fn kron<C: ComplexField>(lhs: MatRef<C>, rhs: MatRef<C>, dst: MatMut<C>) {
 /// * `lhs` -  The left hand-side matrix for the kronecker product. `A` in the description above.
 /// * `rhs` - The right hand-side matrix for the kronecker product. `B` in the description above.
 /// * `dst` - The matrix to be summed (mutated) by the kronercker product of `lhs` and `rhs`.
-///     `C` in the description above.
+///   `C` in the description above.
 ///
 /// # Panics
 ///

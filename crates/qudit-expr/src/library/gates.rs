@@ -176,7 +176,7 @@ pub fn SwapGate(radix: usize) -> UnitaryExpression {
 /// a qutrit, etc.)
 ///
 /// References:
-///     - https://arxiv.org/pdf/2302.07966.pdf
+///     - <https://arxiv.org/pdf/2302.07966.pdf>
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
 pub fn XGate(radix: usize) -> UnitaryExpression {
@@ -224,7 +224,7 @@ pub fn XGate(radix: usize) -> UnitaryExpression {
 /// a qutrit, etc.)
 ///
 /// References:
-///     - https://arxiv.org/pdf/2302.07966.pdf
+///     - <https://arxiv.org/pdf/2302.07966.pdf>
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
 pub fn ZGate(radix: usize) -> UnitaryExpression {

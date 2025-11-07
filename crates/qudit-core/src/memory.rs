@@ -28,8 +28,7 @@ impl<T: Sized + Zeroable + Copy> Memorable for T {}
 /// # See Also
 ///
 /// - [alloc_zeroed_memory] function to allocate a new memory buffer.
-/// - [faer_entity::Entity] trait for more information on faer entities.
-/// - [faer_entity::GroupFor] trait for more information on faer groups.
+/// - [Memorable] trait for more information on trait bounds.
 #[allow(type_alias_bounds)]
 pub type MemoryBuffer<C: Memorable> = AVec<C>;
 
@@ -47,11 +46,10 @@ pub type MemoryBuffer<C: Memorable> = AVec<C>;
 ///
 /// # See Also
 ///
-/// - [Memory] type alias for more information on memory buffers.
-/// - [faer_entity::Entity] trait for more information on faer entities.
-/// - [faer_entity::GroupFor] trait for more information on faer groups.
-/// - [PointerMut] type alias for more information on mutable pointers.
-/// - [NonNullPointer] type alias for more information on non-null pointers.
+/// - [MemoryBuffer] type alias for more information on memory buffers.
+/// - [Memorable] trait for more information on trait bounds.
+/// - [MemoryPointerMut] type alias for more information on mutable pointers.
+/// - [MemoryPointerNonNull] type alias for more information on non-null pointers.
 #[allow(type_alias_bounds)]
 pub type MemoryPointer<C: Memorable> = *const C;
 
@@ -66,11 +64,10 @@ pub type MemoryPointer<C: Memorable> = *const C;
 ///
 /// # See Also
 ///
-/// - [Memory] type alias for more information on memory buffers.
-/// - [faer_entity::Entity] trait for more information on faer entities.
-/// - [faer_entity::GroupFor] trait for more information on faer groups.
-/// - [Pointer] type alias for more information on const pointers.
-/// - [NonNullPointer] type alias for more information on non-null pointers.
+/// - [MemoryBuffer] type alias for more information on memory buffers.
+/// - [Memorable] trait for more information on trait bounds.
+/// - [MemoryPointer] type alias for more information on const pointers.
+/// - [MemoryPointerNonNull] type alias for more information on non-null pointers.
 #[allow(type_alias_bounds)]
 pub type MemoryPointerMut<C> = *mut C;
 
@@ -82,100 +79,12 @@ pub type MemoryPointerMut<C> = *mut C;
 ///
 /// # See Also
 ///
-/// - [Memory] type alias for more information on memory buffers.
-/// - [faer_entity::Entity] trait for more information on faer entities.
-/// - [faer_entity::GroupFor] trait for more information on faer groups.
-/// - [Pointer] type alias for more information on const pointers.
-/// - [PointerMut] type alias for more information on mutable pointers.
+/// - [MemoryBuffer] type alias for more information on memory buffers.
+/// - [Memorable] trait for more information on trait bounds.
+/// - [MemoryPointer] type alias for more information on const pointers.
+/// - [MemoryPointerMut] type alias for more information on mutable pointers.
 #[allow(type_alias_bounds)]
 pub type MemoryPointerNonNull<C> = core::ptr::NonNull<C>;
-
-/// Convert a mutable memory pointer to a non-null pointer without checking.
-///
-/// # Type Parameters
-///
-/// * `C`: The faer entity type for the memory buffer.
-///
-/// # Arguments
-///
-/// * `data` - The mutable memory pointer to convert to a non-null pointer.
-///
-/// # Returns
-///
-/// A non-null pointer to the memory buffer.
-///
-/// # Safety
-///
-/// The user must ensure that the data is not null.
-///
-/// # See Also
-///
-/// - [Memory] type alias for more information on memory buffers.
-/// - [PointerMut] type alias for more information on mutable pointers.
-/// - [NonNullPointer] type alias for more information on non-null pointers.
-/// - [is_null_ptr] function to check if a pointer is null.
-// #[inline(always)]
-// #[track_caller]
-// pub unsafe fn new_non_null_unchecked<C: Entity>(data: PointerMut<C>) -> NonNullPointer<C> {
-//     C::faer_map(data,
-//         #[inline(always)]
-//         |ptr| { core::ptr::NonNull::new_unchecked(ptr) }
-//     )
-// }
-
-/// Upgrade a memory pointer to a mutable memory pointer.
-///
-/// # Type Parameters
-///
-/// * `C`: The faer entity type for the memory buffer.
-///
-/// # Arguments
-///
-/// * `data` - The memory pointer to upgrade to a mutable memory pointer.
-///
-/// # Returns
-///
-/// A mutable memory pointer to the memory buffer.
-///
-/// # Safety
-///
-/// The user must ensure that the rust borrow checking rules are not violated.
-///
-/// # See Also
-///
-/// - [Pointer] type alias for more information on const pointers.
-/// - [PointerMut] type alias for more information on mutable pointers.
-/// - [NonNullPointer] type alias for more information on non-null pointers.
-/// - [new_non_null_unchecked] function to convert a mutable pointer to a non-null pointer.
-/// - [is_null_ptr] function to check if a pointer is null.
-// #[inline(always)]
-// #[track_caller]
-// pub unsafe fn upgrade_pointer<C: Entity>(data: Pointer<C>) -> PointerMut<C> {
-//     C::faer_map(data,
-//         #[inline(always)]
-//         |ptr| { ptr as *mut C::Unit }
-//     )
-// }
-
-/// Check if a memory pointer is null.
-///
-/// # See Also
-///
-/// - [NonNullPointer] type alias for more information on non-null pointers.
-/// - [new_non_null_unchecked] function to convert a mutable pointer to a non-null pointer.
-/// - [is_null_ptr] function to check if a pointer is null.
-// #[inline(always)]
-// #[track_caller]
-// pub fn is_null_ptr<C: Entity>(data: PointerMut<C>) -> bool {
-//     let mut to_return = false;
-
-//     C::faer_map(data,
-//         #[inline(always)]
-//         |ptr| { if ptr.is_null() { to_return = true; } },
-//     );
-
-//     to_return
-// }
 
 /// Allocate a new memory buffer with the given size.
 ///
@@ -210,9 +119,8 @@ pub type MemoryPointerNonNull<C> = core::ptr::NonNull<C>;
 ///
 /// # See Also
 ///
-/// - [Memory] type alias for more information on memory buffers.
-/// - [faer_entity::Entity] trait for more information on faer entities.
-pub fn alloc_zeroed_memory<C: Zeroable + Clone>(size: usize) -> MemoryBuffer<C> {
+/// - [MemoryBuffer] type alias for more information on memory buffers.
+pub fn alloc_zeroed_memory<C: Memorable>(size: usize) -> MemoryBuffer<C> {
     let mem_size = size
         .checked_mul(size_of::<C>())
         .expect("Memory size overflows usize");
@@ -221,9 +129,7 @@ pub fn alloc_zeroed_memory<C: Zeroable + Clone>(size: usize) -> MemoryBuffer<C> 
         panic!("Memory size overflows isize");
     }
 
-    // TODO: This doesn't use calloc yet
     avec![<C as Zeroable>::zeroed(); size]
-    // C::faer_map(C::UNIT, |()| avec![<C::Unit as Zeroable>::zeroed(); size])
 }
 
 /// Calculate column stride for a matrix with given rows and columns.
@@ -271,7 +177,6 @@ pub fn alloc_zeroed_memory<C: Zeroable + Clone>(size: usize) -> MemoryBuffer<C> 
 /// # See Also
 ///
 /// - [calc_mat_stride] function to calculate the matrix stride.
-/// - [faer_entity::Entity] trait for more information on faer entities.
 ///
 /// # Notes
 ///
@@ -361,7 +266,7 @@ pub fn calc_col_stride<C>(nrows: usize, ncols: usize) -> usize {
     // into ncols_per_line pieces. In the worst case, we stop at
     // ncols_per_line = 1, which is the same as the faer implementation.
     let mut left_over = units_per_cache_line - (ncols_per_line * nrows);
-    while left_over % ncols_per_line != 0 {
+    while !left_over.is_multiple_of(ncols_per_line) {
         ncols_per_line -= 1;
         left_over = units_per_cache_line - (ncols_per_line * nrows);
     }
@@ -405,9 +310,8 @@ pub fn calc_col_stride<C>(nrows: usize, ncols: usize) -> usize {
 /// # See Also
 ///
 /// - [calc_col_stride] function to calculate the column stride.
-/// - [faer_entity::Entity] trait for more information on faer entities.
-/// - [Memory] type alias for more information on memory buffers.
-/// - [MatVec] type for more information on three dimension tensors.
+/// - [MemoryBuffer] type alias for more information on memory buffers.
+/// - [crate::array::Tensor] type for more information on three dimension tensors.
 ///
 /// # Notes
 ///

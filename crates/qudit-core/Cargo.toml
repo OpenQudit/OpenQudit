@@ -35,3 +35,6 @@ harness = false
 
 [features]
 python = ["dep:pyo3", "dep:inventory", "dep:numpy"]
+
+[lints]
+workspace = true

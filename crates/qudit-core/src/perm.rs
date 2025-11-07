@@ -70,7 +70,7 @@ pub fn calc_index_permutation(radices: &Radices, perm: &[usize]) -> Vec<usize> {
 
         let mut acm_val = 0usize;
         for i in 0..radices.len() {
-            acm_val += expansion[i] as usize * perm_place_values[i] as usize;
+            acm_val += expansion[i] * perm_place_values[i];
         }
         index_perm.push(acm_val);
     }
@@ -130,8 +130,8 @@ impl QuditPermutation {
     ///
     /// # See Also
     ///
-    /// * [`from_qubit_location`] - A convenience constructor for qubit permutations.
-    /// * [`from_qudit_location`] - A convenience constructor for qudit permutations.
+    /// * [Self::from_qubit_location] - A convenience constructor for qubit permutations.
+    /// * [Self::from_qudit_location] - A convenience constructor for qudit permutations.
     pub fn new<R: Into<Radices>>(radices: R, perm: &[usize]) -> QuditPermutation {
         fn __new_impl(radices: Radices, perm: &[usize]) -> QuditPermutation {
             if perm.len() != radices.len() {
@@ -147,7 +147,7 @@ impl QuditPermutation {
                 panic!("Invalid qudit permutation: permutation has duplicate entries.");
             }
 
-            let index_perm = calc_index_permutation(&radices, &perm);
+            let index_perm = calc_index_permutation(&radices, perm);
 
             let mut inverse_index_perm = vec![0; radices.dimension()];
             index_perm
@@ -187,8 +187,8 @@ impl QuditPermutation {
     ///
     /// # See Also
     ///
-    /// * [`new`] - A general constructor for qudit permutations.
-    /// * [`from_qudit_location`] - A convenience constructor for qudit permutations.
+    /// * [Self::new] - A general constructor for qudit permutations.
+    /// * [Self::from_qudit_location] - A convenience constructor for qudit permutations.
     #[inline]
     pub fn from_qubit_location(perm: &[usize]) -> QuditPermutation {
         Self::from_qudit_location(2u8, perm)
@@ -219,11 +219,11 @@ impl QuditPermutation {
     ///
     /// # See Also
     ///
-    /// * [`new`] - A general constructor for qudit permutations.
-    /// * [`from_qubit_location`] - A convenience constructor for qubit permutations.
+    /// * [Self::new] - A general constructor for qudit permutations.
+    /// * [Self::from_qubit_location] - A convenience constructor for qubit permutations.
     #[inline]
     pub fn from_qudit_location<T: Into<Radix>>(radix: T, perm: &[usize]) -> QuditPermutation {
-        let qudit_iter = core::iter::repeat(radix.into()).take(perm.len());
+        let qudit_iter = core::iter::repeat_n(radix.into(), perm.len());
         let rdx = Radices::from_iter(qudit_iter);
         QuditPermutation::new(rdx, perm)
     }
@@ -299,7 +299,7 @@ impl QuditPermutation {
     /// assert_eq!(qubit_swap.index_perm(), &vec![0, 2, 1, 3]);
     /// ```
     pub fn index_perm(&self) -> &[usize] {
-        return &self.index_perm;
+        &self.index_perm
     }
 
     /// Returns the radices of the system after being permuted.
@@ -420,9 +420,9 @@ impl QuditPermutation {
     ///
     /// # See Also
     ///
-    /// * [`transpositions`] - Returns the permutation as a sequence of qudit swaps.
-    /// * [`index_cycles`] - Returns the permutation as a sequence of index swaps.
-    /// * [`index_transpositions`] - Returns the permutation as a sequence of index swaps.
+    /// * [Self::transpositions] - Returns the permutation as a sequence of qudit swaps.
+    /// * [Self::index_cycles] - Returns the permutation as a sequence of index swaps.
+    /// * [Self::index_transpositions] - Returns the permutation as a sequence of index swaps.
     pub fn cycles(&self) -> Vec<Vec<usize>> {
         let mut cycles_vec = Vec::new();
         let mut visited = vec![false; self.num_qudits];
@@ -451,8 +451,6 @@ impl QuditPermutation {
 
     /// Returns the index-space permutation as a sequence of cycles.
     ///
-    /// See [`cycles`] for more information.
-    ///
     /// # Returns
     ///
     /// A vector of cycles, where each cycle is a vector of qudit indices.
@@ -467,9 +465,9 @@ impl QuditPermutation {
     ///
     /// # See Also
     ///
-    /// * [`cycles`] - Returns the permutation as a sequence of cycles.
-    /// * [`transpositions`] - Returns the permutation as a sequence of qudit swaps.
-    /// * [`index_transpositions`] - Returns the permutation as a sequence of index swaps.
+    /// * [Self::cycles] - Returns the permutation as a sequence of cycles.
+    /// * [Self::transpositions] - Returns the permutation as a sequence of qudit swaps.
+    /// * [Self::index_transpositions] - Returns the permutation as a sequence of index swaps.
     pub fn index_cycles(&self) -> Vec<Vec<usize>> {
         let mut cycles_vec = Vec::new();
         let mut visited = vec![false; self.dimension()];
@@ -519,9 +517,9 @@ impl QuditPermutation {
     ///
     /// # See Also
     ///
-    /// * [`cycles`] - Returns the permutation as a sequence of cycles.
-    /// * [`index_cycles`] - Returns the permutation as a sequence of index swaps.
-    /// * [`index_transpositions`] - Returns the index permutation as a swap sequence.
+    /// * [Self::cycles] - Returns the permutation as a sequence of cycles.
+    /// * [Self::index_cycles] - Returns the permutation as a sequence of index swaps.
+    /// * [Self::index_transpositions] - Returns the index permutation as a swap sequence.
     pub fn transpositions(&self) -> Vec<(usize, usize)> {
         let mut swaps_vec = Vec::new();
         for cycle in self.cycles() {
@@ -533,8 +531,6 @@ impl QuditPermutation {
     }
 
     /// Return the index-space permutation as a sequence of swaps
-    ///
-    /// See [`transpositions`] for more information.
     ///
     /// # Returns
     ///
@@ -550,9 +546,9 @@ impl QuditPermutation {
     ///
     /// # See Also
     ///
-    /// * [`cycles`] - Returns the permutation as a sequence of cycles.
-    /// * [`transpositions`] - Returns the permutation as a sequence of qudit swaps.
-    /// * [`index_cycles`] - Returns the permutation as a sequence of index swaps.
+    /// * [Self::cycles] - Returns the permutation as a sequence of cycles.
+    /// * [Self::transpositions] - Returns the permutation as a sequence of qudit swaps.
+    /// * [Self::index_cycles] - Returns the permutation as a sequence of index swaps.
     pub fn index_transpositions(&self) -> Vec<(usize, usize)> {
         let mut swaps_vec = Vec::new();
         for cycle in self.index_cycles() {
@@ -599,8 +595,8 @@ impl QuditPermutation {
     ///
     /// # See Also
     ///
-    /// * [`swap_rows_to_buf`] - Swaps the rows of a matrix witout allocations.
-    /// * [`swap_cols`] - Swaps the columns of a matrix.
+    /// * [Self::swap_rows_to_buf] - Swaps the rows of a matrix witout allocations.
+    /// * [Self::swap_cols] - Swaps the columns of a matrix.
     pub fn swap_rows<E: ComplexField>(
         &self,
         a: impl AsMatRef<T = E, Rows = usize, Cols = usize>,
@@ -645,11 +641,11 @@ impl QuditPermutation {
     ///
     /// # See Also
     ///
-    /// * [`swap_rows`] - Swaps the rows of a matrix and returns a new matrix.
-    /// * [`swap_rows_to_buf`] - Swaps the rows of a matrix without allocations.
-    /// * [`swap_cols_in_place`] - Swaps the columns of a matrix in place.
-    /// * [`swap_cols_to_buf`] - Swaps the columns of a matrix without allocations.
-    /// * [`apply`] - Applies the permutation to a matrix and returns a new matrix.
+    /// * [Self::swap_rows] - Swaps the rows of a matrix and returns a new matrix.
+    /// * [Self::swap_rows_to_buf] - Swaps the rows of a matrix without allocations.
+    /// * [Self::swap_cols_in_place] - Swaps the columns of a matrix in place.
+    /// * [Self::swap_cols_to_buf] - Swaps the columns of a matrix without allocations.
+    /// * [Self::apply] - Applies the permutation to a matrix and returns a new matrix.
     ///
     /// # Notes
     ///
@@ -661,7 +657,7 @@ impl QuditPermutation {
         mut a: impl AsMatMut<T = E, Rows = usize, Cols = usize>,
     ) {
         let mut in_mat = a.as_mat_mut();
-        let ncols = in_mat.ncols().clone();
+        let ncols = in_mat.ncols();
         assert_eq!(in_mat.nrows(), self.dimension());
         assert_eq!(in_mat.ncols(), self.dimension());
         for cycle in self.index_transpositions() {
@@ -693,10 +689,10 @@ impl QuditPermutation {
     ///
     /// # See Also
     ///
-    /// * [`swap_rows`] - Swaps the rows of a matrix and returns a new matrix.
-    /// * [`swap_rows_in_place`] - Swaps the rows of a matrix in place.
-    /// * [`swap_cols_to_buf`] - Swaps the columns of a matrix without allocations.
-    /// * [`apply_to_buf`] - Applies the permutation to a matrix and writes the result into a buffer.
+    /// * [Self::swap_rows] - Swaps the rows of a matrix and returns a new matrix.
+    /// * [Self::swap_rows_in_place] - Swaps the rows of a matrix in place.
+    /// * [Self::swap_cols_to_buf] - Swaps the columns of a matrix without allocations.
+    /// * [Self::apply_to_buf] - Applies the permutation to a matrix and writes the result into a buffer.
     pub fn swap_rows_to_buf<E: ComplexField>(
         &self,
         a: impl AsMatRef<T = E, Rows = usize, Cols = usize>,
@@ -742,9 +738,9 @@ impl QuditPermutation {
     ///
     /// # See Also
     ///
-    /// * [`swap_cols_to_buf`] - Swaps the columns of a matrix without allocations.
-    /// * [`swap_rows`] - Swaps the rows of a matrix.
-    /// * [`apply`] - Applies the permutation to a matrix and returns a new matrix.
+    /// * [Self::swap_cols_to_buf] - Swaps the columns of a matrix without allocations.
+    /// * [Self::swap_rows] - Swaps the rows of a matrix.
+    /// * [Self::apply] - Applies the permutation to a matrix and returns a new matrix.
     pub fn swap_cols<E: ComplexField>(
         &self,
         a: impl AsMatRef<T = E, Rows = usize, Cols = usize>,
@@ -789,12 +785,12 @@ impl QuditPermutation {
     ///
     /// # See Also
     ///
-    /// * [`swap_rows`] - Swaps the rows of a matrix and returns a new matrix.
-    /// * [`swap_rows_to_buf`] - Swaps the rows of a matrix without allocations.
-    /// * [`swap_rows_in_place`] - Swaps the rows of a matrix in place.
-    /// * [`swap_cols`] - Swaps the columns of a matrix with allocations.
-    /// * [`swap_cols_to_buf`] - Swaps the columns of a matrix without allocations.
-    /// * [`apply`] - Applies the permutation to a matrix and returns a new matrix.
+    /// * [Self::swap_rows] - Swaps the rows of a matrix and returns a new matrix.
+    /// * [Self::swap_rows_to_buf] - Swaps the rows of a matrix without allocations.
+    /// * [Self::swap_rows_in_place] - Swaps the rows of a matrix in place.
+    /// * [Self::swap_cols] - Swaps the columns of a matrix with allocations.
+    /// * [Self::swap_cols_to_buf] - Swaps the columns of a matrix without allocations.
+    /// * [Self::apply] - Applies the permutation to a matrix and returns a new matrix.
     ///
     /// # Notes
     ///
@@ -837,11 +833,11 @@ impl QuditPermutation {
     ///
     /// # See Also
     ///
-    /// * [`swap_cols`] - Swaps the columns of a matrix and returns a new matrix.
-    /// * [`swap_cols_in_place`] - Swaps the columns of a matrix in place.
-    /// * [`swap_rows_to_buf`] - Swaps the rows of a matrix without allocations.
-    /// * [`apply_to_buf`] - Applies the permutation to a matrix and writes the result into a buffer.
-    /// * [`apply`] - Applies the permutation to a matrix and returns a new matrix.
+    /// * [Self::swap_cols] - Swaps the columns of a matrix and returns a new matrix.
+    /// * [Self::swap_cols_in_place] - Swaps the columns of a matrix in place.
+    /// * [Self::swap_rows_to_buf] - Swaps the rows of a matrix without allocations.
+    /// * [Self::apply_to_buf] - Applies the permutation to a matrix and writes the result into a buffer.
+    /// * [Self::apply] - Applies the permutation to a matrix and returns a new matrix.
     pub fn swap_cols_to_buf<E: ComplexField>(
         &self,
         a: impl AsMatRef<T = E, Rows = usize, Cols = usize>,
@@ -902,10 +898,10 @@ impl QuditPermutation {
     ///
     /// # See Also
     ///
-    /// * [`swap_rows`] - Swaps the rows of a matrix and returns a new matrix.
-    /// * [`swap_cols`] - Swaps the columns of a matrix and returns a new matrix.
-    /// * [`apply_to_buf`] - Applies the permutation to a matrix and writes the result into a buffer.
-    /// * [`apply_in_place`] - Swaps the rows of a matrix in place.
+    /// * [Self::swap_rows] - Swaps the rows of a matrix and returns a new matrix.
+    /// * [Self::swap_cols] - Swaps the columns of a matrix and returns a new matrix.
+    /// * [Self::apply_to_buf] - Applies the permutation to a matrix and writes the result into a buffer.
+    /// * [Self::apply_in_place] - Swaps the rows of a matrix in place.
     pub fn apply<E: ComplexField>(
         &self,
         a: impl AsMatRef<T = E, Rows = usize, Cols = usize>,
@@ -925,10 +921,10 @@ impl QuditPermutation {
     ///
     /// # See Also
     ///
-    /// * [`swap_rows_in_place`] - Swaps the rows of a matrix in place.
-    /// * [`swap_cols_in_place`] - Swaps the columns of a matrix in place.
-    /// * [`apply_to_buf`] - Applies the permutation to a matrix and writes the result into a buffer.
-    /// * [`apply`] - Applies the permutation to a matrix and returns a new matrix.
+    /// * [Self::swap_rows_in_place] - Swaps the rows of a matrix in place.
+    /// * [Self::swap_cols_in_place] - Swaps the columns of a matrix in place.
+    /// * [Self::apply_to_buf] - Applies the permutation to a matrix and writes the result into a buffer.
+    /// * [Self::apply] - Applies the permutation to a matrix and returns a new matrix.
     ///
     /// # Notes
     ///
@@ -955,10 +951,10 @@ impl QuditPermutation {
     ///
     /// # See Also
     ///
-    /// * [`swap_rows_to_buf`] - Swaps the rows of a matrix without allocations.
-    /// * [`swap_cols_to_buf`] - Swaps the columns of a matrix without allocations.
-    /// * [`apply`] - Applies the permutation to a matrix and returns a new matrix.
-    /// * [`apply_in_place`] - Swaps the rows of a matrix in place.
+    /// * [Self::swap_rows_to_buf] - Swaps the rows of a matrix without allocations.
+    /// * [Self::swap_cols_to_buf] - Swaps the columns of a matrix without allocations.
+    /// * [Self::apply] - Applies the permutation to a matrix and returns a new matrix.
+    /// * [Self::apply_in_place] - Swaps the rows of a matrix in place.
     pub fn apply_to_buf<E: ComplexField>(
         &self,
         a: impl AsMatRef<T = E, Rows = usize, Cols = usize>,

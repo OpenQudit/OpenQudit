@@ -117,7 +117,7 @@ fn j_processing32(input: TokenStream2) -> TokenStream2 {
             }
         }
     }
-    return TokenStream2::from_iter(new_stream);
+    TokenStream2::from_iter(new_stream)
 }
 
 /// Replaces `j` with `c64::new(0.0, 1.0)` in the input token stream.
@@ -220,7 +220,7 @@ fn j_processing64(input: TokenStream2) -> TokenStream2 {
             }
         }
     }
-    return TokenStream2::from_iter(new_stream);
+    TokenStream2::from_iter(new_stream)
 }
 
 /// Categorizes the tokens in the input token stream to aid in parsing.
@@ -235,11 +235,11 @@ fn j_processing64(input: TokenStream2) -> TokenStream2 {
 ///
 fn tensor_lexer(token_stream: TokenStream2) -> Result<Vec<TensorTokens>> {
     let mut processed_tokens = Vec::new();
-    let mut token_iterator = token_stream.into_iter();
+    let token_iterator = token_stream.into_iter();
 
     let mut number_token_accumulator = Vec::new();
 
-    while let Some(token) = token_iterator.next() {
+    for token in token_iterator {
         match &token {
             TokenTree::Literal(_literal) => {
                 number_token_accumulator.push(token);
@@ -279,7 +279,7 @@ fn tensor_lexer(token_stream: TokenStream2) -> Result<Vec<TensorTokens>> {
     if !number_token_accumulator.is_empty() {
         processed_tokens.push(TensorTokens::Number(number_token_accumulator));
     }
-    return Ok(processed_tokens);
+    Ok(processed_tokens)
 }
 
 /// Organizes a series of custom tokens into a recursive tensor structure.
@@ -326,9 +326,9 @@ fn tensor_parser(tokens: &[TensorTokens]) -> Result<(RecursiveTensor, usize)> {
             }
         }
     } else if let Some(TensorTokens::Number(token_tree_vec)) = tokens.get(index) {
-        return Ok((RecursiveTensor::Scalar(token_tree_vec.clone()), 1));
+        Ok((RecursiveTensor::Scalar(token_tree_vec.clone()), 1))
     } else {
-        return Err(Error::new(Span::call_site(), "Not a valid tensor"));
+        Err(Error::new(Span::call_site(), "Not a valid tensor"))
     }
 }
 
@@ -363,7 +363,7 @@ fn flatten_tensor_data(input: &RecursiveTensor) -> (Vec<TokenStream2>, Vec<usize
             let mut final_shape = vec![subtensors.len()];
             final_shape.extend(sub_shape);
 
-            return (flat_data, final_shape);
+            (flat_data, final_shape)
         }
     }
 }
