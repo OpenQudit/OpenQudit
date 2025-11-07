@@ -72,12 +72,18 @@ mod python {
 
     #[pyfunction]
     fn DefaultInstantiater() -> BoxedInstantiater {
+        SequentialMultiStartInstantiater(8)
+    }
+
+    #[pyfunction]
+    #[pyo3(signature = (num_starts = 8))]
+    fn SequentialMultiStartInstantiater(num_starts: usize) -> BoxedInstantiater {
         let minimizer = LM::default();
         let initializer = Uniform::default();
         let runner = MultiStartRunner {
             minimizer,
             guess_generator: initializer,
-            num_starts: 16,
+            num_starts,
         };
         let instantiater = MinimizingInstantiater::<_, HSProblem<f64>>::new(runner);
         BoxedInstantiater {
@@ -88,6 +94,7 @@ mod python {
     /// Registers the Instantiaters with the Python module.
     fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
         parent_module.add_function(wrap_pyfunction!(DefaultInstantiater, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(SequentialMultiStartInstantiater, parent_module)?)?;
         Ok(())
     }
     inventory::submit!(PyInstantiationRegistrar { func: register });

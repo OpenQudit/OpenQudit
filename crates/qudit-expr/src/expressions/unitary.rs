@@ -628,6 +628,12 @@ mod python {
                 self.expr.num_params()
             )
         }
+
+        fn __matmul__(&self, other: UnitaryExpression) -> PyUnitaryExpression {
+            Self {
+                expr: self.expr.dot(&other),
+            }
+        }
     }
 
     impl From<UnitaryExpression> for PyUnitaryExpression {

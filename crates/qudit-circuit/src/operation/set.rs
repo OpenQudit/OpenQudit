@@ -39,6 +39,10 @@ impl OperationSet {
         }
     }
 
+    pub fn count(&self, op_code: OpCode) ->  usize {
+        *self.op_counts.get(&op_code).unwrap()
+    }
+
     /// Increment internal instruction type counter.
     pub(crate) fn increment(&mut self, op_code: OpCode) {
         self.op_counts
@@ -67,7 +71,7 @@ impl OperationSet {
     }
 
     pub fn num_operations(&self) -> usize {
-        self.op_counts.iter().map(|(_, count)| count).sum()
+        self.op_counts.values().sum()
     }
 
     pub fn expressions(&self) -> Arc<Mutex<ExpressionCache>> {
@@ -102,6 +106,12 @@ impl OperationSet {
         op: ExpressionOperation,
         dit_radices: &[usize],
     ) -> OpCode {
+        if dit_radices.len() == 0 {
+            let op_ref = self.insert_expression(op);
+            self.increment(op_ref); // Yeah, it's a mess.
+            return op_ref;
+        }
+
         let expression_type = op.expr_type();
         let mut tensor_expr: TensorExpression = op.into();
 
@@ -179,6 +189,15 @@ impl OperationSet {
                     .num_params(KeyData::from_ffi(circuit_id).into())
             }
             OpKind::Directive => Some(0),
+        }
+    }
+
+    #[allow(dead_code)]
+    pub fn name(&self, op_code: OpCode) -> String {
+        match op_code.kind() {
+            OpKind::Expression => self.expressions.lock().unwrap().name(op_code.id()),
+            OpKind::Subcircuit => todo!(),
+            OpKind::Directive => todo!(),
         }
     }
 

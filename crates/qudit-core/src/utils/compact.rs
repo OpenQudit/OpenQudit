@@ -1095,7 +1095,6 @@ impl<T: CompactStorage> FromIterator<T> for CompactVec<T> {
         let mut iter = iter.into_iter();
         let (min_len, max_len) = iter.size_hint();
 
-        // If we know the exact size of the iterator
         if let Some(len) = max_len {
             if len <= INLINE_CAPACITY {
                 // If the known size fits within inline capacity:
@@ -1103,13 +1102,12 @@ impl<T: CompactStorage> FromIterator<T> for CompactVec<T> {
                 // we can directly populate the inline array for maximum performance.
                 if T::CONVERSION_INFALLIBLE {
                     let mut storage = [T::InlineType::default(); INLINE_CAPACITY];
-                    for i in 0..len {
-                        storage[i] = T::to_inline_unchecked(
-                            iter.next()
-                                .expect("iterator should have enough elements based on size hint"),
-                        );
+                    let mut i = 0;
+                    while let Some(next) = iter.next() {
+                        storage[i] = T::to_inline_unchecked(next);
+                        i += 1;
                     }
-                    return CompactVec::Inline(storage, len as u8);
+                    return CompactVec::Inline(storage, i as u8);
                 }
                 // For types with fallible inline conversions, even if the size fits,
                 // we cannot pre-populate without checking each item. In this case,

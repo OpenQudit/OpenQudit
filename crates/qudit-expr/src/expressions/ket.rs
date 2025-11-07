@@ -96,13 +96,13 @@ impl TryFrom<TensorExpression> for KetExpression {
         if value
             .indices()
             .iter()
-            .any(|idx| idx.direction() != IndexDirection::Output)
+            .any(|idx| idx.direction() != IndexDirection::Output && idx.index_size() != 1)
         {
             return Err(String::from(
                 "Cannot convert a tensor with non-output indices to a ket.",
             ));
         }
-        let radices = Radices::from_iter(value.indices().iter().map(|idx| idx.index_size()));
+        let radices = Radices::from_iter(value.indices().iter().filter(|idx| idx.index_size() > 1).map(|idx| idx.index_size()));
         Ok(KetExpression {
             inner: value.into(),
             radices,

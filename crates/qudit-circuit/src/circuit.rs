@@ -31,7 +31,7 @@ use std::collections::HashMap;
 /// This data structure holds invariant that there never will be an empty
 /// cycle. As a result, cycles can be removed automatically from anywhere in
 /// the circuit, when operations are removed. However, cycles are identified
-/// by a persistant identifier, which never changes and enables fast O(1) lookup.
+/// by a persistent identifier, which never changes and enables fast O(1) lookup.
 /// This additionally enables instruction identifiers that will always point
 /// to their correct instruction, no matter how the circuit changes underneath.
 #[derive(Clone)]
@@ -246,6 +246,11 @@ impl QuditCircuit {
 }
 
 impl QuditCircuit {
+    /// Counts the amount of an operation in the circuit.
+    pub fn count(&self, op_code: OpCode) -> usize {
+        self.operations.count(op_code)
+    }
+
     /// Checks if `wires` is a valid set of wires in the circuit.
     ///
     /// A wire list is valid if all qudit indices are less than the
@@ -394,14 +399,36 @@ impl QuditCircuit {
         }
     }
 
-    // TODO: prepend + insert
-
     /// Intern an operation in the circuit's operation cache
     ///
     /// This allows further additions by OpCodes.
     pub fn cache_operation<O: Into<Operation>>(&mut self, op: O) -> OpCode {
         self.operations.insert(op.into())
     }
+
+//     fn _insert_ref(
+//         &mut self,
+//         cycle_index: CycleIndex,
+//         op_code: OpCode,
+//         wires: WireList,
+//         params: ParamIndices,
+//     ) -> InstructionId {
+//         // TODO: Check cycle_index is valid
+        
+//         // Two options: cycle_index is available at location
+//         // or not
+//         //
+//         // if available at location, then insert there, but then we need to update
+//         // prev and next of the prev and next without knowing exactly where they are at: costly
+//         //
+//         // if not available at location, need to insert a new cycle, but now I know who
+//         // prev and next are
+//         for wire in wires.wires() {
+
+//         }
+
+//         todo!()
+//     }
 
     fn _append_ref(
         &mut self,
@@ -411,8 +438,6 @@ impl QuditCircuit {
     ) -> InstructionId {
         // TODO: check valid operation for radix match, measurement bandwidth etc
         // TODO: check params is valid: length is equal to op_params, existing exist, etc..
-        // TODO: have to something about static entries...
-        // TODO: have to do something about gate parameters mapped within same gate
 
         // Find cycle placement (location validity implicitly checked here)
         let cycle_index = self.find_available_or_append_cycle(&wires);
@@ -614,10 +639,10 @@ impl QuditCircuit {
     }
 
     /// Remove the operation at `point` from the circuit
-    pub fn remove(&mut self, inst_id: InstructionId) {
+    pub fn remove(&mut self, inst_id: InstructionId) -> Option<Instruction> {
         if !self.is_valid_id(inst_id) {
             // TODO: log warning?
-            return;
+            return None;
         }
 
         let wires = self
@@ -695,6 +720,8 @@ impl QuditCircuit {
         }
 
         self.operations.decrement(inst.op_code());
+
+        Some(inst)
     }
 }
 
@@ -998,7 +1025,7 @@ impl QuditCircuit {
                 let batch_index_map: Vec<String> =
                     inst.wires().dits().map(|id| id.to_string()).collect();
                 let tensor = QuditTensor::new(indices, inst.op_code().id(), param_info);
-                // println!("Adding new tensor to network builder with in qudits: {:?}; out qudits: {:?}, batch indices: {:?}", input_index_map.clone(), output_index_map.clone(), batch_index_map.clone());
+                // println!("Adding new tensor {} to network builder with in qudits: {:?}; out qudits: {:?}, batch indices: {:?}", self.operations.name(inst.op_code()), input_index_map.clone(), output_index_map.clone(), batch_index_map.clone());
                 network =
                     network.prepend(tensor, input_index_map, output_index_map, batch_index_map)
             }
@@ -1102,8 +1129,26 @@ mod python {
     use pyo3::types::PyTuple;
     use qudit_core::c64;
 
+    /// Helper function to parse a Python object that can be
+    /// either an integer or an iterable of integers.
+    fn parse_int_or_iterable<'py>(input: &Bound<'py, PyAny>) -> PyResult<Vec<usize>> {
+        // First, try to extract the input as a single integer.
+        if let Ok(val) = input.extract::<usize>() {
+            // If successful, create a Vec of that length filled with the value 2.
+            Ok(vec![2; val])
+        } else {
+            // If it's not an integer, try to treat it as an iterable.
+            // This will raise a TypeError if the object is not iterable
+            // or its elements are not integers.
+            pyo3::types::PyIterator::from_object(input)?
+                .map(|item| item?.extract::<usize>())
+                .collect::<PyResult<Vec<usize>>>()
+        }
+    }
+
     #[pyclass]
     #[pyo3(name = "QuditCircuit")]
+    #[derive(Clone)]
     pub struct PyQuditCircuit {
         circuit: QuditCircuit,
     }
@@ -1119,18 +1164,30 @@ mod python {
         ///         Defaults to None, which results in no classical dits.
         #[new]
         #[pyo3(signature = (qudits, dits = None))]
-        fn new<'py>(qudits: Radices, dits: Option<Radices>) -> PyResult<PyQuditCircuit> {
-            match dits {
-                None => Ok(PyQuditCircuit {
-                    circuit: QuditCircuit::pure(qudits),
-                }),
-                Some(dits) => Ok(PyQuditCircuit {
-                    circuit: QuditCircuit::new(qudits, dits),
-                }),
-            }
+        fn new<'py>(qudits: &Bound<'py, PyAny>, dits: Option<&Bound<'py, PyAny>>) -> PyResult<PyQuditCircuit> {
+            let qudits_vec = parse_int_or_iterable(qudits)?;
+
+            let dits_vec = match dits {
+                Some(pyany) => parse_int_or_iterable(pyany)?,
+                None => Vec::new(),
+            };
+
+            Ok(PyQuditCircuit {
+                circuit: QuditCircuit::new(qudits_vec, dits_vec),
+            })
+        }
+
+        fn clone(&self) -> PyQuditCircuit {
+            Clone::clone(&self)
         }
 
         // --- Properties ---
+        //
+        /// Returns the number of qudits in the circuit.
+        #[getter]
+        fn num_qudits(&self) -> PyResult<usize> {
+            Ok(self.circuit.num_qudits())
+        }
 
         /// Returns the number of parameters in the circuit.
         #[getter]
@@ -1328,6 +1385,10 @@ mod python {
             Ok(())
         }
 
+        pub fn cache(&mut self, op: Operation) -> OpCode {
+            self.circuit.cache_operation(op)
+        }
+
         // def append_gate
         // def append_circuit
         // def extend
@@ -1335,8 +1396,13 @@ mod python {
         // def insert_gate
         // def insert_circuit
         // def remove(op)
+        fn remove(&mut self, inst_id: InstructionId) -> Option<Instruction> {
+            self.circuit.remove(inst_id)
+        }
         // def remove_all
-        // def count
+        fn count(&self, op_code: OpCode) -> usize {
+            self.circuit.count(op_code)
+        }
         // def pop(point)
         // def batch_pop(points)
         // def replace(point, op)
@@ -1354,7 +1420,6 @@ mod python {
         // def clear()
         //
         // Parameter Methods?
-        //
         // def un-constant?
         // def freeze
         // Specified vs Constant appends are funky, A user should edit their expression
