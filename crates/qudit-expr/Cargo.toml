@@ -39,3 +39,6 @@ harness = false
 python = ["qudit-core/python", "dep:numpy", "dep:ndarray", "dep:pyo3", "dep:inventory"]
 llvm-static = ["llvm-sys/force-static"]
 llvm-dynamic = ["llvm-sys/force-dynamic"]
+
+[lints]
+workspace = true

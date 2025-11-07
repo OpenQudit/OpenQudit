@@ -24,12 +24,12 @@ pub enum Token {
     Qobj,
 }
 
-pub(self) fn is_greek_letter(c: char) -> bool {
+fn is_greek_letter(c: char) -> bool {
     // Greek and Coptic block in Unicode
-    c >= '\u{0391}' && c <= '\u{03A1}' || // Uppercase Greek letters (Α to Ρ)
-    c >= '\u{03A3}' && c <= '\u{03A9}' || // Uppercase Greek letters (Σ to Ω)
-    c >= '\u{03B1}' && c <= '\u{03C1}' || // Lowercase Greek letters (α to ρ)
-    c >= '\u{03C3}' && c <= '\u{03C9}' || // Lowercase Greek letters (σ to ω)
+    ('\u{0391}'..='\u{03A1}').contains(&c) || // Uppercase Greek letters (Α to Ρ)
+    ('\u{03A3}'..='\u{03A9}').contains(&c) || // Uppercase Greek letters (Σ to Ω)
+    ('\u{03B1}'..='\u{03C1}').contains(&c) || // Lowercase Greek letters (α to ρ)
+    ('\u{03C3}'..='\u{03C9}').contains(&c) || // Lowercase Greek letters (σ to ω)
     c == '\u{03B2}' || // Special case for lowercase beta (β)
     c == '\u{03B8}' || // Special case for lowercase theta (θ)
     c == '\u{03B4}' // Special case for lowercase delta (δ)
@@ -154,12 +154,7 @@ impl<'a> Lexer<'a> {
             }
             '.' | '0'..='9' => {
                 // Parse number literal
-                loop {
-                    let ch = match chars.peek() {
-                        Some(ch) => *ch,
-                        None => break,
-                    };
-
+                while let Some(&ch) = chars.peek() {
                     // Parse float.
                     if ch != '.' && !ch.is_ascii_hexdigit() {
                         break;
@@ -173,12 +168,7 @@ impl<'a> Lexer<'a> {
             }
             'a'..='z' | 'A'..='Z' | '_' => {
                 // Parse identifier
-                loop {
-                    let ch = match chars.peek() {
-                        Some(ch) => *ch,
-                        None => break,
-                    };
-
+                while let Some(&ch) = chars.peek() {
                     // A word-like identifier only contains underscores and alphanumeric characters.
                     if ch != '_' && !ch.is_alphanumeric() {
                         break;

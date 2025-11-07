@@ -74,24 +74,6 @@ impl Expression {
         Constant::from_float(self.to_float()).unwrap()
     }
 
-    pub fn to_string(&self) -> String {
-        let inner = match self {
-            Expression::Pi => "pi".to_string(),
-            Expression::Variable(var) => var.clone(),
-            Expression::Constant(_c) => self.to_float().to_string(),
-            Expression::Neg(expr) => format!("~ {}", expr.to_string()),
-            Expression::Add(lhs, rhs) => format!("+ {} {}", lhs.to_string(), rhs.to_string()),
-            Expression::Sub(lhs, rhs) => format!("- {} {}", lhs.to_string(), rhs.to_string()),
-            Expression::Mul(lhs, rhs) => format!("* {} {}", lhs.to_string(), rhs.to_string()),
-            Expression::Div(lhs, rhs) => format!("/ {} {}", lhs.to_string(), rhs.to_string()),
-            Expression::Pow(lhs, rhs) => format!("pow {} {}", lhs.to_string(), rhs.to_string()),
-            Expression::Sqrt(expr) => format!("sqrt {}", expr.to_string()),
-            Expression::Sin(expr) => format!("sin {}", expr.to_string()),
-            Expression::Cos(expr) => format!("cos {}", expr.to_string()),
-        };
-        return String::from("(") + &inner + &String::from(")");
-    }
-
     pub fn gather_context(&self) -> HashSet<String> {
         let mut context = HashSet::new();
         context.insert(self.to_string());
@@ -731,10 +713,10 @@ impl std::ops::Add<&Expression> for &Expression {
     type Output = Expression;
 
     fn add(self, other: &Expression) -> Expression {
-        if let Expression::Constant(c1) = self {
-            if let Expression::Constant(c2) = other {
-                return Expression::Constant(c1 + c2);
-            }
+        if let Expression::Constant(c1) = self
+            && let Expression::Constant(c2) = other
+        {
+            return Expression::Constant(c1 + c2);
         }
         if other.is_zero_fast() {
             self.clone()
@@ -774,10 +756,10 @@ impl std::ops::Sub<&Expression> for &Expression {
     type Output = Expression;
 
     fn sub(self, other: &Expression) -> Expression {
-        if let Expression::Constant(c1) = self {
-            if let Expression::Constant(c2) = other {
-                return Expression::Constant(c1 - c2);
-            }
+        if let Expression::Constant(c1) = self
+            && let Expression::Constant(c2) = other
+        {
+            return Expression::Constant(c1 - c2);
         }
         if other.is_zero_fast() {
             self.clone()
@@ -817,10 +799,10 @@ impl std::ops::Mul<&Expression> for &Expression {
     type Output = Expression;
 
     fn mul(self, other: &Expression) -> Expression {
-        if let Expression::Constant(c1) = self {
-            if let Expression::Constant(c2) = other {
-                return Expression::Constant(c1 * c2);
-            }
+        if let Expression::Constant(c1) = self
+            && let Expression::Constant(c2) = other
+        {
+            return Expression::Constant(c1 * c2);
         }
         if other.is_zero_fast() || self.is_zero_fast() {
             Expression::zero()
@@ -896,7 +878,7 @@ impl std::ops::Neg for &Expression {
 
 impl std::fmt::Debug for Expression {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}", self)
     }
 }
 
@@ -922,6 +904,26 @@ impl std::hash::Hash for Expression {
 impl AsRef<Expression> for Expression {
     fn as_ref(&self) -> &Expression {
         self
+    }
+}
+
+impl std::fmt::Display for Expression {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let inner = match self {
+            Expression::Pi => "pi".to_string(),
+            Expression::Variable(var) => var.clone(),
+            Expression::Constant(_c) => self.to_float().to_string(),
+            Expression::Neg(expr) => format!("~ {}", expr),
+            Expression::Add(lhs, rhs) => format!("+ {} {}", lhs, rhs),
+            Expression::Sub(lhs, rhs) => format!("- {} {}", lhs, rhs),
+            Expression::Mul(lhs, rhs) => format!("* {} {}", lhs, rhs),
+            Expression::Div(lhs, rhs) => format!("/ {} {}", lhs, rhs),
+            Expression::Pow(lhs, rhs) => format!("pow {} {}", lhs, rhs),
+            Expression::Sqrt(expr) => format!("sqrt {}", expr),
+            Expression::Sin(expr) => format!("sin {}", expr),
+            Expression::Cos(expr) => format!("cos {}", expr),
+        };
+        write!(f, "({})", inner)
     }
 }
 

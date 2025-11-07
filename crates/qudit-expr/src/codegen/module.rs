@@ -107,7 +107,7 @@ impl<R: RealScalar> Module<R> {
     }
 
     // pub fn get_function<'a>(&'a self, name: &str) -> Option<WriteFuncWithLifeTime<'a, R>> {
-    pub fn get_function<'a>(&'a self, name: &str) -> Option<WriteFunc<R>> {
+    pub fn get_function(&self, name: &str) -> Option<WriteFunc<R>> {
         let name = process_name_for_gen(name);
         let engine_ref = self.engine.lock().unwrap();
 

@@ -21,7 +21,7 @@ impl Builtins {
     }
 
     #[allow(dead_code)]
-    pub fn to_str(&self) -> &str {
+    pub fn to_str(self) -> &'static str {
         match self {
             Self::COS => "cos",
             Self::SIN => "sin",

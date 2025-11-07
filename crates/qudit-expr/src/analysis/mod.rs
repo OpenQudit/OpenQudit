@@ -88,6 +88,7 @@ struct SineExtractor<'a> {
 }
 
 impl<'a> SineExtractor<'a> {
+    #![allow(clippy::type_complexity)]
     pub fn new(egraph: &'a EGraph) -> Self {
         let costs = HashMap::default();
         let mut extractor = SineExtractor { costs, egraph };
@@ -105,7 +106,7 @@ impl<'a> SineExtractor<'a> {
 
         for node in &eclass.nodes {
             if let TrigLanguage::Sin(id) = node {
-                let cost = self.costs[&id].0;
+                let cost = self.costs[id].0;
                 if best_cost.is_none() || cost < best_cost.unwrap() {
                     best_cost = Some(cost);
                     best_node = Some(node.clone());
@@ -259,6 +260,7 @@ struct TrigExprExtractor<'a> {
 }
 
 impl<'a> TrigExprExtractor<'a> {
+    #![allow(clippy::type_complexity)]
     pub fn new(egraph: &'a EGraph) -> Self {
         // let costs = FxHashMap::default();
         let mut max_id = 0usize;
@@ -334,17 +336,11 @@ impl<'a> TrigExprExtractor<'a> {
 
             for class in self.egraph.classes() {
                 let pass = self.make_pass(class);
-                match (self.get_cost(class.id), pass) {
-                    (old, Some(new)) => {
-                        if old.0 < 0.0 {
-                            self.put_cost(class.id, new);
-                            did_something = true;
-                        } else if new.0 > 0.0 && new.0 < old.0 {
-                            self.put_cost(class.id, new);
-                            did_something = true;
-                        }
+                if let (old, Some(new)) = (self.get_cost(class.id), pass) {
+                    if old.0 < 0.0 || (new.0 > 0.0 && new.0 < old.0) {
+                        self.put_cost(class.id, new);
+                        did_something = true;
                     }
-                    _ => {}
                 }
             }
         }
@@ -407,6 +403,7 @@ impl<'a> TrigExprExtractor<'a> {
 
     #[inline(always)]
     fn get_cost(&self, id: Id) -> &(f64, TrigLanguage) {
+        // TODO: this is actually unsafe because Id may not be transparent.
         &self.costs[unsafe { std::mem::transmute::<Id, u32>(id) } as usize]
     }
 
@@ -903,9 +900,7 @@ fn _from_egg_expr(tokens: Vec<Token>) -> Expression {
             "pow" => Expression::Pow(Box::new(operands[0].clone()), Box::new(operands[1].clone())),
             _ => panic!("Invalid operator during parsing of egg expression"),
         },
-        Token::Negation => {
-            return Expression::Neg(Box::new(operands[0].clone()));
-        }
+        Token::Negation => Expression::Neg(Box::new(operands[0].clone())),
         Token::Op(op) => match op {
             '+' => Expression::Add(Box::new(operands[0].clone()), Box::new(operands[1].clone())),
             '-' => Expression::Sub(Box::new(operands[0].clone()), Box::new(operands[1].clone())),
@@ -920,7 +915,7 @@ fn _from_egg_expr(tokens: Vec<Token>) -> Expression {
 fn from_egg_expr(expr: RecExpr<TrigLanguage>) -> Expression {
     let expr_str = expr.to_string();
     let expr_tokens = Lexer::new(&expr_str).collect::<Vec<_>>();
-    if expr_tokens.len() == 0 {
+    if expr_tokens.is_empty() {
         panic!("Failure to lex expression: {}", expr_str);
     }
 
@@ -948,7 +943,7 @@ fn from_egg_expr(expr: RecExpr<TrigLanguage>) -> Expression {
 /// parse an expression, simplify it using egg, and pretty print it back out
 pub fn simplify(expr: &Expression) -> Expression {
     // parse the expression, the type annotation tells it which Language to use
-    let expr: RecExpr<TrigLanguage> = to_egg_expr(&expr);
+    let expr: RecExpr<TrigLanguage> = to_egg_expr(expr);
 
     // simplify the expression using a Runner, which creates an e-graph with
     // the given expression and runs the given rules over it
@@ -1017,8 +1012,8 @@ pub fn simplify_matrix_no_context(
     for row in matrix_expression {
         for expr in row {
             let ComplexExpression { real, imag } = expr;
-            let real_expr: RecExpr<TrigLanguage> = to_egg_expr(&real);
-            let imag_expr: RecExpr<TrigLanguage> = to_egg_expr(&imag);
+            let real_expr: RecExpr<TrigLanguage> = to_egg_expr(real);
+            let imag_expr: RecExpr<TrigLanguage> = to_egg_expr(imag);
             runner = runner.with_expr(&real_expr).with_expr(&imag_expr);
         }
     }
@@ -1059,8 +1054,8 @@ pub fn simplify_matrix(
     for row in matrix_expression {
         for expr in row {
             let ComplexExpression { real, imag } = expr;
-            let real_expr: RecExpr<TrigLanguage> = to_egg_expr(&real);
-            let imag_expr: RecExpr<TrigLanguage> = to_egg_expr(&imag);
+            let real_expr: RecExpr<TrigLanguage> = to_egg_expr(real);
+            let imag_expr: RecExpr<TrigLanguage> = to_egg_expr(imag);
             runner = runner.with_expr(&real_expr).with_expr(&imag_expr);
         }
     }
@@ -1099,7 +1094,7 @@ pub fn simplify_expressions_iter<'a>(
 
     let mut num_expressions = 0;
     for expr in expression {
-        let expr: RecExpr<TrigLanguage> = to_egg_expr(&expr);
+        let expr: RecExpr<TrigLanguage> = to_egg_expr(expr);
         runner = runner.with_expr(&expr);
         num_expressions += 1;
     }
@@ -1307,7 +1302,7 @@ pub fn check_many_equality(expr1s: &[&Expression], expr2s: &[&Expression]) -> bo
     runner = runner.run(&make_rules());
 
     for (expr1, expr2) in expr1s.iter().zip(expr2s.iter()) {
-        if runner.egraph.equivs(expr1, expr2).len() == 0 {
+        if runner.egraph.equivs(expr1, expr2).is_empty() {
             return false;
         }
     }
@@ -1327,7 +1322,7 @@ pub fn check_equality(expr: &Expression, expr2: &Expression) -> bool {
         .with_node_limit(1_000_000)
         .run(&make_rules());
 
-    runner.egraph.equivs(&expr1, &expr2).len() > 0
+    !runner.egraph.equivs(&expr1, &expr2).is_empty()
     // if runner.egraph.equivs(&expr1, &expr2).len() > 0 {
     //     return true;
     // }
@@ -1371,7 +1366,7 @@ fn check_equality_lhs_only(s1: &str, s2: &str) -> bool {
     let runner: Runner<TrigLanguage, ConstantFold> =
         Runner::default().with_expr(&expr1).run(&make_rules());
 
-    runner.egraph.equivs(&expr1, &expr2).len() > 0
+    !runner.egraph.equivs(&expr1, &expr2).is_empty()
 }
 
 #[allow(dead_code)]
@@ -1384,14 +1379,14 @@ fn check_equality_both(s1: &str, s2: &str) -> bool {
         .with_node_limit(25_000)
         .run(&make_rules());
 
-    let lhs = runner.egraph.equivs(&expr1, &expr2).len() > 0;
+    let lhs = !runner.egraph.equivs(&expr1, &expr2).is_empty();
 
     let runner: Runner<TrigLanguage, ConstantFold> = Runner::default()
         .with_expr(&expr2)
         .with_node_limit(25_000)
         .run(&make_rules());
 
-    let rhs = runner.egraph.equivs(&expr2, &expr1).len() > 0;
+    let rhs = !runner.egraph.equivs(&expr2, &expr1).is_empty();
 
     lhs && rhs
 }

@@ -3,15 +3,15 @@
 /// Tensor indices are identified in two distinct locations by this type alias:
 ///
 /// 1) Local Tensor indices: `TensorExpression` objects generate tensor data
-/// in a specific order. The ordering of their local tensor indices is identified
-/// by their local index ids. These do not change unless the `TensorExpression`'s
-/// internal symbolic expression changes. Therefore, it is important to track
-/// it's local tensor index ordering, so we can accurately perform contractions
-/// dictated by the network. See `[TensorIndex]` for more information.
+///    in a specific order. The ordering of their local tensor indices is identified
+///    by their local index ids. These do not change unless the `TensorExpression`'s
+///    internal symbolic expression changes. Therefore, it is important to track
+///    it's local tensor index ordering, so we can accurately perform contractions
+///    dictated by the network. See `[TensorIndex]` for more information.
 ///
 /// 2) Global Tensor Network indices: The entire network will have a list of
-/// indices and each will have its own id. See `[NetworkIndex]` for more
-/// information.
+///    indices and each will have its own id. See `[NetworkIndex]` for more
+///    information.
 pub type IndexId = usize;
 
 /// Represents the size or dimension of an index in a tensor network.

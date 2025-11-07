@@ -53,7 +53,7 @@ impl CachedExpressionBody {
             let mut grad_exprs = vec![];
             for variable in variables {
                 for expr in self.original.iter() {
-                    let grad_expr = expr.differentiate(&variable);
+                    let grad_expr = expr.differentiate(variable);
                     grad_exprs.push(grad_expr);
                 }
             }
@@ -72,7 +72,7 @@ impl CachedExpressionBody {
             let mut grad_exprs = vec![];
             for variable in variables {
                 for expr in self.original.iter() {
-                    let grad_expr = expr.differentiate(&variable);
+                    let grad_expr = expr.differentiate(variable);
                     grad_exprs.push(grad_expr);
                 }
             }
@@ -80,7 +80,7 @@ impl CachedExpressionBody {
             let mut hess_exprs = vec![];
             for variable in variables {
                 for expr in grad_exprs.iter() {
-                    let hess_expr = expr.differentiate(&variable);
+                    let hess_expr = expr.differentiate(variable);
                     hess_exprs.push(hess_expr);
                 }
             }

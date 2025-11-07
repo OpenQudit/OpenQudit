@@ -76,12 +76,12 @@ impl From<UnitarySystemExpression> for TensorExpression {
             .map(|r| (IndexDirection::Batch, r))
             .chain(
                 radices
-                    .into_iter()
+                    .iter()
                     .map(|r| (IndexDirection::Output, usize::from(*r))),
             )
             .chain(
                 radices
-                    .into_iter()
+                    .iter()
                     .map(|r| (IndexDirection::Input, usize::from(*r))),
             )
             .enumerate()

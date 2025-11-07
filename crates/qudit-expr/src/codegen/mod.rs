@@ -1,5 +1,6 @@
 mod builder;
 mod builtins;
+#[allow(clippy::module_inception)]
 mod codegen;
 mod module;
 
@@ -16,7 +17,7 @@ mod module;
 pub type WriteFunc<R> =
     unsafe extern "C" fn(*const R, *mut R, *const u64, *const u64, u64, *const bool);
 
-pub(self) fn process_name_for_gen(name: &str) -> String {
+fn process_name_for_gen(name: &str) -> String {
     name.replace(" ", "_")
         .replace("⊗", "t")
         .replace("†", "d")

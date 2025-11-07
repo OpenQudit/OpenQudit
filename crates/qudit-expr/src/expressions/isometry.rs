@@ -61,11 +61,11 @@ impl From<IsometryExpression> for TensorExpression {
         } = value;
         // TODO: add a proper implementation of into_iter for QuditRadices
         let indices = output_radices
-            .into_iter()
+            .iter()
             .map(|r| (IndexDirection::Output, usize::from(*r)))
             .chain(
                 input_radices
-                    .into_iter()
+                    .iter()
                     .map(|r| (IndexDirection::Input, usize::from(*r))),
             )
             .enumerate()

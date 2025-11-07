@@ -97,7 +97,7 @@ impl UnitaryExpression {
             expressions.len() == new_dim,
             "Cannot multiplex a number of expressions not equal to the length of new dimension."
         );
-        assert!(expressions.len() > 0);
+        assert!(!expressions.is_empty());
         for expression in expressions {
             assert_eq!(
                 expression.radices(),
@@ -124,7 +124,7 @@ impl UnitaryExpression {
 
         let new_indices = new_dim_radices
             .iter()
-            .map(|r| (IndexDirection::Batch, *r as usize))
+            .map(|r| (IndexDirection::Batch, (*r)))
             .chain(
                 expressions[0]
                     .radices()
@@ -209,7 +209,7 @@ impl UnitaryExpression {
 
         let new_indices = new_dim_radices
             .iter()
-            .map(|r| (IndexDirection::Batch, *r as usize))
+            .map(|r| (IndexDirection::Batch, (*r)))
             .chain(
                 self.radices
                     .iter()
@@ -400,7 +400,7 @@ impl JittableExpression for UnitaryExpression {
 
 impl AsRef<UnitaryExpression> for UnitaryExpression {
     fn as_ref(&self) -> &UnitaryExpression {
-        &self
+        self
     }
 }
 
@@ -438,7 +438,7 @@ impl From<UnitaryExpression> for TensorExpression {
             .map(|r| (IndexDirection::Output, usize::from(*r)))
             .chain(
                 radices
-                    .into_iter()
+                    .iter()
                     .map(|r| (IndexDirection::Input, usize::from(*r))),
             )
             .enumerate()

@@ -82,12 +82,12 @@ impl From<KrausOperatorsExpression> for TensorExpression {
             .map(|r| (IndexDirection::Batch, r))
             .chain(
                 output_radices
-                    .into_iter()
+                    .iter()
                     .map(|r| (IndexDirection::Output, usize::from(*r))),
             )
             .chain(
                 input_radices
-                    .into_iter()
+                    .iter()
                     .map(|r| (IndexDirection::Input, usize::from(*r))),
             )
             .enumerate()

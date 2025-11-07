@@ -374,7 +374,7 @@ impl Expression {
                             (Expression::Vector(lhs), Expression::Vector(rhs)) => {
                                 let vec = lhs
                                     .into_iter()
-                                    .zip(rhs.into_iter())
+                                    .zip(rhs)
                                     .map(|(lhs_elem, rhs_elem)| Expression::Binary {
                                         op,
                                         lhs: Box::new(lhs_elem),
@@ -386,11 +386,11 @@ impl Expression {
                             (Expression::Matrix(lhs), Expression::Matrix(rhs)) => {
                                 let mat = lhs
                                     .into_iter()
-                                    .zip(rhs.into_iter())
+                                    .zip(rhs)
                                     .map(|(lhs_row, rhs_row)| {
                                         lhs_row
                                             .into_iter()
-                                            .zip(rhs_row.into_iter())
+                                            .zip(rhs_row)
                                             .map(|(lhs_elem, rhs_elem)| Expression::Binary {
                                                 op,
                                                 lhs: Box::new(lhs_elem),
@@ -404,15 +404,15 @@ impl Expression {
                             (Expression::Tensor(lhs), Expression::Tensor(rhs)) => {
                                 let tensor = lhs
                                     .into_iter()
-                                    .zip(rhs.into_iter())
+                                    .zip(rhs)
                                     .map(|(lhs_mat, rhs_mat)| {
                                         lhs_mat
                                             .into_iter()
-                                            .zip(rhs_mat.into_iter())
+                                            .zip(rhs_mat)
                                             .map(|(lhs_row, rhs_row)| {
                                                 lhs_row
                                                     .into_iter()
-                                                    .zip(rhs_row.into_iter())
+                                                    .zip(rhs_row)
                                                     .map(|(lhs_elem, rhs_elem)| {
                                                         Expression::Binary {
                                                             op,

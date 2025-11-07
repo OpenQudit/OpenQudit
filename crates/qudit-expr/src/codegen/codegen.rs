@@ -97,7 +97,7 @@ impl<'ctx, R: RealScalar> CodeGenerator<'ctx, R> {
         let expr_str = expr.to_string();
         let cached = self.expressions.get(&expr_str);
         if let Some(c) = cached {
-            return Ok(c.clone());
+            return Ok(*c);
         }
 
         let val = match expr {
@@ -327,7 +327,7 @@ impl<'ctx, R: RealScalar> CodeGenerator<'ctx, R> {
 
     fn get_builtin(&mut self, name: &str) -> FunctionValue<'ctx> {
         if let Some(f) = self.functions.get(name) {
-            return f.clone();
+            return *f;
         }
 
         let b = match Builtins::from_str(name) {
@@ -586,7 +586,7 @@ impl<'ctx, R: RealScalar> CodeGenerator<'ctx, R> {
                     continue;
                 }
 
-                let val = self.build_expression(&expr)?;
+                let val = self.build_expression(expr)?;
                 let offset_ptr = unsafe {
                     let output_idx = self.context.context().i64_type().const_int(i as u64, false);
                     let output_map_elem_ptr = self

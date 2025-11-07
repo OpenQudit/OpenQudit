@@ -318,7 +318,7 @@ pub fn U3Gate() -> UnitaryExpression {
             [cos(θ0/2), ~e^(i*θ2)*sin(θ0/2)],
             [e^(i*θ1)*sin(θ0/2), e^(i*(θ1+θ2))*cos(θ0/2)]
     ]";
-    UnitaryExpression::new(proto.to_owned() + "{" + &body + "}")
+    UnitaryExpression::new(proto.to_owned() + "{" + body + "}")
 }
 
 fn generate_embedded_two_param_su2(dimension: usize, i: usize, j: usize) -> UnitaryExpression {
@@ -386,8 +386,8 @@ fn embed_one_larger(unitary: UnitaryExpression) -> UnitaryExpression {
 ///
 /// References:
 /// - de Guise, Hubert, Olivia Di Matteo, and Luis L. Sánchez-Soto.
-///     "Simple factorization of unitary transformations."
-///     Physical Review A 97.2 (2018): 022328.
+///   "Simple factorization of unitary transformations."
+///   Physical Review A 97.2 (2018): 022328.
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radices = Radices::new([2]))))]
 pub fn ParameterizedUnitary(radices: Radices) -> UnitaryExpression {
@@ -402,7 +402,7 @@ pub fn ParameterizedUnitary(radices: Radices) -> UnitaryExpression {
     }
 
     let right = {
-        let one_smaller = ParameterizedUnitary(Radices::new(&[dimension - 1]));
+        let one_smaller = ParameterizedUnitary(Radices::new([dimension - 1]));
         embed_one_larger(one_smaller)
     };
 
@@ -445,7 +445,7 @@ pub fn Invert(mut expr: UnitaryExpression) -> UnitaryExpression {
 fn cartesian_product(control_levels: Vec<Vec<usize>>) -> Vec<Vec<usize>> {
     let mut prod = vec![];
     for level in control_levels.into_iter() {
-        if prod.len() == 0 {
+        if prod.is_empty() {
             for l in level.into_iter() {
                 prod.push(vec![l]);
             }
@@ -620,13 +620,13 @@ pub fn Controlled(
         panic!("control_radices and control_levels must have the same length");
     }
 
-    if control_levels.iter().any(|levels| levels.len() == 0) {
+    if control_levels.iter().any(|levels| levels.is_empty()) {
         panic!("control_levels must not contain empty levels");
     }
 
     if control_levels
         .iter()
-        .map(|levels| levels.into_iter().copied())
+        .map(|levels| levels.iter().copied())
         .zip(control_radices.iter())
         .any(|(mut levels, radix)| levels.any(|level| level >= usize::from(*radix)))
     {
@@ -691,13 +691,13 @@ pub fn ClassicallyControlled(
         panic!("control_radices and control_levels must have the same length");
     }
 
-    if control_levels.iter().any(|levels| levels.len() == 0) {
+    if control_levels.iter().any(|levels| levels.is_empty()) {
         panic!("control_levels must not contain empty levels");
     }
 
     if control_levels
         .iter()
-        .map(|levels| levels.into_iter().copied())
+        .map(|levels| levels.iter().copied())
         .zip(control_radices.iter())
         .any(|(mut levels, radix)| levels.any(|level| level >= usize::from(*radix)))
     {
@@ -724,7 +724,7 @@ pub fn ClassicallyControlled(
         .collect();
 
     let new_radices = control_radices
-        .into_iter()
+        .iter()
         .map(|&r| r.into())
         .collect::<Vec<_>>();
     expr.classically_control(&diagonal_indices, &new_radices)

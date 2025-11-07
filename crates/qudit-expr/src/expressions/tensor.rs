@@ -58,15 +58,12 @@ impl TensorExpression {
         let variables = qdef.variables;
         let element_wise = qdef.body.into_element_wise();
         let body: Vec<ComplexExpression> = match element_wise {
-            CiscExpression::Vector(vec) => vec
-                .into_iter()
-                .map(|expr| ComplexExpression::new(expr))
-                .collect(),
+            CiscExpression::Vector(vec) => vec.into_iter().map(ComplexExpression::new).collect(),
             CiscExpression::Matrix(mat) => mat
                 .into_iter()
                 .flat_map(|row| {
                     row.into_iter()
-                        .map(|expr| ComplexExpression::new(expr))
+                        .map(ComplexExpression::new)
                         .collect::<Vec<_>>()
                 })
                 .collect(),
@@ -76,7 +73,7 @@ impl TensorExpression {
                     row.into_iter()
                         .flat_map(|col| {
                             col.into_iter()
-                                .map(|expr| ComplexExpression::new(expr))
+                                .map(ComplexExpression::new)
                                 .collect::<Vec<_>>()
                         })
                         .collect::<Vec<_>>()
@@ -361,7 +358,6 @@ impl TensorExpression {
         // 3. Iterate through original tensor elements
         for (i, expr) in self.elements().iter().enumerate() {
             let original_coordinate: Vec<usize> = (0..in_dims.len())
-                .into_iter()
                 .map(|d| (i % in_strides[d + 1]) / in_strides[d])
                 .rev()
                 .collect();

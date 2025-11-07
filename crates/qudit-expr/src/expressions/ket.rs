@@ -80,7 +80,7 @@ impl From<KetExpression> for TensorExpression {
         let KetExpression { inner, radices } = value;
         // TODO: add a proper implementation of into_iter for QuditRadices
         let indices = radices
-            .into_iter()
+            .iter()
             .enumerate()
             .map(|(i, r)| TensorIndex::new(IndexDirection::Output, i, usize::from(*r)))
             .collect();

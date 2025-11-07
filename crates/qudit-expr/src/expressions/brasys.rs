@@ -85,7 +85,7 @@ impl From<BraSystemExpression> for TensorExpression {
             .map(|r| (IndexDirection::Batch, r))
             .chain(
                 radices
-                    .into_iter()
+                    .iter()
                     .map(|r| (IndexDirection::Input, usize::from(*r))),
             )
             .enumerate()

@@ -140,10 +140,7 @@ impl BoundExpressionBody {
     }
 
     pub fn alpha_rename(&mut self, starting_number: Option<usize>) {
-        let mut var_id = match starting_number {
-            None => 0,
-            Some(id) => id,
-        };
+        let mut var_id = starting_number.unwrap_or_default();
 
         let mut var_map = HashMap::new();
         let mut new_vars = Vec::new();

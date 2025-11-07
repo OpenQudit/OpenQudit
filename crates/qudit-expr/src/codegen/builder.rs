@@ -30,9 +30,9 @@ impl<'a> CompilableUnit<'a> {
         // for expr in &self.exprs {
         //     println!("{:?}", expr);
         // }
-        let mut codegen = CodeGenerator::new(&module);
+        let mut codegen = CodeGenerator::new(module);
         codegen
-            .gen_func(&self.fn_name, &self.exprs, &self.variables, self.unit_size)
+            .gen_func(&self.fn_name, self.exprs, &self.variables, self.unit_size)
             .expect("Error generating function.");
     }
 }

@@ -78,3 +78,6 @@ strip = false
 [workspace.lints.clippy]
 too_many_arguments = "allow"
 needless_range_loop = "allow"
+missing_transmute_annotations = "allow"
+upper_case_acronyms = "allow"
+collapsible_if = "allow"
