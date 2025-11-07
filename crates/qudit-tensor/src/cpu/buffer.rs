@@ -330,7 +330,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
             self.nparams,
             self.dims()[0], // TODO: remove allocation safely
             self.unit_stride as isize,
-            1 as isize,
+            1_isize,
         )
     }
 
@@ -343,7 +343,7 @@ impl<C: ComplexScalar> SizedTensorBuffer<C> {
             self.nparams,
             self.dims()[0], // TODO: remove allocation safely
             self.unit_stride as isize,
-            1 as isize,
+            1_isize,
         )
     }
 

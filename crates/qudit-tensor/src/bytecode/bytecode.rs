@@ -32,15 +32,15 @@ impl Bytecode {
 impl std::fmt::Debug for Bytecode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if !self.const_code.is_empty() {
-            write!(f, ".const\n")?;
+            writeln!(f, ".const")?;
             for inst in &self.const_code {
-                write!(f, "    {:?}\n", inst)?;
+                writeln!(f, "    {:?}", inst)?;
             }
         }
         if !self.dynamic_code.is_empty() {
             write!(f, "\n.dynamic\n")?;
             for inst in &self.dynamic_code {
-                write!(f, "    {:?}\n", inst)?;
+                writeln!(f, "    {:?}", inst)?;
             }
         }
         Ok(())

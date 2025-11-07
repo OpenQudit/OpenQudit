@@ -142,7 +142,7 @@ impl QuditTensorNetwork {
     fn get_tensor_unique_network_indices(&self, tensor_id: TensorId) -> BTreeSet<NetworkIndex> {
         self.local_to_network_index_map[tensor_id]
             .iter()
-            .map(|&idx_id| self.indices[idx_id].0.clone())
+            .map(|&idx_id| self.indices[idx_id].0)
             .collect()
     }
 

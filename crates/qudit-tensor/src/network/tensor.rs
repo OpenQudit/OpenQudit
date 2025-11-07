@@ -98,6 +98,6 @@ impl QuditTensor {
 
     /// Returns the rank of the tensor.
     pub fn rank(&self) -> usize {
-        return self.indices.len();
+        self.indices.len()
     }
 }

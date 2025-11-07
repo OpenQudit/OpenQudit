@@ -29,16 +29,16 @@ pub enum NetworkIndex {
 
 impl NetworkIndex {
     pub fn is_output(&self) -> bool {
-        match self {
-            &NetworkIndex::Output(_) => true,
-            &NetworkIndex::Contracted(_) => false,
+        match *self {
+            NetworkIndex::Output(_) => true,
+            NetworkIndex::Contracted(_) => false,
         }
     }
 
     pub fn is_contracted(&self) -> bool {
-        match self {
-            &NetworkIndex::Output(_) => false,
-            &NetworkIndex::Contracted(_) => true,
+        match *self {
+            NetworkIndex::Output(_) => false,
+            NetworkIndex::Contracted(_) => true,
         }
     }
 }

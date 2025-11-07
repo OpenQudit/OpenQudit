@@ -26,7 +26,7 @@ pub enum TNVMInstruction<C: ComplexScalar, const D: DifferentiationLevel> {
 impl<C: ComplexScalar, const D: DifferentiationLevel> TNVMInstruction<C, D> {
     pub fn new(
         inst: &BytecodeInstruction,
-        buffers: &Vec<SizedTensorBuffer<C>>,
+        buffers: &[SizedTensorBuffer<C>],
         expressions: Arc<Mutex<ExpressionCache>>,
     ) -> Self {
         match inst {

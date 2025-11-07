@@ -152,32 +152,32 @@ impl QuditCircuitTensorNetworkBuilder {
     /// * `tensor` - The tensor to prepend
     ///
     /// * `input_qudit_map` - An array of qudit ids. It maps the tensors input indices to the
-    ///     qudits at the front of the network that will be connected. `input_qudit_map[i] ==
-    ///     qudit_id` implies that `tensor.input_indices()[i]` will be connected to the
-    ///     `front[qudit_id]` edge.
+    ///   qudits at the front of the network that will be connected. `input_qudit_map[i] ==
+    ///   qudit_id` implies that `tensor.input_indices()[i]` will be connected to the
+    ///   `front[qudit_id]` edge.
     ///
     /// * `output_qudit_map` - An array of qudit ids. It maps the tensors output indices to
-    ///     the qudits at the front of the network which will become the new open edges for
-    ///     the network front. `output_qudit_map[i] == qudit_id` implies that
-    ///     `tensor.output_tensor_indices()[i]` will be the open edge on qudit_id after the
-    ///     operation.
+    ///   the qudits at the front of the network which will become the new open edges for
+    ///   the network front. `output_qudit_map[i] == qudit_id` implies that
+    ///   `tensor.output_tensor_indices()[i]` will be the open edge on qudit_id after the
+    ///   operation.
     ///
     /// * `batch_index_map` - An array of strings. It provides names for the tensors batch
-    ///     indices. All batch indices in the network with the same name identify the same
-    ///     network indices. These indices can appear on both sides of a pairwise contraction
-    ///     without being contracted over.
+    ///   indices. All batch indices in the network with the same name identify the same
+    ///   network indices. These indices can appear on both sides of a pairwise contraction
+    ///   without being contracted over.
     ///
     /// # Panics
     ///
     /// - If the length of an index map doesn't match the number of indices the tensor has in that
-    /// direction.
+    ///   direction.
     ///
     /// - If any of the `qudit_ids` referenced by the index maps are invalid or out of bounds.
     ///
     /// - If the size of a tensor's index doesn't match the radix of the qudit it's mapped to.
     ///
     /// - If a batch index with the same name exists in the network, they must have the same
-    /// dimension.
+    ///   dimension.
     pub fn prepend(
         mut self,
         tensor: QuditTensor,
@@ -341,7 +341,7 @@ impl QuditCircuitTensorNetworkBuilder {
         for (tensor_output_idx_id, qudit_id) in output_index_map.iter().enumerate() {
             let local_index_id = output_tensor_indices[tensor_output_idx_id];
             // Either needs to start here or pass through
-            if !input_index_map.contains(&*qudit_id) {
+            if !input_index_map.contains(qudit_id) {
                 match self.front[*qudit_id] {
                     Wire::Empty => {
                         // Make the start of this wire this tensor by closing rear

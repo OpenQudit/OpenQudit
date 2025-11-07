@@ -106,7 +106,7 @@ pub struct TNVM<C: ComplexScalar, const D: DifferentiationLevel> {
 
 impl<C: ComplexScalar, const D: DifferentiationLevel> TNVM<C, D> {
     pub fn new(program: &Bytecode, const_map: Option<&FxHashMap<usize, C::R>>) -> Pin<Box<Self>> {
-        if program.buffers.len() == 0 {
+        if program.buffers.is_empty() {
             panic!("Cannot build TNVM with zero-length bytecode.");
         };
 

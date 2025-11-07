@@ -163,7 +163,7 @@ impl ContractionPath {
         let mut best_contractions = HashMap::new();
 
         for c in 1..n {
-            for d in 0..((c + 1) / 2) {
+            for d in 0..c.div_ceil(2) {
                 let sd = &contractions[d]; // optimal d + 1 tensor paths
                 let scd = &contractions[c - 1 - d]; // optimal c - d tensor paths
                 for path_a in sd {
@@ -199,8 +199,7 @@ impl ContractionPath {
 
         // Retrieve and return the best contraction path for the entire network
         contractions[n - 1]
-            .iter()
-            .next()
+            .first()
             .unwrap_or_else(|| {
                 panic!("No contraction path found for the entire network");
             })
@@ -261,7 +260,7 @@ impl ContractionPath {
                     continue;
                 }
 
-                let path_k = path_i.contract(&path_j);
+                let path_k = path_i.contract(path_j);
 
                 let cost = -(path_k.total_dimension()
                     - (path_i.total_dimension() + path_j.total_dimension()));
@@ -298,7 +297,7 @@ impl ContractionPath {
                 .iter()
                 .filter(|(_path_id, path_i)| path_i.subnetwork.is_disjoint(&path_j.subnetwork))
             {
-                let new_path_k = path_i.contract(&path_j);
+                let new_path_k = path_i.contract(path_j);
                 let new_cost = -(new_path_k.total_dimension()
                     - (path_i.total_dimension() + path_j.total_dimension()));
                 let pc = PotentialContraction {

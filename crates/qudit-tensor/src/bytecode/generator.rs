@@ -59,11 +59,11 @@ impl BytecodeGenerator {
                 let out = self.new_buffer(shape, param_info.num_var_params());
                 let total_num_params = param_info.num_params();
                 let constant = param_info.is_empty();
-                let inst = BytecodeInstruction::Write(expr, param_info, out.clone());
+                let inst = BytecodeInstruction::Write(expr, param_info, out);
 
                 if constant {
                     self.const_code.push(inst);
-                    self.const_buffers.insert(out.clone());
+                    self.const_buffers.insert(out);
                 } else {
                     self.dynamic_code.push(inst);
                 }

@@ -17,8 +17,8 @@ pub struct FRPRStruct<C: ComplexScalar, const D: DifferentiationLevel> {
 impl<C: ComplexScalar, const D: DifferentiationLevel> FRPRStruct<C, D> {
     pub fn new(
         input: SizedTensorBuffer<C>,
-        shape: &Vec<usize>,
-        perm: &Vec<usize>,
+        shape: &[usize],
+        perm: &[usize],
         output: SizedTensorBuffer<C>,
     ) -> Self {
         assert!(input.nparams() == output.nparams());
