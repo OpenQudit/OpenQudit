@@ -94,7 +94,10 @@ mod python {
     /// Registers the Instantiaters with the Python module.
     fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
         parent_module.add_function(wrap_pyfunction!(DefaultInstantiater, parent_module)?)?;
-        parent_module.add_function(wrap_pyfunction!(SequentialMultiStartInstantiater, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(
+            SequentialMultiStartInstantiater,
+            parent_module
+        )?)?;
         Ok(())
     }
     inventory::submit!(PyInstantiationRegistrar { func: register });

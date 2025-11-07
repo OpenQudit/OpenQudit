@@ -9,15 +9,15 @@ name = "openqudit"
 crate-type = ["cdylib"]
 
 [dependencies]
-qudit-core = { path = "../qudit-core", features = ["python"] }
-qudit-expr = { path = "../qudit-expr", features = ["python"] }
-qudit-circuit = { path = "../qudit-circuit", features = ["python"] }
-qudit-inst = { path = "../qudit-inst/", features = ["python"] }
+qudit-core = { workspace = true, features = ["python"] }
+qudit-expr = { workspace = true, features = ["python"] }
+qudit-circuit = { workspace = true, features = ["python"] }
+qudit-inst = { workspace = true, features = ["python"] }
 
 pyo3 = { workspace = true }
 inventory = { workspace = true }
 numpy = { workspace = true }
-ndarray = "*"
+ndarray = { workspace = true }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 zstd = "0.13"

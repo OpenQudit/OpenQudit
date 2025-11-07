@@ -29,9 +29,11 @@ proptest = { workspace = true }
 criterion = { workspace = true }
 pprof = { workspace = true }
 
+
 [[bench]]
 name = "cnotu3u3"
 harness = false
+
 
 [features]
 python = ["qudit-core/python", "dep:numpy", "dep:ndarray", "dep:pyo3", "dep:inventory"]

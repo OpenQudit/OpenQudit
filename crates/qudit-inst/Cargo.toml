@@ -8,10 +8,10 @@ license = { workspace = true }
 unused = { level = "allow", priority = -1 }
 
 [dependencies]
-qudit-core = { path = "../qudit-core" }
-qudit-expr = { path = "../qudit-expr" }
-qudit-tensor = { path = "../qudit-tensor" }
-qudit-circuit = { path = "../qudit-circuit" }
+qudit-core = { workspace = true }
+qudit-expr = { workspace = true }
+qudit-tensor = { workspace = true }
+qudit-circuit = { workspace = true }
 num-complex = { workspace = true }
 faer = { workspace = true }
 faer-traits = { workspace = true }

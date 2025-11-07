@@ -39,7 +39,7 @@ impl OperationSet {
         }
     }
 
-    pub fn count(&self, op_code: OpCode) ->  usize {
+    pub fn count(&self, op_code: OpCode) -> usize {
         *self.op_counts.get(&op_code).unwrap()
     }
 

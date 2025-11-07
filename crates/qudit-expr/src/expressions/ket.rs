@@ -102,7 +102,13 @@ impl TryFrom<TensorExpression> for KetExpression {
                 "Cannot convert a tensor with non-output indices to a ket.",
             ));
         }
-        let radices = Radices::from_iter(value.indices().iter().filter(|idx| idx.index_size() > 1).map(|idx| idx.index_size()));
+        let radices = Radices::from_iter(
+            value
+                .indices()
+                .iter()
+                .filter(|idx| idx.index_size() > 1)
+                .map(|idx| idx.index_size()),
+        );
         Ok(KetExpression {
             inner: value.into(),
             radices,

@@ -406,29 +406,29 @@ impl QuditCircuit {
         self.operations.insert(op.into())
     }
 
-//     fn _insert_ref(
-//         &mut self,
-//         cycle_index: CycleIndex,
-//         op_code: OpCode,
-//         wires: WireList,
-//         params: ParamIndices,
-//     ) -> InstructionId {
-//         // TODO: Check cycle_index is valid
-        
-//         // Two options: cycle_index is available at location
-//         // or not
-//         //
-//         // if available at location, then insert there, but then we need to update
-//         // prev and next of the prev and next without knowing exactly where they are at: costly
-//         //
-//         // if not available at location, need to insert a new cycle, but now I know who
-//         // prev and next are
-//         for wire in wires.wires() {
+    //     fn _insert_ref(
+    //         &mut self,
+    //         cycle_index: CycleIndex,
+    //         op_code: OpCode,
+    //         wires: WireList,
+    //         params: ParamIndices,
+    //     ) -> InstructionId {
+    //         // TODO: Check cycle_index is valid
 
-//         }
+    //         // Two options: cycle_index is available at location
+    //         // or not
+    //         //
+    //         // if available at location, then insert there, but then we need to update
+    //         // prev and next of the prev and next without knowing exactly where they are at: costly
+    //         //
+    //         // if not available at location, need to insert a new cycle, but now I know who
+    //         // prev and next are
+    //         for wire in wires.wires() {
 
-//         todo!()
-//     }
+    //         }
+
+    //         todo!()
+    //     }
 
     fn _append_ref(
         &mut self,
@@ -1164,7 +1164,10 @@ mod python {
         ///         Defaults to None, which results in no classical dits.
         #[new]
         #[pyo3(signature = (qudits, dits = None))]
-        fn new<'py>(qudits: &Bound<'py, PyAny>, dits: Option<&Bound<'py, PyAny>>) -> PyResult<PyQuditCircuit> {
+        fn new<'py>(
+            qudits: &Bound<'py, PyAny>,
+            dits: Option<&Bound<'py, PyAny>>,
+        ) -> PyResult<PyQuditCircuit> {
             let qudits_vec = parse_int_or_iterable(qudits)?;
 
             let dits_vec = match dits {
