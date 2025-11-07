@@ -821,9 +821,9 @@ pub fn tensor_fused_reshape_permute_reshape_into_prepare(
     let mut permuted_shape: Vec<usize> = Vec::new();
     let mut index_accumulator: usize = 0;
     for &p in perm {
-        for axis in &virtual_axes_map_in {
-            if *axis == p {
-                index_accumulator = *axis;
+        for index in 0..virtual_axes_map_in.len() {
+            if virtual_axes_map_in[index] == p {
+                index_accumulator = index;
                 break;
             }
         }

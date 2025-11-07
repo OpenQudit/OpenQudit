@@ -491,7 +491,11 @@ impl core::ops::Deref for Radices {
     #[inline(always)]
     fn deref(&self) -> &[Radix] {
         // Safety Radix is a transparent wrapper around u8
-        unsafe { std::mem::transmute(std::mem::transmute::<&CompactVec<Radix>, &CompactVec<u8>>(&self.0).deref()) }
+        unsafe {
+            std::mem::transmute(
+                std::mem::transmute::<&CompactVec<Radix>, &CompactVec<u8>>(&self.0).deref(),
+            )
+        }
     }
 }
 

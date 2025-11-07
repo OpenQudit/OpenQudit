@@ -55,7 +55,10 @@ pub mod python {
                 for (key, value) in py_dict.iter() {
                     let key_str: String = key.extract()?;
                     let value_str: String = value.extract()?;
-                    data_map.insert(key_str, Box::new(value_str) as Box<dyn DataItem + Send + Sync>);
+                    data_map.insert(
+                        key_str,
+                        Box::new(value_str) as Box<dyn DataItem + Send + Sync>,
+                    );
                 }
                 Ok(Arc::new(data_map))
             }

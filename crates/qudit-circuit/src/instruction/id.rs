@@ -1,7 +1,7 @@
 use slotmap::Key;
 
-use crate::cycle::InstId;
 use crate::cycle::CycleId;
+use crate::cycle::InstId;
 
 /// A persistent identifier uniquely identifying an instruction within a specific cycle.
 ///

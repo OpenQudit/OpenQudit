@@ -121,7 +121,10 @@ impl Argument {
     /// expression associated with this argument.
     pub fn requires_expression_modification(&self) -> bool {
         match self {
-            Argument::Expression(e) => matches!(e, Expression::Pi | Expression::Constant(_) | Expression::Variable(_)),
+            Argument::Expression(e) => matches!(
+                e,
+                Expression::Pi | Expression::Constant(_) | Expression::Variable(_)
+            ),
             _ => false,
         }
     }

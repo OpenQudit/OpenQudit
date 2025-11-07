@@ -8,17 +8,6 @@ mod instruction;
 mod operation;
 mod param;
 mod wire;
-// mod iterator;
-// mod compact;
-// mod cycle;
-// mod cyclelist;
-// mod instruction;
-// mod iterator;
-// mod location;
-// mod operation;
-// mod param;
-// mod point;
-// mod subcircuit;
 
 pub use circuit::QuditCircuit;
 pub use operation::OpCode;
@@ -27,15 +16,6 @@ pub use param::Argument;
 pub use param::ArgumentList;
 pub use wire::Wire;
 pub use wire::WireList;
-// pub use subcircuit::Subcircuit;
-// pub use location::CircuitLocation;
-// pub use param::ParamEntry;
-// pub use point::CircuitDitId;
-// pub use point::CircuitPoint;
-// // pub use instruction::Instruction;
-// pub use operation::Operation;
-// pub use operation::OperationSet;
-// pub use operation::ExpressionOperation;
 
 ////////////////////////////////////////////////////////////////////////
 /// Python Module.

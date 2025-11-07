@@ -952,25 +952,18 @@ impl QuditCircuit {
     ///
     /// The ordering is not guaranteed to be consistent, but it will
     /// be in a simulation/topological order. For more control over the
-    /// ordering of iteration see [QuditCircuit::iter_df] or
-    /// [QuditCircuit::iter_bf].
+    /// ordering of iteration see [QuditCircuit::iter_sorted]
     pub fn iter(&self) -> impl Iterator<Item = &Instruction> + '_ {
         self.cycles.iter().flat_map(|cycle| cycle.iter())
     }
 
-    // /// Return a depth-first iterator over the operations in the circuit.
-    // ///
-    // /// See [`QuditCircuitDFIterator`] for more info.
-    // pub fn iter_df(&self) -> QuditCircuitDFIterator {
-    //     QuditCircuitDFIterator::new(self)
-    // }
-
-    // /// Return a breadth-first iterator over the operations in the circuit.
-    // ///
-    // /// See [`QuditCircuitBFIterator`] for more info.
-    // pub fn iter_bf(&self) -> QuditCircuitBFIterator {
-    //     QuditCircuitBFIterator::new(self)
-    // }
+    /// Return a sorted iterator over the instructions in the circuit.
+    ///
+    /// Will always iterate over the instructions in the same order. This
+    /// iteration is a valid simulation order.
+    pub fn iter_sorted(&self) -> impl Iterator<Item = &Instruction> + '_ {
+        self.cycles.iter().flat_map(|cycle| cycle.iter_sorted())
+    }
 }
 
 /// Evaluation

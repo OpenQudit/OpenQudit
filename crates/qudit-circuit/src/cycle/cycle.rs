@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use slotmap::SlotMap;
+use std::collections::HashSet;
 
 use super::CycleId;
 use super::InstId;
@@ -131,11 +132,20 @@ impl QuditCycle {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Instruction> + '_ {
-        self.insts.iter().map(|(_, inst)| inst)
+        self.insts.values()
     }
 
     pub fn iter_with_keys(&self) -> impl Iterator<Item = (InstId, &Instruction)> + '_ {
         self.insts.iter()
+    }
+
+    /// Iterates over the instructions in the cycle ordered by their wire lists.
+    pub fn iter_sorted(&self) -> CycleSortedIterator<'_> {
+        CycleSortedIterator {
+            cycle: self,
+            wire_iter: self.reg_map.keys(),
+            skipped_wires: HashSet::new(),
+        }
     }
 
     pub fn is_valid_id(&self, id: InstId) -> bool {
@@ -150,5 +160,35 @@ impl fmt::Debug for QuditCycle {
             debug_struct_fmt.field("inst", &inst);
         }
         debug_struct_fmt.finish()
+    }
+}
+
+/// Iterator that yields instructions ordered by their minimum wire
+pub struct CycleSortedIterator<'a> {
+    cycle: &'a QuditCycle,
+    wire_iter: std::collections::btree_map::Keys<'a, Wire, InstId>,
+    skipped_wires: HashSet<Wire>,
+}
+
+impl<'a> Iterator for CycleSortedIterator<'a> {
+    type Item = &'a Instruction;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        for &wire in self.wire_iter.by_ref() {
+            if self.skipped_wires.contains(&wire) {
+                continue;
+            }
+
+            if let Some(inst_id) = self.cycle.reg_map.get(&wire) {
+                if let Some(inst) = self.cycle.insts.get(*inst_id) {
+                    // Mark all wires of this instruction as skipped
+                    for inst_wire in inst.wires().wires() {
+                        self.skipped_wires.insert(inst_wire);
+                    }
+                    return Some(inst);
+                }
+            }
+        }
+        None
     }
 }

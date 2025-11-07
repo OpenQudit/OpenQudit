@@ -150,7 +150,7 @@ impl OperationSet {
 
     pub fn insert_subcircuit(&mut self, op: CircuitOperation) -> OpCode {
         let circuit_id = self.subcircuits.insert(op);
-        
+
         OpCode::new(OpKind::Subcircuit, circuit_id.data().as_ffi())
     }
 

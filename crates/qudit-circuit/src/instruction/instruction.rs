@@ -221,8 +221,7 @@ impl Instruction {
                                 wire_len,
                                 CompactParamIndices::empty(),
                             )
-                        } else if start < u32::MAX as usize && length < u32::MAX as usize
-                        {
+                        } else if start < u32::MAX as usize && length < u32::MAX as usize {
                             // Safety: length has just been checked to not be zero.
                             let compact_params = CompactParamIndices::Range(start as u32, unsafe {
                                 std::num::NonZero::new_unchecked(length as u32)
