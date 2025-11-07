@@ -138,7 +138,7 @@ mod python {
             } else if let Ok(expr) = obj.extract::<KetExpression>() {
                 Ok(ExpressionOperation::QuditInitialization(expr))
             } else {
-                return Err(PyTypeError::new_err("Unrecognized operation type."));
+                Err(PyTypeError::new_err("Unrecognized operation type."))
             }
         }
     }

@@ -1,4 +1,4 @@
-use qudit_core::{ComplexScalar, RealScalar};
+use qudit_core::ComplexScalar;
 
 // pub type InstantiationResult = Result<InstantiationOutput, InstantiationError>;
 
@@ -198,7 +198,6 @@ mod python {
     use super::*;
     use crate::python::PyInstantiationRegistrar;
     use pyo3::prelude::*;
-    use pyo3::types::PyList;
     use qudit_core::c32;
     use qudit_core::c64;
 

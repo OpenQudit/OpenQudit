@@ -6,10 +6,11 @@ mod target;
 
 pub use instantiater::DataMap;
 pub use instantiater::Instantiater;
-use qudit_expr::ExpressionGenerator;
-use qudit_expr::UnitaryExpression;
 pub use result::InstantiationResult;
 pub use target::InstantiationTarget;
+
+#[cfg(feature = "python")]
+pub use instantiater::python::PyInstantiater;
 
 ////////////////////////////////////////////////////////////////////////
 /// Python Module.

@@ -4,9 +4,6 @@ version = { workspace = true }
 edition = { workspace = true }
 license = { workspace = true }
 
-[lints.rust]
-unused = { level = "allow", priority = -1 }
-
 [dependencies]
 qudit-core = { workspace = true }
 qudit-expr = { workspace = true }
@@ -35,3 +32,5 @@ harness = false
 [features]
 python = ["qudit-core/python", "qudit-expr/python", "qudit-circuit/python", "dep:ndarray", "dep:numpy", "dep:pyo3", "dep:inventory"]
 
+[lints]
+workspace = true

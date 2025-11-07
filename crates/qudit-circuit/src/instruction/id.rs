@@ -1,11 +1,11 @@
 use slotmap::Key;
 
 use crate::cycle::InstId;
-use crate::cycle::{CycleId, INVALID_CYCLE_ID};
+use crate::cycle::CycleId;
 
-/// A persitent identifier uniquely identifying an instruction within a specific cycle.
+/// A persistent identifier uniquely identifying an instruction within a specific cycle.
 ///
-/// Combines a persistent cycle identifier with an persistant, in-cycle, instruction
+/// Combines a persistent cycle identifier with an persistent, in-cycle, instruction
 /// identifier to create a globally unique reference to a specific instruction
 /// instance.
 #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
@@ -28,16 +28,6 @@ impl InstructionId {
     /// Returns the instruction identifier component within the cycle.
     pub fn inner(&self) -> InstId {
         self.1
-    }
-
-    /// Returns `true` if this has a valid cycle identifier component.
-    pub fn is_valid(&self) -> bool {
-        self.0 != INVALID_CYCLE_ID
-    }
-
-    /// Returns `true` if this has an invalid cycle identifier component.
-    pub fn is_invalid(&self) -> bool {
-        self.0 == INVALID_CYCLE_ID
     }
 }
 
@@ -74,16 +64,6 @@ mod python {
         #[getter]
         pub fn inner(&self) -> InstId {
             self.inner.inner()
-        }
-
-        /// Returns `True` if this instruction identifier references a valid cycle.
-        pub fn is_valid(&self) -> bool {
-            self.inner.is_valid()
-        }
-
-        /// Returns `True` if this instruction identifier references an invalid cycle.
-        pub fn is_invalid(&self) -> bool {
-            self.inner.is_invalid()
         }
 
         fn __repr__(&self) -> String {
@@ -137,18 +117,6 @@ mod tests {
 
         assert_eq!(instruction_id.cycle(), cycle_id);
         assert_eq!(instruction_id.inner(), inst_id);
-    }
-
-    #[test]
-    fn test_is_valid() {
-        let valid_id = InstructionId::new(CycleId::new(0), InstId::default());
-        let invalid_id = InstructionId::new(INVALID_CYCLE_ID, InstId::default());
-
-        assert!(valid_id.is_valid());
-        assert!(!valid_id.is_invalid());
-
-        assert!(!invalid_id.is_valid());
-        assert!(invalid_id.is_invalid());
     }
 
     #[test]

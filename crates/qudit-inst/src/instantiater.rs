@@ -7,13 +7,12 @@ use qudit_core::ComplexScalar;
 
 use crate::InstantiationResult;
 use crate::InstantiationTarget;
-use crate::instantiater;
 
 pub trait DataItem: Any + ToString {}
 
 impl<T: Any + ToString> DataItem for T {}
 
-pub type DataMap = HashMap<String, Box<dyn DataItem>>;
+pub type DataMap = HashMap<String, Box<dyn DataItem + Send + Sync>>;
 
 pub trait Instantiater<C: ComplexScalar> {
     fn instantiate(
@@ -39,7 +38,6 @@ pub trait Instantiater<C: ComplexScalar> {
 #[cfg(feature = "python")]
 pub mod python {
     use super::*;
-    use crate::python::PyInstantiationRegistrar;
     use dyn_clone::DynClone;
     use pyo3::{
         exceptions::{PyNotImplementedError, PyTypeError},
@@ -57,7 +55,7 @@ pub mod python {
                 for (key, value) in py_dict.iter() {
                     let key_str: String = key.extract()?;
                     let value_str: String = value.extract()?;
-                    data_map.insert(key_str, Box::new(value_str) as Box<dyn DataItem>);
+                    data_map.insert(key_str, Box::new(value_str) as Box<dyn DataItem + Send + Sync>);
                 }
                 Ok(Arc::new(data_map))
             }
@@ -131,9 +129,9 @@ pub mod python {
     impl PyInstantiaterABC {
         fn instantiate(
             &self,
-            circuit: QuditCircuit,
-            target: InstantiationTarget<c64>,
-            data: &Bound<'_, PyDict>,
+            _circuit: QuditCircuit,
+            _target: InstantiationTarget<c64>,
+            _data: &Bound<'_, PyDict>,
         ) -> PyResult<InstantiationResult<c64>> {
             Err(PyNotImplementedError::new_err(
                 "Instantiaters must implement the instantiate method.",
@@ -141,7 +139,7 @@ pub mod python {
         }
     }
 
-    pub struct PyInstantiaterTrampoline {
+    struct PyInstantiaterTrampoline {
         instantiater: Py<PyAny>,
     }
 
@@ -156,7 +154,7 @@ pub mod python {
             Python::attach(|py| {
                 let py_data = PyDict::new(py);
                 for (key, val) in data.iter() {
-                    py_data.set_item(key, val.to_string());
+                    py_data.set_item(key, val.to_string()).unwrap();
                 }
 
                 self.instantiater
@@ -184,12 +182,12 @@ pub mod python {
 
                 let py_data = PyDict::new(py);
                 for (key, val) in data.iter() {
-                    py_data.set_item(key, val.to_string());
+                    py_data.set_item(key, val.to_string()).unwrap();
                 }
 
                 if bound.hasattr("batched_instantiate").is_ok_and(|x| x) {
                     let py_targets =
-                        PyList::new(py, targets.into_iter().map(|t| (**t).clone())).unwrap();
+                        PyList::new(py, targets.iter().map(|t| (**t).clone())).unwrap();
                     bound
                         .call_method(
                             "batched_instantiate",
@@ -221,10 +219,11 @@ pub mod python {
     }
 
     /// Other pyo3 code can use PyInstantiater as a parameter's type in pyfunctions and
-    /// pymethods, and this can populated with either Python defined instantiaters
+    /// pymethods, and this can be populated with either Python defined instantiaters
     /// or boxed rust ones. The GIL is not held with this object, and calls to the
     /// rust version are direct through the box without attaching to the GIL.
     pub enum PyInstantiater {
+        #[allow(private_interfaces)]
         Python(PyInstantiaterTrampoline),
         Native(BoxedInstantiater),
     }

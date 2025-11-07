@@ -7,9 +7,7 @@ use crate::numerical::MinimizationResult;
 use crate::numerical::ProvidesJacobian;
 use crate::numerical::ResidualFunction;
 use faer::linalg::solvers::Solve;
-use faer::prelude::*;
-use faer::{Accum, Col, Mat, MatMut, MatRef, Par, Scale, linalg::matmul::matmul};
-use qudit_core::ComplexScalar;
+use faer::{Accum, Col, Mat, Par, linalg::matmul::matmul};
 use qudit_core::RealScalar;
 
 /// Levenberg-Marquardt (LM) optimization algorithm.
@@ -72,18 +70,14 @@ where
         problem.build_jacobian()
     }
 
-    /// Reference: https://arxiv.org/pdf/1201.5885
-    /// Reference: https://scispace.com/pdf/the-levenberg-marquardt-algorithm-implementation-and-theory-u1ziue6l3q.pdf
+    /// Reference: <https://arxiv.org/pdf/1201.5885>
+    /// Reference: <https://scispace.com/pdf/the-levenberg-marquardt-algorithm-implementation-and-theory-u1ziue6l3q.pdf>
     fn minimize(&self, objective: &mut P::Jacobian, x0: &[R]) -> MinimizationResult<R> {
-        let n_params = objective.num_params();
-        // dbg!(&x0);
-        let mut x = Col::from_fn(x0.len(), |i| x0[i].clone());
-
+        let mut x = Col::from_fn(x0.len(), |i| x0[i]);
         let mut Rbuf = objective.allocate_residual();
         let mut Jbuf = objective.allocate_jacobian();
         let mut JtJ: Mat<R> = Mat::zeros(objective.num_params(), objective.num_params());
         let mut Jtr: Mat<R> = Mat::zeros(objective.num_params(), 1);
-        let mut predicted_reduction_buf: Mat<R> = Mat::zeros(1, 1);
 
         // /////// FINITE ANALYSIS TEST
         // unsafe {
@@ -167,7 +161,7 @@ where
         matmul(
             &mut JtJ,
             Accum::Replace,
-            &Jbuf.transpose(),
+            Jbuf.transpose(),
             &Jbuf,
             R::one(),
             Par::Seq,
@@ -175,8 +169,8 @@ where
         matmul(
             &mut Jtr,
             Accum::Replace,
-            &Jbuf.transpose(),
-            &Rbuf.as_mat(),
+            Jbuf.transpose(),
+            Rbuf.as_mat(),
             R::one(),
             Par::Seq,
         );
@@ -207,7 +201,7 @@ where
             Some(l) => l,
         };
 
-        for iter in 0..self.max_iterations {
+        for _ in 0..self.max_iterations {
             // Check if lambda has grown too large (ill-conditioned problem)
             if lambda > self.maximum_lambda {
                 return MinimizationResult {
@@ -241,7 +235,7 @@ where
                 matmul(
                     &mut JtJ,
                     Accum::Replace,
-                    &Jbuf.transpose(),
+                    Jbuf.transpose(),
                     &Jbuf,
                     R::one(),
                     Par::Seq,
@@ -264,7 +258,7 @@ where
             // Solve for delta_x
             let delta_x = match JtJ.llt(faer::Side::Lower) {
                 Ok(llt) => llt.solve(&Jtr),
-                Err(e) => {
+                Err(_) => {
                     // Step rejected
                     // println!("Step rejected due to invalid llt: {}", e);
                     // matmul(&mut JtJ, Accum::Replace, &Jbuf.transpose(), &Jbuf, R::one(), Par::Seq);
@@ -279,7 +273,7 @@ where
             // space: https://faer.veganb.tw/docs/dense-linalg/linsolve/
 
             // Calculate x_new
-            let x_new = &x - &delta_x.col(0); // TODO: remove allocation
+            let x_new = &x - delta_x.col(0); // TODO: remove allocation
 
             // Evaluate cost at x_new
             // Safety: x_new is non null, initialized, and read-only while param_slice is alive.
@@ -380,7 +374,7 @@ where
                 matmul(
                     &mut JtJ,
                     Accum::Replace,
-                    &Jbuf.transpose(),
+                    Jbuf.transpose(),
                     &Jbuf,
                     R::one(),
                     Par::Seq,
@@ -388,8 +382,8 @@ where
                 matmul(
                     &mut Jtr,
                     Accum::Replace,
-                    &Jbuf.transpose(),
-                    &Rbuf.as_mat(),
+                    Jbuf.transpose(),
+                    Rbuf.as_mat(),
                     R::one(),
                     Par::Seq,
                 );
@@ -411,7 +405,7 @@ where
                 matmul(
                     &mut JtJ,
                     Accum::Replace,
-                    &Jbuf.transpose(),
+                    Jbuf.transpose(),
                     &Jbuf,
                     R::one(),
                     Par::Seq,

@@ -51,3 +51,6 @@ harness = false
 
 [features]
 python = ["qudit-core/python", "qudit-expr/python", "dep:ndarray", "dep:numpy", "dep:pyo3", "dep:inventory"]
+
+[lints]
+workspace = true

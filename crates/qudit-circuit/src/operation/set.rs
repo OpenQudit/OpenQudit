@@ -91,10 +91,10 @@ impl OperationSet {
     pub fn insert_expression(&mut self, op: ExpressionOperation) -> OpCode {
         let expression_type = op.expr_type();
         let expr_id = self.expressions.lock().unwrap().insert(op);
-        let op_ref = OpCode::new(OpKind::Expression, expr_id as u64);
+        let op_ref = OpCode::new(OpKind::Expression, expr_id);
         match self.op_to_expr_map.get(&op_ref) {
             None => {
-                self.op_to_expr_map.insert(op_ref.clone(), expression_type);
+                self.op_to_expr_map.insert(op_ref, expression_type);
             }
             Some(expr_type) => assert_eq!(&expression_type, expr_type),
         }
@@ -106,7 +106,7 @@ impl OperationSet {
         op: ExpressionOperation,
         dit_radices: &[usize],
     ) -> OpCode {
-        if dit_radices.len() == 0 {
+        if dit_radices.is_empty() {
             let op_ref = self.insert_expression(op);
             self.increment(op_ref); // Yeah, it's a mess.
             return op_ref;
@@ -137,10 +137,10 @@ impl OperationSet {
 
         let expr_id = self.expressions.lock().unwrap().insert(tensor_expr);
 
-        let op_ref = OpCode::new(OpKind::Expression, expr_id as u64);
+        let op_ref = OpCode::new(OpKind::Expression, expr_id);
         match self.op_to_expr_map.get(&op_ref) {
             None => {
-                self.op_to_expr_map.insert(op_ref.clone(), expression_type);
+                self.op_to_expr_map.insert(op_ref, expression_type);
             }
             Some(expr_type) => assert_eq!(&expression_type, expr_type),
         }
@@ -150,8 +150,8 @@ impl OperationSet {
 
     pub fn insert_subcircuit(&mut self, op: CircuitOperation) -> OpCode {
         let circuit_id = self.subcircuits.insert(op);
-        let op_ref = OpCode::new(OpKind::Subcircuit, circuit_id.data().as_ffi());
-        op_ref
+        
+        OpCode::new(OpKind::Subcircuit, circuit_id.data().as_ffi())
     }
 
     pub fn convert_directive(&self, op: DirectiveOperation) -> OpCode {

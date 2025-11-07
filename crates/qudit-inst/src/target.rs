@@ -1,4 +1,3 @@
-use qudit_circuit::QuditCircuit;
 use qudit_core::ComplexScalar;
 use qudit_core::UnitaryMatrix;
 
@@ -16,7 +15,6 @@ mod python {
     use super::InstantiationTarget;
     use crate::python::PyInstantiationRegistrar;
     use pyo3::prelude::*;
-    use qudit_core::ComplexScalar;
     use qudit_core::UnitaryMatrix;
     use qudit_core::c64;
 
@@ -37,7 +35,6 @@ mod python {
                 });
             }
 
-            // Future: Add other variants here
             // if let Ok(ket) = obj.extract::<Ket<c64>>() {
             //     return Ok(Self {
             //         inner: InstantiationTarget::Ket(ket),
@@ -73,7 +70,7 @@ mod python {
                 return Ok(py_target.inner);
             }
 
-            let py_target = PyInstantiationTarget::new(&*obj)?;
+            let py_target = PyInstantiationTarget::new(&obj)?;
             Ok(py_target.inner)
         }
     }

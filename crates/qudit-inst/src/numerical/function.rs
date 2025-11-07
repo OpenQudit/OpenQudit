@@ -1,5 +1,5 @@
 //! This module defines traits for cost functions, gradients, Hessians, residual functions, and Jacobians.
-use faer::{Col, ColMut, ColRef, Mat, MatMut, MatRef, Row, RowMut, RowRef};
+use faer::{Col, ColMut, Mat, MatMut, Row, RowMut};
 use qudit_core::RealScalar;
 
 pub trait Function {

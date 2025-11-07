@@ -11,7 +11,7 @@ pub struct Uniform<R: RealScalar> {
 }
 
 impl<R: RealScalar> Uniform<R> {
-    pub fn new(mut lower_bound: R, mut upper_bound: R) -> Self {
+    pub fn new(lower_bound: R, upper_bound: R) -> Self {
         if lower_bound > upper_bound {
             panic!("Lower bound cannot be larger than upper bound.");
         }

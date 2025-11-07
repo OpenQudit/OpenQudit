@@ -58,7 +58,7 @@ impl<R: RealScalar> GreedyFurthestPoint<R> {
 
     fn min_distance_to_selected(&self, candidate: &[R]) -> R {
         if self.selected_points.is_empty() {
-            return R::from64(std::f64::INFINITY);
+            return R::from64(f64::INFINITY);
         }
 
         self.selected_points

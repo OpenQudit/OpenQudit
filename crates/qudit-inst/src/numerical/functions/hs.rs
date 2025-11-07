@@ -12,22 +12,18 @@ use crate::numerical::function::Function;
 use crate::numerical::function::Gradient;
 use crate::numerical::problem::Problem;
 use crate::numerical::problem::ProvidesCostFunction;
-use crate::numerical::problem::ProvidesGradient;
 use faer::ColMut;
 use faer::MatMut;
-use faer::Row;
 use faer::RowMut;
 use faer::reborrow::ReborrowMut;
 use qudit_circuit::QuditCircuit;
-use qudit_core::BitWidthConvertible;
 use qudit_core::ComplexScalar;
 use qudit_core::RealScalar;
 use qudit_expr::DifferentiationLevel;
 use qudit_expr::FUNCTION;
 use qudit_expr::GRADIENT;
-use qudit_expr::HESSIAN;
+// use qudit_expr::HESSIAN;
 use qudit_tensor::PinnedTNVM;
-use qudit_tensor::QuditTensor;
 use qudit_tensor::TNVM;
 use qudit_tensor::compile_network;
 
@@ -81,7 +77,7 @@ impl<R: RealScalar> InstantiationProblem<R> for HSProblem<R> {
     fn from_instantiation(
         circuit: Arc<QuditCircuit>,
         target: Arc<InstantiationTarget<R::C>>,
-        data: Arc<crate::DataMap>,
+        _data: Arc<crate::DataMap>,
     ) -> Self {
         Self::new(circuit, target)
     }
@@ -177,20 +173,20 @@ impl<R: RealScalar, const D: DifferentiationLevel> Gradient<R> for HSFunction<R,
 }
 
 impl<R: RealScalar, const D: DifferentiationLevel> Hessian<R> for HSFunction<R, D> {
-    fn hessian_into(&mut self, params: &[R], hess_out: faer::MatMut<R>) {
+    fn hessian_into(&mut self, _params: &[R], _hess_out: faer::MatMut<R>) {
         todo!()
     }
 
     fn cost_gradient_and_hessian_into(
         &mut self,
-        params: &[R],
-        grad_out: RowMut<R>,
-        hess_out: faer::MatMut<R>,
+        _params: &[R],
+        _grad_out: RowMut<R>,
+        _hess_out: faer::MatMut<R>,
     ) -> R {
-        let result = self.tnvm.evaluate::<HESSIAN>(params);
-        let hess_trace = result.get_hess_result().unpack_symsq_matrix();
-        let grad_trace = result.get_grad_result().unpack_vector();
-        let trace = result.get_fn_result().unpack_scalar();
+        // let result = self.tnvm.evaluate::<HESSIAN>(params);
+        // let hess_trace = result.get_hess_result().unpack_symsq_matrix();
+        // let grad_trace = result.get_grad_result().unpack_vector();
+        // let trace = result.get_fn_result().unpack_scalar();
 
         // for (hess_out_col, (hess_trace_x_col, grad_trace_x)) in hess_out.col_iter_mut().zip(hess_trace.col_iter()
 
@@ -236,7 +232,6 @@ impl<R: RealScalar, const D: DifferentiationLevel> ResidualFunction<R> for HSFun
                 }
             }
 
-            let diag_iter = 0;
             for diag_iter in 0..(mat.nrows() - 1) {
                 unsafe {
                     let d_i = mat.get_unchecked(diag_iter, diag_iter);
@@ -380,7 +375,6 @@ impl<R: RealScalar, const D: DifferentiationLevel> Jacobian<R> for HSFunction<R,
                     }
                 }
 
-                let diag_iter = 0;
                 for diag_iter in 0..(mat.nrows() - 1) {
                     unsafe {
                         let d_i = mat.get_unchecked(diag_iter, diag_iter);

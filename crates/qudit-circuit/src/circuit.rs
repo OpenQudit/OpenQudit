@@ -623,7 +623,7 @@ impl QuditCircuit {
 
     /// Checks if a qudit is inactive
     pub fn is_qudit_inactive(&self, index: usize) -> bool {
-        self.front.get(&Wire::quantum(index)).is_none()
+        !self.front.contains_key(&Wire::quantum(index))
     }
 
     /// Initialize the qudits specified in a zero state
@@ -848,7 +848,7 @@ impl QuditCircuit {
     /// # Arguments
     ///
     /// * `point` - The point to get the next operations from. This needs refer
-    /// to a valid point in the circuit.
+    ///   to a valid point in the circuit.
     ///
     /// # Returns
     ///
@@ -1181,7 +1181,7 @@ mod python {
         }
 
         fn clone(&self) -> PyQuditCircuit {
-            Clone::clone(&self)
+            Clone::clone(self)
         }
 
         // --- Properties ---
@@ -1313,7 +1313,7 @@ mod python {
             let tensor: Tensor<c64, 3> = self.circuit.kraus_ops(&rust_args);
             let shape = tensor.dims();
 
-            let py_array: Bound<'py, PyArray3<c64>> = PyArray3::zeros(py, shape.clone(), false);
+            let py_array: Bound<'py, PyArray3<c64>> = PyArray3::zeros(py, *shape, false);
 
             {
                 let mut readwrite = py_array.readwrite();
@@ -1343,7 +1343,7 @@ mod python {
 
             // 2. Parse 'loc' as an int, iterable of ints, or tuple of iterables
             let parsed_loc = if let Ok(single_loc) = loc.extract::<usize>() {
-                WireList::pure(&[single_loc])
+                WireList::pure([single_loc])
             } else if let Ok(tuple) = loc.cast::<PyTuple>() {
                 if tuple.len() == 2 {
                     let item0 = tuple.get_item(0)?;
@@ -1362,7 +1362,7 @@ mod python {
                         if num_qudits.is_some() && num_qudits == Some(1) {
                             WireList::new(vec![int0], vec![int1])
                         } else {
-                            WireList::pure(&[int0, int1])
+                            WireList::pure([int0, int1])
                         }
                     } else {
                         return Err(PyTypeError::new_err(

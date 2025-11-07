@@ -93,7 +93,7 @@ mod python {
             } else if let Ok(expr_op) = obj.extract::<ExpressionOperation>() {
                 Ok(Operation::Expression(expr_op))
             } else {
-                return Err(PyTypeError::new_err("Unrecognized operation type."));
+                Err(PyTypeError::new_err("Unrecognized operation type."))
             }
         }
     }

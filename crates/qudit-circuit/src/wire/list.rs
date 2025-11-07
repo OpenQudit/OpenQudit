@@ -601,6 +601,12 @@ impl WireList {
         self.inner.len()
     }
 
+    /// Checks if the WireList is empty.
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.inner.len() == 0
+    }
+
     /// Returns the number of qudits in the list.
     ///
     /// # Examples
@@ -985,7 +991,7 @@ mod python {
 
         /// Python bool() function - empty wire lists are falsy
         fn __bool__(&self) -> bool {
-            self.inner.len() > 0
+            !self.inner.is_empty()
         }
 
         /// Python 'in' operator - checks if wire exists in list
@@ -1047,7 +1053,7 @@ mod python {
             if slf.index >= slf.wires.len() {
                 None
             } else {
-                let result = slf.wires[slf.index].clone();
+                let result = slf.wires[slf.index];
                 slf.index += 1;
                 Some(result)
             }

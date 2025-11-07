@@ -53,8 +53,8 @@ impl PartialEq for CompactParamIndices {
                     return false;
                 }
 
-                let params1: ParamIndices = self.clone().into();
-                let params2: ParamIndices = other.clone().into();
+                let params1: ParamIndices = (*self).into();
+                let params2: ParamIndices = (*other).into();
                 params1 == params2
             }
             (CompactParamIndices::Range(_, len1), CompactParamIndices::Array(len2, _)) => {
@@ -62,8 +62,8 @@ impl PartialEq for CompactParamIndices {
                     return false;
                 }
 
-                let params1: ParamIndices = self.clone().into();
-                let params2: ParamIndices = other.clone().into();
+                let params1: ParamIndices = (*self).into();
+                let params2: ParamIndices = (*other).into();
                 params1 == params2
             }
         }
@@ -221,7 +221,7 @@ impl Instruction {
                                 wire_len,
                                 CompactParamIndices::empty(),
                             )
-                        } else if start < std::u32::MAX as usize && length < std::u32::MAX as usize
+                        } else if start < u32::MAX as usize && length < u32::MAX as usize
                         {
                             // Safety: length has just been checked to not be zero.
                             let compact_params = CompactParamIndices::Range(start as u32, unsafe {
@@ -246,7 +246,7 @@ impl Instruction {
                                 CompactParamIndices::empty(),
                             )
                         } else if vec.len() <= 3 {
-                            if vec.iter().all(|&idx| idx < std::u8::MAX as usize) {
+                            if vec.iter().all(|&idx| idx < u8::MAX as usize) {
                                 let mut array_params = [0u8; 3];
                                 for (i, &idx) in vec.iter().enumerate() {
                                     array_params[i] = idx as u8;
@@ -321,7 +321,7 @@ impl Instruction {
     #[inline]
     pub fn params(&self) -> ParamIndices {
         match self {
-            Instruction::Inline(_, _, _, params) => params.clone().into(),
+            Instruction::Inline(_, _, _, params) => (*params).into(),
             Instruction::Heap(_, data, split) => {
                 let param_data = data.as_slice().split_at(*split as usize).1;
                 ParamIndices::Disjoint(param_data.to_owned())

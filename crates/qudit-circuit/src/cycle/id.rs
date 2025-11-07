@@ -25,9 +25,6 @@ pub struct CycleId(pub u64);
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct CycleIndex(pub u64);
 
-/// A sentinel value representing an invalid or uninitialized cycle ID.
-pub const INVALID_CYCLE_ID: CycleId = CycleId(std::u64::MAX);
-
 impl CycleId {
     /// Creates a new cycle identifier from the given value.
     pub const fn new(id: u64) -> Self {

@@ -34,7 +34,7 @@ impl CycleList {
 
     fn get_new_id(&mut self) -> CycleId {
         let out = self.id_counter;
-        if out >= std::u64::MAX - 1 {
+        if out >= u64::MAX - 1 {
             panic!("Cycle identifier overflow.");
         }
         self.id_counter += 1;
@@ -97,7 +97,7 @@ impl CycleList {
     }
 
     pub fn is_id(&self, id: CycleId) -> bool {
-        self.id_to_index.get(&id).is_some()
+        self.id_to_index.contains_key(&id)
     }
 }
 

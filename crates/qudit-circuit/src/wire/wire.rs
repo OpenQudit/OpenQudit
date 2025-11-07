@@ -16,8 +16,7 @@ use qudit_core::CompactStorage;
 ///     - Maximum quantum wire index: `(isize::MAX - 1) as usize`
 ///     - Maximum classical wire index: `(-(isize::MIN + 1)) as usize`
 ///
-/// - This is not a persistent identifier, and may change if wires are inserted
-/// or removed in the circuit.
+/// - This is not a persistent identifier, and may change if wires are inserted or removed in the circuit.
 ///
 /// # Examples
 ///

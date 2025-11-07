@@ -78,7 +78,7 @@ impl ParameterVector {
     }
 
     pub fn parse(&mut self, args: &ArgumentList) -> ParamIndices {
-        if args.len() == 0 {
+        if args.is_empty() {
             return ParamIndices::Joint(0, 0);
         }
 

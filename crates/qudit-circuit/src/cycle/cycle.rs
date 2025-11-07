@@ -55,7 +55,7 @@ impl QuditCycle {
         let inst_id = self.insts.insert(inst.clone());
 
         for wire in inst.wires().wires() {
-            debug_assert!(self.reg_map.get(&wire).is_none());
+            debug_assert!(!self.reg_map.contains_key(&wire));
             self.reg_map.insert(wire, inst_id);
         }
 
@@ -63,10 +63,7 @@ impl QuditCycle {
     }
 
     pub fn remove(&mut self, wire: Wire) -> Option<Instruction> {
-        let inst_id = match self.reg_map.get(&wire) {
-            None => return None,
-            Some(inst_id) => inst_id,
-        };
+        let inst_id = self.reg_map.get(&wire)?;
 
         let inst = self.insts.remove(*inst_id);
 
@@ -82,10 +79,7 @@ impl QuditCycle {
 
     /// If an instruction is on this wire, retrieve all wires associated with it.
     pub fn get_wires(&self, wire: Wire) -> Option<WireList> {
-        let inst_id = match self.reg_map.get(&wire) {
-            None => return None,
-            Some(inst_id) => inst_id,
-        };
+        let inst_id = self.reg_map.get(&wire)?;
 
         self.get_wires_from_id(*inst_id)
     }

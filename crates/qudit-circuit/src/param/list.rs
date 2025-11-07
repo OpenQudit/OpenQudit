@@ -137,7 +137,7 @@ impl<E: Into<Argument>, const N: usize> From<[E; N]> for ArgumentList {
 impl<E: Into<Argument> + Clone, const N: usize> From<&[E; N]> for ArgumentList {
     /// Converts a reference to an array of argument-like values into an `ArgumentList`.
     fn from(value: &[E; N]) -> Self {
-        Self::new(value.into_iter().map(|e| e.clone().into()).collect())
+        Self::new(value.iter().map(|e| e.clone().into()).collect())
     }
 }
 
@@ -170,7 +170,7 @@ mod python {
             }
 
             // If it's not a single argument, try to treat as an iterable (list, tuple, etc.)
-            if let Ok(iter) = pyo3::types::PyIterator::from_object(&*obj) {
+            if let Ok(iter) = pyo3::types::PyIterator::from_object(&obj) {
                 let mut arguments = Vec::new();
                 for item in iter {
                     let item = item?;

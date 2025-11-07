@@ -17,7 +17,7 @@ where
         problem.build_gradient()
     }
 
-    fn minimize(&self, objective: &mut Self::Func, x0: &[R]) -> MinimizationResult<R> {
+    fn minimize(&self, _objective: &mut Self::Func, _x0: &[R]) -> MinimizationResult<R> {
         todo!()
     }
 }

@@ -51,7 +51,7 @@ impl Argument {
                 } else {
                     e.get_unique_variables()
                         .into_iter()
-                        .map(|var| Parameter::Named(var))
+                        .map(Parameter::Named)
                         .collect()
                 }
             }
@@ -73,7 +73,7 @@ impl Argument {
         match self {
             Argument::Expression(e) => {
                 if !e.is_parameterized() {
-                    let out = vec![String::from(format!("unnamed_{counter}"))];
+                    let out = vec![format!("unnamed_{counter}")];
                     *counter += 1;
                     out
                 } else {
@@ -81,7 +81,7 @@ impl Argument {
                 }
             }
             _ => {
-                let out = vec![String::from(format!("unnamed_{counter}"))];
+                let out = vec![format!("unnamed_{counter}")];
                 *counter += 1;
                 out
             }
@@ -106,7 +106,7 @@ impl Argument {
         match self {
             Argument::Expression(e) => e.clone(),
             _ => {
-                let out = Expression::Variable(String::from(format!("unnamed_{counter}")));
+                let out = Expression::Variable(format!("unnamed_{counter}"));
                 *counter += 1;
                 out
             }
@@ -121,12 +121,7 @@ impl Argument {
     /// expression associated with this argument.
     pub fn requires_expression_modification(&self) -> bool {
         match self {
-            Argument::Expression(e) => match &e {
-                Expression::Pi => false,
-                Expression::Constant(_) => false,
-                Expression::Variable(_) => false,
-                _ => true,
-            },
+            Argument::Expression(e) => matches!(e, Expression::Pi | Expression::Constant(_) | Expression::Variable(_)),
             _ => false,
         }
     }
