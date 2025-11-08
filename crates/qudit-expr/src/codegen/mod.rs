@@ -25,7 +25,7 @@ fn process_name_for_gen(name: &str) -> String {
         .replace("⋅", "x")
 }
 
-pub(crate) use builder::CompilableUnit;
+pub use builder::CompilableUnit;
 pub use builder::DifferentiationLevel;
 pub use builder::ModuleBuilder;
 pub use builder::{FUNCTION, GRADIENT, HESSIAN};

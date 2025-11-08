@@ -7,13 +7,14 @@ pub mod library;
 mod qgl;
 mod shape;
 
-pub use analysis::simplify_matrix_and_matvec;
+pub use analysis::simplify_expressions_iter;
 pub use cache::ExpressionCache;
 pub use cache::ExpressionId;
 pub use codegen::CodeGenerator;
 pub use codegen::DifferentiationLevel;
 pub use codegen::Module;
 pub use codegen::ModuleBuilder;
+pub use codegen::CompilableUnit;
 pub use codegen::WriteFunc;
 pub use codegen::WriteFuncWithLifeTime;
 pub use codegen::{FUNCTION, GRADIENT, HESSIAN};

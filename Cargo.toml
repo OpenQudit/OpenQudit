@@ -59,7 +59,7 @@ qudit-python = { path = "crates/qudit-python", version = "0.1.0" }
 proptest = "1.9"
 
 # Benchmarking
-criterion = "0.7"
+criterion = "0.5"
 pprof = { version = "0.15", features = ["flamegraph", "criterion"] }
 
 [profile.dev]
@@ -82,3 +82,4 @@ missing_transmute_annotations = "allow"
 upper_case_acronyms = "allow"
 collapsible_if = "allow"
 module_inception = "allow"
+approx_constant = "allow"

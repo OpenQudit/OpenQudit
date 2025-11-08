@@ -7,31 +7,22 @@ use criterion::criterion_main;
 
 mod common;
 use common::FlamegraphProfiler;
-use pprof::criterion::{Output, PProfProfiler};
-use pprof::flamegraph::Options;
 
-use qudit_circuit::Operation;
 use qudit_circuit::QuditCircuit;
 use qudit_core::QuditSystem;
-use qudit_core::Radices;
 use qudit_core::UnitaryMatrix;
-use qudit_core::c32;
 use qudit_core::c64;
 use qudit_expr::FUNCTION;
 use qudit_expr::GRADIENT;
-use qudit_expr::UnitaryExpression;
 use qudit_expr::library::Controlled;
 use qudit_expr::library::U3Gate;
 use qudit_expr::library::XGate;
 use qudit_inst::numerical::MinimizingInstantiater;
 use qudit_inst::numerical::functions::HSProblem;
-use qudit_inst::numerical::initializers::GreedyFurthestPoint;
 use qudit_inst::numerical::initializers::Uniform;
-use qudit_inst::numerical::initializers::Zeros;
 use qudit_inst::numerical::minimizers::LM;
 use qudit_inst::numerical::runners::MultiStartRunner;
 use qudit_inst::*;
-use qudit_tensor::TNVM;
 
 pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
     let block_expr = U3Gate()
@@ -58,7 +49,7 @@ pub fn unitary_inst_benchmarks(c: &mut Criterion) {
         // sample target
         let network = circ.to_tensor_network();
         let code = qudit_tensor::compile_network(network);
-        let mut tnvm = qudit_tensor::TNVM::<c64, GRADIENT>::new(&code);
+        let mut tnvm = qudit_tensor::TNVM::<c64, GRADIENT>::new(&code, None);
         let result = tnvm
             .evaluate::<FUNCTION>(&vec![1.7; circ.num_params()])
             .get_fn_result()

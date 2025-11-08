@@ -1138,6 +1138,7 @@ pub fn simplify_expressions(expression: Vec<Expression>) -> Vec<Expression> {
     simplified_expressions
 }
 
+#[allow(dead_code)]
 pub fn simplify_matrix_and_matvec(
     matrix_expression: &Vec<Vec<ComplexExpression>>,
     matvec_expression: &Vec<Vec<Vec<ComplexExpression>>>,

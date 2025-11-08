@@ -1,28 +1,43 @@
 use std::f64::consts::PI;
 use std::ffi::c_int;
-use std::fs::File;
 use std::path::Path;
 
 use criterion::profiler::Profiler;
-use pprof::ProfilerGuard;
 use qudit_circuit::QuditCircuit;
-use qudit_circuit::WireList;
-use qudit_core::QuditRadices;
-use qudit_core::radices;
+use qudit_expr::library::HGate;
+use qudit_expr::library::PGate;
 use qudit_expr::UnitaryExpression;
-use qudit_gates::Gate;
+use qudit_expr::library::{U3Gate, Controlled, XGate};
 use rand::Rng;
+
+#[allow(dead_code)]
+pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
+    let block_expr = U3Gate()
+        .otimes(U3Gate())
+        .dot(Controlled(XGate(2), [2].into(), None));
+    let mut circ = QuditCircuit::pure(vec![2; n]);
+    for i in 0..n {
+        circ.append(U3Gate(), [i], None);
+    }
+    for _ in 0..2 {
+        for i in 0..(n - 1) {
+            circ.append(block_expr.clone(), [i, i + 1], None);
+        }
+    }
+    circ
+}
 
 /// Build a QFT circuit with `n` qubits.
 ///
 /// This qft implementation does not consider numerical issues and does not
 /// perform the final swap back step in the algorithm. It should only be
 /// used for benchmarking purposes.
+#[allow(dead_code)]
 pub fn build_qft_circuit(n: usize) -> QuditCircuit {
     // TODO: Double check this is actually a QFT
-    let mut circ = QuditCircuit::pure(radices![2; n]);
-    let h_ref = circ.cache_operation(Gate::H(2));
-    let cp_ref = circ.cache_operation(Gate::CP());
+    let mut circ = QuditCircuit::pure(vec![2; n]);
+    let h_ref = circ.cache_operation(HGate(2));
+    let cp_ref = circ.cache_operation(Controlled(PGate(2), [2].into(), None));
     for i in 0..n {
         circ.append_by_code::<_, [f64; 0]>(h_ref, [i], []);
         for j in (i + 1)..n {
@@ -33,6 +48,7 @@ pub fn build_qft_circuit(n: usize) -> QuditCircuit {
     circ
 }
 
+#[allow(dead_code)]
 pub fn build_dtc_circuit(n: usize) {
     let g = 0.95;
 
@@ -65,11 +81,11 @@ pub fn build_dtc_circuit(n: usize) {
     }",
     );
 
-    let mut circ = QuditCircuit::pure(radices![2; n]);
+    let mut circ = QuditCircuit::pure(vec![2; n]);
     let rx_ref = circ.cache_operation(rx_expr);
     let rz_ref = circ.cache_operation(rz_expr);
     let rzz_ref = circ.cache_operation(rzz_expr);
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
 
     for _ in 0..n {
         for i in 0..n {
@@ -79,59 +95,25 @@ pub fn build_dtc_circuit(n: usize) {
         for i in (0..(n - 1)).step_by(2) {
             let low = PI / 16.0;
             let high = 3.0 * PI / 16.0;
-            let phi: f64 = rng.gen_range(low..high);
+            let phi: f64 = rng.random_range(low..high);
             circ.append_by_code(rzz_ref, [i, i + 1], [phi]);
         }
 
         for i in (1..(n - 1)).step_by(2) {
             let low = PI / 16.0;
             let high = 3.0 * PI / 16.0;
-            let phi: f64 = rng.gen_range(low..high);
+            let phi: f64 = rng.random_range(low..high);
             circ.append_by_code(rzz_ref, [i, i + 1], [phi]);
         }
 
         for i in 0..n {
             let low = -PI;
             let high = PI;
-            let phi: f64 = rng.gen_range(low..high);
+            let phi: f64 = rng.random_range(low..high);
             circ.append_by_code(rz_ref, i, [phi]);
         }
     }
 }
-
-// #[allow(dead_code)]
-// pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
-//     let mut circ = QuditCircuit::pure(radices![2; n]);
-//     for i in 0..n {
-//         circ.append_parameterized(Gate::U3(), [i]);
-//     }
-//     for _ in 0..n {
-//         for i in 0..(n - 1) {
-//             circ.append_parameterized(Gate::CX(), [i, i + 1]);
-//             circ.append_parameterized(Gate::U3(), [i]);
-//             circ.append_parameterized(Gate::U3(), [i + 1]);
-//         }
-//     }
-//     circ
-// }
-
-// #[allow(dead_code)]
-// pub fn build_qsearch_thick_step_circuit(n: usize) -> QuditCircuit {
-//     let mut circ = QuditCircuit::pure(radices![2; n]);
-//     for i in 0..n {
-//         circ.append_parameterized(Gate::U3(), [i]);
-//     }
-//     for _ in 0..n {
-//         for i in 0..(n - 1) {
-//             for _j in 0..3 {
-//                 circ.append_parameterized(Gate::CX(), [i, i + 1]);
-//                 circ.append_parameterized(Gate::U3(), [i]);
-//                 circ.append_parameterized(Gate::U3(), [i + 1]);
-//             }
-//         }
-//     }
-//     circ
-// }
 
 use pprof::criterion::{Output, PProfProfiler};
 use pprof::flamegraph::Options;

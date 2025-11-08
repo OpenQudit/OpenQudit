@@ -45,10 +45,6 @@ harness = false
 name = "tnvm"
 harness = false
 
-[[bench]]
-name = "compact_vec_bench"
-harness = false
-
 [features]
 python = ["qudit-core/python", "qudit-expr/python", "dep:ndarray", "dep:numpy", "dep:pyo3", "dep:inventory"]
 
