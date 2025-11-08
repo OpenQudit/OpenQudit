@@ -1136,10 +1136,7 @@ pub fn fused_reshape_permute_reshape_into_prepare(
     }
 
     // Apply permutation to input strides
-    let perm_in_strides = perm
-        .iter()
-        .map(|&p| in_strides[p])
-        .collect::<Vec<_>>();
+    let perm_in_strides = perm.iter().map(|&p| in_strides[p]).collect::<Vec<_>>();
 
     // (perm_in_strides, out_strides, perm_shape)
 
