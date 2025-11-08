@@ -1,0 +1,77 @@
+name: Build, Lint, and Test
+
+on:
+  push:
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build_lint_test:
+    name: Rust
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        toolchain:
+          - stable
+          # - beta # See: https://github.com/PyO3/pyo3/issues/5580
+          # - nightly # See: https://github.com/PyO3/pyo3/issues/5580
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ------------------------------------------------------------------
+      # Setup the Environment
+      # ------------------------------------------------------------------
+      - name: Install Rust toolchain (stable)
+        uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          toolchain: ${{ matrix.toolchain }} 
+          components: rustfmt, clippy
+          
+      - name: Setup LLVM 18
+        uses: ZhongRuoyu/setup-llvm@v1
+        with:
+          version: 18
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@cargo-deny
+
+      # ------------------------------------------------------------------
+      # Cache Dependencies
+      # ------------------------------------------------------------------
+      - name: Cache Cargo dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-${{ matrix.toolchain }}-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      # ------------------------------------------------------------------
+      # Run Checks
+      # ------------------------------------------------------------------
+      - name: Check formatting
+        run: cargo fmt --verbose --check
+
+      - name: Check licenses and advisories
+        run: cargo deny --all-features check -c .cargo/deny.toml
+
+      - name: Check build and lint errors
+        # Additionally checks build on all targets
+        run: cargo clippy --verbose --workspace --features python --all-targets -- -D warnings
+
+      - name: Run tests
+        run: cargo test --verbose --workspace --features python
+
+      - name: Build docs
+        run: cargo doc --workspace --no-deps
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+
