@@ -1,7 +1,7 @@
+use qudit_core::ComplexScalar;
 use qudit_core::accel::fused_reshape_permute_reshape_into_impl;
 use qudit_core::accel::tensor_fused_reshape_permute_reshape_into_prepare;
 use qudit_core::memory::MemoryBuffer;
-use qudit_core::ComplexScalar;
 use qudit_expr::{DifferentiationLevel, FUNCTION, GRADIENT, HESSIAN};
 
 use super::super::buffer::SizedTensorBuffer;
@@ -138,13 +138,15 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> FRPRStruct<C, D> {
     }
 
     #[inline(always)]
-    pub unsafe fn evaluate<const E: DifferentiationLevel>(&self, memory: &mut MemoryBuffer<C>) { unsafe {
-        fused_reshape_permute_reshape_into_impl(
-            self.input.as_ptr(memory),
-            self.output.as_ptr_mut(memory),
-            &self.ins[E - 1],
-            &self.outs[E - 1],
-            &self.dims[E - 1],
-        );
-    }}
+    pub unsafe fn evaluate<const E: DifferentiationLevel>(&self, memory: &mut MemoryBuffer<C>) {
+        unsafe {
+            fused_reshape_permute_reshape_into_impl(
+                self.input.as_ptr(memory),
+                self.output.as_ptr_mut(memory),
+                &self.ins[E - 1],
+                &self.outs[E - 1],
+                &self.dims[E - 1],
+            );
+        }
+    }
 }

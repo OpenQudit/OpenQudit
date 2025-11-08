@@ -5,9 +5,9 @@ mod tree;
 
 pub use bytecode::Bytecode;
 pub use cpu::PinnedTNVM;
+pub use cpu::TNVM;
 pub use cpu::TNVMResult;
 pub use cpu::TNVMReturnType;
-pub use cpu::TNVM;
 pub use network::QuditCircuitTensorNetworkBuilder;
 pub use network::QuditTensor;
 pub use network::QuditTensorNetwork;
@@ -25,8 +25,8 @@ pub fn compile_network(network: QuditTensorNetwork) -> Bytecode {
 mod tests {
     use crate::bytecode::BytecodeGenerator;
     use qudit_core::{ParamInfo, Radices};
-    use qudit_expr::TensorExpression;
     use qudit_expr::GRADIENT;
+    use qudit_expr::TensorExpression;
 
     use super::*;
 

@@ -2,7 +2,7 @@ use std::hash::Hash;
 
 use super::fmt::PrintTree;
 use qudit_core::ParamInfo;
-use qudit_expr::{index::TensorIndex, ExpressionId};
+use qudit_expr::{ExpressionId, index::TensorIndex};
 
 #[derive(Clone, PartialEq, Eq, Debug, Hash)]
 pub struct LeafNode {

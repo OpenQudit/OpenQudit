@@ -6,8 +6,8 @@ use std::sync::Mutex;
 use qudit_core::RealScalar;
 use qudit_expr::DifferentiationLevel;
 use qudit_expr::ExpressionCache;
-use qudit_expr::GenerationShape;
 use qudit_expr::FUNCTION;
+use qudit_expr::GenerationShape;
 use rustc_hash::FxHashMap;
 
 use super::buffer::SizedTensorBuffer;
@@ -15,9 +15,9 @@ use super::instruction::TNVMInstruction;
 use crate::bytecode::Bytecode;
 use crate::cpu::TNVMResult;
 
-use qudit_core::memory::alloc_zeroed_memory;
-use qudit_core::memory::MemoryBuffer;
 use qudit_core::ComplexScalar;
+use qudit_core::memory::MemoryBuffer;
+use qudit_core::memory::alloc_zeroed_memory;
 
 pub type PinnedTNVM<C, const D: DifferentiationLevel> = Pin<Box<TNVM<C, D>>>;
 

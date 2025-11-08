@@ -1,4 +1,4 @@
-use qudit_core::{memory::MemoryBuffer, ComplexScalar};
+use qudit_core::{ComplexScalar, memory::MemoryBuffer};
 use qudit_expr::{DifferentiationLevel, WriteFunc};
 
 use super::super::buffer::SizedTensorBuffer;

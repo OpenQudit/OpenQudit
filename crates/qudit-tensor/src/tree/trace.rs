@@ -26,10 +26,16 @@ impl TraceNode {
 
         for (idx1, idx2) in &pairs {
             if *idx1 >= child_indices.len() || *idx2 >= child_indices.len() {
-                panic!("Dimension index out of bounds for trace operation. Child dimensions: {:?}, attempting to trace indices: ({}, {})", child_indices, idx1, idx2);
+                panic!(
+                    "Dimension index out of bounds for trace operation. Child dimensions: {:?}, attempting to trace indices: ({}, {})",
+                    child_indices, idx1, idx2
+                );
             }
             if child_indices[*idx1].index_size() != child_indices[*idx2].index_size() {
-                panic!("Dimensions at trace indices must be equal. Found {} at index {} and {} at index {}.", child_indices[*idx1], idx1, child_indices[*idx2], idx2);
+                panic!(
+                    "Dimensions at trace indices must be equal. Found {} at index {} and {} at index {}.",
+                    child_indices[*idx1], idx1, child_indices[*idx2], idx2
+                );
             }
             indices_to_remove.push(*idx1);
             indices_to_remove.push(*idx2);

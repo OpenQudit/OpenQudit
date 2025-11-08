@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
-use qudit_core::memory::MemoryBuffer;
 use qudit_core::ComplexScalar;
+use qudit_core::memory::MemoryBuffer;
 use qudit_expr::{DifferentiationLevel, FUNCTION, GRADIENT, HESSIAN};
 
 use super::super::buffer::SizedTensorBuffer;

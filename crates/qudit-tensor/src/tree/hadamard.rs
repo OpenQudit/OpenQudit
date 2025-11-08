@@ -18,10 +18,12 @@ impl HadamardProductNode {
         let left_indices = left.indices();
         let right_indices = right.indices();
 
-        assert!(left_indices
-            .iter()
-            .zip(right_indices.iter())
-            .all(|(l, r)| l.index_size() == r.index_size() && l.direction() == r.direction()));
+        assert!(
+            left_indices
+                .iter()
+                .zip(right_indices.iter())
+                .all(|(l, r)| l.index_size() == r.index_size() && l.direction() == r.direction())
+        );
 
         let param_info = left.param_info().union(&right.param_info());
 

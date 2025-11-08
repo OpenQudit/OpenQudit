@@ -5,6 +5,7 @@ use std::{
 
 use qudit_expr::{ExpressionCache, GenerationShape};
 
+use super::TensorId;
 use super::index::IndexDirection;
 use super::index::IndexId;
 use super::index::IndexSize;
@@ -13,7 +14,6 @@ use super::index::TensorIndex;
 use super::index::WeightedIndex;
 use super::path::ContractionPath;
 use super::tensor::QuditTensor;
-use super::TensorId;
 use crate::tree::TTGTTree;
 
 pub type NetworkEdge = (NetworkIndex, BTreeSet<TensorId>);
@@ -36,7 +36,9 @@ impl QuditTensorNetwork {
     ) -> Self {
         for (_, edge) in indices.iter() {
             if edge.is_empty() {
-                panic!("Index not attached to any tensor detected. Empty indices, must have explicit identity/copy tensors attached before final network construction.");
+                panic!(
+                    "Index not attached to any tensor detected. Empty indices, must have explicit identity/copy tensors attached before final network construction."
+                );
             }
         }
 

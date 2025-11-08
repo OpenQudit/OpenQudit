@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex};
 
-use qudit_core::{memory::MemoryBuffer, ComplexScalar};
+use qudit_core::{ComplexScalar, memory::MemoryBuffer};
 use qudit_expr::{DifferentiationLevel, ExpressionCache};
 
 use crate::{
@@ -132,17 +132,19 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVMInstruction<C, D> {
         &self,
         params: &[C::R],
         memory: &mut MemoryBuffer<C>,
-    ) { unsafe {
-        match self {
-            TNVMInstruction::FRPR(s) => s.evaluate::<E>(memory),
-            TNVMInstruction::HadamardB(s) => s.batched_evaluate::<E>(memory),
-            TNVMInstruction::HadamardS(s) => s.evaluate::<E>(memory),
-            TNVMInstruction::KronB(s) => s.batched_evaluate::<E>(memory),
-            TNVMInstruction::KronS(s) => s.evaluate::<E>(memory),
-            TNVMInstruction::MatMulB(s) => s.batched_evaluate::<E>(memory),
-            TNVMInstruction::MatMulS(s) => s.evaluate::<E>(memory),
-            TNVMInstruction::Trace(s) => s.evaluate(memory),
-            TNVMInstruction::Write(s) => s.evaluate::<E>(params, memory),
+    ) {
+        unsafe {
+            match self {
+                TNVMInstruction::FRPR(s) => s.evaluate::<E>(memory),
+                TNVMInstruction::HadamardB(s) => s.batched_evaluate::<E>(memory),
+                TNVMInstruction::HadamardS(s) => s.evaluate::<E>(memory),
+                TNVMInstruction::KronB(s) => s.batched_evaluate::<E>(memory),
+                TNVMInstruction::KronS(s) => s.evaluate::<E>(memory),
+                TNVMInstruction::MatMulB(s) => s.batched_evaluate::<E>(memory),
+                TNVMInstruction::MatMulS(s) => s.evaluate::<E>(memory),
+                TNVMInstruction::Trace(s) => s.evaluate(memory),
+                TNVMInstruction::Write(s) => s.evaluate::<E>(params, memory),
+            }
         }
-    }}
+    }
 }

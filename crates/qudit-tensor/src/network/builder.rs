@@ -349,7 +349,9 @@ impl QuditCircuitTensorNetworkBuilder {
                     }
                     Wire::Closed => {}
                     Wire::Connected(_, _) => {
-                        panic!("Cannot map a tensor output qudit over an active edge without connecting on the input side.");
+                        panic!(
+                            "Cannot map a tensor output qudit over an active edge without connecting on the input side."
+                        );
                     }
                 }
             }

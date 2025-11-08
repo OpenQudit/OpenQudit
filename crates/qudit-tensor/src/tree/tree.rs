@@ -11,12 +11,12 @@ use super::outer::OuterProductNode;
 use super::transpose::TransposeNode;
 
 use qudit_core::ParamInfo;
-use qudit_expr::index::IndexDirection;
-use qudit_expr::index::IndexId;
-use qudit_expr::index::TensorIndex;
 use qudit_expr::ExpressionCache;
 use qudit_expr::ExpressionId;
 use qudit_expr::GenerationShape;
+use qudit_expr::index::IndexDirection;
+use qudit_expr::index::IndexId;
+use qudit_expr::index::TensorIndex;
 
 // TODO: Rename to TensorTree
 /// A tree structure representing a parameterized quantum expression.

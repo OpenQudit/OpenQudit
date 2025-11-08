@@ -3,7 +3,7 @@ use faer::ColRef;
 use faer::MatRef;
 use faer::RowRef;
 use qudit_core::array::TensorRef;
-use qudit_core::{memory::MemoryBuffer, ComplexScalar};
+use qudit_core::{ComplexScalar, memory::MemoryBuffer};
 use qudit_expr::GenerationShape;
 
 pub struct TNVMReturnType2<'a, C: ComplexScalar> {
