@@ -1,4 +1,4 @@
-name: Cargo Build & Test
+name: Build, Lint, and Test
 
 on:
   push:
@@ -19,11 +19,23 @@ jobs:
           # - nightly # See: https://github.com/PyO3/pyo3/issues/5580
     steps:
       - uses: actions/checkout@v4
+
+      # Install dependencies for checks:
       - run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
       - name: Setup LLVM
         uses: ZhongRuoyu/setup-llvm@v0
         with:
           llvm-version: 18
-      - run: cargo build --verbose --features python
-      - run: cargo test --verbose --features python
+      - run: cargo install cargo-deny
+
+      # Run checks
+      - run: cargo build --verbose --workspace --features python --all-targets
+      - run: cargo test --verbose --workspace --features python
+      - run: cargo check --verbose --workspace --features python --all-targets -- -D warnings
+      - run: cargo clippy --verbose --workspace --features python --all-targets -- -D warnings
+      - run: cargo fmt --verbose --check
+      - run: cargo deny --all-features check -c .cargo/deny.toml
+      - run: cargo doc
+        env:
+          - RUSTDOCFLAGS: "-D warnings"
 
