@@ -132,7 +132,7 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVMInstruction<C, D> {
         &self,
         params: &[C::R],
         memory: &mut MemoryBuffer<C>,
-    ) {
+    ) { unsafe {
         match self {
             TNVMInstruction::FRPR(s) => s.evaluate::<E>(memory),
             TNVMInstruction::HadamardB(s) => s.batched_evaluate::<E>(memory),
@@ -144,5 +144,5 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> TNVMInstruction<C, D> {
             TNVMInstruction::Trace(s) => s.evaluate(memory),
             TNVMInstruction::Write(s) => s.evaluate::<E>(params, memory),
         }
-    }
+    }}
 }

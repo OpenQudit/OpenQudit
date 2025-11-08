@@ -138,7 +138,7 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> FRPRStruct<C, D> {
     }
 
     #[inline(always)]
-    pub unsafe fn evaluate<const E: DifferentiationLevel>(&self, memory: &mut MemoryBuffer<C>) {
+    pub unsafe fn evaluate<const E: DifferentiationLevel>(&self, memory: &mut MemoryBuffer<C>) { unsafe {
         fused_reshape_permute_reshape_into_impl(
             self.input.as_ptr(memory),
             self.output.as_ptr_mut(memory),
@@ -146,5 +146,5 @@ impl<C: ComplexScalar, const D: DifferentiationLevel> FRPRStruct<C, D> {
             &self.outs[E - 1],
             &self.dims[E - 1],
         );
-    }
+    }}
 }

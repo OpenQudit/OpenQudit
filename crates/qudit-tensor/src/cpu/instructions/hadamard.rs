@@ -38,7 +38,7 @@ impl<C: ComplexScalar> HadamardStruct<C> {
     }
 
     #[inline(always)]
-    unsafe fn hadamard(&self, left: *const C, right: *const C, out: *mut C) {
+    unsafe fn hadamard(&self, left: *const C, right: *const C, out: *mut C) { unsafe {
         hadamard_kernel_raw(
             self.left.nrows(),
             self.left.ncols(),
@@ -52,20 +52,20 @@ impl<C: ComplexScalar> HadamardStruct<C> {
             self.right.row_stride() as isize,
             self.right.col_stride() as isize,
         );
-    }
+    }}
 
     #[inline(always)]
-    unsafe fn batched_hadamard(&self, mut left: *const C, mut right: *const C, mut out: *mut C) {
+    unsafe fn batched_hadamard(&self, mut left: *const C, mut right: *const C, mut out: *mut C) { unsafe {
         for _ in 0..self.left.nmats() {
             self.hadamard(left, right, out);
             left = left.add(self.left.mat_stride());
             right = right.add(self.right.mat_stride());
             out = out.add(self.out.mat_stride());
         }
-    }
+    }}
 
     #[inline(always)]
-    unsafe fn hadamard_add(&self, left: *const C, right: *const C, out: *mut C) {
+    unsafe fn hadamard_add(&self, left: *const C, right: *const C, out: *mut C) { unsafe {
         hadamard_kernel_add_raw(
             self.left.nrows(),
             self.left.ncols(),
@@ -79,7 +79,7 @@ impl<C: ComplexScalar> HadamardStruct<C> {
             self.right.row_stride() as isize,
             self.right.col_stride() as isize,
         );
-    }
+    }}
 
     #[inline(always)]
     unsafe fn batched_hadamard_add(
@@ -87,17 +87,17 @@ impl<C: ComplexScalar> HadamardStruct<C> {
         mut left: *const C,
         mut right: *const C,
         mut out: *mut C,
-    ) {
+    ) { unsafe {
         for _ in 0..self.left.nmats() {
             self.hadamard_add(left, right, out);
             left = left.add(self.left.mat_stride());
             right = right.add(self.right.mat_stride());
             out = out.add(self.out.mat_stride());
         }
-    }
+    }}
 
     #[inline(always)]
-    pub unsafe fn evaluate<const D: DifferentiationLevel>(&self, memory: &mut MemoryBuffer<C>) {
+    pub unsafe fn evaluate<const D: DifferentiationLevel>(&self, memory: &mut MemoryBuffer<C>) { unsafe {
         let left = memory.as_ptr().add(self.left.offset());
         let right = memory.as_ptr().add(self.right.offset());
         let out = memory.as_mut_ptr().add(self.out.offset());
@@ -142,12 +142,12 @@ impl<C: ComplexScalar> HadamardStruct<C> {
                 }
             }
         }
-    }
+    }}
     #[inline(always)]
     pub unsafe fn batched_evaluate<const D: DifferentiationLevel>(
         &self,
         memory: &mut MemoryBuffer<C>,
-    ) {
+    ) { unsafe {
         let left = memory.as_ptr().add(self.left.offset());
         let right = memory.as_ptr().add(self.right.offset());
         let out = memory.as_mut_ptr().add(self.out.offset());
@@ -192,5 +192,5 @@ impl<C: ComplexScalar> HadamardStruct<C> {
                 }
             }
         }
-    }
+    }}
 }
