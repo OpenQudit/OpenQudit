@@ -674,6 +674,7 @@ mod tests {
     #[test]
     fn test_wire_cloning_and_copying() {
         let original = Wire::quantum(5);
+        #[allow(clippy::clone_on_copy)]
         let cloned = original.clone();
         let copied = original;
 
@@ -684,7 +685,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "Quantum wire overflow")]
     fn test_quantum_wire_overflow_protection() {
-        Wire::quantum((std::isize::MAX) as usize);
+        Wire::quantum((isize::MAX) as usize);
     }
 
     #[test]
@@ -700,7 +701,7 @@ mod tests {
 
         assert!(max_wire.is_quantum());
         assert_eq!(max_wire.index(), max_idx);
-        assert_eq!(max_wire.raw_value(), std::isize::MAX);
+        assert_eq!(max_wire.raw_value(), isize::MAX);
     }
 
     #[test]
@@ -710,6 +711,6 @@ mod tests {
 
         assert!(max_wire.is_classical());
         assert_eq!(max_wire.index(), max_idx);
-        assert_eq!(max_wire.raw_value(), std::isize::MIN + 1);
+        assert_eq!(max_wire.raw_value(), isize::MIN + 1);
     }
 }

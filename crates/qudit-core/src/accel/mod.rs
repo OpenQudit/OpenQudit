@@ -188,7 +188,7 @@ mod macro_tests {
     #[test]
     fn test_tensor_with_function_calls() {
         fn arbitrary_func(x: f64, y: f64) -> f64 {
-            return x * y + 9.0 * x;
+            x * y + 9.0 * x
         }
 
         let attempt = complex_tensor64!([
@@ -210,7 +210,7 @@ mod macro_tests {
     #[test]
     fn test_32_ver() {
         fn arbitrary_func(x: f32, y: f32) -> f32 {
-            return x * y + 9.0 * x;
+            x * y + 9.0 * x
         }
 
         let attempt = complex_tensor32!([

@@ -613,12 +613,12 @@ pub mod strategies {
         /// # Arguments
         ///
         /// * `args` - A tuple of ranges for the number of radices and the
-        ///           radices themselves. The first range is for the number
-        ///           of radices, and the second range is for the radices
-        ///           themselves.
+        ///   radices themselves. The first range is for the number
+        ///   of radices, and the second range is for the radices
+        ///   themselves.
         fn arbitrary_with(args: Self::Parameters) -> Self::Strategy {
             prop::collection::vec(args.0, args.1)
-                .prop_map(|v| Radices::new(v))
+                .prop_map(Radices::new)
                 .boxed()
         }
     }

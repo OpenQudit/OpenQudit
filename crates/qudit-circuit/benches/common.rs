@@ -4,10 +4,10 @@ use std::path::Path;
 
 use criterion::profiler::Profiler;
 use qudit_circuit::QuditCircuit;
+use qudit_expr::UnitaryExpression;
 use qudit_expr::library::HGate;
 use qudit_expr::library::PGate;
-use qudit_expr::UnitaryExpression;
-use qudit_expr::library::{U3Gate, Controlled, XGate};
+use qudit_expr::library::{Controlled, U3Gate, XGate};
 use rand::Rng;
 
 #[allow(dead_code)]

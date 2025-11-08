@@ -299,7 +299,7 @@ mod tests {
 
     #[test]
     fn product() {
-        let radices = vec![Radix::from(2u8), Radix::from(3u8), Radix::from(4u8)];
+        let radices = [Radix::from(2u8), Radix::from(3u8), Radix::from(4u8)];
         let product: usize = radices.iter().product();
         assert_eq!(product, 24);
     }

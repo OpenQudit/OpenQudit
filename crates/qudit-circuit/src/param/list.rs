@@ -214,7 +214,7 @@ mod python {
         fn test_from_py_list_of_numbers() {
             Python::initialize();
             Python::attach(|py| {
-                let py_list = PyList::new(py, &[1.0, 2.5, 3.14]).unwrap();
+                let py_list = PyList::new(py, [1.0, 2.5, 3.14]).unwrap();
                 let result = ArgumentList::extract(py_list.as_any().as_borrowed()).unwrap();
                 assert_eq!(result.len(), 3);
 

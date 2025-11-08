@@ -39,4 +39,3 @@ criterion_group! {
     targets = circuit_struct_benchmarks
 }
 criterion_main!(circuit_struct);
-

@@ -1599,7 +1599,7 @@ mod tests {
             // The expected `permute_shape` is [2, 2, 3, 2].
             // During optimization, axes 2, 3 should be merged.
             let expected5 = (
-                vec![1, 3 * 4 + offset_in_1, 1 * 2],
+                vec![1, 3 * 4 + offset_in_1, 2],
                 vec![12, 6, 1],
                 vec![2, 2, 6],
             );
@@ -1618,8 +1618,8 @@ mod tests {
                 out.as_ptr_mut(),
                 inp.as_ptr(),
                 (4, 4),
-                (4 as isize, 1 as isize),
-                (1 as isize, 4 as isize),
+                (4_isize, 1_isize),
+                (1_isize, 4_isize),
             );
         }
 
@@ -1668,7 +1668,7 @@ mod tests {
         for a_iter in 0..a_in {
             for b_iter in 0..b_in {
                 for c_iter in 0..c_in {
-                    *&mut tensor_in[[a_iter, b_iter, c_iter]] = i;
+                    tensor_in[[a_iter, b_iter, c_iter]] = i;
                     i += 1.0;
                 }
             }
@@ -1703,7 +1703,7 @@ mod tests {
         for a_iter in 0..a_out {
             for b_iter in 0..b_out {
                 for c_iter in 0..c_out {
-                    assert_eq!(*&mut tensor_out[[a_iter, b_iter, c_iter]], i);
+                    assert_eq!(tensor_out[[a_iter, b_iter, c_iter]], i);
                     i += 1.0;
                 }
             }
@@ -1725,7 +1725,7 @@ mod tests {
         for a_iter in 0..a_in {
             for b_iter in 0..b_in {
                 for c_iter in 0..c_in {
-                    *&mut tensor_in[[a_iter, b_iter, c_iter]] = i;
+                    tensor_in[[a_iter, b_iter, c_iter]] = i;
                     i += 1.0;
                 }
             }

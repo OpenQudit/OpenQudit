@@ -6,7 +6,7 @@ use qudit_expr::CompilableUnit;
 use qudit_expr::Module;
 use qudit_expr::ModuleBuilder;
 use qudit_expr::UnitaryExpression;
-use qudit_expr::library::{U3Gate, XGate, Controlled};
+use qudit_expr::library::{Controlled, U3Gate, XGate};
 use qudit_expr::simplify_expressions_iter;
 
 mod common;
@@ -23,26 +23,21 @@ fn build_module(expr: UnitaryExpression) -> Module<f64> {
         }
     }
 
-    let grad = simplify_expressions_iter(expr.elements()
-        .iter()
-        .chain(grad_exprs.iter())
-        .flat_map(|c| [&c.real, &c.imag]));
-
-    let unit = CompilableUnit::new(
-        "func",
-        &func,
-        expr.variables().to_vec(),
-        func.len() * 2,
+    let grad = simplify_expressions_iter(
+        expr.elements()
+            .iter()
+            .chain(grad_exprs.iter())
+            .flat_map(|c| [&c.real, &c.imag]),
     );
 
-    let grad_unit = CompilableUnit::new(
-        "grad",
-        &grad,
-        expr.variables().to_vec(),
-        func.len() * 2,
-    );
+    let unit = CompilableUnit::new("func", &func, expr.variables().to_vec(), func.len() * 2);
 
-    ModuleBuilder::new("test").add_unit(unit).add_unit(grad_unit).build()
+    let grad_unit = CompilableUnit::new("grad", &grad, expr.variables().to_vec(), func.len() * 2);
+
+    ModuleBuilder::new("test")
+        .add_unit(unit)
+        .add_unit(grad_unit)
+        .build()
 }
 
 pub fn cnotu3u3_benchmarks(c: &mut Criterion) {

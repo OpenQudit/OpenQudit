@@ -1321,7 +1321,7 @@ mod tests {
     fn test_vec_with_elements<T: CompactStorage + Clone>(elements: &[T]) -> CompactVec<T> {
         let mut vec: CompactVec<T> = CompactVec::new();
         for elem in elements {
-            vec.push(elem.clone());
+            vec.push(*elem);
         }
         vec
     }
@@ -1373,7 +1373,7 @@ mod tests {
         vec.push(INLINE_CAPACITY as i8);
         assert!(!vec.is_inline());
         assert_eq!(vec.len(), INLINE_CAPACITY + 1);
-        assert!(vec.capacity() >= INLINE_CAPACITY + 1);
+        assert!(vec.capacity() > INLINE_CAPACITY);
 
         // Verify all elements are still accessible
         for i in 0..=INLINE_CAPACITY as i8 {
@@ -1448,7 +1448,7 @@ mod tests {
 
         // Transition to heap
         vec.push(INLINE_CAPACITY as i8);
-        assert!(vec.capacity() >= INLINE_CAPACITY + 1);
+        assert!(vec.capacity() > INLINE_CAPACITY);
     }
 
     #[test]

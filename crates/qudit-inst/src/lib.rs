@@ -79,8 +79,8 @@ mod tests {
     #[allow(dead_code)]
     pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
         let block_expr = U3Gate()
-            .otimes(&U3Gate())
-            .dot(&Controlled(XGate(2), [2].into(), None));
+            .otimes(U3Gate())
+            .dot(Controlled(XGate(2), [2].into(), None));
         let mut circ = QuditCircuit::pure(vec![2; n]);
         for i in 0..n {
             circ.append(U3Gate(), [i], None);
@@ -111,7 +111,7 @@ mod tests {
         }",
         );
 
-        let block_expr = PGate(3).otimes(&PGate(3)).dot(&csum);
+        let block_expr = PGate(3).otimes(PGate(3)).dot(csum);
         let mut circ = QuditCircuit::pure(vec![3; n]);
         for i in 0..n {
             circ.append(PGate(3), [i], None);
@@ -272,12 +272,12 @@ mod tests {
         }
         println!("Number of successes: {:?}", success_times.len());
         println!("Number of failures: {:?}", failure_times.len());
-        if success_times.len() != 0 {
+        if !success_times.is_empty() {
             let average_success_time = success_times.iter().cloned().sum::<std::time::Duration>()
                 / (success_times.len() as u32);
             println!("Average success time: {:?}", average_success_time);
         }
-        if failure_times.len() != 0 {
+        if !failure_times.is_empty() {
             let average_failure_time = failure_times.iter().cloned().sum::<std::time::Duration>()
                 / (failure_times.len() as u32);
             println!("Average failure time: {:?}", average_failure_time);
@@ -291,4 +291,3 @@ mod tests {
         println!("Average overall time: {:?}", average_time);
     }
 }
-

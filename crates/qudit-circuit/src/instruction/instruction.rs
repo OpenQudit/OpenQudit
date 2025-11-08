@@ -471,7 +471,7 @@ mod tests {
     #[test]
     fn test_inline_instruction_no_params() {
         let op = OpCode::new(OpKind::Expression, 0);
-        let wires = WireList::from_wires(&[Wire::quantum(0), Wire::quantum(1)]);
+        let wires = WireList::from_wires([Wire::quantum(0), Wire::quantum(1)]);
         let params = ParamIndices::Joint(0, 0);
 
         let instruction = Instruction::new(op, wires.clone(), params);
@@ -487,7 +487,7 @@ mod tests {
     #[test]
     fn test_inline_instruction_joint_params() {
         let op = OpCode::new(OpKind::Expression, 1);
-        let wires = WireList::from_wires(&[Wire::quantum(0)]);
+        let wires = WireList::from_wires([Wire::quantum(0)]);
         let params = ParamIndices::Joint(5, 2);
 
         let instruction = Instruction::new(op, wires.clone(), params.clone());
@@ -502,7 +502,7 @@ mod tests {
     #[test]
     fn test_inline_instruction_small_disjoint_params() {
         let op = OpCode::new(OpKind::Expression, 2);
-        let wires = WireList::from_wires(&[Wire::quantum(0)]);
+        let wires = WireList::from_wires([Wire::quantum(0)]);
         let params = ParamIndices::Disjoint(vec![10, 20, 30]);
 
         let instruction = Instruction::new(op, wires.clone(), params.clone());
@@ -517,9 +517,9 @@ mod tests {
     #[test]
     fn test_heap_instruction_large_joint_params() {
         let op = OpCode::new(OpKind::Expression, 1);
-        let wires = WireList::from_wires(&[Wire::quantum(0)]);
+        let wires = WireList::from_wires([Wire::quantum(0)]);
         // Use parameters that exceed u32::MAX to force heap allocation
-        let params = ParamIndices::Joint(std::u32::MAX as usize + 1, 1);
+        let params = ParamIndices::Joint(u32::MAX as usize + 1, 1);
 
         let instruction = Instruction::new(op, wires.clone(), params.clone());
 
@@ -533,7 +533,7 @@ mod tests {
     #[test]
     fn test_heap_instruction_large_disjoint_params() {
         let op = OpCode::new(OpKind::Expression, 2);
-        let wires = WireList::from_wires(&[Wire::quantum(0), Wire::quantum(1)]);
+        let wires = WireList::from_wires([Wire::quantum(0), Wire::quantum(1)]);
         // Use more than 3 parameters to force heap allocation
         let params = ParamIndices::Disjoint(vec![10, 20, 30, 40, 50]);
 
@@ -549,7 +549,7 @@ mod tests {
     #[test]
     fn test_heap_instruction_large_param_indices() {
         let op = OpCode::new(OpKind::Expression, 2);
-        let wires = WireList::from_wires(&[Wire::quantum(0)]);
+        let wires = WireList::from_wires([Wire::quantum(0)]);
         // Use parameter indices that exceed u8::MAX to force heap allocation
         let params = ParamIndices::Disjoint(vec![300, 400]);
 
@@ -582,7 +582,7 @@ mod tests {
     #[test]
     fn test_classical_and_quantum_wires() {
         let op = OpCode::new(OpKind::Expression, 4);
-        let wires = WireList::from_wires(&[
+        let wires = WireList::from_wires([
             Wire::classical(0),
             Wire::quantum(1),
             Wire::classical(2),
@@ -599,7 +599,7 @@ mod tests {
     #[test]
     fn test_empty_disjoint_params() {
         let op = OpCode::new(OpKind::Expression, 0);
-        let wires = WireList::from_wires(&[Wire::quantum(0)]);
+        let wires = WireList::from_wires([Wire::quantum(0)]);
         let params = ParamIndices::Disjoint(vec![]);
 
         let instruction = Instruction::new(op, wires.clone(), params);
@@ -717,7 +717,7 @@ mod tests {
     #[test]
     fn test_instruction_equality_same_variant() {
         let op = OpCode::new(OpKind::Expression, 0);
-        let wires = WireList::from_wires(&[Wire::quantum(0), Wire::quantum(1)]);
+        let wires = WireList::from_wires([Wire::quantum(0), Wire::quantum(1)]);
         let params = ParamIndices::Joint(5, 2);
 
         let inst1 = Instruction::new(op, wires.clone(), params.clone());
@@ -737,7 +737,7 @@ mod tests {
         let op = OpCode::new(OpKind::Expression, 0);
 
         // Create one instruction that will be inline
-        let small_wires = WireList::from_wires(&[Wire::quantum(0)]);
+        let small_wires = WireList::from_wires([Wire::quantum(0)]);
         let small_params = ParamIndices::Joint(0, 0);
         let inline_inst = Instruction::new(op, small_wires.clone(), small_params.clone());
 
@@ -767,7 +767,7 @@ mod tests {
     #[test]
     fn test_instruction_hash_consistency() {
         let op = OpCode::new(OpKind::Expression, 0);
-        let wires = WireList::from_wires(&[Wire::quantum(0), Wire::quantum(1)]);
+        let wires = WireList::from_wires([Wire::quantum(0), Wire::quantum(1)]);
         let params = ParamIndices::Joint(5, 2);
 
         let inst1 = Instruction::new(op, wires.clone(), params.clone());
@@ -785,7 +785,7 @@ mod tests {
     #[test]
     fn test_instruction_equality_with_different_param_representations() {
         let op = OpCode::new(OpKind::Expression, 0);
-        let wires = WireList::from_wires(&[Wire::quantum(0)]);
+        let wires = WireList::from_wires([Wire::quantum(0)]);
 
         // These should create the same logical parameters but might use different storage
         let joint_params = ParamIndices::Joint(10, 3); // [10, 11, 12]
@@ -802,7 +802,7 @@ mod tests {
     #[test]
     fn test_wire_roundtrip() {
         let original_wires = [Wire::quantum(5), Wire::classical(0), Wire::quantum(100)];
-        let wire_list = WireList::from_wires(&original_wires);
+        let wire_list = WireList::from_wires(original_wires);
 
         let instruction = Instruction::new(
             OpCode::new(OpKind::Expression, 0),

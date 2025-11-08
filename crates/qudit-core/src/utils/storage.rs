@@ -311,6 +311,7 @@ mod tests {
     // Test infallible types (i8, u8)
     #[test]
     fn test_infallible_conversions() {
+        #![allow(clippy::assertions_on_constants)]
         assert!(i8::CONVERSION_INFALLIBLE);
         assert!(u8::CONVERSION_INFALLIBLE);
         assert_eq!(i8::to_inline(42), Ok(42));
