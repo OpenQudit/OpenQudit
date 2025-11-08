@@ -1,3 +1,4 @@
+
 # OpenQudit
 [![Build, Lint, and Test](https://github.com/OpenQudit/openqudit/actions/workflows/build_lint_test.yml/badge.svg)](https://github.com/OpenQudit/openqudit/actions/workflows/build_lint_test.yml) [![Build Wheels](https://github.com/OpenQudit/openqudit/actions/workflows/build_wheels.yml/badge.svg)](https://github.com/OpenQudit/openqudit/actions/workflows/build_wheels.yml) ![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg) [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](CONTRIBUTING.md) [![PyPI version](https://badge.fury.io/py/openqudit.svg)](https://pypi.org/project/openqudit)
 
@@ -6,7 +7,7 @@ A high-performance Rust library providing accelerated and extensible representat
 
 ## 📦 Installation
 
-### ![python-logo](https://s3.dualstack.us-east-2.amazonaws.com/pythondotorg-assets/media/community/logos/python-logo-only.png =18x) For Python Users
+### <img align="left" width="25" height="25" src="https://s3.dualstack.us-east-2.amazonaws.com/pythondotorg-assets/media/community/logos/python-logo-only.png"> For Python Users
 
 The `openqudit` package is available on PyPI:
 
@@ -76,4 +77,5 @@ such, the U.S. Government has been granted for itself and others acting on
 its behalf a paid-up, nonexclusive, irrevocable, worldwide license in the
 Software to reproduce, distribute copies to the public, prepare derivative
 works, and perform publicly and display publicly, and to permit others to do so.
+
 

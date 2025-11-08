@@ -57,6 +57,26 @@ We use a Rust workspace to manage multiple crates.
     cargo test --workspace
     ```
 
+### Python Development Setup
+
+OpenQudit uses [Maturin](https://github.com/PyO3/maturin) to build the python library from the qudit-python crate. This sets the `python` feature flag on all of the other rust crates. If you would like to do python-driven development, then after ensuring a suitable version of Python is setup and you have forked and cloned the repo:
+
+1. **Setup** a virtual environment. For example with `venv`:
+	```bash
+	python -m venv .env
+	source .env/bin/activate
+	``` 
+2. **Install** maturin:
+	```bash
+	pip install maturin
+	```
+
+3. **Build** the OpenQudit python library and install it into the virtual environment:
+	```bash
+	cd crates/qudit-python
+	maturin develop
+	```
+
 ## Pull Request Process
 
 When you're ready to submit your contribution:
