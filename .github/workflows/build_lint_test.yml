@@ -32,7 +32,7 @@ jobs:
           components: rustfmt, clippy
           
       - name: Setup LLVM 18
-        uses: ZhongRuoyu/setup-llvm@v1
+        uses: ZhongRuoyu/setup-llvm@v0
         with:
           version: 18
 
