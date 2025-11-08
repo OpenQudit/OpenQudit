@@ -1,7 +1,13 @@
 [package]
 name = "qudit-circuit"
 version = { workspace = true }
+authors = { workspace = true }
 edition = { workspace = true }
+description = { workspace = true }
+repository = { workspace = true }
+readme = { workspace = true } 
+keywords = { workspace = true }
+categories = { workspace = true }
 license = { workspace = true }
 
 

@@ -1,8 +1,13 @@
 [package]
 name = "qudit-tensor"
 version = { workspace = true }
-# edition = { workspace = true }
-edition = "2021"
+authors = { workspace = true }
+edition = { workspace = true }
+description = { workspace = true }
+repository = { workspace = true }
+readme = { workspace = true } 
+keywords = { workspace = true }
+categories = { workspace = true }
 license = { workspace = true }
 
 [dependencies]
