@@ -6,7 +6,7 @@ use crate::operation::OperationSet;
 use crate::operation::{
     CircuitOperation, DirectiveOperation, ExpressionOperation, OpKind, Operation,
 };
-use crate::param::{Argument as ParameterEntry, ArgumentList, ParameterVector};
+use crate::param::{Argument as ParameterEntry, ArgumentList, Parameter, ParameterVector};
 use crate::wire::Wire;
 use crate::wire::WireList;
 use qudit_core::Radices;
@@ -156,6 +156,16 @@ impl QuditCircuit {
     /// This method is O(1).
     pub fn num_params(&self) -> usize {
         self.params.len()
+    }
+
+    /// Returns the number of unassigned (variable) parameters in the circuit.
+    ///
+    /// # Performance
+    ///
+    /// This method is O(p) where
+    ///     - `p` is the total number of parameters in the circuit.
+    pub fn num_unassigned_params(&self) -> usize {
+        self.params.iter().filter(|&p| matches!(p, Parameter::Unassigned)).count()
     }
 
     /// Returns the number of operations in the circuit.
@@ -946,9 +956,22 @@ impl QuditCircuit {
     }
 }
 
-/// Iteration
+/// Access and Iteration
 impl QuditCircuit {
-    /// Return an iterator over the operations in the circuit.
+    /// Try to retrieve an instruction from its id.
+    pub fn get(&self, inst_id: InstructionId) -> Option<&Instruction> {
+        self.cycles.get_from_id(inst_id.cycle()).and_then(|cycle| cycle.get_from_id(inst_id.inner()))
+    }
+
+    /// Return an iterator over the identifiers of instructions in the circuit.
+    ///
+    /// The ordering is not guaranteed to be consistent, but it will
+    /// be in a simulation/topological order.
+    pub fn id_iter(&self) -> impl Iterator<Item = InstructionId> + '_ {
+        self.cycles.iter().flat_map(|cycle| cycle.id_iter().map(|inner| InstructionId::new(cycle.id, inner)))
+    }
+
+    /// Return an iterator over the instructions in the circuit.
     ///
     /// The ordering is not guaranteed to be consistent, but it will
     /// be in a simulation/topological order. For more control over the
@@ -1117,10 +1140,124 @@ mod python {
     use ndarray::ArrayViewMut3;
     use numpy::PyArray3;
     use numpy::PyArrayMethods;
+    use pyo3::exceptions::PyRuntimeError;
     use pyo3::exceptions::PyTypeError;
     use pyo3::prelude::*;
     use pyo3::types::PyTuple;
     use qudit_core::c64;
+
+    #[pyclass]
+    #[pyo3(name = "ParameterVector")]
+    pub struct PyParameterVector {
+        circuit_ref: Py<PyQuditCircuit>,
+    }
+
+    #[pymethods]
+    impl PyParameterVector {
+        fn assign_all<'py>(&mut self, py: Python<'py>, values: Vec<crate::param::Value>) {
+            self.circuit_ref.bind(py).borrow_mut().circuit.params.assign_all(values);
+        }
+    }
+
+    #[pyclass]
+    #[pyo3(name = "InstructionReference")]
+    pub struct PyQuditCircuitIterate {
+        inst_id: InstructionId,
+        circuit_ref: Py<PyQuditCircuit>,
+    }
+
+    #[pymethods]
+    impl PyQuditCircuitIterate {
+        fn name<'py>(&self, py: Python<'py>) -> PyResult<String> {
+            let circuit = &self.circuit_ref.bind(py).borrow().circuit;
+            match circuit.get(self.inst_id) {
+                Some(inst) => Ok(circuit.operations.name(inst.op_code()).replace("_subbed", "")),
+                None => Err(PyRuntimeError::new_err("Circuit changed under iteration.")),
+            }
+        }
+
+        fn wires<'py>(&self, py: Python<'py>) -> PyResult<WireList> {
+            let circuit = &self.circuit_ref.bind(py).borrow().circuit;
+            match circuit.get(self.inst_id) {
+                Some(inst) => Ok(inst.wires()),
+                None => Err(PyRuntimeError::new_err("Circuit changed under iteration.")),
+            }
+        }
+
+        fn params<'py>(&self, py: Python<'py>) -> PyResult<Vec<crate::param::Parameter>> {
+            let circuit = &self.circuit_ref.bind(py).borrow().circuit;
+            match circuit.get(self.inst_id) {
+                Some(inst) => {
+                    let param_indices = circuit.params.convert_ids_to_indices(inst.params());
+                    Ok(param_indices
+                        .iter()
+                        .map(|i| circuit.params[i].clone())
+                        .collect())
+                }
+                None => Err(PyRuntimeError::new_err("Circuit changed under iteration.")),
+            }
+        }
+    }
+
+    #[pyclass]
+    #[pyo3(name = "QuditCircuitIterator")]
+    struct PyQuditCircuitIterator {
+        circuit_ref: Py<PyQuditCircuit>,
+        cycle_index: CycleIndex,
+        inner_ids: Vec<crate::cycle::InstId>,
+        inner_index: usize,
+    }
+
+    impl PyQuditCircuitIterator {
+        fn new<'py>(circuit_ref: Py<PyQuditCircuit>, py: Python<'py>) -> PyQuditCircuitIterator {
+            let circuit = &circuit_ref.bind(py).borrow().circuit;
+            let initial_inner_ids = if circuit.is_empty() {
+                Vec::new()
+            } else {
+                circuit.cycles[0].id_iter().collect()
+            };
+            PyQuditCircuitIterator {
+                circuit_ref,
+                cycle_index: CycleIndex(0),
+                inner_ids: initial_inner_ids,
+                inner_index: 0,
+            }
+        }
+    }
+
+    #[pymethods]
+    impl PyQuditCircuitIterator {
+        fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
+            slf
+        }
+
+        fn __next__(mut slf: PyRefMut<'_, Self>) -> PyResult<Option<PyQuditCircuitIterate>> {
+            let py = slf.py();
+            let circuit = &slf.circuit_ref.bind(py).borrow().circuit;
+
+            while slf.inner_index >= slf.inner_ids.len() {
+                slf.cycle_index += 1_usize;
+
+                if slf.cycle_index >= circuit.num_cycles().into() {
+                    return Ok(None);
+                }
+
+                slf.inner_index = 0;
+                slf.inner_ids.clear();
+                let cycle_index = slf.cycle_index;
+                slf.inner_ids.extend(circuit.cycles[cycle_index].id_iter());
+            }
+
+            let cycle_id = circuit.cycles.index_to_id(slf.cycle_index);
+            let inner_id = slf.inner_ids[slf.inner_index];
+            slf.inner_index += 1;
+            Ok(Some(PyQuditCircuitIterate {
+                inst_id: InstructionId::new(cycle_id, inner_id),
+                circuit_ref: slf.circuit_ref.clone_ref(py),
+            }))
+        }
+    }
+
 
     /// Helper function to parse a Python object that can be
     /// either an integer or an iterable of integers.
@@ -1143,7 +1280,7 @@ mod python {
     #[pyo3(name = "QuditCircuit")]
     #[derive(Clone)]
     pub struct PyQuditCircuit {
-        circuit: QuditCircuit,
+        pub(crate) circuit: QuditCircuit,
     }
 
     #[pymethods]
@@ -1218,7 +1355,15 @@ mod python {
             Ok(self.circuit.active_dits())
         }
 
-        // @property def params(self) -> Parameters?
+        #[getter]
+        fn params(slf: PyRef<'_, Self>) -> PyResult<PyParameterVector> {
+            let param_vec = PyParameterVector {
+                circuit_ref: slf.into(),
+            };
+
+            Ok(param_vec)
+        }
+
         // @property def coupling_graph(self) -> CouplingGraph?
         // @property def gate_set(self) -> GateSet?
 
@@ -1293,9 +1438,9 @@ mod python {
             let rust_args: Vec<f64> = match args {
                 Some(py_args) => py_args.extract()?,
                 None => {
-                    if self.circuit.num_params() != 0 {
+                    if self.circuit.num_unassigned_params() != 0 {
                         return Err(PyTypeError::new_err(
-                            "Circuit has parameters, but no arguments were provided to kraus_ops.",
+                            "Circuit has unassigned parameters, but no arguments were provided to kraus_ops.",
                         ));
                     }
                     Vec::new()
@@ -1442,7 +1587,10 @@ mod python {
         // dunder methods
         //
         // __getitem__
-        // __iter__
+        fn __iter__(slf: PyRef<'_, Self>) -> PyResult<PyQuditCircuitIterator> {
+            let py = slf.py();
+            Ok(PyQuditCircuitIterator::new(slf.into(), py))
+        }
         // __reversed__
         // __contains__
         // __len__

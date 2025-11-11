@@ -4,8 +4,8 @@ use std::collections::hash_map::Entry;
 use qudit_core::ParamIndices;
 use rustc_hash::FxHashMap;
 
-use crate::param::NameOrParameter;
-
+use super::NameOrParameter;
+use super::Value;
 use super::ArgumentList;
 use super::Parameter;
 
@@ -170,6 +170,27 @@ impl ParameterVector {
         }
 
         const_map
+    }
+
+    /// Assign a value to a parameter identified by its id.
+    pub fn assign_by_id(&mut self, param_id: &ParameterId, value: impl Into<Value>) {
+        if let Some(idx) = self.id_to_index.get(param_id) {
+            self.params[*idx] = value.into().into();
+        }
+    }
+
+    /// Assign a value to a parameter identified by name.
+    pub fn assign_by_name(&mut self, name: impl AsRef<str>, value: impl Into<Value>) {
+        if let Some(&id) = self.named_param_ids.get(name.as_ref()) {
+            self.assign_by_id(&id, value);
+        }
+    }
+
+    /// Assigns values to all unassigned parameters in the vector.
+    pub fn assign_all(&mut self, values: Vec<impl Into<Value>>) {
+        for (param, value) in self.params.iter_mut().filter(|x| !x.is_assigned()).zip(values) {
+            *param = value.into().into()
+        }
     }
 }
 

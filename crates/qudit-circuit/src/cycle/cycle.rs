@@ -97,6 +97,12 @@ impl QuditCycle {
         self.reg_map.get(&wire).copied()
     }
 
+    /// Retrieve the instruction associated with this id.
+    #[inline]
+    pub fn get_from_id(&self, inst_id: InstId) -> Option<&Instruction> {
+        self.insts.get(inst_id)
+    }
+
     pub fn set_next(&mut self, wire: Wire, next_cycle_id: CycleId) {
         self.dag_ptrs
             .entry(wire)
@@ -129,6 +135,10 @@ impl QuditCycle {
 
     pub fn is_empty(&self) -> bool {
         self.num_ops() == 0
+    }
+
+    pub fn id_iter(&self) -> impl Iterator<Item = InstId> + '_ {
+        self.insts.keys()
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Instruction> + '_ {

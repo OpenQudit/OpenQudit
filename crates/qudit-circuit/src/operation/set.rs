@@ -192,10 +192,9 @@ impl OperationSet {
         }
     }
 
-    #[allow(dead_code)]
     pub fn name(&self, op_code: OpCode) -> String {
         match op_code.kind() {
-            OpKind::Expression => self.expressions.lock().unwrap().name(op_code.id()),
+            OpKind::Expression => self.expressions.lock().unwrap().base_name(op_code.id()),
             OpKind::Subcircuit => todo!(),
             OpKind::Directive => todo!(),
         }
