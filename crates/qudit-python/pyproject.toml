@@ -11,6 +11,9 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
+dependencies = [
+    "numpy>=2.2"
+]
 
 [tool.cibuildwheel]
 build = "cp39-*"

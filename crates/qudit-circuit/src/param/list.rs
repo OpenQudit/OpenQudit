@@ -9,7 +9,7 @@
 //! iterables when the `python` feature is enabled.
 
 use super::Argument;
-use super::Parameter;
+use super::NameOrParameter;
 use qudit_expr::Expression;
 
 /// Represents a list of arguments for quantum circuit parameters.
@@ -53,11 +53,11 @@ impl ArgumentList {
     /// # Returns
     /// A vector of `Parameter` instances representing all unique parameters
     /// required by the arguments in this list
-    pub fn parameters(&self) -> Vec<Parameter> {
+    pub fn parameters(&self) -> Vec<NameOrParameter> {
         let mut params = vec![];
         for argument in self.entries.iter() {
             for param in argument.parameters() {
-                if let Parameter::Named(_) = param {
+                if let NameOrParameter::Name(_) = param {
                     if params.contains(&param) {
                         continue;
                     }
@@ -354,6 +354,7 @@ mod python {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use super::super::Parameter;
     use qudit_expr::Expression;
     #[test]
     fn test_argumentlist_new() {
@@ -383,7 +384,7 @@ mod tests {
         let list = ArgumentList::new(args);
         let params = list.parameters();
         assert_eq!(params.len(), 1);
-        assert!(matches!(params[0], Parameter::Constant64(42.0)));
+        assert!(matches!(params[0], NameOrParameter::Parameter(Parameter::Assigned64(42.0))));
     }
     #[test]
     fn test_parameters_deduplication() {
@@ -398,7 +399,7 @@ mod tests {
         let param_names: Vec<String> = params
             .into_iter()
             .map(|p| match p {
-                Parameter::Named(name) => name,
+                NameOrParameter::Name(name) => name,
                 _ => panic!("Expected Named parameter"),
             })
             .collect();
@@ -417,10 +418,10 @@ mod tests {
         let params = list.parameters();
 
         assert_eq!(params.len(), 4);
-        assert!(matches!(params[0], Parameter::Constant32(1.0)));
-        assert!(matches!(params[1], Parameter::Constant64(2.0)));
-        assert!(matches!(params[2], Parameter::Indexed));
-        assert!(matches!(params[3], Parameter::Named(ref name) if name == "theta"));
+        assert!(matches!(params[0], NameOrParameter::Parameter(Parameter::Assigned32(1.0))));
+        assert!(matches!(params[1], NameOrParameter::Parameter(Parameter::Assigned64(2.0))));
+        assert!(matches!(params[2], NameOrParameter::Parameter(Parameter::Unassigned)));
+        assert!(matches!(params[3], NameOrParameter::Name(ref name) if name == "theta"));
     }
     #[test]
     fn test_variables_generation() {
@@ -527,11 +528,11 @@ mod tests {
 
         let named_count = params
             .iter()
-            .filter(|p| matches!(p, Parameter::Named(_)))
+            .filter(|p| matches!(p, NameOrParameter::Name(_)))
             .count();
         let constant_count = params
             .iter()
-            .filter(|p| matches!(p, Parameter::Constant64(_)))
+            .filter(|p| matches!(p, NameOrParameter::Parameter(Parameter::Assigned64(_))))
             .count();
 
         assert_eq!(named_count, 3); // a, b, c

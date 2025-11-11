@@ -4,6 +4,8 @@ use std::collections::hash_map::Entry;
 use qudit_core::ParamIndices;
 use rustc_hash::FxHashMap;
 
+use crate::param::NameOrParameter;
+
 use super::ArgumentList;
 use super::Parameter;
 
@@ -60,7 +62,7 @@ impl ParameterVector {
     }
 
     #[inline(always)]
-    fn push(&mut self, param: Parameter) -> ParameterId {
+    fn push(&mut self, param: NameOrParameter) -> ParameterId {
         let id = {
             let new_id = self.id_counter;
             self.id_counter += 1;
@@ -69,11 +71,16 @@ impl ParameterVector {
             new_id
         };
 
-        if let Parameter::Named(name) = &param {
-            self.named_param_ids.insert(name.clone(), id);
+        match param {
+            NameOrParameter::Name(name) => {
+                self.named_param_ids.insert(name.clone(), id);
+                self.params.push(Parameter::Unassigned);
+            }
+            NameOrParameter::Parameter(param) => {
+                self.params.push(param);
+            }
         }
 
-        self.params.push(param);
         id
     }
 
@@ -87,7 +94,7 @@ impl ParameterVector {
         let mut param_indices = vec![];
         let mut joint = true;
         for param in parameter_vector.into_iter() {
-            if let Parameter::Named(name) = &param {
+            if let NameOrParameter::Name(name) = &param {
                 // param_i is reserved variable name meant to reference unnamed variables
                 if name.contains("param_") {
                     // Either extract an index i by matching to param_i
@@ -157,7 +164,7 @@ impl ParameterVector {
         let mut const_map = FxHashMap::default();
 
         for (i, param) in self.params.iter().enumerate() {
-            if param.is_constant() {
+            if param.is_assigned() {
                 const_map.insert(i, param.extract_float().expect("Unexpected non-constant."));
             }
         }

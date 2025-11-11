@@ -9,6 +9,7 @@
 //! The module also provides conversions from various Rust and Python types.
 
 use super::Parameter;
+use super::NameOrParameter;
 use qudit_expr::ComplexExpression;
 use qudit_expr::Expression;
 
@@ -40,18 +41,18 @@ impl Argument {
     ///
     /// # Returns
     /// A vector of `Parameter` instances bound in this argument
-    pub fn parameters(&self) -> Vec<Parameter> {
+    pub fn parameters(&self) -> Vec<NameOrParameter> {
         match self {
-            Argument::Unspecified => vec![Parameter::Indexed],
-            Argument::Float32(f) => vec![Parameter::Constant32(*f)],
-            Argument::Float64(f) => vec![Parameter::Constant64(*f)],
+            Argument::Unspecified => vec![NameOrParameter::Parameter(Parameter::Unassigned)],
+            Argument::Float32(f) => vec![NameOrParameter::Parameter(Parameter::Assigned32(*f))],
+            Argument::Float64(f) => vec![NameOrParameter::Parameter(Parameter::Assigned64(*f))],
             Argument::Expression(e) => {
                 if !e.is_parameterized() {
-                    vec![Parameter::ConstantRatio(e.to_constant())]
+                    vec![NameOrParameter::Parameter(Parameter::AssignedRatio(e.to_constant()))]
                 } else {
                     e.get_unique_variables()
                         .into_iter()
-                        .map(Parameter::Named)
+                        .map(NameOrParameter::Name)
                         .collect()
                 }
             }
@@ -420,7 +421,7 @@ mod tests {
         let arg = Argument::Unspecified;
         let params = arg.parameters();
         assert_eq!(params.len(), 1);
-        assert!(matches!(params[0], Parameter::Indexed));
+        assert!(matches!(params[0], NameOrParameter::Parameter(Parameter::Unassigned)));
     }
 
     #[test]
@@ -428,7 +429,7 @@ mod tests {
         let arg = Argument::Float32(3.14);
         let params = arg.parameters();
         assert_eq!(params.len(), 1);
-        assert!(matches!(params[0], Parameter::Constant32(3.14)));
+        assert!(matches!(params[0], NameOrParameter::Parameter(Parameter::Assigned32(3.14))));
     }
 
     #[test]
@@ -436,7 +437,7 @@ mod tests {
         let arg = Argument::Float64(2.71);
         let params = arg.parameters();
         assert_eq!(params.len(), 1);
-        assert!(matches!(params[0], Parameter::Constant64(2.71)));
+        assert!(matches!(params[0], NameOrParameter::Parameter(Parameter::Assigned64(2.71))));
     }
 
     #[test]
@@ -445,7 +446,7 @@ mod tests {
         let arg = Argument::Expression(expr);
         let params = arg.parameters();
         assert_eq!(params.len(), 1);
-        assert!(matches!(params[0], Parameter::ConstantRatio(_)));
+        assert!(matches!(params[0], NameOrParameter::Parameter(Parameter::AssignedRatio(_))));
     }
 
     #[test]
@@ -454,7 +455,7 @@ mod tests {
         let arg = Argument::Expression(expr);
         let params = arg.parameters();
         assert_eq!(params.len(), 1);
-        assert!(matches!(params[0], Parameter::Named(ref name) if name == "x"));
+        assert!(matches!(params[0], NameOrParameter::Name(ref name) if name == "x"));
     }
 
     #[test]
@@ -713,7 +714,7 @@ mod tests {
             let param_names: Vec<String> = params
                 .into_iter()
                 .map(|p| match p {
-                    Parameter::Named(name) => name,
+                    NameOrParameter::Name(name) => name,
                     _ => panic!("Expected Named parameter"),
                 })
                 .collect();
@@ -772,7 +773,7 @@ mod tests {
             let param_names: Vec<String> = params
                 .into_iter()
                 .map(|p| match p {
-                    Parameter::Named(name) => name,
+                    NameOrParameter::Name(name) => name,
                     _ => panic!("Expected Named parameter for complex expression"),
                 })
                 .collect();

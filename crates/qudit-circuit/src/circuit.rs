@@ -996,7 +996,7 @@ impl QuditCircuit {
                 let param_indices = self.params.convert_ids_to_indices(inst.params());
                 let constant = param_indices
                     .iter()
-                    .map(|i| self.params[i].is_constant())
+                    .map(|i| self.params[i].is_assigned())
                     .collect();
                 let param_info = ParamInfo::new(param_indices, constant);
                 let input_index_map = if indices

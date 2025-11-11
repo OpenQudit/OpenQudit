@@ -7,3 +7,9 @@ pub use argument::Argument;
 pub use list::ArgumentList;
 pub use param::Parameter;
 pub use vector::ParameterVector;
+
+#[derive(Clone, PartialEq)]
+pub enum NameOrParameter {
+    Name(String),
+    Parameter(Parameter),
+}
