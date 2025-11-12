@@ -11,17 +11,17 @@ readme = "README.md"
 keywords = ["quantum", "circuit", "gates", "instantiation", "qudit"]
 categories = ["science", "parser-implementations", "compilers", "data-structures", "mathematics"]
 license = "BSD-3-Clause"
-version = "0.2.0" # Keep up to date with versions in `Owned Crates` section below.
+version = "0.2.1" # Keep up to date with versions in `Owned Crates` section below.
 
 [workspace.dependencies]
 # Owned Crates
-qudit-macros = { path = "crates/qudit-macros", version = "0.2.0" }
-qudit-core = { path = "crates/qudit-core", version = "0.2.0" }
-qudit-expr = { path = "crates/qudit-expr", version = "0.2.0" }
-qudit-tensor = { path = "crates/qudit-tensor", version = "0.2.0" }
-qudit-circuit = { path = "crates/qudit-circuit", version = "0.2.0" }
-qudit-inst = { path = "crates/qudit-inst", version = "0.2.0" }
-qudit-python = { path = "crates/qudit-python", version = "0.2.0" }
+qudit-macros = { path = "crates/qudit-macros", version = "0.2.1" }
+qudit-core = { path = "crates/qudit-core", version = "0.2.1" }
+qudit-expr = { path = "crates/qudit-expr", version = "0.2.1" }
+qudit-tensor = { path = "crates/qudit-tensor", version = "0.2.1" }
+qudit-circuit = { path = "crates/qudit-circuit", version = "0.2.1" }
+qudit-inst = { path = "crates/qudit-inst", version = "0.2.1" }
+qudit-python = { path = "crates/qudit-python", version = "0.2.1" }
 
 # Number
 num = "0.4.3"
