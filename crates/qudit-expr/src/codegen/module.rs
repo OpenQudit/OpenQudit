@@ -10,7 +10,7 @@ use inkwell::targets::{InitializationConfig, Target};
 use llvm_sys::core::{LLVMContextCreate, LLVMModuleCreateWithNameInContext};
 use llvm_sys::execution_engine::{
     LLVMCreateJITCompilerForModule, LLVMDisposeExecutionEngine, LLVMExecutionEngineRef,
-    LLVMGetFunctionAddress,
+    LLVMGetFunctionAddress, LLVMLinkInMCJIT
 };
 use llvm_sys::prelude::LLVMModuleRef;
 
@@ -67,6 +67,7 @@ impl<R: RealScalar> Module<R> {
 
             let mut execution_engine = MaybeUninit::uninit();
             let mut err_string = MaybeUninit::uninit();
+            LLVMLinkInMCJIT();
 
             let code = LLVMCreateJITCompilerForModule(
                 execution_engine.as_mut_ptr(),
