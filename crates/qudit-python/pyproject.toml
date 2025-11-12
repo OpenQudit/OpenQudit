@@ -18,12 +18,14 @@ classifiers = [
 dependencies = [
     "numpy>=2"
 ]
+dynamic = ['version']
 
 [tool.cibuildwheel]
 build = "cp39-*"
 container-engine = "podman"
 skip = "*musllinux*"
-test-command = 'python -c "import openqudit"'
+test-sources = ['.github/test.py']
+test-command = 'python .github/test.py'
 
 [tool.cibuildwheel.environment]
 PYO3_BUILD_EXTENSION_MODULE = "True"
