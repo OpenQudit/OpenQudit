@@ -52,10 +52,10 @@ impl From<qudit_expr::Constant> for Value {
 #[cfg(feature = "python")]
 mod python {
     use super::Value;
-    use pyo3::exceptions::PyTypeError;
-    use pyo3::types::PyFloat;
-    use pyo3::prelude::*;
     use num::ToPrimitive;
+    use pyo3::exceptions::PyTypeError;
+    use pyo3::prelude::*;
+    use pyo3::types::PyFloat;
 
     impl<'a, 'py> FromPyObject<'a, 'py> for Value {
         type Error = PyErr;

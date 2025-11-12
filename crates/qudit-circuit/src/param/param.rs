@@ -186,7 +186,7 @@ mod python {
                         }
                         (Parameter::AssignedRatio(_), Parameter::Assigned64(b)) => {
                             // Ratio -> f64 conversion expected
-                            assert!((*b - (1.0/3.0)).abs() < 1e-6)
+                            assert!((*b - (1.0 / 3.0)).abs() < 1e-6)
                         }
                         _ => {
                             assert_eq!(original_param, converted_param);

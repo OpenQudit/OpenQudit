@@ -353,8 +353,8 @@ mod python {
 }
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::Parameter;
+    use super::*;
     use qudit_expr::Expression;
     #[test]
     fn test_argumentlist_new() {
@@ -384,7 +384,10 @@ mod tests {
         let list = ArgumentList::new(args);
         let params = list.parameters();
         assert_eq!(params.len(), 1);
-        assert!(matches!(params[0], NameOrParameter::Parameter(Parameter::Assigned64(42.0))));
+        assert!(matches!(
+            params[0],
+            NameOrParameter::Parameter(Parameter::Assigned64(42.0))
+        ));
     }
     #[test]
     fn test_parameters_deduplication() {
@@ -418,9 +421,18 @@ mod tests {
         let params = list.parameters();
 
         assert_eq!(params.len(), 4);
-        assert!(matches!(params[0], NameOrParameter::Parameter(Parameter::Assigned32(1.0))));
-        assert!(matches!(params[1], NameOrParameter::Parameter(Parameter::Assigned64(2.0))));
-        assert!(matches!(params[2], NameOrParameter::Parameter(Parameter::Unassigned)));
+        assert!(matches!(
+            params[0],
+            NameOrParameter::Parameter(Parameter::Assigned32(1.0))
+        ));
+        assert!(matches!(
+            params[1],
+            NameOrParameter::Parameter(Parameter::Assigned64(2.0))
+        ));
+        assert!(matches!(
+            params[2],
+            NameOrParameter::Parameter(Parameter::Unassigned)
+        ));
         assert!(matches!(params[3], NameOrParameter::Name(ref name) if name == "theta"));
     }
     #[test]

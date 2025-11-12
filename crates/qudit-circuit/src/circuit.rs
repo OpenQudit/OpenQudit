@@ -165,7 +165,10 @@ impl QuditCircuit {
     /// This method is O(p) where
     ///     - `p` is the total number of parameters in the circuit.
     pub fn num_unassigned_params(&self) -> usize {
-        self.params.iter().filter(|&p| matches!(p, Parameter::Unassigned)).count()
+        self.params
+            .iter()
+            .filter(|&p| matches!(p, Parameter::Unassigned))
+            .count()
     }
 
     /// Returns the number of operations in the circuit.
@@ -960,7 +963,9 @@ impl QuditCircuit {
 impl QuditCircuit {
     /// Try to retrieve an instruction from its id.
     pub fn get(&self, inst_id: InstructionId) -> Option<&Instruction> {
-        self.cycles.get_from_id(inst_id.cycle()).and_then(|cycle| cycle.get_from_id(inst_id.inner()))
+        self.cycles
+            .get_from_id(inst_id.cycle())
+            .and_then(|cycle| cycle.get_from_id(inst_id.inner()))
     }
 
     /// Return an iterator over the identifiers of instructions in the circuit.
@@ -968,7 +973,11 @@ impl QuditCircuit {
     /// The ordering is not guaranteed to be consistent, but it will
     /// be in a simulation/topological order.
     pub fn id_iter(&self) -> impl Iterator<Item = InstructionId> + '_ {
-        self.cycles.iter().flat_map(|cycle| cycle.id_iter().map(|inner| InstructionId::new(cycle.id, inner)))
+        self.cycles.iter().flat_map(|cycle| {
+            cycle
+                .id_iter()
+                .map(|inner| InstructionId::new(cycle.id, inner))
+        })
     }
 
     /// Return an iterator over the instructions in the circuit.
@@ -1155,7 +1164,12 @@ mod python {
     #[pymethods]
     impl PyParameterVector {
         fn assign_all<'py>(&mut self, py: Python<'py>, values: Vec<crate::param::Value>) {
-            self.circuit_ref.bind(py).borrow_mut().circuit.params.assign_all(values);
+            self.circuit_ref
+                .bind(py)
+                .borrow_mut()
+                .circuit
+                .params
+                .assign_all(values);
         }
     }
 
@@ -1171,7 +1185,10 @@ mod python {
         fn name<'py>(&self, py: Python<'py>) -> PyResult<String> {
             let circuit = &self.circuit_ref.bind(py).borrow().circuit;
             match circuit.get(self.inst_id) {
-                Some(inst) => Ok(circuit.operations.name(inst.op_code()).replace("_subbed", "")),
+                Some(inst) => Ok(circuit
+                    .operations
+                    .name(inst.op_code())
+                    .replace("_subbed", "")),
                 None => Err(PyRuntimeError::new_err("Circuit changed under iteration.")),
             }
         }
@@ -1257,7 +1274,6 @@ mod python {
             }))
         }
     }
-
 
     /// Helper function to parse a Python object that can be
     /// either an integer or an iterable of integers.

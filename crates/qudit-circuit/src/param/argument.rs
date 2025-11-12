@@ -8,8 +8,8 @@
 //!
 //! The module also provides conversions from various Rust and Python types.
 
-use super::Parameter;
 use super::NameOrParameter;
+use super::Parameter;
 use qudit_expr::ComplexExpression;
 use qudit_expr::Expression;
 
@@ -48,7 +48,9 @@ impl Argument {
             Argument::Float64(f) => vec![NameOrParameter::Parameter(Parameter::Assigned64(*f))],
             Argument::Expression(e) => {
                 if !e.is_parameterized() {
-                    vec![NameOrParameter::Parameter(Parameter::AssignedRatio(e.to_constant()))]
+                    vec![NameOrParameter::Parameter(Parameter::AssignedRatio(
+                        e.to_constant(),
+                    ))]
                 } else {
                     e.get_unique_variables()
                         .into_iter()
@@ -421,7 +423,10 @@ mod tests {
         let arg = Argument::Unspecified;
         let params = arg.parameters();
         assert_eq!(params.len(), 1);
-        assert!(matches!(params[0], NameOrParameter::Parameter(Parameter::Unassigned)));
+        assert!(matches!(
+            params[0],
+            NameOrParameter::Parameter(Parameter::Unassigned)
+        ));
     }
 
     #[test]
@@ -429,7 +434,10 @@ mod tests {
         let arg = Argument::Float32(3.14);
         let params = arg.parameters();
         assert_eq!(params.len(), 1);
-        assert!(matches!(params[0], NameOrParameter::Parameter(Parameter::Assigned32(3.14))));
+        assert!(matches!(
+            params[0],
+            NameOrParameter::Parameter(Parameter::Assigned32(3.14))
+        ));
     }
 
     #[test]
@@ -437,7 +445,10 @@ mod tests {
         let arg = Argument::Float64(2.71);
         let params = arg.parameters();
         assert_eq!(params.len(), 1);
-        assert!(matches!(params[0], NameOrParameter::Parameter(Parameter::Assigned64(2.71))));
+        assert!(matches!(
+            params[0],
+            NameOrParameter::Parameter(Parameter::Assigned64(2.71))
+        ));
     }
 
     #[test]
@@ -446,7 +457,10 @@ mod tests {
         let arg = Argument::Expression(expr);
         let params = arg.parameters();
         assert_eq!(params.len(), 1);
-        assert!(matches!(params[0], NameOrParameter::Parameter(Parameter::AssignedRatio(_))));
+        assert!(matches!(
+            params[0],
+            NameOrParameter::Parameter(Parameter::AssignedRatio(_))
+        ));
     }
 
     #[test]

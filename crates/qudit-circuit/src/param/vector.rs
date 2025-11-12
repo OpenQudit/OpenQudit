@@ -4,10 +4,10 @@ use std::collections::hash_map::Entry;
 use qudit_core::ParamIndices;
 use rustc_hash::FxHashMap;
 
-use super::NameOrParameter;
-use super::Value;
 use super::ArgumentList;
+use super::NameOrParameter;
 use super::Parameter;
+use super::Value;
 
 pub type ParameterId = usize;
 pub type ParameterIndex = usize;
@@ -188,7 +188,12 @@ impl ParameterVector {
 
     /// Assigns values to all unassigned parameters in the vector.
     pub fn assign_all(&mut self, values: Vec<impl Into<Value>>) {
-        for (param, value) in self.params.iter_mut().filter(|x| !x.is_assigned()).zip(values) {
+        for (param, value) in self
+            .params
+            .iter_mut()
+            .filter(|x| !x.is_assigned())
+            .zip(values)
+        {
             *param = value.into().into()
         }
     }
