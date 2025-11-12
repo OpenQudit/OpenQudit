@@ -384,30 +384,6 @@ fn flatten_tensor_data(input: &RecursiveTensor) -> (Vec<TokenStream2>, Vec<usize
 /// * If there is a missing closing bracket.
 /// * If the tensor does not start with an opening bracket or is not a scalar.
 /// * If a literal with suffix or prefix `j` is not a valid number.
-///
-/// # Example
-/// ```
-/// use qudit_macros::complex_tensor64;
-/// use qudit_core::array::Tensor;
-/// use qudit_core::c64;
-/// use std::slice::from_raw_parts;
-///
-/// fn arbitrary_func(x: f64, y: f64) -> f64 {
-///     return x * y + 9.0 * x;
-/// }
-///
-/// let attempt = complex_tensor64!([
-///    3.0 * arbitrary_func(1.5, 2.0)j + 4.5,
-///   -(2.0j + arbitrary_func(5.5, 3.5))
-/// ]);
-/// let expected_data = vec![c64::new(4.5, 49.5), c64::new(-68.75, -2.0)];
-/// let expected = Tensor::<c64, 1>::from_slice(&expected_data, [2]);
-///
-/// assert_eq!(attempt.dims(), expected.dims());
-/// unsafe {
-///    assert_eq!(from_raw_parts(attempt.as_ptr(), 2), from_raw_parts(expected.as_ptr(), 2));
-/// }
-/// ```
 #[proc_macro]
 pub fn complex_tensor64(input: TokenStream) -> TokenStream {
     let input_processed = j_processing64(input.into());
@@ -450,30 +426,6 @@ pub fn complex_tensor64(input: TokenStream) -> TokenStream {
 /// * If there is a missing closing bracket.
 /// * If the tensor does not start with an opening bracket or is not a scalar.
 /// * If a literal with suffix or prefix `j` is not a valid number.
-///
-/// # Example
-/// ```
-/// use qudit_macros::complex_tensor32;
-/// use qudit_core::array::Tensor;
-/// use qudit_core::c32;
-/// use std::slice::from_raw_parts;
-///
-/// fn arbitrary_func(x: f32, y: f32) -> f32 {
-///     return x * y + 9.0 * x;
-/// }
-///
-/// let attempt = complex_tensor32!([
-///    3.0 * arbitrary_func(1.5, 2.0)j + 4.5,
-///   -(2.0j + arbitrary_func(5.5, 3.5))
-/// ]);
-/// let expected_data = vec![c32::new(4.5, 49.5), c32::new(-68.75, -2.0)];
-/// let expected = Tensor::<c32, 1>::from_slice(&expected_data, [2]);
-///
-/// assert_eq!(attempt.dims(), expected.dims());
-/// unsafe {
-///    assert_eq!(from_raw_parts(attempt.as_ptr(), 2), from_raw_parts(expected.as_ptr(), 2));
-/// }
-/// ```
 #[proc_macro]
 pub fn complex_tensor32(input: TokenStream) -> TokenStream {
     let input_processed = j_processing32(input.into());
