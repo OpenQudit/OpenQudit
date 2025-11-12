@@ -10,7 +10,7 @@ use inkwell::targets::{InitializationConfig, Target};
 use llvm_sys::core::{LLVMContextCreate, LLVMModuleCreateWithNameInContext};
 use llvm_sys::execution_engine::{
     LLVMCreateJITCompilerForModule, LLVMDisposeExecutionEngine, LLVMExecutionEngineRef,
-    LLVMGetFunctionAddress, LLVMLinkInMCJIT
+    LLVMGetFunctionAddress, LLVMLinkInMCJIT,
 };
 use llvm_sys::prelude::LLVMModuleRef;
 
