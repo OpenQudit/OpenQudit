@@ -517,7 +517,7 @@ impl QuditSystem for UnitaryExpression {
 mod python {
     use super::*;
     use crate::python::PyExpressionRegistrar;
-    use ndarray::ArrayViewMut2;
+    use numpy::ndarray::ArrayViewMut2;
     use numpy::PyArray2;
     use numpy::PyArrayMethods;
     use pyo3::prelude::*;

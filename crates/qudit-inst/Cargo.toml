@@ -24,7 +24,6 @@ dyn-clone = { workspace = true }
 pyo3 = { workspace = true, optional = true }
 inventory = { workspace = true, optional = true }
 numpy = { workspace = true, optional = true }
-ndarray = { workspace = true, optional = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
@@ -36,7 +35,7 @@ name = "unitary"
 harness = false
 
 [features]
-python = ["qudit-core/python", "qudit-expr/python", "qudit-circuit/python", "dep:ndarray", "dep:numpy", "dep:pyo3", "dep:inventory"]
+python = ["qudit-core/python", "qudit-expr/python", "qudit-circuit/python", "dep:numpy", "dep:pyo3", "dep:inventory"]
 
 [lints]
 workspace = true
