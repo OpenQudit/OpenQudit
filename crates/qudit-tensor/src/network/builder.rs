@@ -194,8 +194,6 @@ impl QuditCircuitTensorNetworkBuilder {
         let input_tensor_index_sizes = tensor.input_sizes();
 
         if batch_tensor_indices.len() != batch_index_map.len() {
-            println!("{:?}", tensor);
-            println!("{:?}", batch_index_map);
             panic!("Batch tensor indices and batch qudit map lengths do not match");
         }
 
