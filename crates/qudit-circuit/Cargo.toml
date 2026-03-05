@@ -29,7 +29,6 @@ bit-set = { workspace = true }
 slotmap = { workspace = true }
 rustc-hash = { workspace = true }
 numpy = { workspace = true, optional = true }
-ndarray = { workspace = true, optional = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
@@ -52,7 +51,7 @@ name = "tnvm"
 harness = false
 
 [features]
-python = ["qudit-core/python", "qudit-expr/python", "dep:ndarray", "dep:numpy", "dep:pyo3", "dep:inventory"]
+python = ["qudit-core/python", "qudit-expr/python", "dep:numpy", "dep:pyo3", "dep:inventory"]
 
 [lints]
 workspace = true

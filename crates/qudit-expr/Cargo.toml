@@ -24,7 +24,6 @@ faer = { workspace = true }
 pyo3 = { workspace = true, optional = true }
 inventory = { workspace = true, optional = true }
 numpy = { workspace = true, optional = true }
-ndarray = { workspace = true, optional = true }
 rustc-hash = { workspace = true }
 indexmap = { workspace = true }
 rand = { workspace = true }
@@ -42,7 +41,7 @@ harness = false
 
 
 [features]
-python = ["qudit-core/python", "dep:numpy", "dep:ndarray", "dep:pyo3", "dep:inventory"]
+python = ["qudit-core/python", "dep:numpy", "dep:pyo3", "dep:inventory"]
 llvm-static = ["llvm-sys/force-static"]
 llvm-dynamic = ["llvm-sys/force-dynamic"]
 

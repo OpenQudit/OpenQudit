@@ -1146,7 +1146,7 @@ mod tests {
 mod python {
     use super::*;
     use crate::python::PyCircuitRegistrar;
-    use ndarray::ArrayViewMut3;
+    use numpy::ndarray::ArrayViewMut3;
     use numpy::PyArray3;
     use numpy::PyArrayMethods;
     use pyo3::exceptions::PyRuntimeError;
