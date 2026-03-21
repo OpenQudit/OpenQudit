@@ -41,8 +41,8 @@ numpy = { version = "0.27.0" }
 
 # LLVM/Compilation
 egg = "0.10.0"
-inkwell = { version = "0.6.0", features = ["llvm18-1"] }
-llvm-sys = "181.2.0"
+inkwell = { version = "0.8.0", features = ["llvm21-1"] }
+llvm-sys = "211.0.0"
 
 # Data Structures
 aligned-vec = "0.6.4"

@@ -154,7 +154,7 @@ impl<'ctx, R: RealScalar> CodeGenerator<'ctx, R> {
                     .build_call(pow, &args, "tmp")
                     .unwrap()
                     .try_as_basic_value()
-                    .left()
+                    .basic()
                     .unwrap()
                     .into_float_value();
                 Ok(val)
@@ -167,7 +167,7 @@ impl<'ctx, R: RealScalar> CodeGenerator<'ctx, R> {
                     .build_call(sqrt, &[arg.into()], "tmp")
                     .unwrap()
                     .try_as_basic_value()
-                    .left()
+                    .basic()
                     .unwrap()
                     .into_float_value();
                 Ok(val)
@@ -180,7 +180,7 @@ impl<'ctx, R: RealScalar> CodeGenerator<'ctx, R> {
                     .build_call(sin, &[arg.into()], "tmp")
                     .unwrap()
                     .try_as_basic_value()
-                    .left()
+                    .basic()
                     .unwrap()
                     .into_float_value();
                 Ok(val)
@@ -193,7 +193,7 @@ impl<'ctx, R: RealScalar> CodeGenerator<'ctx, R> {
                     .build_call(cos, &[arg.into()], "tmp")
                     .unwrap()
                     .try_as_basic_value()
-                    .left()
+                    .basic()
                     .unwrap()
                     .into_float_value();
                 Ok(val)
