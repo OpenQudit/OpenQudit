@@ -61,6 +61,12 @@ impl OpCode {
     }
 }
 
+impl std::fmt::Display for OpCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:016x}", self.0)
+    }
+}
+
 #[cfg(feature = "python")]
 mod python {
     use super::*;

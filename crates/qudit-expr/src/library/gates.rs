@@ -250,6 +250,141 @@ pub fn ZGate(radix: usize) -> UnitaryExpression {
     UnitaryExpression::new(proto + "{" + &body + "}")
 }
 
+/// The one-qudit Y gate. This is a Weyl-Heisenberg gate.
+///
+/// Defined as:
+///
+/// $$
+/// Y = \omega^{(d-1)/2} X Z
+/// $$
+///
+/// where $\omega = e^{2\pi i / d}$, $X$ is the shift gate, and $Z$ is the
+/// clock gate. This choice of global phase is the natural qudit generalization
+/// of the Pauli Y gate: for $d = 2$ it reproduces
+///
+/// $$
+/// Y = \begin{pmatrix} 0 & -i \\\\ i & 0 \end{pmatrix}
+/// $$
+///
+/// In general the non-zero entry at row $(j+1 \bmod d)$, column $j$ is
+/// $\omega^{(d-1)/2} \cdot \omega^{j} = e^{2\pi i (2j + d - 1)/(2d)}$.
+#[cfg_attr(feature = "python", pyo3::pyfunction)]
+#[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
+pub fn YGate(radix: usize) -> UnitaryExpression {
+    let proto = format!("Y<{}>()", radix);
+    let mut body = "[".to_string();
+    for i in 0..radix {
+        body += "[";
+        for j in 0..radix {
+            if (j + 1) % radix == i {
+                // ω^((d-1)/2 + j) = e^(2πi*(2j + d - 1)/(2d))
+                body += &format!("e^(2*π*i*(2*{}+{}-1)/(2*{})), ", j, radix, radix);
+            } else {
+                body += "0, ";
+            }
+        }
+        body += "],";
+    }
+    body += "]";
+    UnitaryExpression::new(proto + "{" + &body + "}")
+}
+
+/// The one-qudit S gate (Clifford level 2).
+///
+/// Defined as:
+///
+/// $$
+/// S|k\rangle = e^{i\pi k^2 / d}|k\rangle
+/// $$
+///
+/// where $d$ is the number of levels. For qubits ($d = 2$) this reproduces
+/// the standard S gate $S = \text{diag}(1, i)$. Note that $S^2 = T^2\cdot T^2$
+/// and $T^2 = S$, i.e. the T gate defined below is the square root of S.
+///
+/// This gate is Clifford (level 2 of the Clifford hierarchy): conjugation
+/// by S maps every Pauli to another Pauli.
+///
+/// For qutrits ($d = 3$), up to the global-phase convention of Yeh & van de
+/// Wetering (ζ⁸ with ζ = e^{2πi/9}), this agrees with their Definition 3.
+///
+/// References:
+/// - Gheorghiu, V. (2014). Standard form of qudit stabilizer groups.
+///   Physics Letters A, 378(30–31), 2016–2021.
+/// - Yeh, L. & van de Wetering, J. (2023). Completeness of the ZH-calculus.
+#[cfg_attr(feature = "python", pyo3::pyfunction)]
+#[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
+pub fn SGate(radix: usize) -> UnitaryExpression {
+    let proto = format!("S<{}>()", radix);
+    let mut body = "[".to_string();
+    for i in 0..radix {
+        body += "[";
+        for j in 0..radix {
+            if i == j {
+                if i == 0 {
+                    body += "1, ";
+                } else {
+                    // e^(iπk²/d)
+                    body += &format!("e^(π*i*{}*{}/{}), ", i, i, radix);
+                }
+            } else {
+                body += "0, ";
+            }
+        }
+        body += "],";
+    }
+    body += "]";
+    UnitaryExpression::new(proto + "{" + &body + "}")
+}
+
+/// The one-qudit T gate (Clifford level 3).
+///
+/// Defined as the square root of the S gate:
+///
+/// $$
+/// T|k\rangle = e^{i\pi k^2 / (2d)}|k\rangle
+/// $$
+///
+/// so that $T^2 = S$. For qubits ($d = 2$) this reproduces the standard
+/// T gate $T = \text{diag}(1,\, e^{i\pi/4})$. For qutrits ($d = 3$),
+/// with ζ = e^{2πi/9}, this gives $T = \text{diag}(1, e^{i\pi/6}, e^{2i\pi/3})$;
+/// the Yeh–van de Wetering convention $T = \text{diag}(1, \zeta, \zeta^8)$
+/// (Definition 8 ibid.) differs by a global phase, and both are in level 3
+/// of the Clifford hierarchy.
+///
+/// The T gate is the standard resource gate for universal quantum computation
+/// beyond the Clifford group: it can be injected via magic states and its
+/// magic states are distillable.
+///
+/// References:
+/// - Howard, M. & Vala, J. (2012). Qudit versions of the qubit π/8 gate.
+///   Physical Review A, 86(2), 022316.
+/// - Cui, S. X., Gottesman, D. & Krishna, A. (2017). Diagonal gates in the
+///   Clifford hierarchy. Physical Review A, 95(1), 012329.
+#[cfg_attr(feature = "python", pyo3::pyfunction)]
+#[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
+pub fn TGate(radix: usize) -> UnitaryExpression {
+    let proto = format!("T<{}>()", radix);
+    let mut body = "[".to_string();
+    for i in 0..radix {
+        body += "[";
+        for j in 0..radix {
+            if i == j {
+                if i == 0 {
+                    body += "1, ";
+                } else {
+                    // e^(iπk²/(2d))
+                    body += &format!("e^(π*i*{}*{}/(2*{})), ", i, i, radix);
+                }
+            } else {
+                body += "0, ";
+            }
+        }
+        body += "],";
+    }
+    body += "]";
+    UnitaryExpression::new(proto + "{" + &body + "}")
+}
+
 /// The single-qudit phase gate.
 ///
 /// The common qubit phase gate is given by the following matrix:
@@ -321,6 +456,83 @@ pub fn U3Gate() -> UnitaryExpression {
     UnitaryExpression::new(proto.to_owned() + "{" + body + "}")
 }
 
+/// The single-qubit U1 gate (phase gate up to global phase).
+///
+/// $$
+/// U1(\lambda) = \begin{pmatrix} 1 & 0 \\\\ 0 & e^{i\lambda} \end{pmatrix}
+/// $$
+#[cfg_attr(feature = "python", pyo3::pyfunction)]
+pub fn U1Gate() -> UnitaryExpression {
+    let proto = "U1(θ0)";
+    let body = "[[1, 0], [0, e^(i*θ0)]]";
+    UnitaryExpression::new(proto.to_owned() + "{" + body + "}")
+}
+
+/// The single-qubit U2 gate.
+///
+/// $$
+/// U2(\phi, \lambda) = \frac{1}{\sqrt{2}}
+/// \begin{pmatrix} 1 & -e^{i\lambda} \\\\ e^{i\phi} & e^{i(\phi+\lambda)} \end{pmatrix}
+/// $$
+#[cfg_attr(feature = "python", pyo3::pyfunction)]
+pub fn U2Gate() -> UnitaryExpression {
+    let proto = "U2(θ0, θ1)";
+    let body = "1/sqrt(2) * [[1, ~e^(i*θ1)], [e^(i*θ0), e^(i*(θ0+θ1))]]";
+    UnitaryExpression::new(proto.to_owned() + "{" + body + "}")
+}
+
+/// The single-qubit SX gate (square-root of X / square-root of Pauli-X).
+///
+/// $$
+/// SX = \sqrt{X} = \frac{1}{2}\begin{pmatrix} 1+i & 1-i \\\\ 1-i & 1+i \end{pmatrix}
+/// $$
+///
+/// Note: a qudit generalization of this gate as $X^{1/2}$ is mathematically
+/// well-defined but its matrix entries involve geometric sums with non-integer
+/// exponents that do not reduce to a simple closed-form expression in QGL.
+#[cfg_attr(feature = "python", pyo3::pyfunction)]
+pub fn SXGate() -> UnitaryExpression {
+    let proto = "SX()";
+    let body = "1/2 * [[1+i, 1-i], [1-i, 1+i]]";
+    UnitaryExpression::new(proto.to_owned() + "{" + body + "}")
+}
+
+/// The single-qubit RX gate (rotation around the X-axis).
+///
+/// $$
+/// RX(\theta) = \begin{pmatrix} \cos(\theta/2) & -i\sin(\theta/2) \\\\ -i\sin(\theta/2) & \cos(\theta/2) \end{pmatrix}
+/// $$
+#[cfg_attr(feature = "python", pyo3::pyfunction)]
+pub fn RXGate() -> UnitaryExpression {
+    let proto = "RX(θ0)";
+    let body = "[[cos(θ0/2), ~i*sin(θ0/2)], [~i*sin(θ0/2), cos(θ0/2)]]";
+    UnitaryExpression::new(proto.to_owned() + "{" + body + "}")
+}
+
+/// The single-qubit RY gate (rotation around the Y-axis).
+///
+/// $$
+/// RY(\theta) = \begin{pmatrix} \cos(\theta/2) & -\sin(\theta/2) \\\\ \sin(\theta/2) & \cos(\theta/2) \end{pmatrix}
+/// $$
+#[cfg_attr(feature = "python", pyo3::pyfunction)]
+pub fn RYGate() -> UnitaryExpression {
+    let proto = "RY(θ0)";
+    let body = "[[cos(θ0/2), ~sin(θ0/2)], [sin(θ0/2), cos(θ0/2)]]";
+    UnitaryExpression::new(proto.to_owned() + "{" + body + "}")
+}
+
+/// The single-qubit RZ gate (rotation around the Z-axis).
+///
+/// $$
+/// RZ(\theta) = \begin{pmatrix} e^{-i\theta/2} & 0 \\\\ 0 & e^{i\theta/2} \end{pmatrix}
+/// $$
+#[cfg_attr(feature = "python", pyo3::pyfunction)]
+pub fn RZGate() -> UnitaryExpression {
+    let proto = "RZ(θ0)";
+    let body = "[[e^(~i*θ0/2), 0], [0, e^(i*θ0/2)]]";
+    UnitaryExpression::new(proto.to_owned() + "{" + body + "}")
+}
+
 fn generate_embedded_two_param_su2(dimension: usize, i: usize, j: usize) -> UnitaryExpression {
     let proto = format!("U<{dimension}>(θ0, θ1)");
     let mut body = String::from("[");
@@ -375,6 +587,75 @@ fn generate_embedded_su2(dimension: usize, i: usize, j: usize) -> UnitaryExpress
     UnitaryExpression::new(proto.to_owned() + "{" + &body + "}")
 }
 
+/// The two-qubit RXX gate (Ising XX coupling).
+///
+/// $$
+/// RXX(\theta) = e^{-i\theta/2 \, X \otimes X} =
+/// \begin{pmatrix}
+///     \cos(\theta/2) & 0 & 0 & -i\sin(\theta/2) \\\\
+///     0 & \cos(\theta/2) & -i\sin(\theta/2) & 0 \\\\
+///     0 & -i\sin(\theta/2) & \cos(\theta/2) & 0 \\\\
+///     -i\sin(\theta/2) & 0 & 0 & \cos(\theta/2)
+/// \end{pmatrix}
+/// $$
+#[cfg_attr(feature = "python", pyo3::pyfunction)]
+pub fn RXXGate() -> UnitaryExpression {
+    let proto = "RXX<2, 2>(θ0)";
+    let body = "[\
+        [cos(θ0/2), 0, 0, ~i*sin(θ0/2)],\
+        [0, cos(θ0/2), ~i*sin(θ0/2), 0],\
+        [0, ~i*sin(θ0/2), cos(θ0/2), 0],\
+        [~i*sin(θ0/2), 0, 0, cos(θ0/2)]\
+    ]";
+    UnitaryExpression::new(proto.to_owned() + "{" + body + "}")
+}
+
+/// The two-qubit RYY gate (Ising YY coupling).
+///
+/// $$
+/// RYY(\theta) = e^{-i\theta/2 \, Y \otimes Y} =
+/// \begin{pmatrix}
+///     \cos(\theta/2) & 0 & 0 & i\sin(\theta/2) \\\\
+///     0 & \cos(\theta/2) & -i\sin(\theta/2) & 0 \\\\
+///     0 & -i\sin(\theta/2) & \cos(\theta/2) & 0 \\\\
+///     i\sin(\theta/2) & 0 & 0 & \cos(\theta/2)
+/// \end{pmatrix}
+/// $$
+#[cfg_attr(feature = "python", pyo3::pyfunction)]
+pub fn RYYGate() -> UnitaryExpression {
+    let proto = "RYY<2, 2>(θ0)";
+    let body = "[\
+        [cos(θ0/2), 0, 0, i*sin(θ0/2)],\
+        [0, cos(θ0/2), ~i*sin(θ0/2), 0],\
+        [0, ~i*sin(θ0/2), cos(θ0/2), 0],\
+        [i*sin(θ0/2), 0, 0, cos(θ0/2)]\
+    ]";
+    UnitaryExpression::new(proto.to_owned() + "{" + body + "}")
+}
+
+/// The two-qubit RZZ gate (Ising ZZ coupling).
+///
+/// $$
+/// RZZ(\theta) = e^{-i\theta/2 \, Z \otimes Z} =
+/// \begin{pmatrix}
+///     e^{-i\theta/2} & 0 & 0 & 0 \\\\
+///     0 & e^{i\theta/2} & 0 & 0 \\\\
+///     0 & 0 & e^{i\theta/2} & 0 \\\\
+///     0 & 0 & 0 & e^{-i\theta/2}
+/// \end{pmatrix}
+/// $$
+#[cfg_attr(feature = "python", pyo3::pyfunction)]
+pub fn RZZGate() -> UnitaryExpression {
+    let proto = "RZZ<2, 2>(θ0)";
+    let body = "[\
+        [e^(~i*θ0/2), 0, 0, 0],\
+        [0, e^(i*θ0/2), 0, 0],\
+        [0, 0, e^(i*θ0/2), 0],\
+        [0, 0, 0, e^(~i*θ0/2)]\
+    ]";
+    UnitaryExpression::new(proto.to_owned() + "{" + body + "}")
+}
+
 fn embed_one_larger(unitary: UnitaryExpression) -> UnitaryExpression {
     let dimension = unitary.dimension() + 1;
     let mut one_larger = UnitaryExpression::identity(unitary.name(), [dimension]);
@@ -424,6 +705,18 @@ pub fn ParameterizedUnitary(radices: Radices) -> UnitaryExpression {
 /// Invert an expression
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 pub fn Invert(mut expr: UnitaryExpression) -> UnitaryExpression {
+    expr.dagger();
+    expr
+}
+
+/// Apply the conjugate transpose (dagger / adjoint) to a unitary expression.
+///
+/// For any unitary $U$ this produces $U^\dagger$. Use this transformer to
+/// obtain the inverse of any gate without defining a separate gate function;
+/// for example, `Dagger(SGate(2))` gives $S^\dagger$ and `Dagger(TGate(2))`
+/// gives $T^\dagger$.
+#[cfg_attr(feature = "python", pyo3::pyfunction)]
+pub fn Dagger(mut expr: UnitaryExpression) -> UnitaryExpression {
     expr.dagger();
     expr
 }
@@ -742,13 +1035,26 @@ mod python {
         parent_module.add_function(wrap_pyfunction!(super::SwapGate, parent_module)?)?;
         parent_module.add_function(wrap_pyfunction!(super::XGate, parent_module)?)?;
         parent_module.add_function(wrap_pyfunction!(super::ZGate, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(super::YGate, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(super::SGate, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(super::TGate, parent_module)?)?;
         parent_module.add_function(wrap_pyfunction!(super::PGate, parent_module)?)?;
         parent_module.add_function(wrap_pyfunction!(super::U3Gate, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(super::U1Gate, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(super::U2Gate, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(super::SXGate, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(super::RXGate, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(super::RYGate, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(super::RZGate, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(super::RXXGate, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(super::RYYGate, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(super::RZZGate, parent_module)?)?;
         parent_module.add_function(wrap_pyfunction!(
             super::ParameterizedUnitary,
             parent_module
         )?)?;
         parent_module.add_function(wrap_pyfunction!(super::Invert, parent_module)?)?;
+        parent_module.add_function(wrap_pyfunction!(super::Dagger, parent_module)?)?;
         parent_module.add_function(wrap_pyfunction!(super::Controlled, parent_module)?)?;
         parent_module.add_function(wrap_pyfunction!(
             super::ClassicallyControlled,
@@ -757,4 +1063,10 @@ mod python {
         Ok(())
     }
     inventory::submit!(PyExpressionRegistrar { func: register });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
 }

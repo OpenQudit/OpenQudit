@@ -38,7 +38,7 @@ impl std::fmt::Display for InstructionId {
 }
 
 #[cfg(feature = "python")]
-mod python {
+pub(crate) mod python {
     use super::*;
     use pyo3::prelude::*;
 

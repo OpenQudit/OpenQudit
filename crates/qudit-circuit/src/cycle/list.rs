@@ -56,10 +56,12 @@ impl CycleList {
         self.len() == 0
     }
 
+    #[inline]
     pub fn id_to_index(&self, id: CycleId) -> Option<CycleIndex> {
         self.id_to_index.get(&id).copied()
     }
 
+    #[inline]
     pub fn index_to_id(&self, idx: CycleIndex) -> CycleId {
         self.cycles[usize::from(idx)].id()
     }

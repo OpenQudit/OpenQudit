@@ -29,6 +29,65 @@ pub struct OperationSet {
     op_counts: FxHashMap<OpCode, usize>,
 }
 
+pub struct OperationSetIter<'a> {
+    op_codes: std::collections::btree_set::IntoIter<OpCode>,
+    operation_set: &'a OperationSet,
+}
+
+impl<'a> Iterator for OperationSetIter<'a> {
+    type Item = Operation;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(op_code) = self.op_codes.next() {
+            if let Some(operation) = self.operation_set.get(op_code) {
+                return Some(operation);
+            }
+            // Skip invalid opcodes (shouldn't happen)
+        }
+        None
+    }
+}
+
+pub struct OpCodesIter {
+    op_codes: std::collections::btree_set::IntoIter<OpCode>,
+}
+
+impl Iterator for OpCodesIter {
+    type Item = OpCode;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.op_codes.next()
+    }
+}
+
+pub struct OperationsWithCountsIter<'a> {
+    ops_iter: std::collections::btree_map::IntoIter<OpCode, usize>,
+    operation_set: &'a OperationSet,
+}
+
+impl<'a> Iterator for OperationsWithCountsIter<'a> {
+    type Item = (Operation, usize);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some((op_code, count)) = self.ops_iter.next() {
+            if let Some(operation) = self.operation_set.get(op_code) {
+                return Some((operation, count));
+            }
+            // Skip invalid opcodes (shouldn't happen)
+        }
+        None
+    }
+}
+
+// Optional: Implement IntoIterator for convenience
+impl<'a> IntoIterator for &'a OperationSet {
+    type Item = Operation;
+    type IntoIter = OperationSetIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
 impl OperationSet {
     pub fn new() -> Self {
         OperationSet {
@@ -78,17 +137,17 @@ impl OperationSet {
         self.expressions.clone()
     }
 
-    pub fn insert(&mut self, op: Operation) -> OpCode {
+    pub fn insert(&mut self, op: Operation) -> crate::Result<OpCode> {
         let code = match op {
-            Operation::Expression(e) => self.insert_expression(e),
+            Operation::Expression(e) => self.insert_expression(e)?,
             Operation::Subcircuit(c) => self.insert_subcircuit(c),
             Operation::Directive(d) => self.convert_directive(d),
         };
         self.increment(code);
-        code
+        Ok(code)
     }
 
-    pub fn insert_expression(&mut self, op: ExpressionOperation) -> OpCode {
+    pub fn insert_expression(&mut self, op: ExpressionOperation) -> crate::Result<OpCode> {
         let expression_type = op.expr_type();
         let expr_id = self.expressions.lock().unwrap().insert(op);
         let op_ref = OpCode::new(OpKind::Expression, expr_id);
@@ -96,56 +155,9 @@ impl OperationSet {
             None => {
                 self.op_to_expr_map.insert(op_ref, expression_type);
             }
-            Some(expr_type) => assert_eq!(&expression_type, expr_type),
+            Some(expr_type) => assert_eq!(&expression_type, expr_type), // TODO: Make an error...
         }
-        op_ref
-    }
-
-    pub fn insert_expression_with_dits(
-        &mut self,
-        op: ExpressionOperation,
-        dit_radices: &[usize],
-    ) -> OpCode {
-        if dit_radices.is_empty() {
-            let op_ref = self.insert_expression(op);
-            self.increment(op_ref); // Yeah, it's a mess.
-            return op_ref;
-        }
-
-        let expression_type = op.expr_type();
-        let mut tensor_expr: TensorExpression = op.into();
-
-        // Reindex the expression's batch dimensions to match dits
-        let batch = dit_radices.iter().map(|r| (IndexDirection::Batch, *r));
-        let outs = tensor_expr
-            .indices()
-            .iter()
-            .filter(|idx| idx.direction() == IndexDirection::Output)
-            .map(|idx| (idx.direction(), idx.index_size()));
-        let ins = tensor_expr
-            .indices()
-            .iter()
-            .filter(|idx| idx.direction() == IndexDirection::Input)
-            .map(|idx| (idx.direction(), idx.index_size()));
-        let new_indices = batch
-            .chain(outs)
-            .chain(ins)
-            .enumerate()
-            .map(|(i, (d, s))| TensorIndex::new(d, i, s))
-            .collect();
-        tensor_expr.reindex(new_indices);
-
-        let expr_id = self.expressions.lock().unwrap().insert(tensor_expr);
-
-        let op_ref = OpCode::new(OpKind::Expression, expr_id);
-        match self.op_to_expr_map.get(&op_ref) {
-            None => {
-                self.op_to_expr_map.insert(op_ref, expression_type);
-            }
-            Some(expr_type) => assert_eq!(&expression_type, expr_type),
-        }
-        self.increment(op_ref); // Yeah, it's a mess.
-        op_ref
+        Ok(op_ref)
     }
 
     pub fn insert_subcircuit(&mut self, op: CircuitOperation) -> OpCode {
@@ -168,6 +180,46 @@ impl OperationSet {
     //         })
     //     }
 
+    pub fn get(&self, op_code: OpCode) -> Option<Operation> {
+        match op_code.kind() {
+            OpKind::Expression => self
+                .expressions
+                .lock()
+                .unwrap()
+                .get(op_code.id())
+                .and_then(|expr| {
+                    match self.op_to_expr_map.get(&op_code) {
+                        Some(ExpressionOpKind::UnitaryGate) => {
+                            expr.try_into().ok().map(ExpressionOperation::UnitaryGate)
+                        },
+                        Some(ExpressionOpKind::KrausOperators) => {
+                            expr.try_into().ok().map(ExpressionOperation::KrausOperators)
+                        },
+                        Some(ExpressionOpKind::TerminatingMeasurement) => {
+                            expr.try_into().ok().map(ExpressionOperation::TerminatingMeasurement)
+                        },
+                        Some(ExpressionOpKind::ClassicallyControlledUnitary) => {
+                            expr.try_into().ok().map(ExpressionOperation::ClassicallyControlledUnitary)
+                        },
+                        Some(ExpressionOpKind::QuditInitialization) => {
+                            expr.try_into().ok().map(ExpressionOperation::QuditInitialization)
+                        },
+                        None => unreachable!("Expression kind not found for cached expression. This indicates an inconsistency in the OperationSet's state."),
+                    }
+                })
+                .map(Operation::Expression),
+            OpKind::Subcircuit => {
+                let circuit_id = CircuitId::from(KeyData::from_ffi(op_code.id()));
+                self.subcircuits.get(circuit_id).map(|c| Operation::Subcircuit(c.clone()))
+            }
+            OpKind::Directive => {
+                crate::operation::directive::DirectiveOperation::try_from(op_code.id())
+                    .ok()
+                    .map(Operation::Directive)
+            }
+        }
+    }
+
     pub fn indices(&self, op_code: OpCode) -> Vec<TensorIndex> {
         match op_code.kind() {
             OpKind::Expression => self.expressions.lock().unwrap().indices(op_code.id()),
@@ -176,7 +228,6 @@ impl OperationSet {
         }
     }
 
-    #[allow(dead_code)]
     pub fn num_params(&self, index: &OpCode) -> Option<usize> {
         match index.kind() {
             OpKind::Expression => {
@@ -200,7 +251,38 @@ impl OperationSet {
         }
     }
 
-    // pub fn get_cached_expression(&self, index: &OpCode) -> Option<&CachedExpressionOperation> {
-    //     self.op_to_expr_map.get(index)
-    // }
+    pub fn iter(&self) -> OperationSetIter<'_> {
+        use std::collections::BTreeSet;
+        
+        // Collect unique OpCodes in a consistent order
+        let op_codes: BTreeSet<OpCode> = self.op_counts.keys().copied().collect();
+        
+        OperationSetIter {
+            op_codes: op_codes.into_iter(),
+            operation_set: self,
+        }
+    }
+
+    pub fn op_codes(&self) -> OpCodesIter {
+        use std::collections::BTreeSet;
+        
+        // Collect unique OpCodes in a consistent order
+        let op_codes: BTreeSet<OpCode> = self.op_counts.keys().copied().collect();
+        
+        OpCodesIter {
+            op_codes: op_codes.into_iter(),
+        }
+    }
+
+    pub fn operations_with_counts(&self) -> OperationsWithCountsIter<'_> {
+        // Convert to BTreeMap for consistent ordering
+        let ordered_ops: BTreeMap<OpCode, usize> = self.op_counts.iter()
+            .map(|(&k, &v)| (k, v))
+            .collect();
+        
+        OperationsWithCountsIter {
+            ops_iter: ordered_ops.into_iter(),
+            operation_set: self,
+        }
+    }
 }

@@ -29,6 +29,7 @@ bit-set = { workspace = true }
 slotmap = { workspace = true }
 rustc-hash = { workspace = true }
 numpy = { workspace = true, optional = true }
+thiserror = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }

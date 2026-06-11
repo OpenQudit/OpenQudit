@@ -347,6 +347,41 @@ impl ParamIndices {
             ParamIndices::Disjoint(indices) => indices.len(),
         }
     }
+
+    /// Returns the ParameterId at the given relative index.
+    /// 
+    /// This is O(1) for both Joint and Disjoint variants.
+    #[inline]
+    pub fn get(&self, index: usize) -> usize {
+        match self {
+            ParamIndices::Joint(start, length) => {
+                if index >= *length {
+                    panic!("Index {} out of bounds for Joint range of length {}", index, length);
+                }
+                start + index
+            }
+            ParamIndices::Disjoint(v) => v[index],
+        }
+    }
+
+    /// Maps internal relative parameter indices through a parent's `ParamIndices`.
+    pub fn map_through(&self, parent: &ParamIndices) -> ParamIndices {
+        match (self, parent) {
+            (ParamIndices::Joint(sub_start, sub_len), ParamIndices::Joint(p_start, p_len)) => {
+                if sub_start + sub_len > *p_len {
+                    panic!("Sub-parameter index out of parent bounds");
+                }
+                ParamIndices::Joint(p_start + sub_start, *sub_len)
+            }
+            
+            _ => {
+                let mapped: Vec<usize> = self.iter()
+                    .map(|local_idx| parent.get(local_idx))
+                    .collect();
+                ParamIndices::Disjoint(mapped)
+            }
+        }
+    }
 }
 
 /// An iterator over the parameter indices in a `ParamIndices`.
@@ -402,7 +437,26 @@ impl<'a> Iterator for ParamIndicesIter<'a> {
 
 impl<T: AsRef<[usize]>> From<T> for ParamIndices {
     fn from(indices: T) -> Self {
-        ParamIndices::Disjoint(indices.as_ref().to_vec())
+        let indices = indices.as_ref();
+
+        if indices.is_empty() {
+            return ParamIndices::Joint(0, 0);
+        }
+
+        let first_idx = indices[0];
+        let mut is_consecutive = true;
+        for i in 1..indices.len() {
+            if indices[i] != first_idx + i {
+                is_consecutive = false;
+                break;
+            }
+        }
+
+        if is_consecutive {
+            ParamIndices::Joint(first_idx, indices.len())
+        } else {
+            ParamIndices::Disjoint(indices.to_vec())
+        }
     }
 }
 

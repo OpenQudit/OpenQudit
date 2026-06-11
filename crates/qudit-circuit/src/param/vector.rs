@@ -33,6 +33,10 @@ impl ParameterVector {
         self.params.len()
     }
 
+    pub fn num_unassigned(&self) -> usize {
+        self.params.iter().filter(|p| !p.is_assigned()).count()
+    }
+
     #[inline(always)]
     fn is_valid_id(&self, id: &ParameterId) -> bool {
         self.id_to_index.contains_key(id)
@@ -84,9 +88,14 @@ impl ParameterVector {
         id
     }
 
+    /// Ensure all variables described by the arguments are included in the parameter vector.
+    ///
+    /// Looks through the argument list.
+    ///     If parameters are referenced that already exist, just return their index.
+    ///     Otherwise, allocate more space in the vector, and then return their index.
     pub fn parse(&mut self, args: &ArgumentList) -> ParamIndices {
         if args.is_empty() {
-            return ParamIndices::Joint(0, 0);
+            return ParamIndices::empty();
         }
 
         let parameter_vector = args.parameters();

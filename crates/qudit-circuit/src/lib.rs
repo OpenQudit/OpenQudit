@@ -4,10 +4,15 @@
 
 mod circuit;
 mod cycle;
+mod error;
 mod instruction;
+mod lang;
 mod operation;
 mod param;
 mod wire;
+
+pub use error::Error;
+pub use error::Result;
 
 pub use circuit::QuditCircuit;
 pub use operation::OpCode;

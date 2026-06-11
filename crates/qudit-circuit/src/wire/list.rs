@@ -696,6 +696,55 @@ impl WireList {
     pub fn to_owned(&self) -> WireList {
         self.clone()
     }
+
+    /// Maps internal relative wire indices through a parent `WireList`.
+    ///
+    /// This method is primarily used for subcircuit expansion. It treats the indices 
+    /// in `self` as positional offsets into the `parent` list's quantum and classical 
+    /// sub-lists respectively.
+    ///
+    /// # Arguments
+    ///
+    /// * `parent` - The wire list representing the "scope" to map through.
+    ///
+    /// # Returns
+    ///
+    /// A new `WireList` where each wire from `self` has been replaced by the 
+    /// corresponding wire in `parent`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if an index in `self` is out of bounds for the `parent` wire list.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use qudit_circuit::WireList;
+    /// let subcircuit_wires = WireList::pure([0, 1]); // Relative 0 and 1
+    /// let call_site = WireList::pure([5, 10]);      // Mapped to 5 and 10
+    /// 
+    /// let result = subcircuit_wires.map_through(&call_site);
+    /// assert_eq!(result, WireList::pure([5, 10]));
+    /// ```
+    pub fn map_through(&self, parent: &WireList) -> WireList {
+        // Pre-collecting parent qudits/dits into Vecs can be faster if self is large,
+        // but for typical quantum operations (1-3 wires), iterating is more efficient.
+        let mapped_inner: CompactVec<Wire> = self.wires().map(|wire| {
+            if wire.is_quantum() {
+                let idx = parent.qudits().nth(wire.index())
+                    .expect("Subcircuit quantum wire index out of parent bounds");
+                Wire::quantum(idx)
+            } else {
+                let idx = parent.dits().nth(wire.index())
+                    .expect("Subcircuit classical wire index out of parent bounds");
+                Wire::classical(idx)
+            }
+        }).collect();
+
+        // Safety: We are mapping unique wires to a unique parent, 
+        // so wire uniqueness is preserved.
+        unsafe { WireList::from_raw_inner(mapped_inner) }
+    }
 }
 
 impl PartialEq for WireList {
