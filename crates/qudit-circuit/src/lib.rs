@@ -15,6 +15,10 @@ pub use error::Error;
 pub use error::Result;
 
 pub use circuit::QuditCircuit;
+pub use lang::QuantumLanguageParser;
+pub use lang::QuantumLanguageWriter;
+pub use lang::QASM2Parser;
+pub use lang::QASM2Writer;
 pub use operation::OpCode;
 pub use operation::Operation;
 pub use param::Argument;

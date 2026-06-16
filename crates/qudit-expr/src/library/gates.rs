@@ -128,13 +128,14 @@ pub fn HGate(radix: usize) -> UnitaryExpression {
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
 pub fn SwapGate(radix: usize) -> UnitaryExpression {
     let proto = format!("Swap<{}, {}>()", radix, radix);
+    let dim = radix * radix;
     let mut body = "".to_string();
     body += "[";
-    for i in 0..radix {
+    for i in 0..dim {
         body += "[";
         let a_i = i / radix;
         let b_i = i % radix;
-        for j in 0..radix {
+        for j in 0..dim {
             let a_j = j / radix;
             let b_j = j % radix;
             if a_i == b_j && b_i == a_j {
