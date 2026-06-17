@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use crate::instruction::{Instruction, InstructionId};
-use crate::lang::all_parsers;
+use crate::lang::{all_parsers, all_writers};
 use crate::operation::{CircuitOperation, OpCode};
 use crate::operation::ExpressionOperation;
 use crate::param::{ArgumentList, Parameter};
@@ -132,20 +132,40 @@ impl QuditCircuit {
 
     pub fn load(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
-        let ext = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("");
-
-        let source = std::fs::read_to_string(path).map_err(|e| crate::Error::GenericError(e.to_string()))?;
-
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        let source = std::fs::read_to_string(path)
+            .map_err(|e| crate::Error::GenericError(e.to_string()))?;
         for parser in all_parsers() {
             if parser.supported_extensions().contains(&ext) {
                 return parser.parse(&source);
             }
         }
-
         Err(format!("no parser registered for extension '.{ext}'").into())
+    }
+
+    pub fn loads(source: &str, format: &str) -> Result<Self> {
+        for parser in all_parsers() {
+            if parser.supported_extensions().contains(&format) {
+                return parser.parse(source);
+            }
+        }
+        Err(format!("no parser registered for format '{format}'").into())
+    }
+
+    pub fn dump(&self, path: impl AsRef<Path>) -> Result<()> {
+        let path = path.as_ref();
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        let content = self.saves(ext)?;
+        std::fs::write(path, content).map_err(|e| crate::Error::GenericError(e.to_string()))
+    }
+
+    pub fn saves(&self, format: &str) -> Result<String> {
+        for writer in all_writers() {
+            if writer.supported_extensions().contains(&format) {
+                return writer.write(self);
+            }
+        }
+        Err(format!("no writer registered for format '{format}'").into())
     }
 }
 
