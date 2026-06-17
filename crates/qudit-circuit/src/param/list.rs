@@ -322,7 +322,15 @@ where
     T::Error: Into<crate::Error>
 {
     fn into_args(self, num_args: usize) -> Result<ArgumentList> {
-        Ok(self.try_into().map_err(Into::into)?)
+        let list = self.try_into().map_err(Into::into)?;
+        if num_args != list.len() {
+            Err(crate::Error::ArgumentListSizeMismatch {
+                actual: list.len() as u64,
+                expected: num_args as u64,
+            })
+        } else {
+            Ok(list)
+        }
     }
 }
 

@@ -171,8 +171,10 @@ impl QuditCircuit {
 
 impl InternableOperation for QuditCircuit {
     fn intern_operation(self, operation_set: &mut OperationSet, parameter_vector: &mut ParameterVector, args: impl IntoArgumentList, qudit_radices: Radices, dit_radices: Radices) -> Result<(OpCode, ParamIndices)> {
-        // 1. Align provided args with the circuit's unassigned parameters
-        let args = args.into_args(self.num_params())?;
+        // 1. Align provided args with the circuit's unassigned parameters.
+        // Only Unassigned slots need to be filled externally; Assigned slots
+        // already carry their concrete values and are re-injected below.
+        let args = args.into_args(self.num_unassigned_params())?;
         let mut complete_args = Vec::new();
         let mut unassigned_ptr = 0;
 

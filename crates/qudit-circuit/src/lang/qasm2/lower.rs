@@ -283,13 +283,47 @@ fn expr_to_string(expr: &Expr) -> String {
     }
 }
 
+/// Evaluates a QASM2 expression to an `f64` when it is a compile-time constant
+/// (contains no variable references).  Returns `None` for parameterised exprs.
+fn eval_const_expr(expr: &Expr) -> Option<f64> {
+    match expr {
+        Expr::Real(v) => Some(*v),
+        Expr::Integer(n) => Some(*n as f64),
+        Expr::Pi => Some(std::f64::consts::PI),
+        Expr::Id(_) => None,
+        Expr::UnaryOp(op, inner) => {
+            let v = eval_const_expr(inner)?;
+            Some(match op {
+                UnaryOperator::Negate => -v,
+                UnaryOperator::Sin => v.sin(),
+                UnaryOperator::Cos => v.cos(),
+                UnaryOperator::Tan => v.tan(),
+                UnaryOperator::Exp => v.exp(),
+                UnaryOperator::Ln => v.ln(),
+                UnaryOperator::Sqrt => v.sqrt(),
+            })
+        }
+        Expr::BinaryOp(l, op, r) => {
+            let lv = eval_const_expr(l)?;
+            let rv = eval_const_expr(r)?;
+            Some(match op {
+                BinaryOperator::Plus => lv + rv,
+                BinaryOperator::Minus => lv - rv,
+                BinaryOperator::Multiply => lv * rv,
+                BinaryOperator::Divide => lv / rv,
+                BinaryOperator::Power => lv.powf(rv),
+            })
+        }
+    }
+}
+
 /// Converts a QASM2 [`Expr`] AST node directly into a [`crate::param::Argument`],
 /// bypassing any string-serialisation round-trip.
 ///
 /// Leaf nodes (`Real`, `Integer`, `Pi`, `Id`) are constructed without going
-/// through the parser. Compound expressions (`BinaryOp`, `UnaryOp`) fall back
-/// to the string bridge since the `qudit_expr::Expression` builder API is not
-/// exposed at this level.
+/// through the parser.  Compound constant expressions (`exp`, `ln`, etc.) are
+/// evaluated numerically when qudit-expr's string parser does not support them.
+/// Remaining compound expressions fall back to the string bridge.
 fn expr_to_param_argument(expr: &Expr) -> Result<crate::param::Argument> {
     use qudit_expr::Expression as QExpr;
     match expr {
@@ -299,12 +333,19 @@ fn expr_to_param_argument(expr: &Expr) -> Result<crate::param::Argument> {
         Expr::Id(s) => Ok(crate::param::Argument::Expression(QExpr::Variable(
             s.clone(),
         ))),
-        compound => crate::param::Argument::try_from(expr_to_string(compound)).map_err(|e| {
-            crate::Error::LanguageError {
-                message: format!("invalid parameter expression: {}", e),
-                lineno: 0,
+        // Fast path for constant unary ops: evaluate numerically to avoid
+        // hitting qudit-expr functions that are not in its string parser (exp, ln).
+        Expr::UnaryOp(_, _) | Expr::BinaryOp(_, _, _) => {
+            if let Some(v) = eval_const_expr(expr) {
+                return Ok(crate::param::Argument::Float64(v));
             }
-        }),
+            crate::param::Argument::try_from(expr_to_string(expr)).map_err(|e| {
+                crate::Error::LanguageError {
+                    message: format!("invalid parameter expression: {}", e),
+                    lineno: 0,
+                }
+            })
+        }
     }
 }
 
@@ -384,13 +425,16 @@ fn resolve_gate_decl(
                     .iter()
                     .map(|a| resolve_gate_decl_qarg_idx(a, &qarg_index, &decl.name, line))
                     .collect::<Result<Vec<_>>>()?;
-                let params = ArgumentList::new(
+                let effective_params = if name == "u0" {
+                    // u0(gamma) is a global-phase identity; gamma is ignored.
+                    vec![]
+                } else {
                     exprs
                         .iter()
                         .map(expr_to_param_argument)
-                        .collect::<Result<Vec<_>>>()?,
-                );
-                (name.as_str(), indices, params)
+                        .collect::<Result<Vec<_>>>()?
+                };
+                (name.as_str(), indices, ArgumentList::new(effective_params))
             }
             GateOp::Barrier(qargs) => {
                 let indices = qargs
@@ -599,13 +643,19 @@ fn lower_uop(
             params: exprs,
             args,
         } => {
-            let params = ArgumentList::new(
+            let effective_params = if name == "u0" {
+                // u0(gamma) is defined as U(0,0,0) in qelib1.inc: gamma is a
+                // global-phase argument that has no physical effect and is
+                // intentionally ignored.  IGate (its gate-table entry) takes 0
+                // parameters, so we drop the single QASM argument here.
+                vec![]
+            } else {
                 exprs
                     .iter()
                     .map(expr_to_param_argument)
-                    .collect::<Result<Vec<_>>>()?,
-            );
-            (name.as_str(), args.clone(), params)
+                    .collect::<Result<Vec<_>>>()?
+            };
+            (name.as_str(), args.clone(), ArgumentList::new(effective_params))
         }
     };
 
@@ -737,9 +787,22 @@ fn lower_program(
                         GateBody::Op(op) => {
                             if let Operation::Expression(expr_op) = op {
                                 if let ExpressionOperation::UnitaryGate(u_expr) = expr_op {
+                                    // ClassicallyControlled in qudit-expr currently only
+                                    // supports single-qubit target gates; multi-qubit
+                                    // targets hit a tensor-dimension mismatch.
+                                    if qubit_indices.len() != 1 {
+                                        return Err(crate::Error::LanguageError {
+                                            message: format!(
+                                                "Gate '{}' has {} target qubits; classically \
+                                                 controlled gates are currently limited to \
+                                                 single-qubit targets.",
+                                                op_name,
+                                                qubit_indices.len()
+                                            ),
+                                            lineno: stmt.line,
+                                        });
+                                    }
                                     // Assuming all qubits are dimension 2 for target radices.
-                                    // The ClassicallyControlled gate expects radices for its target qubits
-                                    // in the format Option<Vec<Vec<usize>>> for multi-qudit support.
                                     let target_radices: Vec<usize> =
                                         qubit_indices.iter().map(|_| 2usize).collect();
                                     let wrapped: Operation = ClassicallyControlled(
