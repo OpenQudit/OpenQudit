@@ -718,7 +718,9 @@ pub fn Invert(mut expr: UnitaryExpression) -> UnitaryExpression {
 /// gives $T^\dagger$.
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 pub fn Dagger(mut expr: UnitaryExpression) -> UnitaryExpression {
+    let new_name = format!("Dagger({})", expr.name());
     expr.dagger();
+    expr.set_name(new_name);
     expr
 }
 
@@ -1070,4 +1072,15 @@ mod python {
 mod tests {
     use super::*;
 
+    #[test]
+    fn dagger_renames_s() {
+        let dg = Dagger(SGate(2));
+        assert_eq!(dg.name(), "Dagger(S)");
+    }
+
+    #[test]
+    fn dagger_renames_t() {
+        let dg = Dagger(TGate(2));
+        assert_eq!(dg.name(), "Dagger(T)");
+    }
 }

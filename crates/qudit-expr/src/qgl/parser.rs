@@ -328,15 +328,6 @@ impl Parser {
         let token = self.current(false)?;
 
         match token {
-            Token::Op('-') => {
-                self.advance();
-                let inner = self.parse_primary()?;
-                Ok(Expression::Unary {
-                    op: '~',
-                    expr: Box::new(inner),
-                })
-            }
-
             Token::Number(num) => {
                 self.advance();
                 Ok(Expression::Number(num))

@@ -188,11 +188,11 @@ fn build_default_gate_table() -> HashMap<String, GateBody> {
     gate_table.insert("rzz".into(), GateBody::Op(RZZGate().into()));
     gate_table.insert(
         "c3x".into(),
-        GateBody::Op(Controlled(XGate(2), [2, 2].into(), None).into()),
+        GateBody::Op(Controlled(XGate(2), [2, 2, 2].into(), None).into()),
     );
     gate_table.insert(
         "c4x".into(),
-        GateBody::Op(Controlled(XGate(2), [2, 2, 2].into(), None).into()),
+        GateBody::Op(Controlled(XGate(2), [2, 2, 2, 2].into(), None).into()),
     );
     gate_table.insert(
         "c3sqrtx".into(),
@@ -201,38 +201,41 @@ fn build_default_gate_table() -> HashMap<String, GateBody> {
 
     // rccx
     let cx = Controlled(XGate(2), [2].into(), None);
+    const PI: f64 = std::f64::consts::PI;
+    const PI4: f64 = PI / 4.0;
+    use crate::param::ArgumentList;
     let mut rccx_circuit = QuditCircuit::pure([2, 2, 2]);
-    rccx_circuit.append(U2Gate(), [2], ["0", "pi"]);
-    rccx_circuit.append(U1Gate(), [2], ["pi/4"]);
+    rccx_circuit.append(U2Gate(), [2], ArgumentList::from([0.0f64, PI]));
+    rccx_circuit.append(U1Gate(), [2], ArgumentList::from([PI4]));
     rccx_circuit.append(cx.clone(), [1, 2], None);
-    rccx_circuit.append(U1Gate(), [2], ["-pi/4"]);
+    rccx_circuit.append(U1Gate(), [2], ArgumentList::from([-PI4]));
     rccx_circuit.append(cx.clone(), [0, 2], None);
-    rccx_circuit.append(U1Gate(), [2], ["pi/4"]);
+    rccx_circuit.append(U1Gate(), [2], ArgumentList::from([PI4]));
     rccx_circuit.append(cx.clone(), [1, 2], None);
-    rccx_circuit.append(U1Gate(), [2], ["-pi/4"]);
-    rccx_circuit.append(U2Gate(), [2], ["0", "pi"]);
+    rccx_circuit.append(U1Gate(), [2], ArgumentList::from([-PI4]));
+    rccx_circuit.append(U2Gate(), [2], ArgumentList::from([0.0f64, PI]));
     gate_table.insert("rccx".into(), GateBody::Circ(rccx_circuit));
 
     // rc3x
     let mut rc3x_circuit = QuditCircuit::pure([2, 2, 2, 2]);
-    rc3x_circuit.append(U2Gate(), [3], ["0", "pi"]);
-    rc3x_circuit.append(U1Gate(), [3], ["pi/4"]);
+    rc3x_circuit.append(U2Gate(), [3], ArgumentList::from([0.0f64, PI]));
+    rc3x_circuit.append(U1Gate(), [3], ArgumentList::from([PI4]));
     rc3x_circuit.append(cx.clone(), [2, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["-pi/4"]);
-    rc3x_circuit.append(U2Gate(), [3], ["0", "pi"]);
+    rc3x_circuit.append(U1Gate(), [3], ArgumentList::from([-PI4]));
+    rc3x_circuit.append(U2Gate(), [3], ArgumentList::from([0.0f64, PI]));
     rc3x_circuit.append(cx.clone(), [0, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["pi/4"]);
+    rc3x_circuit.append(U1Gate(), [3], ArgumentList::from([PI4]));
     rc3x_circuit.append(cx.clone(), [1, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["-pi/4"]);
+    rc3x_circuit.append(U1Gate(), [3], ArgumentList::from([-PI4]));
     rc3x_circuit.append(cx.clone(), [0, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["pi/4"]);
+    rc3x_circuit.append(U1Gate(), [3], ArgumentList::from([PI4]));
     rc3x_circuit.append(cx.clone(), [1, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["-pi/4"]);
-    rc3x_circuit.append(U2Gate(), [3], ["0", "pi"]);
-    rc3x_circuit.append(U1Gate(), [3], ["pi/4"]);
+    rc3x_circuit.append(U1Gate(), [3], ArgumentList::from([-PI4]));
+    rc3x_circuit.append(U2Gate(), [3], ArgumentList::from([0.0f64, PI]));
+    rc3x_circuit.append(U1Gate(), [3], ArgumentList::from([PI4]));
     rc3x_circuit.append(cx.clone(), [2, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["-pi/4"]);
-    rc3x_circuit.append(U2Gate(), [3], ["0", "pi"]);
+    rc3x_circuit.append(U1Gate(), [3], ArgumentList::from([-PI4]));
+    rc3x_circuit.append(U2Gate(), [3], ArgumentList::from([0.0f64, PI]));
     gate_table.insert("rc3x".into(), GateBody::Circ(rc3x_circuit));
 
     // Directives
@@ -252,34 +255,56 @@ fn build_default_gate_table() -> HashMap<String, GateBody> {
     gate_table
 }
 
-/// Serialises an [`Expr`] node to a string. Used internally as a bridge for
-/// compound expressions where the `qudit_expr` builder API is not directly
-/// accessible. Prefer [`expr_to_param_argument`] for all call sites.
-fn expr_to_string(expr: &Expr) -> String {
+/// Converts a QASM2 [`Expr`] AST node to a [`qudit_expr::Expression`] directly,
+/// without any string serialisation.  Only called for parameterised expressions
+/// (constants are handled by [`eval_const_expr`] before this is reached).
+fn expr_to_qexpr(expr: &Expr) -> Result<qudit_expr::Expression> {
+    use qudit_expr::Expression as QExpr;
     match expr {
-        Expr::Real(v) => v.to_string(),
-        Expr::Integer(n) => n.to_string(),
-        Expr::Pi => "pi".into(),
-        Expr::Id(s) => s.clone(),
-        Expr::BinaryOp(l, op, r) => {
-            let sym = match op {
-                BinaryOperator::Plus => "+",
-                BinaryOperator::Minus => "-",
-                BinaryOperator::Multiply => "*",
-                BinaryOperator::Divide => "/",
-                BinaryOperator::Power => "^",
-            };
-            format!("({} {} {})", expr_to_string(l), sym, expr_to_string(r))
+        Expr::Real(v) => Ok(QExpr::from_float_64(*v)),
+        Expr::Integer(n) => Ok(QExpr::from_float_64(*n as f64)),
+        Expr::Pi => Ok(QExpr::Pi),
+        Expr::Id(s) => Ok(QExpr::Variable(s.clone())),
+        Expr::UnaryOp(op, inner) => {
+            let iq = expr_to_qexpr(inner)?;
+            match op {
+                UnaryOperator::Negate => Ok(QExpr::Neg(Box::new(iq))),
+                UnaryOperator::Sqrt => Ok(QExpr::Sqrt(Box::new(iq))),
+                UnaryOperator::Sin => Ok(QExpr::Sin(Box::new(iq))),
+                UnaryOperator::Cos => Ok(QExpr::Cos(Box::new(iq))),
+                UnaryOperator::Tan => {
+                    let iq2 = expr_to_qexpr(inner)?;
+                    Ok(QExpr::Div(
+                        Box::new(QExpr::Sin(Box::new(iq))),
+                        Box::new(QExpr::Cos(Box::new(iq2))),
+                    ))
+                }
+                UnaryOperator::Exp | UnaryOperator::Ln => {
+                    if let Some(v) = eval_const_expr(expr) {
+                        Ok(QExpr::from_float_64(v))
+                    } else {
+                        Err(crate::Error::LanguageError {
+                            message: format!(
+                                "parameterised {:?} is not supported in expressions",
+                                op
+                            ),
+                            lineno: 0,
+                        })
+                    }
+                }
+            }
         }
-        Expr::UnaryOp(op, inner) => match op {
-            UnaryOperator::Negate => format!("(-{})", expr_to_string(inner)),
-            UnaryOperator::Sin => format!("sin({})", expr_to_string(inner)),
-            UnaryOperator::Cos => format!("cos({})", expr_to_string(inner)),
-            UnaryOperator::Tan => format!("tan({})", expr_to_string(inner)),
-            UnaryOperator::Exp => format!("exp({})", expr_to_string(inner)),
-            UnaryOperator::Ln => format!("ln({})", expr_to_string(inner)),
-            UnaryOperator::Sqrt => format!("sqrt({})", expr_to_string(inner)),
-        },
+        Expr::BinaryOp(l, op, r) => {
+            let lq = expr_to_qexpr(l)?;
+            let rq = expr_to_qexpr(r)?;
+            match op {
+                BinaryOperator::Plus => Ok(QExpr::Add(Box::new(lq), Box::new(rq))),
+                BinaryOperator::Minus => Ok(QExpr::Sub(Box::new(lq), Box::new(rq))),
+                BinaryOperator::Multiply => Ok(QExpr::Mul(Box::new(lq), Box::new(rq))),
+                BinaryOperator::Divide => Ok(QExpr::Div(Box::new(lq), Box::new(rq))),
+                BinaryOperator::Power => Ok(QExpr::Pow(Box::new(lq), Box::new(rq))),
+            }
+        }
     }
 }
 
@@ -317,13 +342,6 @@ fn eval_const_expr(expr: &Expr) -> Option<f64> {
     }
 }
 
-/// Converts a QASM2 [`Expr`] AST node directly into a [`crate::param::Argument`],
-/// bypassing any string-serialisation round-trip.
-///
-/// Leaf nodes (`Real`, `Integer`, `Pi`, `Id`) are constructed without going
-/// through the parser.  Compound constant expressions (`exp`, `ln`, etc.) are
-/// evaluated numerically when qudit-expr's string parser does not support them.
-/// Remaining compound expressions fall back to the string bridge.
 fn expr_to_param_argument(expr: &Expr) -> Result<crate::param::Argument> {
     use qudit_expr::Expression as QExpr;
     match expr {
@@ -333,18 +351,11 @@ fn expr_to_param_argument(expr: &Expr) -> Result<crate::param::Argument> {
         Expr::Id(s) => Ok(crate::param::Argument::Expression(QExpr::Variable(
             s.clone(),
         ))),
-        // Fast path for constant unary ops: evaluate numerically to avoid
-        // hitting qudit-expr functions that are not in its string parser (exp, ln).
         Expr::UnaryOp(_, _) | Expr::BinaryOp(_, _, _) => {
             if let Some(v) = eval_const_expr(expr) {
                 return Ok(crate::param::Argument::Float64(v));
             }
-            crate::param::Argument::try_from(expr_to_string(expr)).map_err(|e| {
-                crate::Error::LanguageError {
-                    message: format!("invalid parameter expression: {}", e),
-                    lineno: 0,
-                }
-            })
+            Ok(crate::param::Argument::Expression(expr_to_qexpr(expr)?))
         }
     }
 }

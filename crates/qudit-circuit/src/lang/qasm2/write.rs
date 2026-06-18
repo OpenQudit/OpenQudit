@@ -54,6 +54,10 @@ fn qasm2_gate_name(expr_name: &str, n_qwires: usize, n_params: usize) -> Option<
         ("Controlled(Swap)", 3, 0) => Some("cswap"),
         ("Controlled(SX)", 2, 0) => Some("csx"),
         ("Controlled(RX)", 2, 1) => Some("crx"),
+        // Dagger (conjugate-transpose) variants
+        ("Dagger(S)", 1, 0) => Some("sdg"),
+        ("Dagger(T)", 1, 0) => Some("tdg"),
+        ("Dagger(SX)", 1, 0) => Some("sxdg"),
         ("Controlled(RY)", 2, 1) => Some("cry"),
         ("Controlled(RZ)", 2, 1) => Some("crz"),
         ("Controlled(U1)", 2, 1) => Some("cu1"),
