@@ -205,37 +205,92 @@ fn build_default_gate_table() -> HashMap<String, GateBody> {
     const PI4: f64 = PI / 4.0;
     use crate::param::ArgumentList;
     let mut rccx_circuit = QuditCircuit::pure([2, 2, 2]);
-    rccx_circuit.append(U2Gate(), [2], ArgumentList::from([0.0f64, PI]));
-    rccx_circuit.append(U1Gate(), [2], ArgumentList::from([PI4]));
-    rccx_circuit.append(cx.clone(), [1, 2], None);
-    rccx_circuit.append(U1Gate(), [2], ArgumentList::from([-PI4]));
-    rccx_circuit.append(cx.clone(), [0, 2], None);
-    rccx_circuit.append(U1Gate(), [2], ArgumentList::from([PI4]));
-    rccx_circuit.append(cx.clone(), [1, 2], None);
-    rccx_circuit.append(U1Gate(), [2], ArgumentList::from([-PI4]));
-    rccx_circuit.append(U2Gate(), [2], ArgumentList::from([0.0f64, PI]));
+    // expect because it shouldn't fail
+    rccx_circuit
+        .append(U2Gate(), [2], ArgumentList::from([0.0f64, PI]))
+        .expect("hardcoded");
+    rccx_circuit
+        .append(U1Gate(), [2], ArgumentList::from([PI4]))
+        .expect("hardcoded");
+    rccx_circuit
+        .append(cx.clone(), [1, 2], None)
+        .expect("hardcoded");
+    rccx_circuit
+        .append(U1Gate(), [2], ArgumentList::from([-PI4]))
+        .expect("hardcoded");
+    rccx_circuit
+        .append(cx.clone(), [0, 2], None)
+        .expect("hardcoded");
+    rccx_circuit
+        .append(U1Gate(), [2], ArgumentList::from([PI4]))
+        .expect("hardcoded");
+    rccx_circuit
+        .append(cx.clone(), [1, 2], None)
+        .expect("hardcoded");
+    rccx_circuit
+        .append(U1Gate(), [2], ArgumentList::from([-PI4]))
+        .expect("hardcoded");
+    rccx_circuit
+        .append(U2Gate(), [2], ArgumentList::from([0.0f64, PI]))
+        .expect("hardcoded");
     gate_table.insert("rccx".into(), GateBody::Circ(rccx_circuit));
 
     // rc3x
     let mut rc3x_circuit = QuditCircuit::pure([2, 2, 2, 2]);
-    rc3x_circuit.append(U2Gate(), [3], ArgumentList::from([0.0f64, PI]));
-    rc3x_circuit.append(U1Gate(), [3], ArgumentList::from([PI4]));
-    rc3x_circuit.append(cx.clone(), [2, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ArgumentList::from([-PI4]));
-    rc3x_circuit.append(U2Gate(), [3], ArgumentList::from([0.0f64, PI]));
-    rc3x_circuit.append(cx.clone(), [0, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ArgumentList::from([PI4]));
-    rc3x_circuit.append(cx.clone(), [1, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ArgumentList::from([-PI4]));
-    rc3x_circuit.append(cx.clone(), [0, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ArgumentList::from([PI4]));
-    rc3x_circuit.append(cx.clone(), [1, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ArgumentList::from([-PI4]));
-    rc3x_circuit.append(U2Gate(), [3], ArgumentList::from([0.0f64, PI]));
-    rc3x_circuit.append(U1Gate(), [3], ArgumentList::from([PI4]));
-    rc3x_circuit.append(cx.clone(), [2, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ArgumentList::from([-PI4]));
-    rc3x_circuit.append(U2Gate(), [3], ArgumentList::from([0.0f64, PI]));
+    rc3x_circuit
+        .append(U2Gate(), [3], ArgumentList::from([0.0f64, PI]))
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(U1Gate(), [3], ArgumentList::from([PI4]))
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(cx.clone(), [2, 3], None)
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(U1Gate(), [3], ArgumentList::from([-PI4]))
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(U2Gate(), [3], ArgumentList::from([0.0f64, PI]))
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(cx.clone(), [0, 3], None)
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(U1Gate(), [3], ArgumentList::from([PI4]))
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(cx.clone(), [1, 3], None)
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(U1Gate(), [3], ArgumentList::from([-PI4]))
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(cx.clone(), [0, 3], None)
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(U1Gate(), [3], ArgumentList::from([PI4]))
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(cx.clone(), [1, 3], None)
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(U1Gate(), [3], ArgumentList::from([-PI4]))
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(U2Gate(), [3], ArgumentList::from([0.0f64, PI]))
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(U1Gate(), [3], ArgumentList::from([PI4]))
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(cx.clone(), [2, 3], None)
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(U1Gate(), [3], ArgumentList::from([-PI4]))
+        .expect("hardcoded");
+    rc3x_circuit
+        .append(U2Gate(), [3], ArgumentList::from([0.0f64, PI]))
+        .expect("hardcoded");
     gate_table.insert("rc3x".into(), GateBody::Circ(rc3x_circuit));
 
     // Directives
@@ -666,7 +721,11 @@ fn lower_uop(
                     .map(expr_to_param_argument)
                     .collect::<Result<Vec<_>>>()?
             };
-            (name.as_str(), args.clone(), ArgumentList::new(effective_params))
+            (
+                name.as_str(),
+                args.clone(),
+                ArgumentList::new(effective_params),
+            )
         }
     };
 
@@ -733,7 +792,11 @@ fn lower_program(
                     });
                 }
             },
-            QASMStatement::If { creg, value, op } => {
+            QASMStatement::If {
+                creg,
+                value: _value,
+                op,
+            } => {
                 let &(creg_start, creg_size) =
                     creg_table
                         .get(creg)
@@ -796,46 +859,38 @@ fn lower_program(
                 for qubit_indices in expand_gate_arguments(&qasm_args, qreg_table, stmt.line)? {
                     match gate_body {
                         GateBody::Op(op) => {
-                            if let Operation::Expression(expr_op) = op {
-                                if let ExpressionOperation::UnitaryGate(u_expr) = expr_op {
-                                    // ClassicallyControlled in qudit-expr currently only
-                                    // supports single-qubit target gates; multi-qubit
-                                    // targets hit a tensor-dimension mismatch.
-                                    if qubit_indices.len() != 1 {
-                                        return Err(crate::Error::LanguageError {
-                                            message: format!(
-                                                "Gate '{}' has {} target qubits; classically \
-                                                 controlled gates are currently limited to \
-                                                 single-qubit targets.",
-                                                op_name,
-                                                qubit_indices.len()
-                                            ),
-                                            lineno: stmt.line,
-                                        });
-                                    }
-                                    // Assuming all qubits are dimension 2 for target radices.
-                                    let target_radices: Vec<usize> =
-                                        qubit_indices.iter().map(|_| 2usize).collect();
-                                    let wrapped: Operation = ClassicallyControlled(
-                                        u_expr.clone(),
-                                        target_radices.into(),
-                                        None,
-                                    )
-                                    .into();
-                                    circuit.append(
-                                        wrapped,
-                                        (qubit_indices, clbit_indices.clone()),
-                                        params.clone(),
-                                    )?;
-                                } else {
+                            if let Operation::Expression(ExpressionOperation::UnitaryGate(u_expr)) =
+                                op
+                            {
+                                // ClassicallyControlled in qudit-expr currently only
+                                // supports single-qubit target gates; multi-qubit
+                                // targets hit a tensor-dimension mismatch.
+                                if qubit_indices.len() != 1 {
                                     return Err(crate::Error::LanguageError {
                                         message: format!(
-                                            "Gate '{}' cannot be classically controlled currently.",
-                                            op_name
+                                            "Gate '{}' has {} target qubits; classically \
+                                                 controlled gates are currently limited to \
+                                                 single-qubit targets.",
+                                            op_name,
+                                            qubit_indices.len()
                                         ),
                                         lineno: stmt.line,
                                     });
                                 }
+                                // Assuming all qubits are dimension 2 for target radices.
+                                let target_radices: Vec<usize> =
+                                    qubit_indices.iter().map(|_| 2usize).collect();
+                                let wrapped: Operation = ClassicallyControlled(
+                                    u_expr.clone(),
+                                    target_radices.into(),
+                                    None,
+                                )
+                                .into();
+                                circuit.append(
+                                    wrapped,
+                                    (qubit_indices, clbit_indices.clone()),
+                                    params.clone(),
+                                )?;
                             } else {
                                 return Err(crate::Error::LanguageError {
                                     message: format!(

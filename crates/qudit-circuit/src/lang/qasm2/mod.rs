@@ -574,9 +574,7 @@ mod tests {
 
     #[test]
     fn parse_cu3_cu_gates() {
-        let src = prog(
-            "qreg q[2];\ncu3(pi/2, 0, pi) q[0], q[1];\ncu(pi/2, 0, pi) q[0], q[1];\n",
-        );
+        let src = prog("qreg q[2];\ncu3(pi/2, 0, pi) q[0], q[1];\ncu(pi/2, 0, pi) q[0], q[1];\n");
         let circ = parse(&src);
         assert_eq!(circ.iter_sorted().count(), 2);
     }
@@ -873,19 +871,13 @@ mod tests {
     fn error_measure_size_mismatch() {
         // 2 qubits measured into 1 classical bit → error
         let err = parse_err(&prog("qreg q[2];\ncreg c[1];\nmeasure q -> c;\n"));
-        assert!(
-            err.contains("mismatch") || err.contains("size"),
-            "{err}"
-        );
+        assert!(err.contains("mismatch") || err.contains("size"), "{err}");
     }
 
     #[test]
     fn error_u_gate_wrong_param_count() {
         let err = parse_err(&prog("qreg q[1];\nU(pi/2, 0) q[0];\n"));
-        assert!(
-            err.contains("3") || err.contains("parameter"),
-            "{err}"
-        );
+        assert!(err.contains("3") || err.contains("parameter"), "{err}");
     }
 
     #[test]
@@ -955,17 +947,13 @@ mod tests {
 
     #[test]
     fn error_unknown_gate_in_gate_body() {
-        let err = parse_err(&prog(
-            "gate foo a { nogate a; }\nqreg q[1];\nfoo q[0];\n",
-        ));
+        let err = parse_err(&prog("gate foo a { nogate a; }\nqreg q[1];\nfoo q[0];\n"));
         assert!(err.contains("nogate") || err.contains("unknown"), "{err}");
     }
 
     #[test]
     fn error_creg_index_out_of_bounds() {
-        let err = parse_err(&prog(
-            "qreg q[1];\ncreg c[2];\nmeasure q[0] -> c[5];\n",
-        ));
+        let err = parse_err(&prog("qreg q[1];\ncreg c[2];\nmeasure q[0] -> c[5];\n"));
         assert!(
             err.contains("out of bounds") || err.contains("out-of-bounds"),
             "{err}"
@@ -985,9 +973,8 @@ mod tests {
 
     #[test]
     fn roundtrip_crx_cry_crz() {
-        let src = prog(
-            "qreg q[2];\ncrx(pi/2) q[0], q[1];\ncry(pi/4) q[0], q[1];\ncrz(pi) q[0], q[1];\n",
-        );
+        let src =
+            prog("qreg q[2];\ncrx(pi/2) q[0], q[1];\ncry(pi/4) q[0], q[1];\ncrz(pi) q[0], q[1];\n");
         let circ2 = roundtrip(&src);
         assert_eq!(circ2.iter_sorted().count(), 3);
     }
@@ -1091,7 +1078,10 @@ mod tests {
         let circ = parse(&src);
         let out = QASM2Writer.write(&circ).unwrap();
         assert!(out.starts_with("OPENQASM 2.0;\n"), "bad header: {out}");
-        assert!(out.contains("include \"qelib1.inc\";\n"), "missing include: {out}");
+        assert!(
+            out.contains("include \"qelib1.inc\";\n"),
+            "missing include: {out}"
+        );
     }
 
     #[test]

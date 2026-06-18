@@ -71,7 +71,7 @@ pub enum Uop {
     },
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum Argument {
     Register(String),
     Bit(String, usize),
@@ -83,11 +83,11 @@ pub enum Expr {
     Integer(usize),
     Pi,
     Id(String),
-    BinaryOp(Box<Expr>, BinaryOperator, Box<Expr>), // (+, -, *, /)
-    UnaryOp(UnaryOperator, Box<Expr>),              // sin, cos, etc.
+    BinaryOp(Box<Self>, BinaryOperator, Box<Self>), // (+, -, *, /)
+    UnaryOp(UnaryOperator, Box<Self>),              // sin, cos, etc.
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum BinaryOperator {
     Plus,
     Minus,
@@ -96,7 +96,7 @@ pub enum BinaryOperator {
     Power,
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub enum UnaryOperator {
     Negate,
     Sin,
