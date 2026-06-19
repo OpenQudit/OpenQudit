@@ -80,7 +80,7 @@ impl QuditCircuit {
     /// # use qudit_circuit::QuditCircuit;
     /// # use qudit_expr::library::PGate;
     /// let mut circuit = QuditCircuit::new([2, 2], [2, 2]);
-    /// let p_id = circuit.append(PGate(2), 0, None);
+    /// let p_id = circuit.append(PGate(2), 0, None).unwrap();
     /// assert!(circuit.is_valid_id(p_id));
     /// ```
     pub fn is_valid_id<P: Into<InstructionId>>(&self, inst_id: P) -> bool {
