@@ -1,7 +1,3 @@
-// ============================================================================
-// QASM2 Writer
-// ============================================================================
-
 use num::ToPrimitive;
 use qudit_core::{ClassicalSystem, HybridSystem, QuditSystem};
 
@@ -285,9 +281,9 @@ pub(super) fn write_qasm(circuit: &QuditCircuit) -> Result<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::QuditCircuit;
     use crate::lang::QASM2Parser;
     use crate::lang::QuantumLanguageParser;
-    use crate::QuditCircuit;
     use qudit_expr::library::{Controlled, HGate, RXGate, XGate, ZMeasurement};
 
     #[test]

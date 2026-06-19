@@ -99,10 +99,21 @@ use super::QuantumLanguageWriter;
 use crate::QuditCircuit;
 use crate::Result;
 
-// ============================================================================
-// 5. Public API
-// ============================================================================
-
+/// Parses an OpenQASM 2.0 program into a [`QuditCircuit`].
+///
+/// All standard `qelib1.inc` gates are available implicitly — `include
+/// "qelib1.inc";` is accepted and silently skipped regardless of whether the
+/// file exists on disk. Other `include` paths are read relative to the process
+/// working directory.
+///
+/// The parser accepts a small superset of the strict grammar; see the
+/// module-level documentation for the full grammar and the accepted extensions.
+///
+/// # Limitations
+///
+/// - `reset` and `opaque` statements are not supported and produce an error.
+/// - Classically-controlled gates (`if`) are only supported for single-qubit
+///   unitary targets; multi-qubit targets return an error.
 pub struct QASM2Parser;
 
 impl QuantumLanguageParser for QASM2Parser {
@@ -116,6 +127,22 @@ impl QuantumLanguageParser for QASM2Parser {
     }
 }
 
+/// Serializes a [`QuditCircuit`] to an OpenQASM 2.0 string.
+///
+/// The emitted program always begins with `OPENQASM 2.0;\ninclude
+/// "qelib1.inc";\n` and uses a single `qreg q[N]` and `creg c[N]`,
+/// collapsing multiple source registers by global qudit/dit index.
+///
+/// Gate parameters are formatted as exact `pi`-fraction expressions where
+/// possible (e.g., `pi/2`, `3*pi/4`, `-pi/4`), and fall back to scientific
+/// notation for arbitrary floats.
+///
+/// # Limitations
+///
+/// - Operations backed by subcircuits (custom gate definitions) cannot be
+///   serialized and return an error. Only primitive gates from `qelib1.inc`
+///   and built-in directives (measurement, barrier, classical control) are
+///   supported.
 pub struct QASM2Writer;
 
 impl QuantumLanguageWriter for QASM2Writer {

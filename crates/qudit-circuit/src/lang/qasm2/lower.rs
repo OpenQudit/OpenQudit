@@ -1,7 +1,3 @@
-// ============================================================================
-// 4. Lowering Passes
-// ============================================================================
-
 use std::collections::HashMap;
 
 use qudit_expr::library::ClassicallyControlled;
@@ -27,11 +23,11 @@ use qudit_expr::library::YGate;
 use qudit_expr::library::ZGate;
 use qudit_expr::library::ZMeasurement;
 
-use crate::operation::ExpressionOperation;
-use crate::param::ArgumentList;
 use crate::Operation;
 use crate::QuditCircuit;
 use crate::Result;
+use crate::operation::ExpressionOperation;
+use crate::param::ArgumentList;
 
 use super::ast::{
     Argument, BinaryOperator, Expr, GateOp, QASMGateDecl, QASMProgram, QASMStatement, Qop,
@@ -39,6 +35,8 @@ use super::ast::{
 };
 use super::parser::parse_qasm_body;
 
+// GateBody lives in a HashMap built once at parse time so we can ignore this
+#[allow(clippy::large_enum_variant)]
 enum GateBody {
     Circ(QuditCircuit),
     Op(Operation),
