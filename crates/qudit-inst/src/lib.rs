@@ -83,11 +83,11 @@ mod tests {
             .dot(Controlled(XGate(2), [2].into(), None));
         let mut circ = QuditCircuit::pure(vec![2; n]);
         for i in 0..n {
-            circ.append(U3Gate(), [i], None);
+            circ.append(U3Gate(), [i], None).unwrap();
         }
         for _ in 0..2 {
             for i in 0..(n - 1) {
-                circ.append(block_expr.clone(), [i, i + 1], None);
+                circ.append(block_expr.clone(), [i, i + 1], None).unwrap();
             }
         }
         circ
@@ -114,11 +114,11 @@ mod tests {
         let block_expr = PGate(3).otimes(PGate(3)).dot(csum);
         let mut circ = QuditCircuit::pure(vec![3; n]);
         for i in 0..n {
-            circ.append(PGate(3), [i], None);
+            circ.append(PGate(3), [i], None).unwrap();
         }
         for _ in 0..2 {
             for i in 0..(n - 1) {
-                circ.append(block_expr.clone(), [i, i + 1], None);
+                circ.append(block_expr.clone(), [i, i + 1], None).unwrap();
             }
         }
         circ
@@ -131,19 +131,21 @@ mod tests {
         circ.zero_initialize([1, 2]);
 
         for i in 0..4 {
-            circ.append(qudit_expr::library::U3Gate(), [i], None);
+            circ.append(qudit_expr::library::U3Gate(), [i], None)
+                .unwrap();
         }
 
         let block_expr = U3Gate()
             .otimes(U3Gate())
             .dot(Controlled(XGate(2), [2].into(), None));
-        circ.append(block_expr.clone(), [1, 2], None);
+        circ.append(block_expr.clone(), [1, 2], None).unwrap();
         circ.append(
             block_expr.clone(),
             [0, 1],
             ArgumentList::new(vec![None::<f64>.try_into().unwrap(); 6]),
-        );
-        circ.append(block_expr.clone(), [2, 3], None);
+        )
+        .unwrap();
+        circ.append(block_expr.clone(), [2, 3], None).unwrap();
 
         let one_qubit_basis_measurement = BraSystemExpression::new(
             "OneQMeasure() {
@@ -154,15 +156,18 @@ mod tests {
         }",
         );
 
-        circ.append(one_qubit_basis_measurement.clone(), ([1], [0]), None);
-        circ.append(one_qubit_basis_measurement, ([2], [1]), None);
+        circ.append(one_qubit_basis_measurement.clone(), ([1], [0]), None)
+            .unwrap();
+        circ.append(one_qubit_basis_measurement, ([2], [1]), None)
+            .unwrap();
 
         let u3_u3 = U3Gate().otimes(U3Gate());
         circ.append(
             UnitaryExpression::classically_multiplex(&[&u3_u3, &u3_u3, &u3_u3, &u3_u3], &[2, 2]),
             ([0, 3], [0, 1]),
             None,
-        );
+        )
+        .unwrap();
 
         //////// START CNOT TELEPORTATION
         // circ.zero_initialize([1, 2]);

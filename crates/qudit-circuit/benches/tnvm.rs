@@ -16,7 +16,7 @@ use qudit_tensor::compile_network;
 pub fn qsearch_thin_gradient_calculation<C: ComplexScalar>(c: &mut Criterion) {
     let data_type = core::any::type_name::<C>();
     for num_qudits in [2, 3, 4, 5].iter() {
-        let circ = build_qsearch_thin_step_circuit(*num_qudits);
+        let circ = build_qsearch_thin_step_circuit(*num_qudits).expect("failed to build circuit");
         let params = vec![C::R::from64(1.7); circ.num_params()];
         let code = compile_network(circ.to_tensor_network());
         let mut tnvm = TNVM::<C, GRADIENT>::new(&code, None);

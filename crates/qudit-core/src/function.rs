@@ -349,14 +349,17 @@ impl ParamIndices {
     }
 
     /// Returns the ParameterId at the given relative index.
-    /// 
+    ///
     /// This is O(1) for both Joint and Disjoint variants.
     #[inline]
     pub fn get(&self, index: usize) -> usize {
         match self {
             ParamIndices::Joint(start, length) => {
                 if index >= *length {
-                    panic!("Index {} out of bounds for Joint range of length {}", index, length);
+                    panic!(
+                        "Index {} out of bounds for Joint range of length {}",
+                        index, length
+                    );
                 }
                 start + index
             }
@@ -373,11 +376,10 @@ impl ParamIndices {
                 }
                 ParamIndices::Joint(p_start + sub_start, *sub_len)
             }
-            
+
             _ => {
-                let mapped: Vec<usize> = self.iter()
-                    .map(|local_idx| parent.get(local_idx))
-                    .collect();
+                let mapped: Vec<usize> =
+                    self.iter().map(|local_idx| parent.get(local_idx)).collect();
                 ParamIndices::Disjoint(mapped)
             }
         }

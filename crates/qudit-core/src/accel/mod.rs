@@ -68,8 +68,6 @@ macro_rules! cartesian_match {
     };
 }
 
-pub(in crate::accel) use cartesian_match;
-
 mod kron;
 pub use kron::kron;
 pub use kron::kron_add;

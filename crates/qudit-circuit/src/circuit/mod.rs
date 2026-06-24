@@ -1,14 +1,11 @@
-use crate::cycle::CycleList;
 use crate::cycle::CycleId;
-use crate::instruction::InstructionId;
+use crate::cycle::CycleList;
 use crate::operation::OperationSet;
-use crate::Result;
-use crate::param::ParameterVector;
 use crate::param::IntoArgumentList;
+use crate::param::ParameterVector;
 use crate::wire::Wire;
-use crate::wire::WireList;
-use qudit_core::Radices;
 use qudit_core::HybridSystem;
+use qudit_core::Radices;
 use rustc_hash::FxHashMap;
 
 /// A quantum circuit that can be defined with qudits and classical bits.
@@ -79,11 +76,11 @@ mod tests {
             .dot(Controlled(XGate(2), [2].into(), None));
         let mut circ = QuditCircuit::pure(vec![2; n]);
         for i in 0..n {
-            circ.append(U3Gate(), [i], None);
+            circ.append(U3Gate(), [i], None).unwrap();
         }
         for _ in 0..2 {
             for i in 0..(n - 1) {
-                circ.append(block_expr.clone(), [i, i + 1], None);
+                circ.append(block_expr.clone(), [i, i + 1], None).unwrap();
             }
         }
         circ
@@ -110,4 +107,3 @@ mod tests {
         let _unitary = result.get_fn_result().unpack_matrix();
     }
 }
-

@@ -6,13 +6,12 @@ use slotmap::SlotMap;
 use slotmap::new_key_type;
 new_key_type! { pub struct CircuitId; }
 
+use crate::OpCode;
+use crate::Result;
 use crate::circuit::InternableOperation;
 use crate::instruction::Instruction;
 use crate::operation::OperationSet;
 use crate::param::{IntoArgumentList, ParameterVector};
-use crate::OpCode;
-use crate::Result;
-
 
 /// A CircuitOperation is a circuit that has been converted to an operation.
 ///
@@ -33,7 +32,12 @@ pub struct CircuitOperation {
 
 impl CircuitOperation {
     /// Create a new CircuitOperation.
-    pub fn new(qudit_radices: Radices, dit_radices: Radices, instructions: Vec<Instruction>, num_params: usize) -> Self {
+    pub fn new(
+        qudit_radices: Radices,
+        dit_radices: Radices,
+        instructions: Vec<Instruction>,
+        num_params: usize,
+    ) -> Self {
         CircuitOperation {
             qudit_radices,
             dit_radices,
@@ -50,19 +54,22 @@ impl CircuitOperation {
         target_ops: &mut OperationSet,
     ) -> Result<Self> {
         if args.len() != self.num_params {
-            return Err(crate::Error::IncorrectNumberOfArguments(args.len(), self.num_params));
+            return Err(crate::Error::IncorrectNumberOfArguments(
+                args.len(),
+                self.num_params,
+            ));
         }
 
         let mut specialized_instructions = Vec::with_capacity(self.instructions.len());
 
-        for mut inst in self.instructions {
+        for inst in self.instructions {
             // 1. Fetch the original operation from the Source context
             let op = source_ops
                 .get(inst.op_code())
                 .ok_or(crate::Error::MissingOperation(inst.op_code()))?;
 
             // 2. Map the sub-arguments for this specific instruction.
-            // This takes the circuit operation's args passed here and 
+            // This takes the circuit operation's args passed here and
             // selects the ones used by this specific internal instruction.
             let sub_args = args.slice_by_indices(&inst.params());
 
@@ -73,13 +80,13 @@ impl CircuitOperation {
             // 4. Intern the specialized operation into the Target context
             let new_op_code = target_ops.insert(specialized_op)?;
 
-            // 5. Calculate new parameter indices relative to new variable 
+            // 5. Calculate new parameter indices relative to new variable
             // space created by the specialization of `args`.
             let new_params = args.map_indices_for_instruction(&inst.params());
 
             // 6. Create and push updated instruction
             let new_inst = Instruction::new(new_op_code, inst.wires(), new_params);
-            
+
             specialized_instructions.push(new_inst);
         }
 
@@ -115,7 +122,14 @@ impl ClassicalSystem for CircuitOperation {
 impl HybridSystem for CircuitOperation {}
 
 impl InternableOperation for CircuitOperation {
-    fn intern_operation(self, operation_set: &mut OperationSet, parameter_vector: &mut ParameterVector, args: impl IntoArgumentList, qudit_radices: Radices, dit_radices: Radices) -> Result<(OpCode, ParamIndices)> {
+    fn intern_operation(
+        self,
+        _operation_set: &mut OperationSet,
+        _parameter_vector: &mut ParameterVector,
+        _args: impl IntoArgumentList,
+        _qudit_radices: Radices,
+        _dit_radices: Radices,
+    ) -> Result<(OpCode, ParamIndices)> {
         // CircuitOperations are tricky, since you add QuditCircuit objects directly to the
         // circuit. They get converted internally to CircuitOperations. At this point, the
         // information necessary to intern the operation is lost. All we can do at this point, is
@@ -134,7 +148,6 @@ impl std::ops::Deref for CircuitOperation {
         &self.instructions
     }
 }
-
 
 #[derive(Clone)]
 pub struct CircuitCache {

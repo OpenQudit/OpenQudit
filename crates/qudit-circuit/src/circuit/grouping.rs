@@ -1,31 +1,9 @@
-use crate::cycle::CycleList;
-use crate::cycle::{CycleId, CycleIndex};
-use crate::instruction::{Instruction, InstructionId};
-use crate::operation::OpCode;
-use crate::operation::OperationSet;
-use crate::operation::{
-    CircuitOperation, DirectiveOperation, ExpressionOperation, OpKind, Operation,
-};
-use crate::Result;
-use crate::param::{Argument as ParameterEntry, ArgumentList, Parameter, ParameterVector};
-use crate::wire::Wire;
-use crate::wire::WireList;
-use qudit_core::Radices;
-use qudit_core::array::Tensor;
-use qudit_core::{
-    ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, ParamInfo, QuditSystem,
-};
-use qudit_expr::index::IndexDirection;
-use qudit_expr::{
-    BraSystemExpression, FUNCTION, KetExpression, KrausOperatorsExpression, TensorExpression,
-    UnitaryExpression, UnitarySystemExpression,
-};
-use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
-use rustc_hash::{FxHashMap, FxHashSet};
-use std::collections::HashMap;
 use super::*;
-
-
+use crate::cycle::CycleIndex;
+use crate::instruction::InstructionId;
+use crate::wire::WireList;
+use qudit_core::{ClassicalSystem, QuditSystem};
+use rustc_hash::FxHashSet;
 
 pub struct CircuitRegion {
     inst_ids: Vec<InstructionId>,
@@ -60,18 +38,24 @@ impl CircuitRegion {
     }
 
     pub fn max_cycle(&self, circuit: &QuditCircuit) -> Option<CycleIndex> {
-        match (self.inst_ids.iter()
-                .map(|inst_id| circuit.cycle_id_to_index(inst_id.cycle()))
-                .max()) {
+        match self
+            .inst_ids
+            .iter()
+            .map(|inst_id| circuit.cycle_id_to_index(inst_id.cycle()))
+            .max()
+        {
             Some(Some(cycle)) => Some(cycle),
             _ => None,
         }
     }
 
     pub fn min_cycle(&self, circuit: &QuditCircuit) -> Option<CycleIndex> {
-        match (self.inst_ids.iter()
-                .map(|inst_id| circuit.cycle_id_to_index(inst_id.cycle()))
-                .min()) {
+        match self
+            .inst_ids
+            .iter()
+            .map(|inst_id| circuit.cycle_id_to_index(inst_id.cycle()))
+            .min()
+        {
             Some(Some(cycle)) => Some(cycle),
             _ => None,
         }
@@ -160,6 +144,7 @@ impl QuditCircuit {
         }
     }
 
+    #[allow(dead_code, unused_variables)]
     fn slice<R: Into<CircuitRegion>>(&self, region: R) -> QuditCircuit {
         // Copy the gates in the region into a new circuit and return it
         todo!()
@@ -173,7 +158,7 @@ impl QuditCircuit {
     //     if !self.is_convex(inst_ids) {
     //         return None;
     //     }
-        
+
     //     //  - The gates in the region are collected into a subcircuit
     //     // let wire_map = []
     //     // let params = {}
@@ -183,11 +168,10 @@ impl QuditCircuit {
     //     //      parameters?
     //     //      params.update(inst.params())
     //     // }
-    //     // let qudit_radices = 
+    //     // let qudit_radices =
     //     // let dit_radices =
     //     // let num_params = params.len()
     //     // let subcircuit = {qudit_radices, dit_radices, subcircuit_insts, num_params)
-        
 
     //     //  - The region is replaced with a subcirucit
     //     //      - Find or create a cycle to insert
@@ -222,7 +206,8 @@ impl QuditCircuit {
             return false;
         }
 
-        let region_inst_ids: FxHashSet<InstructionId> = region_ref.inst_ids().iter().cloned().collect();
+        let region_inst_ids: FxHashSet<InstructionId> =
+            region_ref.inst_ids().iter().cloned().collect();
         if region_inst_ids.is_empty() {
             return true; // An empty region is convex
         }
@@ -240,7 +225,11 @@ impl QuditCircuit {
         // Sort instruction IDs based on their cycle index, largest first.
         let mut sorted_region_inst_ids: Vec<InstructionId> = region_ref.inst_ids().to_vec();
         sorted_region_inst_ids.sort_unstable_by_key(|id| {
-            std::cmp::Reverse(self.cycle_id_to_index(id.cycle()).expect("Instruction cycle must exist").0)
+            std::cmp::Reverse(
+                self.cycle_id_to_index(id.cycle())
+                    .expect("Instruction cycle must exist")
+                    .0,
+            )
         });
 
         // Walk all instructions in the region starting from max cycle (right-to-left).
@@ -255,12 +244,13 @@ impl QuditCircuit {
             }
 
             // Start a frontier for exhaustive search
-            let mut frontier: FxHashSet<InstructionId> = self.next(inst_id)
+            let mut frontier: FxHashSet<InstructionId> = self
+                .next(inst_id)
                 .values()
                 // Only iterate instructions that exit the region, since we are
                 // looking for an instruction in the expansion of an iterate that
                 // "re-enters" the set.
-                .filter(|inst_id| !region_inst_ids.contains(&inst_id))
+                .filter(|inst_id| !region_inst_ids.contains(inst_id))
                 .copied()
                 .collect();
 
@@ -285,9 +275,12 @@ impl QuditCircuit {
                     return false;
                 }
 
-                frontier.extend(expansion.values()
-                    .filter(|inst_id| !region_inst_ids.contains(inst_id))
-                    .filter(|inst_id| !known_to_never_reenter.contains(*inst_id)));
+                frontier.extend(
+                    expansion
+                        .values()
+                        .filter(|inst_id| !region_inst_ids.contains(inst_id))
+                        .filter(|inst_id| !known_to_never_reenter.contains(*inst_id)),
+                );
                 known_to_never_reenter.insert(inst_id2);
             }
         }
@@ -320,4 +313,3 @@ impl QuditCircuit {
         cycle_check && qudit_check && dit_check
     }
 }
-

@@ -33,9 +33,7 @@ use crate::OpCode;
 #[cfg(feature = "python")]
 impl From<Error> for PyErr {
     fn from(err: Error) -> PyErr {
-        match err {
-            _ => PyValueError::new_err(err.to_string()),
-        }
+        PyValueError::new_err(err.to_string())
     }
 }
 
