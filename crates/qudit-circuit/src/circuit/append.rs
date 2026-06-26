@@ -167,10 +167,8 @@ impl QuditCircuit {
     /// * The selected parser fails to parse the file contents.
     ///
     /// # Examples
-    ///
     /// ```no_run
-    /// use crate::QuditCircuit;
-    ///
+    /// use qudit_circuit::QuditCircuit;
     /// let circuit = QuditCircuit::load("example.qasm")?;
     /// # Ok::<(), Box<dyn std::error::Error>>(())
     /// ```

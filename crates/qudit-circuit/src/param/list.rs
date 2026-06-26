@@ -357,8 +357,9 @@ where
     T: TryInto<ArgumentList>,
     T::Error: Into<crate::Error>,
 {
-    fn into_args(self, _num_args: usize) -> Result<ArgumentList> {
-        self.try_into().map_err(Into::into)
+    fn into_args(self, num_args: usize) -> Result<ArgumentList> {
+        let args = self.try_into().map_err(Into::into)?;
+        args.into_args(num_args)
     }
 }
 
