@@ -134,27 +134,17 @@ fn format_param(param: &Parameter) -> String {
 
 pub(super) fn write_qasm(circuit: &QuditCircuit) -> Result<String> {
     // QASM 2.0 is qubit/bit only.
-    for r in circuit.qudit_radices().iter() {
-        if usize::from(*r) != 2 {
-            return Err(crate::Error::LanguageError {
-                message: format!(
-                    "QASM 2.0 only supports qubits (dimension 2), found dimension {}",
-                    usize::from(*r)
-                ),
-                lineno: 0,
-            });
-        }
+    if !circuit.is_qubit_only() {
+        return Err(crate::Error::LanguageError {
+            message: "QASM 2.0 only supports qubits (radix 2); circuit contains higher-dimensional qudits".into(),
+            lineno: 0,
+        });
     }
-    for r in circuit.dit_radices().iter() {
-        if usize::from(*r) != 2 {
-            return Err(crate::Error::LanguageError {
-                message: format!(
-                    "QASM 2.0 only supports classical bits (dimension 2), found dimension {}",
-                    usize::from(*r)
-                ),
-                lineno: 0,
-            });
-        }
+    if !circuit.is_bit_only() {
+        return Err(crate::Error::LanguageError {
+            message: "QASM 2.0 only supports classical bits (radix 2); circuit contains higher-dimensional dits".into(),
+            lineno: 0,
+        });
     }
 
     let nq = circuit.num_qudits();
