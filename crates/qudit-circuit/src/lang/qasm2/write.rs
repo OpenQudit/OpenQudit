@@ -259,63 +259,281 @@ pub(super) fn write_qasm(circuit: &QuditCircuit) -> Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::super::{QASM2Parser, QASM2Writer};
     use crate::QuditCircuit;
-    use crate::lang::QASM2Parser;
-    use crate::lang::QuantumLanguageParser;
-    use qudit_expr::library::{Controlled, HGate, RXGate, XGate, ZMeasurement};
+    use crate::lang::{QuantumLanguageParser, QuantumLanguageWriter};
 
-    #[test]
-    fn write_empty_circuit() {
-        let circ = QuditCircuit::pure([2usize, 2]);
-        let out = write_qasm(&circ).unwrap();
-        assert!(out.starts_with("OPENQASM 2.0;\n"));
-        assert!(out.contains("qreg q[2];\n"));
-        assert!(!out.contains("creg"));
+    const HEADER: &str = "OPENQASM 2.0;\ninclude \"qelib1.inc\";\n";
+
+    fn prog(body: &str) -> String {
+        format!("{HEADER}{body}")
+    }
+
+    fn parse(src: &str) -> QuditCircuit {
+        QASM2Parser
+            .parse(src)
+            .unwrap_or_else(|e| panic!("parse failed: {e}"))
+    }
+
+    fn qasm_lines(circuit: &QuditCircuit) -> Vec<String> {
+        QASM2Writer
+            .write(circuit)
+            .unwrap()
+            .lines()
+            .filter(|l| !l.is_empty())
+            .map(str::to_owned)
+            .collect()
     }
 
     #[test]
-    fn write_basic_gates() {
-        let mut circ = QuditCircuit::pure([2usize, 2]);
-        circ.append(HGate(2), [0], None).unwrap();
-        circ.append(Controlled(XGate(2), [2].into(), None), [0, 1], None)
-            .unwrap();
-        let out = write_qasm(&circ).unwrap();
-        assert!(out.contains("h q[0];\n"));
-        assert!(out.contains("cx q[0], q[1];\n"));
+    fn write_bell_circuit() {
+        let src = prog("qreg q[2];\nh q[0];\ncx q[0], q[1];\n");
+        assert_eq!(
+            qasm_lines(&parse(&src)),
+            vec![
+                "OPENQASM 2.0;",
+                r#"include "qelib1.inc";"#,
+                "qreg q[2];",
+                "h q[0];",
+                "cx q[0], q[1];",
+            ]
+        );
     }
 
     #[test]
-    fn write_parametrized_gate() {
-        let mut circ = QuditCircuit::pure([2usize]);
-        circ.append(RXGate(), [0], ["pi/2"]).unwrap();
-        let out = write_qasm(&circ).unwrap();
-        assert!(out.contains("rx("));
-        assert!(out.contains("q[0];"));
+    fn write_measurement_circuit() {
+        let src = prog(
+            "qreg q[2];\ncreg c[2];\n\
+             h q[0];\ncx q[0], q[1];\n\
+             measure q[0] -> c[0];\nmeasure q[1] -> c[1];\n",
+        );
+        assert_eq!(
+            qasm_lines(&parse(&src)),
+            vec![
+                "OPENQASM 2.0;",
+                r#"include "qelib1.inc";"#,
+                "qreg q[2];",
+                "creg c[2];",
+                "h q[0];",
+                "cx q[0], q[1];",
+                "measure q[0] -> c[0];",
+                "measure q[1] -> c[1];",
+            ]
+        );
     }
 
     #[test]
-    fn write_measurement() {
-        let mut circ = QuditCircuit::new([2usize], [2usize]);
-        circ.append(ZMeasurement(2), ([0usize], [0usize]), None)
-            .unwrap();
-        let out = write_qasm(&circ).unwrap();
-        assert!(out.contains("measure q[0] -> c[0];\n"));
+    fn write_barrier() {
+        let src = prog("qreg q[2];\nh q[0];\nbarrier q[0], q[1];\ncx q[0], q[1];\n");
+        assert_eq!(
+            qasm_lines(&parse(&src)),
+            vec![
+                "OPENQASM 2.0;",
+                r#"include "qelib1.inc";"#,
+                "qreg q[2];",
+                "h q[0];",
+                "barrier q[0], q[1];",
+                "cx q[0], q[1];",
+            ]
+        );
     }
 
     #[test]
-    fn roundtrip_simple() {
-        let src = "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[2];\nh q[0];\ncx q[0], q[1];\n";
-        let circ = QASM2Parser.parse(src).unwrap();
-        let out = write_qasm(&circ).unwrap();
-        // Re-parse the output and verify it produces the same circuit structure.
-        let circ2 = QASM2Parser.parse(&out).unwrap();
-        assert_eq!(circ.num_qudits(), circ2.num_qudits());
+    fn write_param_formats() {
+        // Sequential gates on one qubit force deterministic ordering.
+        // Covers: pi, pi/2, 3*pi/4, -pi/4, and 0.
+        let src = prog(
+            "qreg q[1];\n\
+             rz(pi) q[0];\nrx(pi/2) q[0];\nrz(3*pi/4) q[0];\nrx(-pi/4) q[0];\nrx(0) q[0];\n",
+        );
+        assert_eq!(
+            qasm_lines(&parse(&src)),
+            vec![
+                "OPENQASM 2.0;",
+                r#"include "qelib1.inc";"#,
+                "qreg q[1];",
+                "rz(pi) q[0];",
+                "rx(pi/2) q[0];",
+                "rz(3*pi/4) q[0];",
+                "rx(-pi/4) q[0];",
+                "rx(0) q[0];",
+            ]
+        );
     }
 
     #[test]
-    fn rejects_non_qubit_circuit() {
-        let circ = QuditCircuit::pure([3usize]);
-        assert!(write_qasm(&circ).is_err());
+    fn write_normalizes_multiple_registers() {
+        // Multiple named qregs/cregs collapse to a single q[N]/c[N] register;
+        // qudit and dit indices are preserved relative to insertion order.
+        let src = prog(
+            "qreg a[2];\nqreg b[1];\ncreg r[1];\ncreg s[2];\n\
+             h a[0];\ncx a[0], b[0];\nmeasure b[0] -> s[0];\n",
+        );
+        assert_eq!(
+            qasm_lines(&parse(&src)),
+            vec![
+                "OPENQASM 2.0;",
+                r#"include "qelib1.inc";"#,
+                "qreg q[3];",
+                "creg c[3];",
+                "h q[0];",
+                "cx q[0], q[2];",
+                "measure q[2] -> c[1];",
+            ]
+        );
+    }
+
+    #[test]
+    fn write_classically_controlled_gate() {
+        let src = prog("qreg q[1];\ncreg c[1];\nmeasure q[0] -> c[0];\nif (c == 1) x q[0];\n");
+        assert_eq!(
+            qasm_lines(&parse(&src)),
+            vec![
+                "OPENQASM 2.0;",
+                r#"include "qelib1.inc";"#,
+                "qreg q[1];",
+                "creg c[1];",
+                "measure q[0] -> c[0];",
+                "if (c == 1) x q[0];",
+            ]
+        );
+    }
+
+    #[test]
+    fn write_classically_controlled_parametric_gate() {
+        let src = prog("qreg q[1];\ncreg c[1];\nif (c == 1) rz(pi/2) q[0];\n");
+        assert_eq!(
+            qasm_lines(&parse(&src)),
+            vec![
+                "OPENQASM 2.0;",
+                r#"include "qelib1.inc";"#,
+                "qreg q[1];",
+                "creg c[1];",
+                "if (c == 1) rz(pi/2) q[0];",
+            ]
+        );
+    }
+
+    #[test]
+    fn write_single_qubit_constant_gates() {
+        let src = prog(
+            "qreg q[1];\n\
+             x q[0];\ny q[0];\nz q[0];\nh q[0];\ns q[0];\nt q[0];\n\
+             id q[0];\nsx q[0];\nsdg q[0];\ntdg q[0];\nsxdg q[0];\n",
+        );
+        assert_eq!(
+            qasm_lines(&parse(&src)),
+            vec![
+                "OPENQASM 2.0;",
+                r#"include "qelib1.inc";"#,
+                "qreg q[1];",
+                "x q[0];",
+                "y q[0];",
+                "z q[0];",
+                "h q[0];",
+                "s q[0];",
+                "t q[0];",
+                "id q[0];",
+                "sx q[0];",
+                "sdg q[0];",
+                "tdg q[0];",
+                "sxdg q[0];",
+            ]
+        );
+    }
+
+    #[test]
+    fn write_two_qubit_constant_gates() {
+        let src = prog(
+            "qreg q[2];\n\
+             cx q[0], q[1];\ncz q[0], q[1];\ncy q[0], q[1];\nswap q[0], q[1];\n\
+             ch q[0], q[1];\ncsx q[0], q[1];\n",
+        );
+        assert_eq!(
+            qasm_lines(&parse(&src)),
+            vec![
+                "OPENQASM 2.0;",
+                r#"include "qelib1.inc";"#,
+                "qreg q[2];",
+                "cx q[0], q[1];",
+                "cz q[0], q[1];",
+                "cy q[0], q[1];",
+                "swap q[0], q[1];",
+                "ch q[0], q[1];",
+                "csx q[0], q[1];",
+            ]
+        );
+    }
+
+    #[test]
+    fn write_parametric_two_qubit_gates() {
+        let src = prog(
+            "qreg q[2];\n\
+             crx(pi/2) q[0], q[1];\ncry(pi/2) q[0], q[1];\ncrz(pi/2) q[0], q[1];\n\
+             cu1(pi/4) q[0], q[1];\ncp(pi/4) q[0], q[1];\n\
+             rxx(pi/4) q[0], q[1];\nrzz(pi/4) q[0], q[1];\n",
+        );
+        assert_eq!(
+            qasm_lines(&parse(&src)),
+            vec![
+                "OPENQASM 2.0;",
+                r#"include "qelib1.inc";"#,
+                "qreg q[2];",
+                "crx(pi/2) q[0], q[1];",
+                "cry(pi/2) q[0], q[1];",
+                "crz(pi/2) q[0], q[1];",
+                "cu1(pi/4) q[0], q[1];",
+                "cp(pi/4) q[0], q[1];",
+                "rxx(pi/4) q[0], q[1];",
+                "rzz(pi/4) q[0], q[1];",
+            ]
+        );
+    }
+
+    #[test]
+    fn write_multi_qubit_gates() {
+        // All gates share wires through q[0..2], forcing deterministic order.
+        let src = prog(
+            "qreg q[5];\n\
+             ccx q[0], q[1], q[2];\ncswap q[0], q[1], q[2];\n\
+             c3x q[0], q[1], q[2], q[3];\nc4x q[0], q[1], q[2], q[3], q[4];\n",
+        );
+        assert_eq!(
+            qasm_lines(&parse(&src)),
+            vec![
+                "OPENQASM 2.0;",
+                r#"include "qelib1.inc";"#,
+                "qreg q[5];",
+                "ccx q[0], q[1], q[2];",
+                "cswap q[0], q[1], q[2];",
+                "c3x q[0], q[1], q[2], q[3];",
+                "c4x q[0], q[1], q[2], q[3], q[4];",
+            ]
+        );
+    }
+
+    #[test]
+    fn write_decimal_rounds_to_pi_fraction() {
+        let src = prog("qreg q[1];\nrz(1.5707963267948966) q[0];\n");
+        assert_eq!(
+            qasm_lines(&parse(&src)),
+            vec![
+                "OPENQASM 2.0;",
+                r#"include "qelib1.inc";"#,
+                "qreg q[1];",
+                "rz(pi/2) q[0];",
+            ]
+        );
+    }
+
+    #[test]
+    fn write_rejects_qutrit_circuit() {
+        assert!(QASM2Writer.write(&QuditCircuit::pure([3usize])).is_err());
+    }
+
+    #[test]
+    fn write_rejects_subcircuit() {
+        let src = prog("gate bell a, b { h a; cx a, b; }\nqreg q[2];\nbell q[0], q[1];\n");
+        assert!(QASM2Writer.write(&parse(&src)).is_err());
     }
 }

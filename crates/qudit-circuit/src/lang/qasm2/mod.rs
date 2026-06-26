@@ -158,6 +158,7 @@ impl QuantumLanguageWriter for QASM2Writer {
 #[cfg(test)]
 mod tests {
     use super::{QASM2Parser, QASM2Writer};
+    use crate::QuditCircuit;
     use crate::lang::{QuantumLanguageParser, QuantumLanguageWriter};
     use qudit_core::{ClassicalSystem, QuditSystem};
 
@@ -184,6 +185,16 @@ mod tests {
             .write(&circ)
             .unwrap_or_else(|e| panic!("write failed: {e}"));
         parse(&out)
+    }
+
+    fn qasm_lines(circuit: &QuditCircuit) -> Vec<String> {
+        QASM2Writer
+            .write(circuit)
+            .unwrap()
+            .lines()
+            .filter(|l| !l.is_empty())
+            .map(str::to_owned)
+            .collect()
     }
 
     // Full QASM2 preamble used in most tests.
@@ -532,45 +543,6 @@ mod tests {
     // -----------------------------------------------------------------------
     // Roundtrips: write then re-parse preserves structure
     // -----------------------------------------------------------------------
-
-    #[test]
-    fn roundtrip_bell_circuit() {
-        let src = prog("qreg q[2];\nh q[0];\ncx q[0], q[1];\n");
-        let orig = parse(&src);
-        let out = QASM2Writer.write(&orig).unwrap();
-        let circ2 = parse(&out);
-        assert_eq!(circ2.num_qudits(), orig.num_qudits());
-        assert_eq!(circ2.num_dits(), orig.num_dits());
-    }
-
-    #[test]
-    fn roundtrip_measurement() {
-        let src = prog("qreg q[2];\ncreg c[2];\nh q[0];\ncx q[0], q[1];\nmeasure q -> c;\n");
-        let orig = parse(&src);
-        let out = QASM2Writer.write(&orig).unwrap();
-        let circ2 = parse(&out);
-        assert_eq!(circ2.num_qudits(), orig.num_qudits());
-        assert_eq!(circ2.num_dits(), orig.num_dits());
-        assert_eq!(circ2.num_operations(), orig.num_operations());
-    }
-
-    #[test]
-    fn roundtrip_parametrized_gates() {
-        let src = prog("qreg q[1];\nrx(pi/2) q[0];\nrz(-pi/4) q[0];\n");
-        let orig = parse(&src);
-        let out = QASM2Writer.write(&orig).unwrap();
-        let circ2 = parse(&out);
-        assert_eq!(circ2.num_operations(), orig.num_operations());
-    }
-
-    #[test]
-    fn roundtrip_barrier() {
-        let src = prog("qreg q[2];\nh q[0];\nbarrier q[0], q[1];\ncx q[0], q[1];\n");
-        let orig = parse(&src);
-        let out = QASM2Writer.write(&orig).unwrap();
-        let circ2 = parse(&out);
-        assert_eq!(circ2.num_operations(), orig.num_operations());
-    }
 
     // -----------------------------------------------------------------------
     // Additional standard gates: u0 / u / u3 aliases
@@ -985,204 +957,5 @@ mod tests {
             err.contains("out of bounds") || err.contains("out-of-bounds"),
             "{err}"
         );
-    }
-
-    // -----------------------------------------------------------------------
-    // Roundtrips: additional gate types
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn roundtrip_sdg_tdg_sxdg() {
-        let src = prog("qreg q[1];\nsdg q[0];\ntdg q[0];\nsxdg q[0];\n");
-        let circ2 = roundtrip(&src);
-        assert_eq!(circ2.iter_sorted().count(), 3);
-    }
-
-    #[test]
-    fn roundtrip_crx_cry_crz() {
-        let src =
-            prog("qreg q[2];\ncrx(pi/2) q[0], q[1];\ncry(pi/4) q[0], q[1];\ncrz(pi) q[0], q[1];\n");
-        let circ2 = roundtrip(&src);
-        assert_eq!(circ2.iter_sorted().count(), 3);
-    }
-
-    #[test]
-    fn roundtrip_cu1_cp() {
-        let src = prog("qreg q[2];\ncu1(pi/4) q[0], q[1];\ncp(pi/8) q[0], q[1];\n");
-        let circ2 = roundtrip(&src);
-        assert_eq!(circ2.iter_sorted().count(), 2);
-    }
-
-    #[test]
-    fn roundtrip_ccx() {
-        let src = prog("qreg q[3];\nccx q[0], q[1], q[2];\n");
-        let circ2 = roundtrip(&src);
-        assert_eq!(circ2.iter_sorted().count(), 1);
-    }
-
-    #[test]
-    fn roundtrip_cswap() {
-        let src = prog("qreg q[3];\ncswap q[0], q[1], q[2];\n");
-        let circ2 = roundtrip(&src);
-        assert_eq!(circ2.iter_sorted().count(), 1);
-    }
-
-    #[test]
-    fn roundtrip_rxx_rzz() {
-        let src = prog("qreg q[2];\nrxx(pi/4) q[0], q[1];\nrzz(pi/8) q[0], q[1];\n");
-        let circ2 = roundtrip(&src);
-        assert_eq!(circ2.iter_sorted().count(), 2);
-    }
-
-    #[test]
-    fn roundtrip_c3x() {
-        // c3x (3-controlled X, 4 qubits) should survive write→re-parse unchanged
-        let src = prog("qreg q[4];\nc3x q[0], q[1], q[2], q[3];\n");
-        let orig = parse(&src);
-        let out = QASM2Writer.write(&orig).unwrap();
-        let circ2 = parse(&out);
-        assert_eq!(circ2.num_qudits(), orig.num_qudits());
-        assert_eq!(circ2.iter_sorted().count(), orig.iter_sorted().count());
-    }
-
-    #[test]
-    fn roundtrip_c4x() {
-        let src = prog("qreg q[5];\nc4x q[0], q[1], q[2], q[3], q[4];\n");
-        let orig = parse(&src);
-        let out = QASM2Writer.write(&orig).unwrap();
-        let circ2 = parse(&out);
-        assert_eq!(circ2.num_qudits(), orig.num_qudits());
-        assert_eq!(circ2.iter_sorted().count(), orig.iter_sorted().count());
-    }
-
-    #[test]
-    fn roundtrip_if_statement() {
-        let src = prog("qreg q[1];\ncreg c[1];\nif (c == 1) x q[0];\n");
-        let orig = parse(&src);
-        let out = QASM2Writer.write(&orig).unwrap();
-        assert!(out.contains("if"), "expected 'if' in written output: {out}");
-        let circ2 = parse(&out);
-        assert_eq!(circ2.iter_sorted().count(), orig.iter_sorted().count());
-    }
-
-    #[test]
-    fn roundtrip_full_bell_with_measurement() {
-        let src = prog(
-            "qreg q[2];\ncreg c[2];\n\
-             h q[0];\ncx q[0], q[1];\n\
-             measure q[0] -> c[0];\nmeasure q[1] -> c[1];\n",
-        );
-        let orig = parse(&src);
-        let out = QASM2Writer.write(&orig).unwrap();
-        let circ2 = parse(&out);
-        assert_eq!(circ2.num_qudits(), orig.num_qudits());
-        assert_eq!(circ2.num_dits(), orig.num_dits());
-        assert_eq!(circ2.iter_sorted().count(), orig.iter_sorted().count());
-    }
-
-    #[test]
-    fn roundtrip_multi_register_collapses_to_single() {
-        // Writer always emits one 'q' and one 'c'; roundtrip must preserve counts.
-        let src = prog(
-            "qreg a[2];\nqreg b[1];\ncreg r[1];\ncreg s[2];\n\
-             h a[0];\ncx a[0], b[0];\nmeasure b[0] -> s[0];\n",
-        );
-        let orig = parse(&src);
-        let out = QASM2Writer.write(&orig).unwrap();
-        let circ2 = parse(&out);
-        assert_eq!(circ2.num_qudits(), orig.num_qudits());
-        assert_eq!(circ2.num_dits(), orig.num_dits());
-        assert_eq!(circ2.iter_sorted().count(), orig.iter_sorted().count());
-    }
-
-    // -----------------------------------------------------------------------
-    // Writer-specific tests (format and failure modes)
-    // -----------------------------------------------------------------------
-
-    #[test]
-    fn write_output_starts_with_header() {
-        let src = prog("qreg q[1];\nh q[0];\n");
-        let circ = parse(&src);
-        let out = QASM2Writer.write(&circ).unwrap();
-        assert!(out.starts_with("OPENQASM 2.0;\n"), "bad header: {out}");
-        assert!(
-            out.contains("include \"qelib1.inc\";\n"),
-            "missing include: {out}"
-        );
-    }
-
-    #[test]
-    fn write_normalizes_to_single_qreg() {
-        // Multiple source qregs collapse to a single 'q[N]' in written output.
-        let src = prog("qreg a[2];\nqreg b[3];\nh a[0];\n");
-        let circ = parse(&src);
-        let out = QASM2Writer.write(&circ).unwrap();
-        assert!(out.contains("qreg q[5]"), "expected qreg q[5] in: {out}");
-        assert!(out.contains("h q[0]"), "expected h q[0] in: {out}");
-    }
-
-    #[test]
-    fn write_param_pi_fractions_formatted_correctly() {
-        let src = prog("qreg q[1];\nrx(pi/2) q[0];\nrz(3*pi/4) q[0];\n");
-        let circ = parse(&src);
-        let out = QASM2Writer.write(&circ).unwrap();
-        assert!(out.contains("pi/2"), "expected 'pi/2' in: {out}");
-        assert!(out.contains("3*pi/4"), "expected '3*pi/4' in: {out}");
-    }
-
-    #[test]
-    fn write_param_negative_pi_formatted_correctly() {
-        let src = prog("qreg q[1];\nrx(-pi/4) q[0];\n");
-        let circ = parse(&src);
-        let out = QASM2Writer.write(&circ).unwrap();
-        assert!(out.contains("-pi/4"), "expected '-pi/4' in: {out}");
-    }
-
-    #[test]
-    fn write_param_zero_formatted_correctly() {
-        let src = prog("qreg q[1];\nrx(0) q[0];\n");
-        let circ = parse(&src);
-        let out = QASM2Writer.write(&circ).unwrap();
-        assert!(out.contains("rx(0)"), "expected 'rx(0)' in: {out}");
-    }
-
-    #[test]
-    fn write_param_pi_formatted_correctly() {
-        let src = prog("qreg q[1];\nrz(pi) q[0];\n");
-        let circ = parse(&src);
-        let out = QASM2Writer.write(&circ).unwrap();
-        assert!(out.contains("rz(pi)"), "expected 'rz(pi)' in: {out}");
-    }
-
-    #[test]
-    fn write_arbitrary_float_param() {
-        // 1.23456789 is not a simple pi fraction → falls back to scientific notation
-        let src = prog("qreg q[1];\nrx(1.23456789) q[0];\n");
-        let circ = parse(&src);
-        let out = QASM2Writer.write(&circ).unwrap();
-        assert!(out.contains("rx("), "expected 'rx(' in: {out}");
-        assert!(out.contains("q[0]"), "expected 'q[0]' in: {out}");
-    }
-
-    #[test]
-    fn write_subcircuit_fails() {
-        // Custom gates produce subcircuit operations which the writer cannot serialize
-        let src = prog(
-            "gate bell a, b { h a; cx a, b; }\n\
-             qreg q[2];\nbell q[0], q[1];\n",
-        );
-        let circ = parse(&src);
-        assert!(
-            QASM2Writer.write(&circ).is_err(),
-            "expected write to fail for circuit containing a subcircuit operation"
-        );
-    }
-
-    #[test]
-    fn write_if_statement_contains_if_keyword() {
-        let src = prog("qreg q[1];\ncreg c[1];\nif (c == 1) x q[0];\n");
-        let circ = parse(&src);
-        let out = QASM2Writer.write(&circ).unwrap();
-        assert!(out.contains("if (c =="), "expected 'if (c ==' in: {out}");
     }
 }
