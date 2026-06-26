@@ -15,51 +15,58 @@ fn strip_subbed(name: &str) -> &str {
 }
 
 /// Maps an expression base name + wire count + param count to a QASM 2.0 gate name.
-fn qasm2_gate_name(expr_name: &str, n_qwires: usize, n_params: usize) -> Option<&'static str> {
+fn qasm2_gate_name(expr_name: &str, n_qwires: usize, n_params: usize) -> Result<&'static str> {
     let expr_name = strip_subbed(expr_name);
     match (expr_name, n_qwires, n_params) {
         // Built-in primitives
-        ("U", 1, 3) => Some("U"),
+        ("U", 1, 3) => Ok("U"),
         // qelib1.inc standard gates
-        ("U2", 1, 2) => Some("u2"),
-        ("U1", 1, 1) => Some("u1"),
-        ("I", 1, 0) => Some("id"),
-        ("X", 1, 0) => Some("x"),
-        ("Y", 1, 0) => Some("y"),
-        ("Z", 1, 0) => Some("z"),
-        ("H", 1, 0) => Some("h"),
-        ("S", 1, 0) => Some("s"),
-        ("T", 1, 0) => Some("t"),
-        ("SX", 1, 0) => Some("sx"),
-        ("P", 1, 1) => Some("p"),
-        ("RX", 1, 1) => Some("rx"),
-        ("RY", 1, 1) => Some("ry"),
-        ("RZ", 1, 1) => Some("rz"),
-        ("Swap", 2, 0) => Some("swap"),
-        ("RXX", 2, 1) => Some("rxx"),
-        ("RZZ", 2, 1) => Some("rzz"),
+        ("U2", 1, 2) => Ok("u2"),
+        ("U1", 1, 1) => Ok("u1"),
+        ("I", 1, 0) => Ok("id"),
+        ("X", 1, 0) => Ok("x"),
+        ("Y", 1, 0) => Ok("y"),
+        ("Z", 1, 0) => Ok("z"),
+        ("H", 1, 0) => Ok("h"),
+        ("S", 1, 0) => Ok("s"),
+        ("T", 1, 0) => Ok("t"),
+        ("SX", 1, 0) => Ok("sx"),
+        ("P", 1, 1) => Ok("p"),
+        ("RX", 1, 1) => Ok("rx"),
+        ("RY", 1, 1) => Ok("ry"),
+        ("RZ", 1, 1) => Ok("rz"),
+        ("Swap", 2, 0) => Ok("swap"),
+        ("RXX", 2, 1) => Ok("rxx"),
+        ("RZZ", 2, 1) => Ok("rzz"),
         // Controlled gates — same expression name regardless of control count,
         // so disambiguate by total wire count.
-        ("Controlled(X)", 2, 0) => Some("cx"),
-        ("Controlled(X)", 3, 0) => Some("ccx"),
-        ("Controlled(X)", 4, 0) => Some("c3x"),
-        ("Controlled(X)", 5, 0) => Some("c4x"),
-        ("Controlled(Z)", 2, 0) => Some("cz"),
-        ("Controlled(Y)", 2, 0) => Some("cy"),
-        ("Controlled(H)", 2, 0) => Some("ch"),
-        ("Controlled(Swap)", 3, 0) => Some("cswap"),
-        ("Controlled(SX)", 2, 0) => Some("csx"),
-        ("Controlled(RX)", 2, 1) => Some("crx"),
+        ("Controlled(X)", 2, 0) => Ok("cx"),
+        ("Controlled(X)", 3, 0) => Ok("ccx"),
+        ("Controlled(X)", 4, 0) => Ok("c3x"),
+        ("Controlled(X)", 5, 0) => Ok("c4x"),
+        ("Controlled(Z)", 2, 0) => Ok("cz"),
+        ("Controlled(Y)", 2, 0) => Ok("cy"),
+        ("Controlled(H)", 2, 0) => Ok("ch"),
+        ("Controlled(Swap)", 3, 0) => Ok("cswap"),
+        ("Controlled(SX)", 2, 0) => Ok("csx"),
+        ("Controlled(RX)", 2, 1) => Ok("crx"),
         // Dagger (conjugate-transpose) variants
-        ("Dagger(S)", 1, 0) => Some("sdg"),
-        ("Dagger(T)", 1, 0) => Some("tdg"),
-        ("Dagger(SX)", 1, 0) => Some("sxdg"),
-        ("Controlled(RY)", 2, 1) => Some("cry"),
-        ("Controlled(RZ)", 2, 1) => Some("crz"),
-        ("Controlled(U1)", 2, 1) => Some("cu1"),
-        ("Controlled(P)", 2, 1) => Some("cp"),
-        ("Controlled(U)", 2, 3) => Some("cu3"),
-        _ => None,
+        ("Dagger(S)", 1, 0) => Ok("sdg"),
+        ("Dagger(T)", 1, 0) => Ok("tdg"),
+        ("Dagger(SX)", 1, 0) => Ok("sxdg"),
+        ("Controlled(RY)", 2, 1) => Ok("cry"),
+        ("Controlled(RZ)", 2, 1) => Ok("crz"),
+        ("Controlled(U1)", 2, 1) => Ok("cu1"),
+        ("Controlled(P)", 2, 1) => Ok("cp"),
+        ("Controlled(U)", 2, 3) => Ok("cu3"),
+        _ => Err(crate::Error::LanguageError {
+            message: format!(
+                "Gate '{}' with {} qubit(s) and {} parameter(s) has no QASM 2.0 equivalent. \
+                 QASM 2.0 only supports standard qelib1.inc gates and a fixed set of controlled/dagger variants.",
+                expr_name, n_qwires, n_params
+            ),
+            lineno: 0,
+        }),
     }
 }
 
@@ -190,17 +197,7 @@ pub(super) fn write_qasm(circuit: &QuditCircuit) -> Result<String> {
         match &operation {
             crate::Operation::Expression(ExpressionOperation::UnitaryGate(expr)) => {
                 let expr_name = strip_subbed(expr.name());
-                let gate = qasm2_gate_name(expr_name, qwires.len(), param_strs.len()).ok_or_else(
-                    || crate::Error::LanguageError {
-                        message: format!(
-                            "Cannot serialize gate '{}' ({} qubits, {} params) to QASM 2.0",
-                            expr_name,
-                            qwires.len(),
-                            param_strs.len()
-                        ),
-                        lineno: 0,
-                    },
-                )?;
+                let gate = qasm2_gate_name(expr_name, qwires.len(), param_strs.len())?;
                 let qargs: Vec<String> = qwires.iter().map(|&i| format!("q[{}]", i)).collect();
                 if param_strs.is_empty() {
                     out.push_str(&format!("{} {};\n", gate, qargs.join(", ")));
@@ -227,15 +224,7 @@ pub(super) fn write_qasm(circuit: &QuditCircuit) -> Result<String> {
                 // then strip any "_subbed" suffixes from parameter substitution.
                 let raw = strip_subbed(expr.name());
                 let underlying = raw.strip_prefix("Stacked_").unwrap_or(raw);
-                let gate = qasm2_gate_name(underlying, qwires.len(), param_strs.len()).ok_or_else(
-                    || crate::Error::LanguageError {
-                        message: format!(
-                            "Cannot serialize classically-controlled gate '{}' to QASM 2.0",
-                            underlying
-                        ),
-                        lineno: 0,
-                    },
-                )?;
+                let gate = qasm2_gate_name(underlying, qwires.len(), param_strs.len())?;
                 // The current lowering always activates at the highest level for each
                 // control bit (i.e. all bits == 1), so value = 2^n - 1.
                 let value: u64 = if cwires.is_empty() {
