@@ -205,7 +205,7 @@ mod python {
     ///
     /// This provides a concrete instantiation of InstantiationResult for use in Python,
     /// using f64 for real numbers (corresponding to Complex64 complex scalars).
-    #[pyclass(name = "InstantiationResult", frozen)]
+    #[pyclass(name = "InstantiationResult", frozen, from_py_object)]
     #[derive(Clone, Debug)]
     pub struct PyInstantiationResult {
         inner: InstantiationResult<c64>,

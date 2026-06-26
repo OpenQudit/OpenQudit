@@ -46,7 +46,7 @@ pub(crate) mod python {
     ///
     /// This wrapper allows Python code to work with instruction identifiers while
     /// maintaining type safety and preventing invalid construction.
-    #[pyclass(name = "InstructionId", frozen, hash, eq, ord)]
+    #[pyclass(name = "InstructionId", frozen, hash, eq, ord, from_py_object)]
     #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
     pub struct PyInstructionId {
         inner: InstructionId,

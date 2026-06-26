@@ -135,7 +135,7 @@ mod python {
     use crate::python::PyCircuitRegistrar;
     use pyo3::{exceptions::PyTypeError, prelude::*};
 
-    #[pyclass(name = "Operation")]
+    #[pyclass(name = "Operation", from_py_object)]
     #[derive(Clone)]
     pub struct PyOperation {
         pub(crate) inner: Operation,

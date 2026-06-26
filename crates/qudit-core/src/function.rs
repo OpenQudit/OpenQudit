@@ -811,7 +811,7 @@ mod python {
     ///
     /// This provides parameter index functionality to Python, supporting both
     /// consecutive (Joint) and disjoint parameter representations.
-    #[pyclass(name = "ParamIndices", frozen, eq, hash)]
+    #[pyclass(name = "ParamIndices", frozen, eq, hash, from_py_object)]
     #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct PyParamIndices {
         inner: ParamIndices,

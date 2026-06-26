@@ -385,7 +385,7 @@ mod python {
     ///
     /// This provides a read-only view of instructions from Python, with
     /// access to operation codes, target wires, and parameter indices.
-    #[pyclass(name = "Instruction", frozen, eq, hash)]
+    #[pyclass(name = "Instruction", frozen, eq, hash, from_py_object)]
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
     pub struct PyInstruction {
         inner: Instruction,

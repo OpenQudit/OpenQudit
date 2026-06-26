@@ -114,7 +114,7 @@ fn parse_int_or_iterable<'py>(input: &Bound<'py, PyAny>) -> PyResult<Vec<usize>>
     }
 }
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[pyo3(name = "QuditCircuit")]
 #[derive(Clone)]
 pub struct PyQuditCircuit {

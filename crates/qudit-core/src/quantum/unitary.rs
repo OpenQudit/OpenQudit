@@ -787,7 +787,7 @@ mod python {
     use numpy::{PyArray2, PyReadonlyArray2, PyUntypedArrayMethods};
 
     /// Python wrapper for UnitaryMatrix
-    #[pyclass(name = "UnitaryMatrix")]
+    #[pyclass(name = "UnitaryMatrix", from_py_object)]
     #[derive(Clone)]
     pub struct PyUnitaryMatrix {
         inner: UnitaryMatrix<c64>,

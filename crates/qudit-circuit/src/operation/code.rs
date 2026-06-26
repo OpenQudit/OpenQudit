@@ -76,7 +76,7 @@ mod python {
     /// Python wrapper for the OpCode struct.
     ///
     /// Provides access to quantum operation code functionality from Python.
-    #[pyclass(name = "OpCode", frozen, eq, ord, hash)]
+    #[pyclass(name = "OpCode", frozen, eq, ord, hash, from_py_object)]
     #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub struct PyOpCode {
         inner: OpCode,

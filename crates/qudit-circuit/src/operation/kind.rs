@@ -29,7 +29,7 @@ mod python {
     use pyo3::prelude::*;
 
     /// Python wrapper for OpKind.
-    #[pyclass(frozen, eq, hash, ord)]
+    #[pyclass(frozen, eq, hash, ord, from_py_object)]
     #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub struct PyOpKind(OpKind);
 

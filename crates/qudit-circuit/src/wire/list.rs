@@ -905,7 +905,7 @@ mod python {
     use pyo3::{prelude::*, types::PyTuple};
 
     /// Python wrapper for WireList
-    #[pyclass(name = "WireList", frozen, hash, eq)]
+    #[pyclass(name = "WireList", frozen, hash, eq, from_py_object)]
     #[derive(Clone, Hash, PartialEq, Eq)]
     pub struct PyWireList {
         inner: WireList,

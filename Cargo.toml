@@ -35,9 +35,9 @@ faer = { version = "0.23.2", features = ["std", "rand"], default-features = fals
 faer-traits = "0.23.2"
 
 # Python Support
-pyo3 = { version = "0.27.1", features = ["abi3-py39"] }
+pyo3 = { version = "0.29.0", features = ["abi3-py39"] }
 inventory = { version = "0.3.21" }
-numpy = { version = "0.27.0" }
+numpy = { version = "0.29.0" }
 
 # LLVM/Compilation
 egg = "0.10.0"
