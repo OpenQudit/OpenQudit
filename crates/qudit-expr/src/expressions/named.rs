@@ -1,5 +1,6 @@
 use itertools::Itertools;
 use qudit_core::RealScalar;
+use serde::{Deserialize, Serialize};
 use std::{
     collections::HashMap,
     ops::{Deref, DerefMut},
@@ -7,7 +8,7 @@ use std::{
 
 use crate::ComplexExpression;
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
 pub struct ExpressionBody {
     body: Vec<ComplexExpression>,
 }

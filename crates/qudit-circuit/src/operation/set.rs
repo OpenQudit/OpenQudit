@@ -8,9 +8,11 @@ use qudit_expr::{
     index::{IndexDirection, TensorIndex},
 };
 use rustc_hash::FxHashMap;
+use serde::{Deserialize, Serialize};
 use slotmap::{Key, KeyData};
 
 use super::kind::OpKind;
+
 use crate::{
     OpCode,
     operation::{
@@ -21,7 +23,7 @@ use crate::{
     },
 };
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct OperationSet {
     expressions: Arc<Mutex<ExpressionCache>>,
     subcircuits: CircuitCache,
@@ -253,10 +255,10 @@ impl OperationSet {
 
     pub fn iter(&self) -> OperationSetIter<'_> {
         use std::collections::BTreeSet;
-        
+
         // Collect unique OpCodes in a consistent order
         let op_codes: BTreeSet<OpCode> = self.op_counts.keys().copied().collect();
-        
+
         OperationSetIter {
             op_codes: op_codes.into_iter(),
             operation_set: self,
@@ -265,10 +267,10 @@ impl OperationSet {
 
     pub fn op_codes(&self) -> OpCodesIter {
         use std::collections::BTreeSet;
-        
+
         // Collect unique OpCodes in a consistent order
         let op_codes: BTreeSet<OpCode> = self.op_counts.keys().copied().collect();
-        
+
         OpCodesIter {
             op_codes: op_codes.into_iter(),
         }
@@ -276,10 +278,9 @@ impl OperationSet {
 
     pub fn operations_with_counts(&self) -> OperationsWithCountsIter<'_> {
         // Convert to BTreeMap for consistent ordering
-        let ordered_ops: BTreeMap<OpCode, usize> = self.op_counts.iter()
-            .map(|(&k, &v)| (k, v))
-            .collect();
-        
+        let ordered_ops: BTreeMap<OpCode, usize> =
+            self.op_counts.iter().map(|(&k, &v)| (k, v)).collect();
+
         OperationsWithCountsIter {
             ops_iter: ordered_ops.into_iter(),
             operation_set: self,

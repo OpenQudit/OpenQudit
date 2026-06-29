@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 use crate::index::{IndexDirection, TensorIndex};
 use std::ops::Add;
 
@@ -6,7 +8,7 @@ use std::ops::Add;
 /// While tensors can conceptually have rank larger than four, even infinite,
 /// tensors in the OpenQudit Expression library are generated into a buffer
 /// indexed by 0, 1, 2, 3, or 4 physical dimensions.
-#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum GenerationShape {
     /// A 0-dimensional tensor (a single value).
     Scalar,

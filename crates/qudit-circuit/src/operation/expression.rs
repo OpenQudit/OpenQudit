@@ -1,10 +1,8 @@
+use qudit_core::ClassicalSystem;
 use qudit_core::HasParams;
 use qudit_core::ParamIndices;
 use qudit_core::QuditSystem;
-use qudit_core::ClassicalSystem;
 use qudit_core::Radices;
-use qudit_expr::index::IndexDirection;
-use qudit_expr::index::TensorIndex;
 use qudit_expr::BraSystemExpression;
 use qudit_expr::KetExpression;
 use qudit_expr::KrausOperatorsExpression;
@@ -12,8 +10,12 @@ use qudit_expr::NamedExpression;
 use qudit_expr::TensorExpression;
 use qudit_expr::UnitaryExpression;
 use qudit_expr::UnitarySystemExpression;
+use qudit_expr::index::IndexDirection;
+use qudit_expr::index::TensorIndex;
+use serde::Deserialize;
+use serde::Serialize;
 
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 pub enum ExpressionOpKind {
     UnitaryGate,
     KrausOperators,
@@ -28,13 +30,25 @@ impl ExpressionOpKind {
         T: Into<TensorExpression>,
     {
         let expr = expr.into();
-        
+
         Ok(match self {
-            Self::UnitaryGate => ExpressionOperation::UnitaryGate(UnitaryExpression::try_from(expr)?),
-            Self::KrausOperators => ExpressionOperation::KrausOperators(KrausOperatorsExpression::try_from(expr)?),
-            Self::TerminatingMeasurement => ExpressionOperation::TerminatingMeasurement(BraSystemExpression::try_from(expr)?),
-            Self::ClassicallyControlledUnitary => ExpressionOperation::ClassicallyControlledUnitary(UnitarySystemExpression::try_from(expr)?),
-            Self::QuditInitialization => ExpressionOperation::QuditInitialization(KetExpression::try_from(expr)?),
+            Self::UnitaryGate => {
+                ExpressionOperation::UnitaryGate(UnitaryExpression::try_from(expr)?)
+            }
+            Self::KrausOperators => {
+                ExpressionOperation::KrausOperators(KrausOperatorsExpression::try_from(expr)?)
+            }
+            Self::TerminatingMeasurement => {
+                ExpressionOperation::TerminatingMeasurement(BraSystemExpression::try_from(expr)?)
+            }
+            Self::ClassicallyControlledUnitary => {
+                ExpressionOperation::ClassicallyControlledUnitary(
+                    UnitarySystemExpression::try_from(expr)?,
+                )
+            }
+            Self::QuditInitialization => {
+                ExpressionOperation::QuditInitialization(KetExpression::try_from(expr)?)
+            }
         })
     }
 }
@@ -191,27 +205,36 @@ impl From<KetExpression> for ExpressionOperation {
     }
 }
 
+use crate::OpCode;
+use crate::Result;
 use crate::circuit::InternableOperation;
 use crate::operation::OperationSet;
 use crate::param::IntoArgumentList;
 use crate::param::ParameterVector;
-use crate::OpCode;
-use crate::Result;
 
 impl<E: Into<ExpressionOperation>> InternableOperation for E {
-    fn intern_operation(self, operation_set: &mut OperationSet, parameter_vector: &mut ParameterVector, args: impl IntoArgumentList, qudit_radices: Radices, dit_radices: Radices) -> Result<(OpCode, ParamIndices)> {
+    fn intern_operation(
+        self,
+        operation_set: &mut OperationSet,
+        parameter_vector: &mut ParameterVector,
+        args: impl IntoArgumentList,
+        qudit_radices: Radices,
+        dit_radices: Radices,
+    ) -> Result<(OpCode, ParamIndices)> {
         let op: ExpressionOperation = self.into();
         let args: crate::param::ArgumentList = args.into_args(op.num_params())?;
         let param_ids = parameter_vector.parse(&args); // persistent ids; not indices
-        
+
         let subbed_op = op.specialize(args)?;
-        
+
         let subbed_op = if !dit_radices.is_empty() {
             let expression_type = subbed_op.expr_type();
             let mut tensor_expr: TensorExpression = subbed_op.into();
 
             // Reindex the expression's batch dimensions to match dits
-            let batch = dit_radices.iter().map(|r| (IndexDirection::Batch, usize::from(*r)));
+            let batch = dit_radices
+                .iter()
+                .map(|r| (IndexDirection::Batch, usize::from(*r)));
             let outs = tensor_expr
                 .indices()
                 .iter()
@@ -236,6 +259,7 @@ impl<E: Into<ExpressionOperation>> InternableOperation for E {
         };
 
         let op_code = operation_set.insert_expression(subbed_op)?;
+        operation_set.increment(op_code);
 
         Ok((op_code, param_ids))
     }

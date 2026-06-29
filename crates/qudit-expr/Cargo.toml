@@ -4,46 +4,43 @@ version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
 description = { workspace = true }
+readme = { workspace = true }
 repository = { workspace = true }
-readme = { workspace = true } 
+license = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
-license = { workspace = true }
-
-
-[dependencies]
-qudit-core = { workspace = true }
-num = { workspace = true }
-inkwell = { workspace = true }
-llvm-sys = { workspace = true }
-coe-rs = { workspace = true }
-egg = { workspace = true }
-ordered-float = { workspace = true }
-itertools = { workspace = true }
-faer = { workspace = true }
-pyo3 = { workspace = true, optional = true }
-inventory = { workspace = true, optional = true }
-numpy = { workspace = true, optional = true }
-rustc-hash = { workspace = true }
-indexmap = { workspace = true }
-rand = { workspace = true }
-
-
-[dev-dependencies]
-proptest = { workspace = true }
-criterion = { workspace = true }
-pprof = { workspace = true }
-
 
 [[bench]]
-name = "cnotu3u3"
 harness = false
+name = "cnotu3u3"
 
+[dependencies]
+coe-rs = { workspace = true }
+egg = { workspace = true }
+faer = { workspace = true }
+indexmap = { workspace = true }
+inkwell = { workspace = true }
+inventory = { workspace = true, optional = true }
+itertools = { workspace = true }
+llvm-sys = { workspace = true }
+num = { workspace = true, features = ["serde"] }
+numpy = { workspace = true, optional = true }
+ordered-float = { workspace = true }
+pyo3 = { workspace = true, optional = true }
+qudit-core = { workspace = true }
+rand = { workspace = true }
+rustc-hash = { workspace = true }
+serde = "1.0.228"
+
+[dev-dependencies]
+criterion = { workspace = true }
+pprof = { workspace = true }
+proptest = { workspace = true }
 
 [features]
-python = ["qudit-core/python", "dep:numpy", "dep:pyo3", "dep:inventory"]
-llvm-static = ["llvm-sys/force-static"]
 llvm-dynamic = ["llvm-sys/force-dynamic"]
+llvm-static = ["llvm-sys/force-static"]
+python = ["dep:inventory", "dep:numpy", "dep:pyo3", "qudit-core/python"]
 
 [lints]
 workspace = true

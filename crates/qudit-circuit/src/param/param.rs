@@ -1,9 +1,10 @@
 use num::ToPrimitive;
 use qudit_core::RealScalar;
 use qudit_expr::Constant;
+use serde::{Deserialize, Serialize};
 
 /// Either assigned or un-assigned parameters in a quantum circuit.
-#[derive(Clone, Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, PartialOrd, Serialize, Deserialize)]
 pub enum Parameter {
     /// A parameter with a set 32-bit floating-point value.
     Assigned32(f32),

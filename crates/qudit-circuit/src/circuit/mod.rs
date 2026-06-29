@@ -1,14 +1,14 @@
-use crate::cycle::CycleList;
+use crate::Result;
 use crate::cycle::CycleId;
+use crate::cycle::CycleList;
 use crate::instruction::InstructionId;
 use crate::operation::OperationSet;
-use crate::Result;
-use crate::param::ParameterVector;
 use crate::param::IntoArgumentList;
+use crate::param::ParameterVector;
 use crate::wire::Wire;
 use crate::wire::WireList;
-use qudit_core::Radices;
 use qudit_core::HybridSystem;
+use qudit_core::Radices;
 use rustc_hash::FxHashMap;
 
 /// A quantum circuit that can be defined with qudits and classical bits.
@@ -22,7 +22,7 @@ use rustc_hash::FxHashMap;
 /// by a persistent identifier, which never changes and enables fast O(1) lookup.
 /// This additionally enables instruction identifiers that will always point
 /// to their correct instruction, no matter how the circuit changes underneath.
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct QuditCircuit {
     /// The QuditRadices object that describes the quantum dimension of the circuit.
     qudit_radices: Radices,
@@ -63,6 +63,8 @@ pub use append::InternableOperation;
 
 #[cfg(feature = "python")]
 pub use python::PyQuditCircuit;
+use serde::Deserialize;
+use serde::Serialize;
 
 #[cfg(test)]
 mod tests {
@@ -110,4 +112,3 @@ mod tests {
         let _unitary = result.get_fn_result().unpack_matrix();
     }
 }
-

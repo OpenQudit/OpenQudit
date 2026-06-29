@@ -44,7 +44,6 @@ fn convert_c_string(c_str: *mut i8) -> String {
     c_str.to_string_lossy().into_owned()
 }
 
-#[derive(Debug)]
 pub struct Module<R: RealScalar> {
     engine: Mutex<LLVMExecutionEngineRef>,
     module: Mutex<LLVMModuleRef>,

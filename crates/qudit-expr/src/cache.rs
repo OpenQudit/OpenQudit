@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 use std::sync::{Arc, Mutex};
 
 use qudit_core::RealScalar;
+use serde::{Deserialize, Serialize};
 
 use crate::TensorExpression;
 use crate::analysis::simplify_expressions_iter;
@@ -15,6 +16,7 @@ use crate::{
 
 pub type ExpressionId = u64;
 
+#[derive(Serialize, Deserialize)]
 pub struct CachedExpressionBody {
     original: ExpressionBody,
     func: Option<Vec<Expression>>,
@@ -106,6 +108,7 @@ impl<B: Into<ExpressionBody>> From<B> for CachedExpressionBody {
     }
 }
 
+#[derive(Serialize, Deserialize)]
 pub struct CachedTensorExpression {
     name: String,
     variables: Vec<String>,
@@ -268,12 +271,14 @@ impl CachedTensorExpression {
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 pub struct ExpressionCache {
     expressions: BTreeMap<ExpressionId, CachedTensorExpression>,
     id_lookup: BTreeMap<ExpressionId, ExpressionId>, // Maps derived expressions to their base id
     name_lookup: BTreeMap<String, Vec<ExpressionId>>, // Name to base expression ids
+    #[serde(skip)]
     module32: Option<Module<f32>>,
+    #[serde(skip)]
     module64: Option<Module<f64>>,
     id_counter: ExpressionId,
 }

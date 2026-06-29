@@ -126,8 +126,7 @@ impl QuditCircuit {
             .collect::<Radices>();
         let state = KetExpression::zero(location_radices);
         let op = ExpressionOperation::QuditInitialization(state);
-        // self.append(op, wires, None::<ArgumentList>)
-        todo!()
+        self.append(op, wires, None::<ArgumentList>).expect("zero_initialize args are always valid")
     }
 
     pub fn load(path: impl AsRef<Path>) -> Result<Self> {

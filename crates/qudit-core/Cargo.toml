@@ -28,6 +28,7 @@ num-complex = { workspace = true }
 numpy = { workspace = true, optional = true }
 pyo3 = { workspace = true, optional = true }
 inventory = { workspace = true, optional = true }
+serde = "1.0.228"
 
 [dev-dependencies]
 proptest = { workspace = true }

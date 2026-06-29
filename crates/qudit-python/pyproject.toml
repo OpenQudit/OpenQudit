@@ -55,3 +55,8 @@ environment = { LIB='D:\\a\\OpenQudit\\OpenQudit\\vcpkg\\installed\\x64-windows-
 before-build = "pip install delvewheel"
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
 
+[dependency-groups]
+dev = [
+    "pytest>=8.4.2",
+]
+

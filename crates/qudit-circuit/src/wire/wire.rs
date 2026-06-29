@@ -2,6 +2,7 @@ use std::cmp::Ordering;
 use std::fmt;
 
 use qudit_core::CompactStorage;
+use serde::{Deserialize, Serialize};
 
 /// An index for a quantum or classical wire in a quantum circuit.
 ///
@@ -48,7 +49,7 @@ use qudit_core::CompactStorage;
 /// assert!(q1 < c0);
 /// assert!(c0 < c1);
 /// ```
-#[derive(Hash, PartialEq, Eq, Clone, Debug, Copy)]
+#[derive(Hash, PartialEq, Eq, Clone, Debug, Copy, Serialize, Deserialize)]
 #[repr(transparent)]
 pub struct Wire(isize);
 

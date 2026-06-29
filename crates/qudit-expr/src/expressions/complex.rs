@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 
 use qudit_core::ComplexScalar;
+use serde::Deserialize;
+use serde::Serialize;
 
 use crate::expressions::Constant;
 use crate::expressions::Expression;
 use crate::qgl::Expression as CiscExpression;
 use crate::qgl::parse_scalar;
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, Deserialize, Serialize)]
 pub struct ComplexExpression {
     pub real: Expression,
     pub imag: Expression,

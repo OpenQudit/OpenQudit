@@ -28,7 +28,6 @@ impl CodeGenError {
 
 type CodeGenResult<T> = Result<T, CodeGenError>;
 
-#[derive(Debug)]
 pub struct CodeGenerator<'ctx, R: RealScalar> {
     pub context: &'ctx Module<R>,
     pub builder: Builder<'ctx>,
