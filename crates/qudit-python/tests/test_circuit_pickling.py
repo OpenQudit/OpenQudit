@@ -6,9 +6,8 @@ import pickle
 
 import numpy as np
 import pytest
-
 from openqudit.circuit import QuditCircuit
-from openqudit.expressions import HGate, U3Gate, XGate, ZGate, RZGate
+from openqudit.expressions import HGate, RZGate, U3Gate, XGate, ZGate
 
 
 @pytest.fixture
@@ -17,6 +16,7 @@ def u3():
 
 
 # --- Structural preservation ---
+
 
 def test_empty_circuit_roundtrip():
     c = QuditCircuit(3)
@@ -68,6 +68,7 @@ def test_qutrit_circuit_roundtrip():
 
 # --- Unitary correctness ---
 
+
 def test_single_qubit_unitary_preserved(u3):
     params = [1.1, 2.2, 3.3]
     c = QuditCircuit(1)
@@ -108,6 +109,7 @@ def test_parameterized_gate_evaluates_correctly(u3):
 
 # --- Independence ---
 
+
 def test_copy_is_independent(u3):
     c = QuditCircuit(1)
     c.append(u3, 0, [0.1, 0.2, 0.3])
@@ -120,6 +122,7 @@ def test_copy_is_independent(u3):
 
 
 # --- Interfaces ---
+
 
 def test_deepcopy(u3):
     c = QuditCircuit(2)
