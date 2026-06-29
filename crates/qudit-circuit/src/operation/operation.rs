@@ -39,11 +39,11 @@ impl Operation {
     /// Specializes the operation for a specific call site by binding it to the provided arguments.
     ///
     /// # Arguments
-    /// * `args` - The [`ArgumentList`] containing the expressions or values to bind
+    /// * `args` - The `ArgumentList` containing the expressions or values to bind
     ///   to the operation's parameters.
-    /// * `source_ops` - The [`OperationSet`] where the current operation's internal
+    /// * `source_ops` - The `OperationSet` where the current operation's internal
     ///   dependencies (like nested subcircuits) are defined.
-    /// * `target_ops` - The [`OperationSet`] where the newly specialized versions
+    /// * `target_ops` - The `OperationSet` where the newly specialized versions
     ///   of this operation's dependencies will be interned.
     ///
     /// # Returns

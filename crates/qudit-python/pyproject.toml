@@ -35,8 +35,11 @@ build-args = "--features dynamic"
 [tool.cibuildwheel.macos]
 before-all = """
     brew install llvm@21
-    export PATH="$(brew --prefix llvm@21)/bin:$PATH"
-    rm $(brew --prefix llvm@21)/lib/libunwind.dylib
+    LLVM21_PREFIX="$(brew --prefix llvm@21)"
+    export PATH="$LLVM21_PREFIX/bin:$PATH"
+    # Remove LLVM's libunwind so the linker uses the macOS system libunwind instead,
+    # preventing conflicts in the final wheel on machines without LLVM installed.
+    find "$LLVM21_PREFIX/lib" -name "libunwind.dylib" -delete
 """
 
 [tool.cibuildwheel.macos.environment]

@@ -147,8 +147,7 @@ impl QuditCircuit {
     ///
     /// The parser is selected based on the file extension. The file is read
     /// into memory and passed to the first parser whose
-    /// [`supported_extensions`](crate::lang::QuantumLanguageParser::supported_extensions)
-    /// contains the file's extension.
+    /// `supported_extensions` list contains the file's extension.
     ///
     /// # Arguments
     ///
