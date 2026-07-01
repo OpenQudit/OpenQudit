@@ -3,10 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use qudit_expr::{
-    ExpressionCache, TensorExpression,
-    index::{IndexDirection, TensorIndex},
-};
+use qudit_expr::{ExpressionCache, index::TensorIndex};
 use rustc_hash::FxHashMap;
 use slotmap::{Key, KeyData};
 
@@ -38,7 +35,7 @@ impl<'a> Iterator for OperationSetIter<'a> {
     type Item = Operation;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(op_code) = self.op_codes.next() {
+        for op_code in &mut self.op_codes {
             if let Some(operation) = self.operation_set.get(op_code) {
                 return Some(operation);
             }
@@ -69,7 +66,7 @@ impl<'a> Iterator for OperationsWithCountsIter<'a> {
     type Item = (Operation, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some((op_code, count)) = self.ops_iter.next() {
+        for (op_code, count) in &mut self.ops_iter {
             if let Some(operation) = self.operation_set.get(op_code) {
                 return Some((operation, count));
             }
@@ -253,10 +250,10 @@ impl OperationSet {
 
     pub fn iter(&self) -> OperationSetIter<'_> {
         use std::collections::BTreeSet;
-        
+
         // Collect unique OpCodes in a consistent order
         let op_codes: BTreeSet<OpCode> = self.op_counts.keys().copied().collect();
-        
+
         OperationSetIter {
             op_codes: op_codes.into_iter(),
             operation_set: self,
@@ -265,10 +262,10 @@ impl OperationSet {
 
     pub fn op_codes(&self) -> OpCodesIter {
         use std::collections::BTreeSet;
-        
+
         // Collect unique OpCodes in a consistent order
         let op_codes: BTreeSet<OpCode> = self.op_counts.keys().copied().collect();
-        
+
         OpCodesIter {
             op_codes: op_codes.into_iter(),
         }
@@ -276,10 +273,9 @@ impl OperationSet {
 
     pub fn operations_with_counts(&self) -> OperationsWithCountsIter<'_> {
         // Convert to BTreeMap for consistent ordering
-        let ordered_ops: BTreeMap<OpCode, usize> = self.op_counts.iter()
-            .map(|(&k, &v)| (k, v))
-            .collect();
-        
+        let ordered_ops: BTreeMap<OpCode, usize> =
+            self.op_counts.iter().map(|(&k, &v)| (k, v)).collect();
+
         OperationsWithCountsIter {
             ops_iter: ordered_ops.into_iter(),
             operation_set: self,

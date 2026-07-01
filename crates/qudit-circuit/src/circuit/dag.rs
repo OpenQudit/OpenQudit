@@ -1,31 +1,7 @@
-use crate::cycle::CycleList;
-use crate::cycle::{CycleId, CycleIndex};
-use crate::instruction::{Instruction, InstructionId};
-use crate::operation::OpCode;
-use crate::operation::OperationSet;
-use crate::operation::{
-    CircuitOperation, DirectiveOperation, ExpressionOperation, OpKind, Operation,
-};
-use crate::Result;
-use crate::param::{Argument as ParameterEntry, ArgumentList, Parameter, ParameterVector};
-use crate::wire::Wire;
-use crate::wire::WireList;
-use qudit_core::Radices;
-use qudit_core::array::Tensor;
-use qudit_core::{
-    ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, ParamInfo, QuditSystem,
-};
-use qudit_expr::index::IndexDirection;
-use qudit_expr::{
-    BraSystemExpression, FUNCTION, KetExpression, KrausOperatorsExpression, TensorExpression,
-    UnitaryExpression, UnitarySystemExpression,
-};
-use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
-use rustc_hash::{FxHashMap, FxHashSet};
-use std::collections::HashMap;
 use super::*;
-
-
+use crate::instruction::InstructionId;
+use crate::wire::Wire;
+use std::collections::HashMap;
 
 /// DAG Methods
 impl QuditCircuit {
@@ -56,8 +32,8 @@ impl QuditCircuit {
     /// # use qudit_circuit::Wire;
     /// # use qudit_expr::library::{PGate, HGate};
     /// let mut circuit = QuditCircuit::pure([2, 2]);
-    /// let p_id = circuit.append(PGate(2), 0, None);
-    /// let h_id = circuit.append(HGate(2), 1, None);
+    /// let p_id = circuit.append(PGate(2), 0, None).unwrap();
+    /// let h_id = circuit.append(HGate(2), 1, None).unwrap();
     /// assert_eq!(circuit.front().len(), 2);
     /// assert_eq!(circuit.front()[&Wire::quantum(0)], p_id);
     /// assert_eq!(circuit.front()[&Wire::quantum(1)], h_id);
@@ -115,7 +91,7 @@ impl QuditCircuit {
     /// # use qudit_circuit::Wire;
     /// # use qudit_expr::library::PGate;
     /// let mut circuit = QuditCircuit::pure([2]);
-    /// let p_id = circuit.append(PGate(2), 0, None);
+    /// let p_id = circuit.append(PGate(2), 0, None).unwrap();
     /// assert_eq!(circuit.first_on(Wire::quantum(0)), Some(p_id));
     /// ```
     pub fn first_on<W: Into<Wire>>(&self, wire: W) -> Option<InstructionId> {
@@ -182,8 +158,8 @@ impl QuditCircuit {
     /// # use qudit_circuit::Wire;
     /// # use qudit_expr::library::{PGate, HGate};
     /// let mut circuit = QuditCircuit::pure([2]);
-    /// let first_inst = circuit.append(PGate(2), 0, None);
-    /// let second_inst = circuit.append(HGate(2), 0, None);
+    /// let first_inst = circuit.append(PGate(2), 0, None).unwrap();
+    /// let second_inst = circuit.append(HGate(2), 0, None).unwrap();
     ///
     /// let next_insts = circuit.next(first_inst);
     /// assert_eq!(next_insts.len(), 1);
@@ -247,4 +223,3 @@ impl QuditCircuit {
         }
     }
 }
-

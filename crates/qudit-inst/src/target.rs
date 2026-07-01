@@ -18,7 +18,7 @@ mod python {
     use qudit_core::UnitaryMatrix;
     use qudit_core::c64;
 
-    #[pyclass(name = "InstantiationTarget")]
+    #[pyclass(name = "InstantiationTarget", from_py_object)]
     #[derive(Clone)]
     pub struct PyInstantiationTarget {
         inner: InstantiationTarget<c64>,

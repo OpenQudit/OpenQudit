@@ -3,7 +3,7 @@ use std::ffi::c_int;
 use std::path::Path;
 
 use criterion::profiler::Profiler;
-use qudit_circuit::QuditCircuit;
+use qudit_circuit::{QuditCircuit, Result};
 use qudit_expr::UnitaryExpression;
 use qudit_expr::library::HGate;
 use qudit_expr::library::PGate;
@@ -11,20 +11,20 @@ use qudit_expr::library::{Controlled, U3Gate, XGate};
 use rand::Rng;
 
 #[allow(dead_code)]
-pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
+pub fn build_qsearch_thin_step_circuit(n: usize) -> Result<QuditCircuit> {
     let block_expr = U3Gate()
         .otimes(U3Gate())
         .dot(Controlled(XGate(2), [2].into(), None));
     let mut circ = QuditCircuit::pure(vec![2; n]);
     for i in 0..n {
-        circ.append(U3Gate(), [i], None);
+        circ.append(U3Gate(), [i], None)?;
     }
     for _ in 0..2 {
         for i in 0..(n - 1) {
-            circ.append(block_expr.clone(), [i, i + 1], None);
+            circ.append(block_expr.clone(), [i, i + 1], None)?;
         }
     }
-    circ
+    Ok(circ)
 }
 
 /// Build a QFT circuit with `n` qubits.

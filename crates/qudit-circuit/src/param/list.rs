@@ -127,7 +127,7 @@ impl ArgumentList {
     /// # Arguments
     ///
     /// * `indices` - A slice of `usize` values representing the indices of the
-    ///               arguments to include in the new list.
+    ///   arguments to include in the new list.
     ///
     /// # Returns
     ///
@@ -143,12 +143,29 @@ impl ArgumentList {
         indices.into_iter().map(|i| self[i].clone()).collect()
     }
 
+    /// Maps the indices of arguments used by a specific instruction to their corresponding
+    /// positions in the flattened, deduplicated parameter list of this `ArgumentList`.
+    ///
+    /// When an instruction uses arguments that contain multiple parameters (such as an
+    /// expression `"a*b"`), this method resolves where the underlying variables (`a` and `b`)
+    /// sit in the unique vector returned by [`parameters()`](Self::parameters). It guarantees
+    /// that no duplicate indices are added to the mapping for a single instruction.
+    ///
+    /// # Arguments
+    ///
+    /// * `inner_indices` - An iterator yielding `usize` values. These represent the indices
+    ///   of the arguments in this `ArgumentList` that are required by the target instruction.
+    ///
+    /// # Returns
+    ///
+    /// A `ParamIndices` collection containing the mapped, deduplicated positions of the
+    /// required parameters within the master parameter list.
     pub fn map_indices_for_instruction<I>(&self, inner_indices: I) -> ParamIndices
     where
         I: IntoIterator<Item = usize>,
     {
-        let unique_params = self.parameters(); 
-        
+        let unique_params = self.parameters();
+
         let mut mapped_indices = Vec::new();
 
         for i in inner_indices {
@@ -203,13 +220,17 @@ impl TryFrom<Vec<String>> for ArgumentList {
     type Error = crate::Error;
 
     /// Converts a vector of strings into an `ArgumentList`.
-    /// 
+    ///
     /// Each string is parsed as an expression argument using `Argument::try_from()`.
     /// If any string fails to parse, the entire conversion fails.
     fn try_from(value: Vec<String>) -> std::result::Result<Self, Self::Error> {
         let mut arguments = Vec::with_capacity(value.len());
         for s in value {
-            arguments.push(Argument::try_from(s).map_err(|e| crate::Error::InvalidArgument { message: e.to_string() })?);
+            arguments.push(
+                Argument::try_from(s).map_err(|e| crate::Error::InvalidArgument {
+                    message: e.to_string(),
+                })?,
+            );
         }
         Ok(ArgumentList::new(arguments))
     }
@@ -219,13 +240,17 @@ impl TryFrom<Vec<&str>> for ArgumentList {
     type Error = crate::Error;
 
     /// Converts a vector of string slices into an `ArgumentList`.
-    /// 
+    ///
     /// Each string is parsed as an expression argument using `Argument::try_from()`.
     /// If any string fails to parse, the entire conversion fails.
     fn try_from(value: Vec<&str>) -> std::result::Result<Self, Self::Error> {
         let mut arguments = Vec::with_capacity(value.len());
         for s in value {
-            arguments.push(Argument::try_from(s).map_err(|e| crate::Error::InvalidArgument { message: e.to_string() })?);
+            arguments.push(
+                Argument::try_from(s).map_err(|e| crate::Error::InvalidArgument {
+                    message: e.to_string(),
+                })?,
+            );
         }
         Ok(ArgumentList::new(arguments))
     }
@@ -238,7 +263,11 @@ impl<const N: usize> TryFrom<[String; N]> for ArgumentList {
     fn try_from(value: [String; N]) -> std::result::Result<Self, Self::Error> {
         let mut arguments = Vec::with_capacity(N);
         for s in value {
-            arguments.push(Argument::try_from(s).map_err(|e| crate::Error::InvalidArgument { message: e.to_string() })?);
+            arguments.push(
+                Argument::try_from(s).map_err(|e| crate::Error::InvalidArgument {
+                    message: e.to_string(),
+                })?,
+            );
         }
         Ok(ArgumentList::new(arguments))
     }
@@ -251,7 +280,11 @@ impl<const N: usize> TryFrom<[&str; N]> for ArgumentList {
     fn try_from(value: [&str; N]) -> std::result::Result<Self, Self::Error> {
         let mut arguments = Vec::with_capacity(N);
         for s in value {
-            arguments.push(Argument::try_from(s).map_err(|e| crate::Error::InvalidArgument { message: e.to_string() })?);
+            arguments.push(
+                Argument::try_from(s).map_err(|e| crate::Error::InvalidArgument {
+                    message: e.to_string(),
+                })?,
+            );
         }
         Ok(ArgumentList::new(arguments))
     }
@@ -260,7 +293,7 @@ impl<const N: usize> TryFrom<[&str; N]> for ArgumentList {
 /// Trait for types that can be converted to argument lists
 impl<E: Into<Argument>> FromIterator<E> for ArgumentList {
     /// Creates an `ArgumentList` by collecting items from an iterator.
-    /// 
+    ///
     /// Each item in the iterator is converted to an `Argument` using `Into::into()`.
     fn from_iter<T: IntoIterator<Item = E>>(iter: T) -> Self {
         Self::new(iter.into_iter().map(|e| e.into()).collect())
@@ -274,7 +307,10 @@ pub trait IntoArgumentList {
 impl IntoArgumentList for ArgumentList {
     fn into_args(self, num_args: usize) -> Result<ArgumentList> {
         if num_args != self.len() {
-            Err(crate::Error::ArgumentListSizeMismatch { actual: self.len() as u64, expected: num_args as u64 })
+            Err(crate::Error::ArgumentListSizeMismatch {
+                actual: self.len() as u64,
+                expected: num_args as u64,
+            })
         } else {
             Ok(self)
         }
@@ -288,7 +324,7 @@ impl IntoArgumentList for Option<ArgumentList> {
             None => {
                 let args = ArgumentList::new(vec![Argument::Unspecified; num_args]);
                 Ok(args)
-            },
+            }
         }
     }
 }
@@ -319,13 +355,13 @@ impl IntoArgumentList for () {
 impl<T> IntoArgumentList for T
 where
     T: TryInto<ArgumentList>,
-    T::Error: Into<crate::Error>
+    T::Error: Into<crate::Error>,
 {
     fn into_args(self, num_args: usize) -> Result<ArgumentList> {
-        Ok(self.try_into().map_err(Into::into)?)
+        let args = self.try_into().map_err(Into::into)?;
+        args.into_args(num_args)
     }
 }
-
 
 #[cfg(feature = "python")]
 mod python {
@@ -758,114 +794,113 @@ mod tests {
         }
     }
 }
-    #[test]
-    fn test_from_iterator() {
-        let values = vec![1.0f64, 2.0f64, 3.0f64];
-        let list: ArgumentList = values.into_iter().collect();
-        assert_eq!(list.len(), 3);
+#[test]
+fn test_from_iterator() {
+    let values = vec![1.0f64, 2.0f64, 3.0f64];
+    let list: ArgumentList = values.into_iter().collect();
+    assert_eq!(list.len(), 3);
 
-        let args = list.arguments();
-        assert!(matches!(args[0], Argument::Float64(1.0)));
-        assert!(matches!(args[1], Argument::Float64(2.0)));
-        assert!(matches!(args[2], Argument::Float64(3.0)));
+    let args = list.arguments();
+    assert!(matches!(args[0], Argument::Float64(1.0)));
+    assert!(matches!(args[1], Argument::Float64(2.0)));
+    assert!(matches!(args[2], Argument::Float64(3.0)));
+}
+
+#[test]
+fn test_collect_from_range() {
+    let list: ArgumentList = (0..5).map(|i| i as f64).collect();
+    assert_eq!(list.len(), 5);
+
+    let args = list.arguments();
+    for (i, arg) in args.iter().enumerate() {
+        assert!(matches!(arg, Argument::Float64(val) if *val == i as f64));
     }
+}
 
-    #[test]
-    fn test_collect_from_range() {
-        let list: ArgumentList = (0..5).map(|i| i as f64).collect();
-        assert_eq!(list.len(), 5);
-        
-        let args = list.arguments();
-        for (i, arg) in args.iter().enumerate() {
-            assert!(matches!(arg, Argument::Float64(val) if *val == i as f64));
-        }
+#[test]
+fn test_collect_mixed_types() {
+    let mixed_args: Vec<Argument> = vec![
+        Argument::Float64(1.0),
+        Argument::Float32(2.0),
+        Argument::Unspecified,
+    ];
+    let list: ArgumentList = mixed_args.into_iter().collect();
+    assert_eq!(list.len(), 3);
+
+    let args = list.arguments();
+    assert!(matches!(args[0], Argument::Float64(1.0)));
+    assert!(matches!(args[1], Argument::Float32(2.0)));
+    assert!(matches!(args[2], Argument::Unspecified));
+}
+
+#[test]
+fn test_try_from_vec_string() {
+    let strings = vec!["x".to_string(), "y + 1".to_string(), "pi/2".to_string()];
+    let result = ArgumentList::try_from(strings);
+    assert!(result.is_ok());
+
+    let list = result.unwrap();
+    assert_eq!(list.len(), 3);
+
+    let args = list.arguments();
+    for arg in args {
+        assert!(matches!(arg, Argument::Expression(_)));
     }
+}
 
-    #[test]
-    fn test_collect_mixed_types() {
-        let mixed_args: Vec<Argument> = vec![
-            Argument::Float64(1.0),
-            Argument::Float32(2.0),
-            Argument::Unspecified,
-        ];
-        let list: ArgumentList = mixed_args.into_iter().collect();
-        assert_eq!(list.len(), 3);
+#[test]
+fn test_try_from_vec_str() {
+    let strings = vec!["a", "b*c", "sin(theta)"];
+    let result = ArgumentList::try_from(strings);
+    assert!(result.is_ok());
 
-        let args = list.arguments();
-        assert!(matches!(args[0], Argument::Float64(1.0)));
-        assert!(matches!(args[1], Argument::Float32(2.0)));
-        assert!(matches!(args[2], Argument::Unspecified));
+    let list = result.unwrap();
+    assert_eq!(list.len(), 3);
+
+    let args = list.arguments();
+    for arg in args {
+        assert!(matches!(arg, Argument::Expression(_)));
     }
+}
 
-      #[test]
-      fn test_try_from_vec_string() {
-          let strings = vec!["x".to_string(), "y + 1".to_string(), "pi/2".to_string()];
-          let result = ArgumentList::try_from(strings);
-          assert!(result.is_ok());
-          
-          let list = result.unwrap();
-          assert_eq!(list.len(), 3);
-          
-          let args = list.arguments();
-          for arg in args {
-              assert!(matches!(arg, Argument::Expression(_)));
-          }
-      }
+#[test]
+fn test_try_from_array_str() {
+    let strings = ["x", "y"];
+    let result = ArgumentList::try_from(strings);
+    assert!(result.is_ok());
 
-      #[test]
-      fn test_try_from_vec_str() {
-          let strings = vec!["a", "b*c", "sin(theta)"];
-          let result = ArgumentList::try_from(strings);
-          assert!(result.is_ok());
-          
-          let list = result.unwrap();
-          assert_eq!(list.len(), 3);
-          
-          let args = list.arguments();
-          for arg in args {
-              assert!(matches!(arg, Argument::Expression(_)));
-          }
-      }
+    let list = result.unwrap();
+    assert_eq!(list.len(), 2);
+}
 
-      #[test]
-      fn test_try_from_array_str() {
-          let strings = ["x", "y"];
-          let result = ArgumentList::try_from(strings);
-          assert!(result.is_ok());
-          
-          let list = result.unwrap();
-          assert_eq!(list.len(), 2);
-      }
+#[test]
+fn test_into_argument_list_from_vec_strings() {
+    let strings = vec!["x", "y"];
+    let result = strings.into_args(2);
+    assert!(result.is_ok());
 
-      #[test]
-      fn test_into_argument_list_from_vec_strings() {
-          let strings = vec!["x", "y"];
-          let result = strings.into_args(2);
-          assert!(result.is_ok());
-          
-          let list = result.unwrap();
-          assert_eq!(list.len(), 2);
-          
-          let args = list.arguments();
-          for arg in args {
-              assert!(matches!(arg, Argument::Expression(_)));
-          }
-      }
+    let list = result.unwrap();
+    assert_eq!(list.len(), 2);
 
-      #[test]
-      fn test_into_argument_list_from_vec_owned_strings() {
-          let strings = vec!["x + 1".to_string(), "y * 2".to_string()];
-          let result = strings.into_args(2);
-          assert!(result.is_ok());
-          
-          let list = result.unwrap();
-          assert_eq!(list.len(), 2);
-      }
+    let args = list.arguments();
+    for arg in args {
+        assert!(matches!(arg, Argument::Expression(_)));
+    }
+}
 
-      #[test]
-      fn test_into_argument_list_size_mismatch() {
-          let strings = vec!["x", "y"];
-          let result = strings.into_args(3); // Expected 3 but got 2
-          assert!(result.is_err());
-      }
+#[test]
+fn test_into_argument_list_from_vec_owned_strings() {
+    let strings = vec!["x + 1".to_string(), "y * 2".to_string()];
+    let result = strings.into_args(2);
+    assert!(result.is_ok());
 
+    let list = result.unwrap();
+    assert_eq!(list.len(), 2);
+}
+
+#[test]
+fn test_into_argument_list_size_mismatch() {
+    let strings = vec!["x", "y"];
+    let result = strings.into_args(3); // Expected 3 but got 2
+    assert!(result.is_err());
+}

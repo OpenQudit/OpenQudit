@@ -1,21 +1,11 @@
+use super::*;
 use crate::cycle::CycleIndex;
 use crate::instruction::{Instruction, InstructionId};
 use crate::operation::OpCode;
-use crate::operation::{CircuitOperation, DirectiveOperation, ExpressionOperation, Operation};
-use crate::param::ArgumentList;
-use crate::Result;
+use crate::operation::Operation;
 use crate::wire::Wire;
 use crate::wire::WireList;
-use qudit_core::Radices;
-use qudit_core::{ParamIndices, QuditSystem, ClassicalSystem};
-use qudit_expr::BraSystemExpression;
-use qudit_expr::KetExpression;
-use qudit_expr::KrausOperatorsExpression;
-use qudit_expr::TensorExpression;
-use qudit_expr::UnitaryExpression;
-use qudit_expr::UnitarySystemExpression;
-use super::*;
-
+use qudit_core::{ClassicalSystem, QuditSystem};
 
 impl QuditCircuit {
     /// Counts the amount of an operation in the circuit.
@@ -80,7 +70,7 @@ impl QuditCircuit {
     /// # use qudit_circuit::QuditCircuit;
     /// # use qudit_expr::library::PGate;
     /// let mut circuit = QuditCircuit::new([2, 2], [2, 2]);
-    /// let p_id = circuit.append(PGate(2), 0, None);
+    /// let p_id = circuit.append(PGate(2), 0, None).unwrap();
     /// assert!(circuit.is_valid_id(p_id));
     /// ```
     pub fn is_valid_id<P: Into<InstructionId>>(&self, inst_id: P) -> bool {
@@ -162,7 +152,10 @@ impl QuditCircuit {
     }
 
     /// Find first or create new available cycle and return its index
-    pub(super) fn find_available_or_append_cycle<W: AsRef<WireList>>(&mut self, wires: W) -> CycleIndex {
+    pub(super) fn find_available_or_append_cycle<W: AsRef<WireList>>(
+        &mut self,
+        wires: W,
+    ) -> CycleIndex {
         // Location validity implicitly checked in find_available_cycle
         if let Some(cycle_index) = self.find_available_cycle(wires) {
             cycle_index
@@ -201,12 +194,11 @@ impl QuditCircuit {
 
     //         todo!()
     //     }
-    
+
     /// Checks if a qudit is inactive
     pub fn is_qudit_inactive(&self, index: usize) -> bool {
         !self.front.contains_key(&Wire::quantum(index))
     }
-
 
     /// Remove the operation at `point` from the circuit
     pub fn remove(&mut self, inst_id: InstructionId) -> Option<Instruction> {
@@ -294,4 +286,3 @@ impl QuditCircuit {
         Some(inst)
     }
 }
-

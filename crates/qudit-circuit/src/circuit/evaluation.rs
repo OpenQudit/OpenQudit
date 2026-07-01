@@ -1,30 +1,12 @@
-use crate::cycle::CycleList;
-use crate::cycle::{CycleId, CycleIndex};
-use crate::instruction::{Instruction, InstructionId};
-use crate::operation::OpCode;
-use crate::operation::OperationSet;
-use crate::operation::{
-    CircuitOperation, DirectiveOperation, ExpressionOperation, OpKind, Operation,
-};
-use crate::Result;
-use crate::param::{Argument as ParameterEntry, ArgumentList, Parameter, ParameterId, ParameterVector};
-use crate::wire::Wire;
-use crate::wire::WireList;
-use qudit_core::Radices;
-use qudit_core::array::Tensor;
-use qudit_core::{
-    ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, ParamInfo, QuditSystem,
-};
-use qudit_expr::index::IndexDirection;
-use qudit_expr::{
-    BraSystemExpression, FUNCTION, KetExpression, KrausOperatorsExpression, TensorExpression,
-    UnitaryExpression, UnitarySystemExpression,
-};
-use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
-use rustc_hash::{FxHashMap, FxHashSet};
-use std::collections::HashMap;
 use super::*;
-
+use crate::Result;
+use crate::operation::{OpCode, OpKind, Operation};
+use crate::wire::WireList;
+use qudit_core::array::Tensor;
+use qudit_core::{ComplexScalar, HybridSystem, ParamIndices, ParamInfo};
+use qudit_expr::FUNCTION;
+use qudit_expr::index::IndexDirection;
+use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
 
 /// Evaluation
 impl QuditCircuit {
@@ -51,14 +33,11 @@ impl QuditCircuit {
         );
 
         for inst in self.iter() {
-            network = self.add_instruction_to_builder(
-                network, 
-                inst.op_code(), 
-                inst.wires(), 
-                inst.params(), 
-            ).expect("TODO");
+            network = self
+                .add_instruction_to_builder(network, inst.op_code(), inst.wires(), inst.params())
+                .expect("TODO");
         }
-       network 
+        network
     }
 
     fn add_instruction_to_builder(
@@ -68,10 +47,8 @@ impl QuditCircuit {
         wires: WireList,
         params: ParamIndices,
     ) -> Result<QuditCircuitTensorNetworkBuilder> {
-
         // Convert an expression operation to an tensor and add it to the network
         if op_code.kind() == OpKind::Expression {
-
             // Collect the current parameter information for this tensor.
             let param_indices = self.params.convert_ids_to_indices(params);
             let constant = param_indices
@@ -98,18 +75,17 @@ impl QuditCircuit {
             } else {
                 vec![]
             };
-            let batch_index_map: Vec<String> =
-            wires.dits().map(|id| id.to_string()).collect();
+            let batch_index_map: Vec<String> = wires.dits().map(|id| id.to_string()).collect();
             let tensor = QuditTensor::new(indices, op_code.id(), param_info);
             // println!("Adding new tensor {} to network builder with in qudits: {:?}; out qudits: {:?}, batch indices: {:?}", self.operations.name(inst.op_code()), input_index_map.clone(), output_index_map.clone(), batch_index_map.clone());
-            network =
-                network.prepend(tensor, input_index_map, output_index_map, batch_index_map);
-            
+            network = network.prepend(tensor, input_index_map, output_index_map, batch_index_map);
+
             Ok(network)
-        }
-        else
-        {
-            let op = self.operations.get(op_code).ok_or(crate::Error::MissingOperation(op_code))?;
+        } else {
+            let op = self
+                .operations
+                .get(op_code)
+                .ok_or(crate::Error::MissingOperation(op_code))?;
 
             match op {
                 Operation::Expression(_) => unreachable!("Already handled expressions."),
@@ -134,4 +110,3 @@ impl QuditCircuit {
         }
     }
 }
-

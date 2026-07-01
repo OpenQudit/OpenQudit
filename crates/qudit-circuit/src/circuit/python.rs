@@ -1,40 +1,24 @@
-use crate::cycle::CycleList;
-use crate::cycle::{CycleId, CycleIndex};
+use super::QuditCircuit;
+use crate::cycle::CycleIndex;
 use crate::instruction::{Instruction, InstructionId};
 use crate::operation::OpCode;
-use crate::operation::OperationSet;
-use crate::operation::{
-    CircuitOperation, DirectiveOperation, ExpressionOperation, OpKind, Operation,
-};
-use crate::param::{Argument as ParameterEntry, ArgumentList, Parameter, ParameterVector};
+use crate::operation::Operation;
+use crate::param::ArgumentList;
 use crate::wire::Wire;
 use crate::wire::WireList;
-use qudit_core::Radices;
+use qudit_core::QuditSystem;
 use qudit_core::array::Tensor;
-use qudit_core::{
-    ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, ParamInfo, QuditSystem,
-};
-use qudit_expr::index::IndexDirection;
-use qudit_expr::{
-    BraSystemExpression, FUNCTION, KetExpression, KrausOperatorsExpression, TensorExpression,
-    UnitaryExpression, UnitarySystemExpression,
-};
-use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
-use rustc_hash::{FxHashMap, FxHashSet};
 use std::collections::HashMap;
-use super::QuditCircuit;
 
-
-
+use crate::instruction::PyInstructionReference;
 use crate::python::PyCircuitRegistrar;
-use numpy::ndarray::ArrayViewMut3;
 use numpy::PyArray3;
 use numpy::PyArrayMethods;
+use numpy::ndarray::ArrayViewMut3;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyTuple;
 use qudit_core::c64;
-use crate::instruction::PyInstructionReference;
 
 #[pyclass]
 #[pyo3(name = "ParameterVector")]
@@ -108,7 +92,7 @@ impl PyQuditCircuitIterator {
         slf.inner_index += 1;
         Ok(Some(PyInstructionReference::new(
             InstructionId::new(cycle_id, inner_id),
-            slf.circuit_ref.clone_ref(py)
+            slf.circuit_ref.clone_ref(py),
         )))
     }
 }
@@ -130,7 +114,7 @@ fn parse_int_or_iterable<'py>(input: &Bound<'py, PyAny>) -> PyResult<Vec<usize>>
     }
 }
 
-#[pyclass]
+#[pyclass(from_py_object)]
 #[pyo3(name = "QuditCircuit")]
 #[derive(Clone)]
 pub struct PyQuditCircuit {
@@ -431,7 +415,7 @@ impl PyQuditCircuit {
     // For this, might need to add a new type of Parameter => Frozen({value: Constant, name:
     // Option<String>}), when a named parameter is frozen, the name is stored for future thaws
     // Also, if I add an expression with the same parameter, it should also be frozen.
-    
+
     // def group(*instructions) -> InstructionReference:
     //      instructions: List[Union[Into<InstructionId> | InstructionReference]] |
     //      List[List[Union<Into<InstructionId> | InstructionReference]] | Into<CircuitRegion>
@@ -472,9 +456,9 @@ impl PyQuditCircuit {
     //
     // save
     // to
-    
+
     #[staticmethod]
-    pub fn load(py: Python<'_>, path: String) -> PyResult<PyQuditCircuit> {
+    pub fn load(_py: Python<'_>, path: String) -> PyResult<PyQuditCircuit> {
         let circuit = QuditCircuit::load(path.as_str())
             .map_err(|e| PyTypeError::new_err(format!("Failed to load circuit: {}", e)))?;
         Ok(PyQuditCircuit { circuit })
@@ -522,4 +506,3 @@ fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 inventory::submit!(PyCircuitRegistrar { func: register });
-

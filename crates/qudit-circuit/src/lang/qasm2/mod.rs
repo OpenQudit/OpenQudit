@@ -21,19 +21,17 @@ use qudit_expr::library::YGate;
 use qudit_expr::library::ZGate;
 use qudit_expr::library::ZMeasurement;
 
-use crate::operation::ExpressionOperation;
 use crate::Operation;
-use crate::param::ArgumentList;
 /// Parses an OpenQASM 2.0 program into a `QuditCircuit`.
 ///
 /// # OpenQASM 2.0 Grammar (Backus-Naur Form)
-/// 
+///
 /// ```text
 /// <mainprogram> ::= OPENQASM <real>; <program>
-/// 
+///
 /// <program>     ::= <statement>
 ///                 | <program> <statement>
-/// 
+///
 /// <statement>   ::= <decl>
 ///                 | <gatedecl> <goplist> }
 ///                 | <gatedecl> }
@@ -44,68 +42,68 @@ use crate::param::ArgumentList;
 ///                 | if ( <id> == <nninteger> ) <qop>
 ///                 | include " <id> " ;
 ///                 | barrier <anylist> ;
-/// 
-/// <decl>        ::= qreg <id> [ <nninteger> ] ; 
+///
+/// <decl>        ::= qreg <id> [ <nninteger> ] ;
 ///                 | creg <id> [ <nninteger> ] ;
-/// 
+///
 /// <gatedecl>    ::= gate <id> <idlist> {
 ///                 | gate <id> ( ) <idlist> {
 ///                 | gate <id> ( <idlist> ) <idlist> {
-/// 
+///
 /// <goplist>     ::= <uop>
 ///                 | barrier <idlist> ;
 ///                 | <goplist> <uop>
 ///                 | <goplist> barrier <idlist> ;
-/// 
+///
 /// <qop>         ::= <uop>
 ///                 | measure <argument> -> <argument> ;
 ///                 | reset <argument> ;
-/// 
+///
 /// <uop>         ::= U ( <explist> ) <argument> ;
 ///                 | CX <argument> , <argument> ;
 ///                 | <id> <anylist> ;
 ///                 | <id> () <anylist> ;
 ///                 | <id> ( <explist> ) <anylist> ;
-/// 
+///
 /// <anylist>     ::= <idlist>
 ///                 | <mixedlist>
-/// 
+///
 /// <idlist>      ::= <id>
 ///                 | <idlist> , <id>
-/// 
-/// <mixedlist>   ::= <id> [ <nninteger> ] 
-///                 | <mixedlist> , <id> 
-///                 | <mixedlist> , <id> [ <nninteger> ] 
+///
+/// <mixedlist>   ::= <id> [ <nninteger> ]
+///                 | <mixedlist> , <id>
+///                 | <mixedlist> , <id> [ <nninteger> ]
 ///                 | <idlist> , <id> [ <nninteger> ]
-/// 
-/// <argument>    ::= <id> 
+///
+/// <argument>    ::= <id>
 ///                 | <id> [ <nninteger> ]
-/// 
-/// <explist>     ::= <exp> 
+///
+/// <explist>     ::= <exp>
 ///                 | <explist> , <exp>
-/// 
-/// <exp>         ::= <real> 
-///                 | <nninteger> 
-///                 | pi 
-///                 | <id> 
-///                 | <exp> + <exp> 
-///                 | <exp> - <exp> 
-///                 | <exp> * <exp> 
-///                 | <exp> / <exp> 
-///                 | - <exp> 
-///                 | <exp> ^ <exp> 
-///                 | ( <exp> ) 
+///
+/// <exp>         ::= <real>
+///                 | <nninteger>
+///                 | pi
+///                 | <id>
+///                 | <exp> + <exp>
+///                 | <exp> - <exp>
+///                 | <exp> * <exp>
+///                 | <exp> / <exp>
+///                 | - <exp>
+///                 | <exp> ^ <exp>
+///                 | ( <exp> )
 ///                 | <unaryop> ( <exp> )
-/// 
+///
 /// <unaryop>     ::= sin | cos | tan | exp | ln | sqrt
 /// ```
-/// 
+///
 /// # Lexical Tokens (regular expressions):
-/// 
+///
 /// ```text
 /// <id>          ::= [a-z][A-Za-z0-9_]*
 /// <real>        ::= ([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)([eE][-+]?[0-9]+)?
-/// <nninteger>   ::= [1-9]+[0-9]*|0 
+/// <nninteger>   ::= [1-9]+[0-9]*|0
 /// ```
 ///
 /// # Implementation Notes
@@ -113,10 +111,11 @@ use crate::param::ArgumentList;
 /// This lexer intentionally accepts the following super-sets of the strict grammar:
 /// - `<nninteger>`: leading zeros (e.g., `007`) are accepted and parsed as their decimal value.
 /// - `<real>`: bare exponent notation without a decimal point (e.g., `1e5`) is accepted.
-/// - `<id>`: identifiers may start with any alphabetic character or `_`, not just `[a-z]`. 
-
+/// - `<id>`: identifiers may start with any alphabetic character or `_`, not just `[a-z]`.
 use crate::QuditCircuit;
 use crate::Result;
+use crate::operation::ExpressionOperation;
+use crate::param::ArgumentList;
 
 use std::collections::HashMap;
 use std::iter::Peekable;
@@ -214,7 +213,7 @@ pub enum Expr {
     Pi,
     Id(String),
     BinaryOp(Box<Expr>, BinaryOperator, Box<Expr>), // (+, -, *, /)
-    UnaryOp(UnaryOperator, Box<Expr>),             // sin, cos, etc.
+    UnaryOp(UnaryOperator, Box<Expr>),              // sin, cos, etc.
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -261,22 +260,31 @@ pub enum Token {
     // Logic & Control
     Arrow, // ->
     EqEq,  // ==
-    
+
     // Binary Operators
-    Plus, Minus, Star, Slash, Caret,
-    
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Caret,
+
     // Unary Math Functions
-    Sin, Cos, Tan, Exp, Ln, Sqrt,
+    Sin,
+    Cos,
+    Tan,
+    Exp,
+    Ln,
+    Sqrt,
 
     // Data
     Ident(String),
     StringLit(String),
     Int(usize),
     Real(f64),
-    
+
     // Punctuation: (, ), [, ], {, }, ;, ,
-    Punct(char), 
-    
+    Punct(char),
+
     Eof,
 }
 
@@ -287,7 +295,10 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
     pub fn new(source: &'a str) -> Self {
-        Lexer { chars: source.chars().peekable(), line: 1 }
+        Lexer {
+            chars: source.chars().peekable(),
+            line: 1,
+        }
     }
 
     /// Advances the iterator and tracks newlines for error reporting.
@@ -300,7 +311,10 @@ impl<'a> Lexer<'a> {
     }
 
     fn lex_error(&self, message: impl Into<String>) -> crate::Error {
-        crate::Error::LanguageError { message: message.into(), lineno: self.line }
+        crate::Error::LanguageError {
+            message: message.into(),
+            lineno: self.line,
+        }
     }
 
     fn skip_whitespace(&mut self) {
@@ -358,7 +372,7 @@ impl<'a> Lexer<'a> {
                     loop {
                         match self.advance() {
                             Some('"') => break,
-                            Some(nc)  => s.push(nc),
+                            Some(nc) => s.push(nc),
                             None => return Err(self.lex_error("unterminated string literal")),
                         }
                     }
@@ -367,31 +381,35 @@ impl<'a> Lexer<'a> {
                 _ if c.is_alphabetic() || c == '_' => {
                     let mut s = String::new();
                     s.push(c);
-                    while self.chars.peek().is_some_and(|&nc| nc.is_alphanumeric() || nc == '_') {
+                    while self
+                        .chars
+                        .peek()
+                        .is_some_and(|&nc| nc.is_alphanumeric() || nc == '_')
+                    {
                         // peek() confirmed Some, so advance() is infallible here
                         s.push(self.advance().expect("peek guaranteed Some"));
                     }
                     return Ok(match s.as_str() {
                         "OPENQASM" => Token::OpenQasm,
-                        "include"  => Token::Include,
-                        "qreg"     => Token::Qreg,
-                        "creg"     => Token::Creg,
-                        "gate"     => Token::Gate,
-                        "opaque"   => Token::Opaque,
-                        "if"       => Token::If,
-                        "barrier"  => Token::Barrier,
-                        "measure"  => Token::Measure,
-                        "reset"    => Token::Reset,
-                        "U"        => Token::U,
-                        "CX"       => Token::CX,
-                        "pi"       => Token::Pi,
-                        "sin"      => Token::Sin,
-                        "cos"      => Token::Cos,
-                        "tan"      => Token::Tan,
-                        "exp"      => Token::Exp,
-                        "ln"       => Token::Ln,
-                        "sqrt"     => Token::Sqrt,
-                        _          => Token::Ident(s),
+                        "include" => Token::Include,
+                        "qreg" => Token::Qreg,
+                        "creg" => Token::Creg,
+                        "gate" => Token::Gate,
+                        "opaque" => Token::Opaque,
+                        "if" => Token::If,
+                        "barrier" => Token::Barrier,
+                        "measure" => Token::Measure,
+                        "reset" => Token::Reset,
+                        "U" => Token::U,
+                        "CX" => Token::CX,
+                        "pi" => Token::Pi,
+                        "sin" => Token::Sin,
+                        "cos" => Token::Cos,
+                        "tan" => Token::Tan,
+                        "exp" => Token::Exp,
+                        "ln" => Token::Ln,
+                        "sqrt" => Token::Sqrt,
+                        _ => Token::Ident(s),
                     });
                 }
                 _ if c.is_ascii_digit() || c == '.' => {
@@ -400,10 +418,15 @@ impl<'a> Lexer<'a> {
                     let mut is_real = c == '.';
 
                     while let Some(&nc) = self.chars.peek() {
-                        if nc.is_ascii_digit() || nc == '.' || nc == 'e' || nc == 'E' ||
-                           ((nc == '+' || nc == '-') && (s.ends_with('e') || s.ends_with('E')))
+                        if nc.is_ascii_digit()
+                            || nc == '.'
+                            || nc == 'e'
+                            || nc == 'E'
+                            || ((nc == '+' || nc == '-') && (s.ends_with('e') || s.ends_with('E')))
                         {
-                            if nc == '.' || nc == 'e' || nc == 'E' { is_real = true; }
+                            if nc == '.' || nc == 'e' || nc == 'E' {
+                                is_real = true;
+                            }
                             // peek() confirmed Some, so advance() is infallible here
                             s.push(self.advance().expect("peek guaranteed Some"));
                         } else {
@@ -441,7 +464,10 @@ struct Parser<'a> {
 
 impl<'a> Parser<'a> {
     fn new(source: &'a str) -> Self {
-        Parser { lexer: Lexer::new(source), peeked: None }
+        Parser {
+            lexer: Lexer::new(source),
+            peeked: None,
+        }
     }
 
     /// Returns a clone of the next token without consuming it.
@@ -461,7 +487,10 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_error(&self, message: impl Into<String>) -> crate::Error {
-        crate::Error::LanguageError { message: message.into(), lineno: self.lexer.line }
+        crate::Error::LanguageError {
+            message: message.into(),
+            lineno: self.lexer.line,
+        }
     }
 
     fn expect_punct(&mut self, ch: char) -> Result<()> {
@@ -497,12 +526,15 @@ impl<'a> Parser<'a> {
         }
         let version = match self.advance()? {
             Token::Real(v) => v,
-            Token::Int(n)  => n as f64,
+            Token::Int(n) => n as f64,
             t => return Err(self.parse_error(format!("expected version number, got {:?}", t))),
         };
         self.expect_punct(';')?;
         let statements = self.parse_body()?;
-        Ok(QASMProgram { version, statements })
+        Ok(QASMProgram {
+            version,
+            statements,
+        })
     }
 
     /// `<program> ::= <statement>*`
@@ -529,10 +561,10 @@ impl<'a> Parser<'a> {
         let line = self.lexer.line;
         let kind = match self.peek()? {
             Token::Qreg | Token::Creg => self.parse_decl()?,
-            Token::Gate               => self.parse_gate_decl_stmt()?,
-            Token::Opaque             => self.parse_opaque()?,
-            Token::If                 => self.parse_if()?,
-            Token::Include            => self.parse_include()?,
+            Token::Gate => self.parse_gate_decl_stmt()?,
+            Token::Opaque => self.parse_opaque()?,
+            Token::If => self.parse_if()?,
+            Token::Include => self.parse_include()?,
             Token::Barrier => {
                 self.advance()?;
                 let args = self.parse_anylist()?;
@@ -547,34 +579,51 @@ impl<'a> Parser<'a> {
     /// `<decl> ::= qreg <id> [ <nninteger> ] ; | creg <id> [ <nninteger> ] ;`
     fn parse_decl(&mut self) -> Result<QASMStatement> {
         let is_qreg = matches!(self.advance()?, Token::Qreg);
-        let name    = self.expect_ident()?;
+        let name = self.expect_ident()?;
         self.expect_punct('[')?;
         let size = self.expect_int()?;
         self.expect_punct(']')?;
         self.expect_punct(';')?;
-        if is_qreg { Ok(QASMStatement::QReg(name, size)) } else { Ok(QASMStatement::CReg(name, size)) }
+        if is_qreg {
+            Ok(QASMStatement::QReg(name, size))
+        } else {
+            Ok(QASMStatement::CReg(name, size))
+        }
     }
 
     /// `<gatedecl> <goplist> } | <gatedecl> }`
     fn parse_gate_decl_stmt(&mut self) -> Result<QASMStatement> {
         self.advance()?; // consume 'gate'
-        let name   = self.expect_ident()?;
+        let name = self.expect_ident()?;
         let params = self.parse_optional_param_idlist()?;
-        let qargs  = self.parse_idlist()?;
+        let qargs = self.parse_idlist()?;
         self.expect_punct('{')?;
-        let body = if self.peek()? == Token::Punct('}') { vec![] } else { self.parse_goplist()? };
+        let body = if self.peek()? == Token::Punct('}') {
+            vec![]
+        } else {
+            self.parse_goplist()?
+        };
         self.expect_punct('}')?;
-        Ok(QASMStatement::GateDecl(QASMGateDecl { name, params, qargs, body }))
+        Ok(QASMStatement::GateDecl(QASMGateDecl {
+            name,
+            params,
+            qargs,
+            body,
+        }))
     }
 
     /// `opaque <id> <idlist> ; | opaque <id> () <idlist> ; | opaque <id> (<idlist>) <idlist> ;`
     fn parse_opaque(&mut self) -> Result<QASMStatement> {
         self.advance()?; // consume 'opaque'
-        let name   = self.expect_ident()?;
+        let name = self.expect_ident()?;
         let params = self.parse_optional_param_idlist()?;
-        let qargs  = self.parse_idlist()?;
+        let qargs = self.parse_idlist()?;
         self.expect_punct(';')?;
-        Ok(QASMStatement::OpaqueDecl { name, params, qargs })
+        Ok(QASMStatement::OpaqueDecl {
+            name,
+            params,
+            qargs,
+        })
     }
 
     /// Parses an optional `( <idlist> )` or `()` parameter list, returning the identifiers.
@@ -584,7 +633,11 @@ impl<'a> Parser<'a> {
             return Ok(vec![]);
         }
         self.advance()?; // consume '('
-        let params = if self.peek()? == Token::Punct(')') { vec![] } else { self.parse_idlist()? };
+        let params = if self.peek()? == Token::Punct(')') {
+            vec![]
+        } else {
+            self.parse_idlist()?
+        };
         self.expect_punct(')')?;
         Ok(params)
     }
@@ -612,7 +665,10 @@ impl<'a> Parser<'a> {
                 self.expect_punct(';')?;
                 Ok(QASMStatement::Include(s))
             }
-            t => Err(self.parse_error(format!("expected string literal after 'include', got {:?}", t))),
+            t => Err(self.parse_error(format!(
+                "expected string literal after 'include', got {:?}",
+                t
+            ))),
         }
     }
 
@@ -628,7 +684,8 @@ impl<'a> Parser<'a> {
                 Token::Punct('}') | Token::Eof => break,
                 Token::Barrier => {
                     self.advance()?;
-                    let args = self.parse_idlist()?
+                    let args = self
+                        .parse_idlist()?
                         .into_iter()
                         .map(Argument::Register)
                         .collect();
@@ -679,34 +736,43 @@ impl<'a> Parser<'a> {
                 self.expect_punct('(')?;
                 let mut params = self.parse_explist()?;
                 if params.len() != 3 {
-                    return Err(self.parse_error(
-                        format!("U gate requires exactly 3 parameters, got {}", params.len()),
-                    ));
+                    return Err(self.parse_error(format!(
+                        "U gate requires exactly 3 parameters, got {}",
+                        params.len()
+                    )));
                 }
                 self.expect_punct(')')?;
                 let lambda = params.pop().unwrap();
-                let phi    = params.pop().unwrap();
-                let theta  = params.pop().unwrap();
+                let phi = params.pop().unwrap();
+                let theta = params.pop().unwrap();
                 let target = self.parse_argument()?;
                 self.expect_punct(';')?;
-                Ok(Uop::U { theta, phi, lambda, target })
+                Ok(Uop::U {
+                    theta,
+                    phi,
+                    lambda,
+                    target,
+                })
             }
             Token::CX => {
                 self.advance()?;
                 let control = self.parse_argument()?;
                 self.expect_punct(',')?;
-                let target  = self.parse_argument()?;
+                let target = self.parse_argument()?;
                 self.expect_punct(';')?;
                 Ok(Uop::CX { control, target })
             }
             Token::Ident(_) => {
-                let name   = self.expect_ident()?;
+                let name = self.expect_ident()?;
                 let params = self.parse_optional_param_explist()?;
-                let args   = self.parse_anylist()?;
+                let args = self.parse_anylist()?;
                 self.expect_punct(';')?;
                 Ok(Uop::Custom { name, params, args })
             }
-            t => Err(self.parse_error(format!("expected gate operation (U, CX, or identifier), got {:?}", t))),
+            t => Err(self.parse_error(format!(
+                "expected gate operation (U, CX, or identifier), got {:?}",
+                t
+            ))),
         }
     }
 
@@ -717,7 +783,11 @@ impl<'a> Parser<'a> {
             return Ok(vec![]);
         }
         self.advance()?; // consume '('
-        let params = if self.peek()? == Token::Punct(')') { vec![] } else { self.parse_explist()? };
+        let params = if self.peek()? == Token::Punct(')') {
+            vec![]
+        } else {
+            self.parse_explist()?
+        };
         self.expect_punct(')')?;
         Ok(params)
     }
@@ -784,9 +854,9 @@ impl<'a> Parser<'a> {
         let mut lhs = self.parse_term()?;
         loop {
             let op = match self.peek()? {
-                Token::Plus  => BinaryOperator::Plus,
+                Token::Plus => BinaryOperator::Plus,
                 Token::Minus => BinaryOperator::Minus,
-                _            => break,
+                _ => break,
             };
             self.advance()?;
             lhs = Expr::BinaryOp(Box::new(lhs), op, Box::new(self.parse_term()?));
@@ -799,9 +869,9 @@ impl<'a> Parser<'a> {
         let mut lhs = self.parse_power()?;
         loop {
             let op = match self.peek()? {
-                Token::Star  => BinaryOperator::Multiply,
+                Token::Star => BinaryOperator::Multiply,
                 Token::Slash => BinaryOperator::Divide,
-                _            => break,
+                _ => break,
             };
             self.advance()?;
             lhs = Expr::BinaryOp(Box::new(lhs), op, Box::new(self.parse_power()?));
@@ -814,7 +884,11 @@ impl<'a> Parser<'a> {
         let base = self.parse_exp_atom()?;
         if self.peek()? == Token::Caret {
             self.advance()?;
-            Ok(Expr::BinaryOp(Box::new(base), BinaryOperator::Power, Box::new(self.parse_power()?)))
+            Ok(Expr::BinaryOp(
+                Box::new(base),
+                BinaryOperator::Power,
+                Box::new(self.parse_power()?),
+            ))
         } else {
             Ok(base)
         }
@@ -853,16 +927,15 @@ impl<'a> Parser<'a> {
                 Ok(Expr::Id(s))
             }
             // Named unary math functions: `<unaryop> ( <exp> )`
-            Token::Sin | Token::Cos | Token::Tan
-            | Token::Exp | Token::Ln | Token::Sqrt => {
+            Token::Sin | Token::Cos | Token::Tan | Token::Exp | Token::Ln | Token::Sqrt => {
                 let op = match self.advance()? {
-                    Token::Sin  => UnaryOperator::Sin,
-                    Token::Cos  => UnaryOperator::Cos,
-                    Token::Tan  => UnaryOperator::Tan,
-                    Token::Exp  => UnaryOperator::Exp,
-                    Token::Ln   => UnaryOperator::Ln,
+                    Token::Sin => UnaryOperator::Sin,
+                    Token::Cos => UnaryOperator::Cos,
+                    Token::Tan => UnaryOperator::Tan,
+                    Token::Exp => UnaryOperator::Exp,
+                    Token::Ln => UnaryOperator::Ln,
                     Token::Sqrt => UnaryOperator::Sqrt,
-                    _           => unreachable!(),
+                    _ => unreachable!(),
                 };
                 self.expect_punct('(')?;
                 let inner = self.parse_exp()?;
@@ -891,18 +964,19 @@ fn resolve_stmts(stmts: Vec<QASMParsedStatement>) -> Result<Vec<QASMParsedStatem
                         out.extend(resolve_stmts(included)?);
                     }
                     Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                    Err(e) => return Err(crate::Error::LanguageError {
-                        message: format!("failed to read include '{}': {}", path, e),
-                        lineno: stmt.line,
-                    }),
+                    Err(e) => {
+                        return Err(crate::Error::LanguageError {
+                            message: format!("failed to read include '{}': {}", path, e),
+                            lineno: stmt.line,
+                        });
+                    }
                 }
             } else {
-                let source = std::fs::read_to_string(&path).map_err(|e| {
-                    crate::Error::LanguageError {
+                let source =
+                    std::fs::read_to_string(&path).map_err(|e| crate::Error::LanguageError {
                         message: format!("failed to read include '{}': {}", path, e),
                         lineno: stmt.line,
-                    }
-                })?;
+                    })?;
                 let included = Parser::new(&source).parse_body()?;
                 out.extend(resolve_stmts(included)?);
             }
@@ -922,26 +996,34 @@ fn resolve_stmts(stmts: Vec<QASMParsedStatement>) -> Result<Vec<QASMParsedStatem
 ///   Nested includes are resolved depth-first.
 fn resolve_includes(program: QASMProgram) -> Result<QASMProgram> {
     let statements = resolve_stmts(program.statements)?;
-    Ok(QASMProgram { version: program.version, statements })
+    Ok(QASMProgram {
+        version: program.version,
+        statements,
+    })
 }
 
 enum GateBody {
-    Circ(QuditCircuit),
+    Circ(Box<QuditCircuit>),
     Op(Operation),
 }
 
-
-fn build_default_gate_table() -> HashMap<String, GateBody> {
+fn build_default_gate_table() -> Result<HashMap<String, GateBody>> {
     let mut gate_table = HashMap::new();
     // Default QASM gates
     gate_table.insert("U".into(), GateBody::Op(U3Gate().into()));
-    gate_table.insert("CX".into(), GateBody::Op(Controlled(XGate(2), [2].into(), None).into()));
+    gate_table.insert(
+        "CX".into(),
+        GateBody::Op(Controlled(XGate(2), [2].into(), None).into()),
+    );
 
     // qelib1.inc gates
     gate_table.insert("u3".into(), GateBody::Op(U3Gate().into()));
     gate_table.insert("u2".into(), GateBody::Op(U2Gate().into()));
     gate_table.insert("u1".into(), GateBody::Op(U1Gate().into()));
-    gate_table.insert("cx".into(), GateBody::Op(Controlled(XGate(2), [2].into(), None).into()));
+    gate_table.insert(
+        "cx".into(),
+        GateBody::Op(Controlled(XGate(2), [2].into(), None).into()),
+    );
     gate_table.insert("id".into(), GateBody::Op(IGate(2).into()));
     gate_table.insert("u0".into(), GateBody::Op(IGate(2).into()));
     gate_table.insert("u".into(), GateBody::Op(U3Gate().into()));
@@ -960,67 +1042,124 @@ fn build_default_gate_table() -> HashMap<String, GateBody> {
     gate_table.insert("sx".into(), GateBody::Op(SXGate().into()));
     gate_table.insert("sxdg".into(), GateBody::Op(Dagger(SXGate()).into()));
     gate_table.insert("swap".into(), GateBody::Op(SwapGate(2).into()));
-    gate_table.insert("cz".into(), GateBody::Op(Controlled(ZGate(2), [2].into(), None).into()));
-    gate_table.insert("cy".into(), GateBody::Op(Controlled(YGate(2), [2].into(), None).into()));
-    gate_table.insert("ch".into(), GateBody::Op(Controlled(HGate(2), [2].into(), None).into()));
-    gate_table.insert("ccx".into(), GateBody::Op(Controlled(XGate(2), [2, 2].into(), None).into()));
-    gate_table.insert("cswap".into(), GateBody::Op(Controlled(SwapGate(2), [2].into(), None).into()));
-    gate_table.insert("crx".into(), GateBody::Op(Controlled(RXGate(), [2].into(), None).into()));
-    gate_table.insert("cry".into(), GateBody::Op(Controlled(RYGate(), [2].into(), None).into()));
-    gate_table.insert("crz".into(), GateBody::Op(Controlled(RZGate(), [2].into(), None).into()));
-    gate_table.insert("cu1".into(), GateBody::Op(Controlled(U1Gate(), [2].into(), None).into()));
-    gate_table.insert("cp".into(), GateBody::Op(Controlled(PGate(2), [2].into(), None).into()));
-    gate_table.insert("cu3".into(), GateBody::Op(Controlled(U3Gate(), [2].into(), None).into()));
-    gate_table.insert("csx".into(), GateBody::Op(Controlled(SXGate(), [2].into(), None).into()));
-    gate_table.insert("cu".into(), GateBody::Op(Controlled(U3Gate(), [2].into(), None).into()));
+    gate_table.insert(
+        "cz".into(),
+        GateBody::Op(Controlled(ZGate(2), [2].into(), None).into()),
+    );
+    gate_table.insert(
+        "cy".into(),
+        GateBody::Op(Controlled(YGate(2), [2].into(), None).into()),
+    );
+    gate_table.insert(
+        "ch".into(),
+        GateBody::Op(Controlled(HGate(2), [2].into(), None).into()),
+    );
+    gate_table.insert(
+        "ccx".into(),
+        GateBody::Op(Controlled(XGate(2), [2, 2].into(), None).into()),
+    );
+    gate_table.insert(
+        "cswap".into(),
+        GateBody::Op(Controlled(SwapGate(2), [2].into(), None).into()),
+    );
+    gate_table.insert(
+        "crx".into(),
+        GateBody::Op(Controlled(RXGate(), [2].into(), None).into()),
+    );
+    gate_table.insert(
+        "cry".into(),
+        GateBody::Op(Controlled(RYGate(), [2].into(), None).into()),
+    );
+    gate_table.insert(
+        "crz".into(),
+        GateBody::Op(Controlled(RZGate(), [2].into(), None).into()),
+    );
+    gate_table.insert(
+        "cu1".into(),
+        GateBody::Op(Controlled(U1Gate(), [2].into(), None).into()),
+    );
+    gate_table.insert(
+        "cp".into(),
+        GateBody::Op(Controlled(PGate(2), [2].into(), None).into()),
+    );
+    gate_table.insert(
+        "cu3".into(),
+        GateBody::Op(Controlled(U3Gate(), [2].into(), None).into()),
+    );
+    gate_table.insert(
+        "csx".into(),
+        GateBody::Op(Controlled(SXGate(), [2].into(), None).into()),
+    );
+    gate_table.insert(
+        "cu".into(),
+        GateBody::Op(Controlled(U3Gate(), [2].into(), None).into()),
+    );
     gate_table.insert("rxx".into(), GateBody::Op(RXXGate().into()));
     gate_table.insert("rzz".into(), GateBody::Op(RZZGate().into()));
-    gate_table.insert("c3x".into(), GateBody::Op(Controlled(XGate(2), [2, 2].into(), None).into()));
-    gate_table.insert("c4x".into(), GateBody::Op(Controlled(XGate(2), [2, 2, 2].into(), None).into()));
-    gate_table.insert("c3sqrtx".into(), GateBody::Op(Controlled(SXGate(), [2, 2].into(), None).into()));
+    gate_table.insert(
+        "c3x".into(),
+        GateBody::Op(Controlled(XGate(2), [2, 2].into(), None).into()),
+    );
+    gate_table.insert(
+        "c4x".into(),
+        GateBody::Op(Controlled(XGate(2), [2, 2, 2].into(), None).into()),
+    );
+    gate_table.insert(
+        "c3sqrtx".into(),
+        GateBody::Op(Controlled(SXGate(), [2, 2].into(), None).into()),
+    );
 
     // rccx
     let cx = Controlled(XGate(2), [2].into(), None);
     let mut rccx_circuit = QuditCircuit::pure([2, 2, 2]);
-    rccx_circuit.append(U2Gate(), [2], ["0", "pi"]);
-    rccx_circuit.append(U1Gate(), [2], ["pi/4"]);
-    rccx_circuit.append(cx.clone(), [1, 2], None);
-    rccx_circuit.append(U1Gate(), [2], ["-pi/4"]);
-    rccx_circuit.append(cx.clone(), [0, 2], None);
-    rccx_circuit.append(U1Gate(), [2], ["pi/4"]);
-    rccx_circuit.append(cx.clone(), [1, 2], None);
-    rccx_circuit.append(U1Gate(), [2], ["-pi/4"]);
-    rccx_circuit.append(U2Gate(), [2], ["0", "pi"]);
-    gate_table.insert("rccx".into(), GateBody::Circ(rccx_circuit));
+    rccx_circuit.append(U2Gate(), [2], ["0", "pi"])?;
+    rccx_circuit.append(U1Gate(), [2], ["pi/4"])?;
+    rccx_circuit.append(cx.clone(), [1, 2], None)?;
+    rccx_circuit.append(U1Gate(), [2], ["-pi/4"])?;
+    rccx_circuit.append(cx.clone(), [0, 2], None)?;
+    rccx_circuit.append(U1Gate(), [2], ["pi/4"])?;
+    rccx_circuit.append(cx.clone(), [1, 2], None)?;
+    rccx_circuit.append(U1Gate(), [2], ["-pi/4"])?;
+    rccx_circuit.append(U2Gate(), [2], ["0", "pi"])?;
+    gate_table.insert("rccx".into(), GateBody::Circ(Box::new(rccx_circuit)));
 
     // rc3x
     let mut rc3x_circuit = QuditCircuit::pure([2, 2, 2, 2]);
-    rc3x_circuit.append(U2Gate(), [3], ["0", "pi"]);
-    rc3x_circuit.append(U1Gate(), [3], ["pi/4"]);
-    rc3x_circuit.append(cx.clone(), [2, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["-pi/4"]);
-    rc3x_circuit.append(U2Gate(), [3], ["0", "pi"]);
-    rc3x_circuit.append(cx.clone(), [0, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["pi/4"]);
-    rc3x_circuit.append(cx.clone(), [1, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["-pi/4"]);
-    rc3x_circuit.append(cx.clone(), [0, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["pi/4"]);
-    rc3x_circuit.append(cx.clone(), [1, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["-pi/4"]);
-    rc3x_circuit.append(U2Gate(), [3], ["0", "pi"]);
-    rc3x_circuit.append(U1Gate(), [3], ["pi/4"]);
-    rc3x_circuit.append(cx.clone(), [2, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["-pi/4"]);
-    rc3x_circuit.append(U2Gate(), [3], ["0", "pi"]);
-    gate_table.insert("rc3x".into(), GateBody::Circ(rc3x_circuit));
+    rc3x_circuit.append(U2Gate(), [3], ["0", "pi"])?;
+    rc3x_circuit.append(U1Gate(), [3], ["pi/4"])?;
+    rc3x_circuit.append(cx.clone(), [2, 3], None)?;
+    rc3x_circuit.append(U1Gate(), [3], ["-pi/4"])?;
+    rc3x_circuit.append(U2Gate(), [3], ["0", "pi"])?;
+    rc3x_circuit.append(cx.clone(), [0, 3], None)?;
+    rc3x_circuit.append(U1Gate(), [3], ["pi/4"])?;
+    rc3x_circuit.append(cx.clone(), [1, 3], None)?;
+    rc3x_circuit.append(U1Gate(), [3], ["-pi/4"])?;
+    rc3x_circuit.append(cx.clone(), [0, 3], None)?;
+    rc3x_circuit.append(U1Gate(), [3], ["pi/4"])?;
+    rc3x_circuit.append(cx.clone(), [1, 3], None)?;
+    rc3x_circuit.append(U1Gate(), [3], ["-pi/4"])?;
+    rc3x_circuit.append(U2Gate(), [3], ["0", "pi"])?;
+    rc3x_circuit.append(U1Gate(), [3], ["pi/4"])?;
+    rc3x_circuit.append(cx.clone(), [2, 3], None)?;
+    rc3x_circuit.append(U1Gate(), [3], ["-pi/4"])?;
+    rc3x_circuit.append(U2Gate(), [3], ["0", "pi"])?;
+    gate_table.insert("rc3x".into(), GateBody::Circ(Box::new(rc3x_circuit)));
 
     // Directives
-    gate_table.insert("barrier".into(), GateBody::Op(Operation::Directive(crate::operation::DirectiveOperation::Barrier)));
-    gate_table.insert("Barrier".into(), GateBody::Op(Operation::Directive(crate::operation::DirectiveOperation::Barrier)));
+    gate_table.insert(
+        "barrier".into(),
+        GateBody::Op(Operation::Directive(
+            crate::operation::DirectiveOperation::Barrier,
+        )),
+    );
+    gate_table.insert(
+        "Barrier".into(),
+        GateBody::Op(Operation::Directive(
+            crate::operation::DirectiveOperation::Barrier,
+        )),
+    );
 
-    // Return
-    gate_table
+    Ok(gate_table)
 }
 
 /// Serialises an [`Expr`] node to a string. Used internally as a bridge for
@@ -1028,28 +1167,28 @@ fn build_default_gate_table() -> HashMap<String, GateBody> {
 /// accessible. Prefer [`expr_to_param_argument`] for all call sites.
 fn expr_to_string(expr: &Expr) -> String {
     match expr {
-        Expr::Real(v)    => v.to_string(),
+        Expr::Real(v) => v.to_string(),
         Expr::Integer(n) => n.to_string(),
-        Expr::Pi         => "pi".into(),
-        Expr::Id(s)      => s.clone(),
+        Expr::Pi => "pi".into(),
+        Expr::Id(s) => s.clone(),
         Expr::BinaryOp(l, op, r) => {
             let sym = match op {
-                BinaryOperator::Plus     => "+",
-                BinaryOperator::Minus    => "-",
+                BinaryOperator::Plus => "+",
+                BinaryOperator::Minus => "-",
                 BinaryOperator::Multiply => "*",
-                BinaryOperator::Divide   => "/",
-                BinaryOperator::Power    => "^",
+                BinaryOperator::Divide => "/",
+                BinaryOperator::Power => "^",
             };
             format!("({} {} {})", expr_to_string(l), sym, expr_to_string(r))
         }
         Expr::UnaryOp(op, inner) => match op {
-            UnaryOperator::Negate => format!("(-{})",         expr_to_string(inner)),
-            UnaryOperator::Sin    => format!("sin({})",       expr_to_string(inner)),
-            UnaryOperator::Cos    => format!("cos({})",       expr_to_string(inner)),
-            UnaryOperator::Tan    => format!("tan({})",       expr_to_string(inner)),
-            UnaryOperator::Exp    => format!("exp({})",       expr_to_string(inner)),
-            UnaryOperator::Ln     => format!("ln({})",        expr_to_string(inner)),
-            UnaryOperator::Sqrt   => format!("sqrt({})",      expr_to_string(inner)),
+            UnaryOperator::Negate => format!("(-{})", expr_to_string(inner)),
+            UnaryOperator::Sin => format!("sin({})", expr_to_string(inner)),
+            UnaryOperator::Cos => format!("cos({})", expr_to_string(inner)),
+            UnaryOperator::Tan => format!("tan({})", expr_to_string(inner)),
+            UnaryOperator::Exp => format!("exp({})", expr_to_string(inner)),
+            UnaryOperator::Ln => format!("ln({})", expr_to_string(inner)),
+            UnaryOperator::Sqrt => format!("sqrt({})", expr_to_string(inner)),
         },
     }
 }
@@ -1064,10 +1203,12 @@ fn expr_to_string(expr: &Expr) -> String {
 fn expr_to_param_argument(expr: &Expr) -> Result<crate::param::Argument> {
     use qudit_expr::Expression as QExpr;
     match expr {
-        Expr::Real(v)    => Ok(crate::param::Argument::Float64(*v)),
+        Expr::Real(v) => Ok(crate::param::Argument::Float64(*v)),
         Expr::Integer(n) => Ok(crate::param::Argument::Float64(*n as f64)),
-        Expr::Pi         => Ok(crate::param::Argument::Expression(QExpr::Pi)),
-        Expr::Id(s)      => Ok(crate::param::Argument::Expression(QExpr::Variable(s.clone()))),
+        Expr::Pi => Ok(crate::param::Argument::Expression(QExpr::Pi)),
+        Expr::Id(s) => Ok(crate::param::Argument::Expression(QExpr::Variable(
+            s.clone(),
+        ))),
         compound => crate::param::Argument::try_from(expr_to_string(compound)).map_err(|e| {
             crate::Error::LanguageError {
                 message: format!("invalid parameter expression: {}", e),
@@ -1087,13 +1228,19 @@ fn resolve_gate_decl_qarg_idx(
 ) -> Result<usize> {
     match arg {
         Argument::Register(name) => {
-            qarg_index.get(name.as_str()).copied().ok_or_else(|| crate::Error::LanguageError {
-                message: format!("unknown qubit argument '{}' in gate '{}'", name, gate_name),
-                lineno: line,
-            })
+            qarg_index
+                .get(name.as_str())
+                .copied()
+                .ok_or_else(|| crate::Error::LanguageError {
+                    message: format!("unknown qubit argument '{}' in gate '{}'", name, gate_name),
+                    lineno: line,
+                })
         }
         Argument::Bit(name, _) => Err(crate::Error::LanguageError {
-            message: format!("indexed qubit '{}[...]' is not allowed inside a gate body", name),
+            message: format!(
+                "indexed qubit '{}[...]' is not allowed inside a gate body",
+                name
+            ),
             lineno: line,
         }),
     }
@@ -1108,14 +1255,23 @@ fn resolve_gate_decl(
     table: &HashMap<String, GateBody>,
     line: usize,
 ) -> Result<QuditCircuit> {
-    let qarg_index: HashMap<&str, usize> =
-        decl.qargs.iter().enumerate().map(|(i, s)| (s.as_str(), i)).collect();
+    let qarg_index: HashMap<&str, usize> = decl
+        .qargs
+        .iter()
+        .enumerate()
+        .map(|(i, s)| (s.as_str(), i))
+        .collect();
 
     let mut circuit = QuditCircuit::pure(vec![2usize; decl.qargs.len()]);
 
     for gate_op in &decl.body {
         let (op_name, indices, param_args): (&str, Vec<usize>, ArgumentList) = match gate_op {
-            GateOp::Uop(Uop::U { theta, phi, lambda, target }) => {
+            GateOp::Uop(Uop::U {
+                theta,
+                phi,
+                lambda,
+                target,
+            }) => {
                 let idx = resolve_gate_decl_qarg_idx(target, &qarg_index, &decl.name, line)?;
                 let params = ArgumentList::new(vec![
                     expr_to_param_argument(theta)?,
@@ -1126,34 +1282,48 @@ fn resolve_gate_decl(
             }
             GateOp::Uop(Uop::CX { control, target }) => {
                 let ctrl = resolve_gate_decl_qarg_idx(control, &qarg_index, &decl.name, line)?;
-                let tgt  = resolve_gate_decl_qarg_idx(target,  &qarg_index, &decl.name, line)?;
+                let tgt = resolve_gate_decl_qarg_idx(target, &qarg_index, &decl.name, line)?;
                 ("CX", vec![ctrl, tgt], ArgumentList::new(vec![]))
             }
-            GateOp::Uop(Uop::Custom { name, params: exprs, args: qargs }) => {
-                let indices = qargs.iter()
+            GateOp::Uop(Uop::Custom {
+                name,
+                params: exprs,
+                args: qargs,
+            }) => {
+                let indices = qargs
+                    .iter()
                     .map(|a| resolve_gate_decl_qarg_idx(a, &qarg_index, &decl.name, line))
                     .collect::<Result<Vec<_>>>()?;
                 let params = ArgumentList::new(
-                    exprs.iter().map(expr_to_param_argument).collect::<Result<Vec<_>>>()?)
-                ;
+                    exprs
+                        .iter()
+                        .map(expr_to_param_argument)
+                        .collect::<Result<Vec<_>>>()?,
+                );
                 (name.as_str(), indices, params)
             }
             GateOp::Barrier(qargs) => {
-                let indices = qargs.iter()
+                let indices = qargs
+                    .iter()
                     .map(|a| resolve_gate_decl_qarg_idx(a, &qarg_index, &decl.name, line))
                     .collect::<Result<Vec<_>>>()?;
                 ("barrier", indices, ArgumentList::new(vec![]))
             }
         };
 
-        let gate_body = table.get(op_name).ok_or_else(|| crate::Error::LanguageError {
-            message: format!("unknown gate '{}' used in definition of '{}'", op_name, decl.name),
-            lineno: line,
-        })?;
+        let gate_body = table
+            .get(op_name)
+            .ok_or_else(|| crate::Error::LanguageError {
+                message: format!(
+                    "unknown gate '{}' used in definition of '{}'",
+                    op_name, decl.name
+                ),
+                lineno: line,
+            })?;
 
         match gate_body {
-            GateBody::Op(op)     => circuit.append(op.clone(),   indices, param_args)?,
-            GateBody::Circ(circ) => circuit.append(circ.clone(), indices, param_args)?,
+            GateBody::Op(op) => circuit.append(op.clone(), indices, param_args)?,
+            GateBody::Circ(circ) => circuit.append((**circ).clone(), indices, param_args)?,
         };
     }
 
@@ -1167,7 +1337,7 @@ fn resolve_gate_decl(
 /// [`QASMStatement::OpaqueDecl`] in order, so that gates may only reference
 /// names that were declared earlier (matching the OPENQASM 2.0 spec).
 fn resolve_gate_table(program: &QASMProgram) -> Result<HashMap<String, GateBody>> {
-    let mut table = build_default_gate_table();
+    let mut table = build_default_gate_table()?;
 
     for stmt in &program.statements {
         match &stmt.kind {
@@ -1179,7 +1349,7 @@ fn resolve_gate_table(program: &QASMProgram) -> Result<HashMap<String, GateBody>
                     });
                 }
                 let circuit = resolve_gate_decl(g, &table, stmt.line)?;
-                table.insert(g.name.clone(), GateBody::Circ(circuit));
+                table.insert(g.name.clone(), GateBody::Circ(Box::new(circuit)));
             }
             QASMStatement::OpaqueDecl { .. } => {
                 return Err(crate::Error::LanguageError {
@@ -1251,7 +1421,10 @@ fn resolve_arg(arg: &Argument, table: &ArgTable, line: usize) -> Result<Vec<usiz
             })?;
             if *idx >= size {
                 return Err(crate::Error::LanguageError {
-                    message: format!("index {} out of bounds for register '{}[{}]'", idx, name, size),
+                    message: format!(
+                        "index {} out of bounds for register '{}[{}]'",
+                        idx, name, size
+                    ),
                     lineno: line,
                 });
             }
@@ -1277,7 +1450,8 @@ fn expand_gate_arguments(
     qreg_table: &ArgTable,
     line: usize,
 ) -> Result<Vec<Vec<usize>>> {
-    let resolved: Vec<Vec<usize>> = args.iter()
+    let resolved: Vec<Vec<usize>> = args
+        .iter()
         .map(|a| resolve_arg(a, qreg_table, line))
         .collect::<Result<_>>()?;
 
@@ -1293,7 +1467,12 @@ fn expand_gate_arguments(
     }
 
     Ok((0..broadcast_size)
-        .map(|i| resolved.iter().map(|v| if v.len() == 1 { v[0] } else { v[i] }).collect())
+        .map(|i| {
+            resolved
+                .iter()
+                .map(|v| if v.len() == 1 { v[0] } else { v[i] })
+                .collect()
+        })
         .collect())
 }
 
@@ -1307,7 +1486,12 @@ fn lower_uop(
     line: usize,
 ) -> Result<()> {
     let (op_name, qasm_args, params): (&str, Vec<Argument>, ArgumentList) = match uop {
-        Uop::U { theta, phi, lambda, target } => {
+        Uop::U {
+            theta,
+            phi,
+            lambda,
+            target,
+        } => {
             let params = ArgumentList::new(vec![
                 expr_to_param_argument(theta)?,
                 expr_to_param_argument(phi)?,
@@ -1315,26 +1499,37 @@ fn lower_uop(
             ]);
             ("U", vec![target.clone()], params)
         }
-        Uop::CX { control, target } => {
-            ("CX", vec![control.clone(), target.clone()], ArgumentList::new(vec![]))
-        }
-        Uop::Custom { name, params: exprs, args } => {
+        Uop::CX { control, target } => (
+            "CX",
+            vec![control.clone(), target.clone()],
+            ArgumentList::new(vec![]),
+        ),
+        Uop::Custom {
+            name,
+            params: exprs,
+            args,
+        } => {
             let params = ArgumentList::new(
-                exprs.iter().map(expr_to_param_argument).collect::<Result<Vec<_>>>()?)
-            ;
+                exprs
+                    .iter()
+                    .map(expr_to_param_argument)
+                    .collect::<Result<Vec<_>>>()?,
+            );
             (name.as_str(), args.clone(), params)
         }
     };
 
-    let gate_body = gate_table.get(op_name).ok_or_else(|| crate::Error::LanguageError {
-        message: format!("unknown gate '{}'", op_name),
-        lineno: line,
-    })?;
+    let gate_body = gate_table
+        .get(op_name)
+        .ok_or_else(|| crate::Error::LanguageError {
+            message: format!("unknown gate '{}'", op_name),
+            lineno: line,
+        })?;
 
     for indices in expand_gate_arguments(&qasm_args, qreg_table, line)? {
         match gate_body {
-            GateBody::Op(op)     => circuit.append(op.clone(),  indices, params.clone())?,
-            GateBody::Circ(circ) => circuit.append(circ.clone(), indices, params.clone())?,
+            GateBody::Op(op) => circuit.append(op.clone(), indices, params.clone())?,
+            GateBody::Circ(circ) => circuit.append((**circ).clone(), indices, params.clone())?,
         };
     }
 
@@ -1366,7 +1561,8 @@ fn lower_program(
                         return Err(crate::Error::LanguageError {
                             message: format!(
                                 "measurement size mismatch: {} qubit(s) vs {} classical bit(s)",
-                                qubit_indices.len(), clbit_indices.len(),
+                                qubit_indices.len(),
+                                clbit_indices.len(),
                             ),
                             lineno: stmt.line,
                         });
@@ -1386,24 +1582,35 @@ fn lower_program(
                     });
                 }
             },
-            QASMStatement::If { creg, value, op } => {
-                let &(creg_start, creg_size) = creg_table.get(creg).ok_or_else(|| {
-                    crate::Error::LanguageError {
-                        message: format!("unknown classical register '{}'", creg),
-                        lineno: stmt.line,
-                    }
-                })?;
+            QASMStatement::If {
+                creg,
+                value: _value, // TODO: fix?
+                op,
+            } => {
+                let &(creg_start, creg_size) =
+                    creg_table
+                        .get(creg)
+                        .ok_or_else(|| crate::Error::LanguageError {
+                            message: format!("unknown classical register '{}'", creg),
+                            lineno: stmt.line,
+                        })?;
                 let clbit_indices: Vec<usize> = (creg_start..creg_start + creg_size).collect();
 
                 let Qop::Uop(uop) = op else {
                     return Err(crate::Error::LanguageError {
-                        message: "only unitary gate operations are supported inside if statements".into(),
+                        message: "only unitary gate operations are supported inside if statements"
+                            .into(),
                         lineno: stmt.line,
                     });
                 };
 
                 let (op_name, qasm_args, params): (&str, Vec<Argument>, ArgumentList) = match uop {
-                    Uop::U { theta, phi, lambda, target } => {
+                    Uop::U {
+                        theta,
+                        phi,
+                        lambda,
+                        target,
+                    } => {
                         let params = ArgumentList::new(vec![
                             expr_to_param_argument(theta)?,
                             expr_to_param_argument(phi)?,
@@ -1411,65 +1618,87 @@ fn lower_program(
                         ]);
                         ("U", vec![target.clone()], params)
                     }
-                    Uop::CX { control, target } => {
-                        ("CX", vec![control.clone(), target.clone()], ArgumentList::new(vec![]))
-                    }
-                    Uop::Custom { name, params: exprs, args } => {
+                    Uop::CX { control, target } => (
+                        "CX",
+                        vec![control.clone(), target.clone()],
+                        ArgumentList::new(vec![]),
+                    ),
+                    Uop::Custom {
+                        name,
+                        params: exprs,
+                        args,
+                    } => {
                         let params = ArgumentList::new(
-                            exprs.iter().map(expr_to_param_argument).collect::<Result<Vec<_>>>()?)
-                        ;
+                            exprs
+                                .iter()
+                                .map(expr_to_param_argument)
+                                .collect::<Result<Vec<_>>>()?,
+                        );
                         (name.as_str(), args.clone(), params)
                     }
                 };
 
-                let gate_body = gate_table.get(op_name).ok_or_else(|| crate::Error::LanguageError {
-                    message: format!("unknown gate '{}'", op_name),
-                    lineno: stmt.line,
-                })?;
+                let gate_body =
+                    gate_table
+                        .get(op_name)
+                        .ok_or_else(|| crate::Error::LanguageError {
+                            message: format!("unknown gate '{}'", op_name),
+                            lineno: stmt.line,
+                        })?;
 
                 for qubit_indices in expand_gate_arguments(&qasm_args, qreg_table, stmt.line)? {
                     match gate_body {
                         GateBody::Op(op) => {
-                            if let Operation::Expression(expr_op) = op {
-                                if let ExpressionOperation::UnitaryGate(u_expr) = expr_op {
-                                    // Assuming all qubits are dimension 2 for target radices.
-                                    // The ClassicallyControlled gate expects radices for its target qubits
-                                    // in the format Option<Vec<Vec<usize>>> for multi-qudit support.
-                                    let target_radices: Vec<usize> = qubit_indices.iter().map(|_| 2usize).collect();
-                                    let wrapped: Operation = ClassicallyControlled(
-                                        u_expr.clone(),
-                                        target_radices.into(),
-                                        None,
-                                    ).into();
-                                    circuit.append(wrapped, (qubit_indices, clbit_indices.clone()), params.clone())?;
-                                } else {
-                                    return Err(crate::Error::LanguageError {
-                                        message: format!("Gate '{}' cannot be classically controlled currently.", op_name),
-                                        lineno: stmt.line,
-                                    });
-                                }
+                            if let Operation::Expression(ExpressionOperation::UnitaryGate(u_expr)) =
+                                op
+                            {
+                                let target_radices: Vec<usize> =
+                                    qubit_indices.iter().map(|_| 2usize).collect();
+                                let wrapped: Operation = ClassicallyControlled(
+                                    u_expr.clone(),
+                                    target_radices.into(),
+                                    None,
+                                )
+                                .into();
+                                circuit.append(
+                                    wrapped,
+                                    (qubit_indices, clbit_indices.clone()),
+                                    params.clone(),
+                                )?;
                             } else {
                                 return Err(crate::Error::LanguageError {
-                                    message: format!("Gate '{}' cannot be classically controlled currently.", op_name),
+                                    message: format!(
+                                        "Gate '{}' cannot be classically controlled currently.",
+                                        op_name
+                                    ),
                                     lineno: stmt.line,
                                 });
                             }
                         }
-                        GateBody::Circ(circ) => return Err(crate::Error::LanguageError {
-                            message: format!("Gate '{}' cannot be classically controlled currently.", op_name),
-                            lineno: stmt.line,
-                        }),
+                        GateBody::Circ(_) => {
+                            return Err(crate::Error::LanguageError {
+                                message: format!(
+                                    "Gate '{}' cannot be classically controlled currently.",
+                                    op_name
+                                ),
+                                lineno: stmt.line,
+                            });
+                        }
                     };
                 }
             }
             QASMStatement::Barrier(args) => {
                 // A barrier spans all its arguments simultaneously — collect
                 // all qubit indices into a single flat list.
-                let indices: Vec<usize> = args.iter()
+                let indices: Vec<usize> = args
+                    .iter()
                     .map(|a| resolve_arg(a, qreg_table, stmt.line))
-                    .collect::<Result<Vec<_>>>()?                    
-                    .into_iter().flatten().collect();
-                let barrier_body = gate_table.get("barrier")
+                    .collect::<Result<Vec<_>>>()?
+                    .into_iter()
+                    .flatten()
+                    .collect();
+                let barrier_body = gate_table
+                    .get("barrier")
                     .expect("barrier is always present in the gate table");
                 if let GateBody::Op(op) = barrier_body {
                     circuit.append(op.clone(), indices, ArgumentList::new(vec![]))?;

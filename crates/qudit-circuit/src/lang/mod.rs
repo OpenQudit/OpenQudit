@@ -11,7 +11,5 @@ mod qasm2;
 pub use qasm2::QASM2Parser;
 
 pub fn all_parsers() -> Vec<Box<dyn QuantumLanguageParser>> {
-    vec![
-        Box::new(QASM2Parser),
-    ]
+    vec![Box::new(QASM2Parser)]
 }

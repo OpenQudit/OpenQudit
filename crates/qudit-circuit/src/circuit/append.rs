@@ -1,20 +1,26 @@
-use std::collections::HashMap;
 use std::path::Path;
 
+use super::*;
 use crate::instruction::{Instruction, InstructionId};
 use crate::lang::all_parsers;
-use crate::operation::{CircuitOperation, OpCode};
 use crate::operation::ExpressionOperation;
+use crate::operation::{CircuitOperation, OpCode};
 use crate::param::{ArgumentList, Parameter};
-use crate::{Argument, Operation, Result};
 use crate::wire::WireList;
-use qudit_core::Radices;
+use crate::{Argument, Operation, Result};
 use qudit_core::ParamIndices;
+use qudit_core::Radices;
 use qudit_expr::{Expression, KetExpression};
-use super::*;
 
 pub trait InternableOperation {
-    fn intern_operation(self, operation_set: &mut OperationSet, parameter_vector: &mut ParameterVector, args: impl IntoArgumentList, qudit_radices: Radices, dit_radices: Radices) -> Result<(OpCode, ParamIndices)>;
+    fn intern_operation(
+        self,
+        operation_set: &mut OperationSet,
+        parameter_vector: &mut ParameterVector,
+        args: impl IntoArgumentList,
+        qudit_radices: Radices,
+        dit_radices: Radices,
+    ) -> Result<(OpCode, ParamIndices)>;
 }
 
 impl QuditCircuit {
@@ -26,16 +32,23 @@ impl QuditCircuit {
         A: IntoArgumentList,
     {
         let wires = wires.into();
-        let qudit_radices = wires.qudits()
-                .map(|d| self.qudit_radices()[d])
-                .collect::<Radices>();
-        let dit_radices = wires.dits()
-                .map(|d| self.dit_radices()[d])
-                .collect::<Radices>();
-        let (code, params) = op.intern_operation(&mut self.operations, &mut self.params, args, qudit_radices, dit_radices)?;
+        let qudit_radices = wires
+            .qudits()
+            .map(|d| self.qudit_radices()[d])
+            .collect::<Radices>();
+        let dit_radices = wires
+            .dits()
+            .map(|d| self.dit_radices()[d])
+            .collect::<Radices>();
+        let (code, params) = op.intern_operation(
+            &mut self.operations,
+            &mut self.params,
+            args,
+            qudit_radices,
+            dit_radices,
+        )?;
         Ok(self._append_ref(code, wires, params))
 
-        
         // op.append_to(self, wires, args)
         // let op = op.into();
         // let args = match args.try_into() {
@@ -125,19 +138,45 @@ impl QuditCircuit {
             .map(|q| self.qudit_radices[q])
             .collect::<Radices>();
         let state = KetExpression::zero(location_radices);
-        let op = ExpressionOperation::QuditInitialization(state);
+        let _op = ExpressionOperation::QuditInitialization(state);
         // self.append(op, wires, None::<ArgumentList>)
         todo!()
     }
 
+    /// Loads a circuit from a file using a registered parser.
+    ///
+    /// The parser is selected based on the file extension. The file is read
+    /// into memory and passed to the first parser whose
+    /// `supported_extensions` list contains the file's extension.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to the circuit file.
+    ///
+    /// # Returns
+    ///
+    /// Returns the parsed [`QuditCircuit`] on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// * The file cannot be read.
+    /// * No registered parser supports the file extension.
+    /// * The selected parser fails to parse the file contents.
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use qudit_circuit::QuditCircuit;
+    /// let circuit = QuditCircuit::load("example.qasm")?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
     pub fn load(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref();
-        let ext = path
-            .extension()
-            .and_then(|e| e.to_str())
-            .unwrap_or("");
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
 
-        let source = std::fs::read_to_string(path).map_err(|e| crate::Error::GenericError(e.to_string()))?;
+        let source =
+            std::fs::read_to_string(path).map_err(|e| crate::Error::GenericError(e.to_string()))?;
 
         for parser in all_parsers() {
             if parser.supported_extensions().contains(&ext) {
@@ -150,7 +189,14 @@ impl QuditCircuit {
 }
 
 impl InternableOperation for QuditCircuit {
-    fn intern_operation(self, operation_set: &mut OperationSet, parameter_vector: &mut ParameterVector, args: impl IntoArgumentList, qudit_radices: Radices, dit_radices: Radices) -> Result<(OpCode, ParamIndices)> {
+    fn intern_operation(
+        self,
+        operation_set: &mut OperationSet,
+        parameter_vector: &mut ParameterVector,
+        args: impl IntoArgumentList,
+        qudit_radices: Radices,
+        dit_radices: Radices,
+    ) -> Result<(OpCode, ParamIndices)> {
         // 1. Align provided args with the circuit's unassigned parameters
         let args = args.into_args(self.num_params())?;
         let mut complete_args = Vec::new();
@@ -160,11 +206,13 @@ impl InternableOperation for QuditCircuit {
             match parameter {
                 Parameter::Assigned32(f) => complete_args.push(Argument::Float32(*f)),
                 Parameter::Assigned64(f) => complete_args.push(Argument::Float64(*f)),
-                Parameter::AssignedRatio(c) => complete_args.push(Argument::Expression(Expression::Constant(c.clone()))),
+                Parameter::AssignedRatio(c) => {
+                    complete_args.push(Argument::Expression(Expression::Constant(c.clone())))
+                }
                 Parameter::Unassigned => {
                     complete_args.push(args[unassigned_ptr].clone());
                     unassigned_ptr += 1;
-                },
+                }
             }
         }
 
@@ -175,7 +223,7 @@ impl InternableOperation for QuditCircuit {
 
         for inst in self.iter() {
             let op = self.operations().get(inst.op_code()).unwrap();
-            
+
             // Get the specific arguments for this instruction
             // e.g. if the instruction used inner parameter [2], we get complete_argument_list[2]
             let op_args = complete_argument_list.slice_by_indices(&inst.params());
@@ -188,31 +236,32 @@ impl InternableOperation for QuditCircuit {
             let local_params = complete_argument_list.map_indices_for_instruction(&inst.params());
 
             // Build and push new instruction
-            let globalized_instruction = Instruction::new(global_op_code, inst.wires(), local_params);
+            let globalized_instruction =
+                Instruction::new(global_op_code, inst.wires(), local_params);
             flattened_instructions.push(globalized_instruction);
         }
 
         // 3. Resolve the circuit operation's parameter map
         let params = parameter_vector.parse(&complete_argument_list);
-        
+
         // 4. Finally build circuit operation object and return
         let op = CircuitOperation::new(
-            qudit_radices, 
-            dit_radices, 
-            flattened_instructions, 
-            complete_argument_list.parameters().len()
+            qudit_radices,
+            dit_radices,
+            flattened_instructions,
+            complete_argument_list.parameters().len(),
         );
 
         let op_code = operation_set.insert(Operation::Subcircuit(op))?;
-        
+
         Ok((op_code, params))
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use qudit_expr::library::PGate;
     use crate::QuditCircuit;
+    use qudit_expr::library::PGate;
 
     #[test]
     fn test_recursive_complex_subcircuit_append() {
@@ -220,23 +269,28 @@ mod tests {
 
         let mut inner_subcircuit = QuditCircuit::pure([2]);
         // inner_subcircuit.append(p, 0, ["theta"]);
-        inner_subcircuit.append(p, 0, ());
+        inner_subcircuit.append(p, 0, ()).unwrap();
 
         println!("{:?}", inner_subcircuit.num_params());
 
-
         let mut outer_subcircuit = QuditCircuit::pure([2]);
         // outer_subcircuit.append(inner_subcircuit, 0, ["a + b"]);
-        outer_subcircuit.append(inner_subcircuit, 0, ["a + b"]);
+        outer_subcircuit
+            .append(inner_subcircuit, 0, ["a + b"])
+            .unwrap();
 
         println!("{:?}", outer_subcircuit.num_params());
 
-
         let mut global_circuit = QuditCircuit::pure([2]);
-        global_circuit.append(outer_subcircuit, 0, ["c*d", "e + g"]);
+        global_circuit
+            .append(outer_subcircuit, 0, ["c*d", "e + g"])
+            .unwrap();
         // global_circuit.append(outer_subcircuit, 0, ());
 
         println!("{:?}", global_circuit.num_params());
-        println!("{:?}", global_circuit.kraus_ops::<qudit_core::c64>(&[0.5f64, 1.0, 0.25, 0.25]));
+        println!(
+            "{:?}",
+            global_circuit.kraus_ops::<qudit_core::c64>(&[0.5f64, 1.0, 0.25, 0.25])
+        );
     }
 }

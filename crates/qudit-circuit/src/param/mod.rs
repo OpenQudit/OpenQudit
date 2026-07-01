@@ -7,7 +7,6 @@ pub use argument::Argument;
 pub use list::ArgumentList;
 pub use list::IntoArgumentList;
 pub use param::Parameter;
-pub use vector::ParameterId;
 pub use vector::ParameterVector;
 
 #[derive(Clone, PartialEq)]
