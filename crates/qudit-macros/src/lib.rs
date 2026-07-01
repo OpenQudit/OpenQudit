@@ -66,11 +66,9 @@ fn j_processing32(input: TokenStream2) -> TokenStream2 {
                 }
             }
 
-            TokenTree::Ident(identifier) => {
-                if identifier.to_string().as_str() == "j" {
-                    stream_accumulator.extend(quote! {c32::new(0.0, 1.0)});
-                    pass = true;
-                }
+            TokenTree::Ident(identifier) if identifier.to_string().as_str() == "j" => {
+                stream_accumulator.extend(quote! {c32::new(0.0, 1.0)});
+                pass = true;
             }
 
             TokenTree::Group(group) => {
@@ -169,11 +167,9 @@ fn j_processing64(input: TokenStream2) -> TokenStream2 {
                 }
             }
 
-            TokenTree::Ident(identifier) => {
-                if identifier.to_string().as_str() == "j" {
-                    stream_accumulator.extend(quote! {c64::new(0.0, 1.0)});
-                    pass = true;
-                }
+            TokenTree::Ident(identifier) if identifier.to_string().as_str() == "j" => {
+                stream_accumulator.extend(quote! {c64::new(0.0, 1.0)});
+                pass = true;
             }
 
             TokenTree::Group(group) => {

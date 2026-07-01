@@ -502,7 +502,7 @@ impl QuditCircuitTensorNetworkBuilder {
         for (f, r) in self
             .open_output_indices()
             .into_iter()
-            .zip(self.open_input_indices().into_iter())
+            .zip(self.open_input_indices())
         {
             self = self.trace_wire(f, r);
         }

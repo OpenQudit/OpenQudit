@@ -157,9 +157,8 @@ impl QuantumLanguageWriter for QASM2Writer {
 
 #[cfg(test)]
 mod tests {
-    use super::{QASM2Parser, QASM2Writer};
-    use crate::QuditCircuit;
-    use crate::lang::{QuantumLanguageParser, QuantumLanguageWriter};
+    use super::QASM2Parser;
+    use crate::lang::QuantumLanguageParser;
     use qudit_core::{ClassicalSystem, QuditSystem};
 
     // -----------------------------------------------------------------------
@@ -177,24 +176,6 @@ mod tests {
             Ok(_) => panic!("expected parse to fail but it succeeded"),
             Err(e) => e.to_string(),
         }
-    }
-
-    fn roundtrip(src: &str) -> crate::QuditCircuit {
-        let circ = parse(src);
-        let out = QASM2Writer
-            .write(&circ)
-            .unwrap_or_else(|e| panic!("write failed: {e}"));
-        parse(&out)
-    }
-
-    fn qasm_lines(circuit: &QuditCircuit) -> Vec<String> {
-        QASM2Writer
-            .write(circuit)
-            .unwrap()
-            .lines()
-            .filter(|l| !l.is_empty())
-            .map(str::to_owned)
-            .collect()
     }
 
     // Full QASM2 preamble used in most tests.

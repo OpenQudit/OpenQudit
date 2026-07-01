@@ -1,5 +1,5 @@
 use num::ToPrimitive;
-use qudit_core::{ClassicalSystem, HybridSystem, QuditSystem};
+use qudit_core::{ClassicalSystem, QuditSystem};
 
 use crate::operation::{DirectiveOperation, ExpressionOperation};
 use crate::param::Parameter;

@@ -9,6 +9,7 @@ mod common;
 use common::FlamegraphProfiler;
 
 use qudit_circuit::QuditCircuit;
+use qudit_circuit::Result;
 use qudit_core::QuditSystem;
 use qudit_core::UnitaryMatrix;
 use qudit_core::c64;
@@ -24,27 +25,27 @@ use qudit_inst::numerical::minimizers::LM;
 use qudit_inst::numerical::runners::MultiStartRunner;
 use qudit_inst::*;
 
-pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
+pub fn build_qsearch_thin_step_circuit(n: usize) -> Result<QuditCircuit> {
     let block_expr = U3Gate()
         .otimes(U3Gate())
         .dot(Controlled(XGate(2), [2].into(), None));
     let mut circ = QuditCircuit::pure(vec![2; n]);
     for i in 0..n {
-        circ.append(U3Gate(), [i], None);
+        circ.append(U3Gate(), [i], None)?;
     }
     for _ in 0..2 {
         for i in 0..(n - 1) {
-            circ.append(block_expr.clone(), [i, i + 1], None);
+            circ.append(block_expr.clone(), [i, i + 1], None)?;
         }
     }
-    circ
+    Ok(circ)
 }
 
 pub fn unitary_inst_benchmarks(c: &mut Criterion) {
     let mut group = c.benchmark_group("QSearch-Thin-Instantiation");
 
     for num_qudits in [2, 3, 4, 5].iter() {
-        let circ = build_qsearch_thin_step_circuit(*num_qudits);
+        let circ = build_qsearch_thin_step_circuit(*num_qudits).expect("failed to build circuit");
 
         // sample target
         let network = circ.to_tensor_network();

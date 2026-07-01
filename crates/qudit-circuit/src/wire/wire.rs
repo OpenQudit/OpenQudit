@@ -358,7 +358,7 @@ mod python {
     /// Python wrapper for the Wire struct.
     ///
     /// Provides access to quantum circuit wire functionality from Python.
-    #[pyclass(name = "Wire", frozen, hash, eq, ord)]
+    #[pyclass(name = "Wire", frozen, hash, eq, ord, from_py_object)]
     #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub struct PyWire {
         inner: Wire,

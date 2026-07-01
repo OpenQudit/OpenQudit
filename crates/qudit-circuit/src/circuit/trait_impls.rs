@@ -1,30 +1,6 @@
-use crate::cycle::CycleList;
-use crate::cycle::{CycleId, CycleIndex};
-use crate::instruction::{Instruction, InstructionId};
-use crate::operation::OpCode;
-use crate::operation::OperationSet;
-use crate::operation::{
-    CircuitOperation, DirectiveOperation, ExpressionOperation, OpKind, Operation,
-};
-use crate::Result;
-use crate::param::{Argument as ParameterEntry, ArgumentList, Parameter, ParameterVector};
-use crate::wire::Wire;
-use crate::wire::WireList;
-use qudit_core::Radices;
-use qudit_core::array::Tensor;
-use qudit_core::{
-    ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, ParamInfo, QuditSystem,
-};
-use qudit_expr::index::IndexDirection;
-use qudit_expr::{
-    BraSystemExpression, FUNCTION, KetExpression, KrausOperatorsExpression, TensorExpression,
-    UnitaryExpression, UnitarySystemExpression,
-};
-use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
-use rustc_hash::{FxHashMap, FxHashSet};
-use std::collections::HashMap;
 use super::*;
-
+use qudit_core::Radices;
+use qudit_core::{ClassicalSystem, HasParams, HybridSystem, QuditSystem};
 
 impl QuditSystem for QuditCircuit {
     #[inline(always)]
@@ -62,4 +38,3 @@ impl ClassicalSystem for QuditCircuit {
 }
 
 impl HybridSystem for QuditCircuit {}
-

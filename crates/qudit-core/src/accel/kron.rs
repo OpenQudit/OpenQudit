@@ -6,7 +6,6 @@ use std::ops::Mul;
 use faer::reborrow::ReborrowMut;
 use faer_traits::ComplexField;
 
-use super::cartesian_match;
 use crate::ComplexScalar;
 use faer::MatMut;
 use faer::MatRef;

@@ -1,9 +1,9 @@
-use pyo3::prelude::*;
 use super::InstructionId;
+use crate::circuit::PyQuditCircuit;
 use crate::cycle::{CycleId, CycleIndex};
 use crate::wire::WireList;
-use crate::circuit::PyQuditCircuit;
 use pyo3::exceptions::PyRuntimeError;
+use pyo3::prelude::*;
 
 #[pyclass]
 #[pyo3(name = "InstructionReference")]
@@ -14,7 +14,10 @@ pub struct PyInstructionReference {
 
 impl PyInstructionReference {
     pub fn new(inst_id: InstructionId, circuit_ref: Py<PyQuditCircuit>) -> Self {
-        Self { inst_id, circuit_ref }
+        Self {
+            inst_id,
+            circuit_ref,
+        }
     }
 }
 
@@ -45,10 +48,7 @@ impl PyInstructionReference {
         match circuit.get(self.inst_id) {
             Some(inst) => {
                 let param_indices = params.convert_ids_to_indices(inst.params());
-                Ok(param_indices
-                    .iter()
-                    .map(|i| params[i].clone())
-                    .collect())
+                Ok(param_indices.iter().map(|i| params[i].clone()).collect())
             }
             None => Err(PyRuntimeError::new_err("Invalid Instruction reference.")),
         }
