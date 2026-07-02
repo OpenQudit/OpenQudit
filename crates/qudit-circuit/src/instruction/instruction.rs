@@ -380,17 +380,23 @@ const _: () = assert!(std::mem::align_of::<Wire>() == std::mem::align_of::<usize
 mod python {
     use super::*;
     use pyo3::prelude::*;
+    use pyo3_stub_gen::derive::*;
+    use pyo3_stub_gen::impl_stub_type;
+
+    impl_stub_type!(Instruction = PyInstruction);
 
     /// Python wrapper for quantum instructions.
     ///
     /// This provides a read-only view of instructions from Python, with
     /// access to operation codes, target wires, and parameter indices.
-    #[pyclass(name = "Instruction", frozen, eq, hash, from_py_object)]
+    #[gen_stub_pyclass]
+    #[pyclass(name = "Instruction", module = "openqudit.circuit", frozen, eq, hash, from_py_object)]
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
     pub struct PyInstruction {
         inner: Instruction,
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyInstruction {
         /// Returns the operation code for this instruction.
@@ -458,6 +464,13 @@ mod python {
             Ok(py_instruction.into())
         }
     }
+
+    use crate::python::PyCircuitRegistrar;
+    fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
+        parent_module.add_class::<PyInstruction>()?;
+        Ok(())
+    }
+    inventory::submit!(PyCircuitRegistrar { func: register });
 }
 
 #[cfg(test)]

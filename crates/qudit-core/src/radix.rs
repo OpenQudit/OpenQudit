@@ -181,6 +181,9 @@ impl<T: Into<Radix>> std::ops::Sub<T> for Radix {
 mod python {
     use super::*;
     use pyo3::prelude::*;
+    use pyo3_stub_gen::impl_stub_type;
+
+    impl_stub_type!(Radix = u8);
 
     impl<'py> IntoPyObject<'py> for Radix {
         type Target = <u8 as IntoPyObject<'py>>::Target;

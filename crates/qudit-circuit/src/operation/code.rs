@@ -72,16 +72,22 @@ mod python {
     use super::*;
     use crate::python::PyCircuitRegistrar;
     use pyo3::prelude::*;
+    use pyo3_stub_gen::derive::*;
+    use pyo3_stub_gen::impl_stub_type;
+
+    impl_stub_type!(OpCode = PyOpCode);
 
     /// Python wrapper for the OpCode struct.
     ///
     /// Provides access to quantum operation code functionality from Python.
-    #[pyclass(name = "OpCode", frozen, eq, ord, hash, from_py_object)]
+    #[gen_stub_pyclass]
+    #[pyclass(name = "OpCode", module = "openqudit.circuit", frozen, eq, ord, hash, from_py_object)]
     #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub struct PyOpCode {
         inner: OpCode,
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyOpCode {
         /// Returns the operation kind.

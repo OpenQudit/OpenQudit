@@ -364,6 +364,13 @@ where
 }
 
 #[cfg(feature = "python")]
+mod python_stub {
+    use super::ArgumentList;
+    use pyo3_stub_gen::impl_stub_type;
+    impl_stub_type!(ArgumentList = Vec<f64>);
+}
+
+#[cfg(feature = "python")]
 mod python {
     use super::Argument;
     use super::ArgumentList;

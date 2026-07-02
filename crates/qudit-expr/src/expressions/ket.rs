@@ -121,14 +121,16 @@ mod python {
     use super::*;
     use crate::python::PyExpressionRegistrar;
     use pyo3::prelude::*;
+    use pyo3_stub_gen::derive::*;
     use qudit_core::Radix;
 
-    #[pyclass]
-    #[pyo3(name = "KetExpression")]
+    #[gen_stub_pyclass]
+    #[pyclass(name = "KetExpression", module = "openqudit.expressions")]
     pub struct PyKetExpression {
         expr: KetExpression,
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyKetExpression {
         #[new]

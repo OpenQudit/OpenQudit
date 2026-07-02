@@ -27,12 +27,18 @@ mod python {
     use super::*;
     use crate::python::PyCircuitRegistrar;
     use pyo3::prelude::*;
+    use pyo3_stub_gen::derive::*;
+    use pyo3_stub_gen::impl_stub_type;
+
+    impl_stub_type!(OpKind = PyOpKind);
 
     /// Python wrapper for OpKind.
-    #[pyclass(frozen, eq, hash, ord, from_py_object)]
+    #[gen_stub_pyclass]
+    #[pyclass(name = "OpKind", module = "openqudit.circuit", frozen, eq, hash, ord, from_py_object)]
     #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub struct PyOpKind(OpKind);
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyOpKind {
         /// Get integer representation.

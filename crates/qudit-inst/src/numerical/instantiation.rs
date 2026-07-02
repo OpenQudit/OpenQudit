@@ -64,17 +64,20 @@ mod python {
 
     use super::*;
     use pyo3::prelude::*;
+    use pyo3_stub_gen::derive::*;
 
     impl InstantiaterWrapper
         for MinimizingInstantiater<MultiStartRunner<LM<f64>, Uniform<f64>>, HSProblem<f64>>
     {
     }
 
+    #[gen_stub_pyfunction(module = "openqudit.instantiation")]
     #[pyfunction]
     fn DefaultInstantiater() -> BoxedInstantiater {
         SequentialMultiStartInstantiater(8)
     }
 
+    #[gen_stub_pyfunction(module = "openqudit.instantiation")]
     #[pyfunction]
     #[pyo3(signature = (num_starts = 8))]
     fn SequentialMultiStartInstantiater(num_starts: usize) -> BoxedInstantiater {

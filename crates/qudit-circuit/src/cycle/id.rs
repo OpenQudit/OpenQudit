@@ -162,7 +162,12 @@ impl PartialEq<i32> for CycleIndex {
 mod python {
     use super::*;
     use pyo3::prelude::*;
+    use pyo3_stub_gen::impl_stub_type;
     use slotmap::{Key, KeyData};
+
+    impl_stub_type!(CycleId = u64);
+    impl_stub_type!(CycleIndex = u64);
+    impl_stub_type!(InstId = u64);
 
     impl<'py> IntoPyObject<'py> for InstId {
         type Target = <u64 as IntoPyObject<'py>>::Target;

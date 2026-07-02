@@ -67,6 +67,12 @@ jobs:
       - name: Run tests
         run: cargo test --verbose --workspace --features python --no-fail-fast
 
+      - name: Check stubs are up to date
+        working-directory: crates/qudit-python
+        run: |
+          cargo run --bin stub_gen
+          git diff --exit-code -- openqudit/
+
       - name: Build docs
         run: cargo doc --workspace --no-deps
         env:

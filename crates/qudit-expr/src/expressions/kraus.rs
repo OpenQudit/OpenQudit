@@ -135,14 +135,16 @@ mod python {
     use super::*;
     use crate::python::PyExpressionRegistrar;
     use pyo3::prelude::*;
+    use pyo3_stub_gen::derive::*;
     use qudit_core::Radix;
 
-    #[pyclass]
-    #[pyo3(name = "KrausOperatorsExpression")]
+    #[gen_stub_pyclass]
+    #[pyclass(name = "KrausOperatorsExpression", module = "openqudit.expressions")]
     pub struct PyKrausOperatorsExpression {
         expr: KrausOperatorsExpression,
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyKrausOperatorsExpression {
         #[new]

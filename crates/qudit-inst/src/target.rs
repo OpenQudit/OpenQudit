@@ -15,15 +15,21 @@ mod python {
     use super::InstantiationTarget;
     use crate::python::PyInstantiationRegistrar;
     use pyo3::prelude::*;
+    use pyo3_stub_gen::derive::*;
+    use pyo3_stub_gen::impl_stub_type;
     use qudit_core::UnitaryMatrix;
     use qudit_core::c64;
 
-    #[pyclass(name = "InstantiationTarget", from_py_object)]
+    impl_stub_type!(InstantiationTarget<c64> = PyInstantiationTarget);
+
+    #[gen_stub_pyclass]
+    #[pyclass(name = "InstantiationTarget", module = "openqudit.instantiation", from_py_object)]
     #[derive(Clone)]
     pub struct PyInstantiationTarget {
         inner: InstantiationTarget<c64>,
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyInstantiationTarget {
         #[new]

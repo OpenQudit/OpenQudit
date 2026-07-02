@@ -4,9 +4,10 @@ use crate::cycle::{CycleId, CycleIndex};
 use crate::wire::WireList;
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
+use pyo3_stub_gen::derive::*;
 
-#[pyclass]
-#[pyo3(name = "InstructionReference")]
+#[gen_stub_pyclass]
+#[pyclass(name = "InstructionReference", module = "openqudit.circuit")]
 pub struct PyInstructionReference {
     inst_id: InstructionId,
     circuit_ref: Py<PyQuditCircuit>,
@@ -21,6 +22,7 @@ impl PyInstructionReference {
     }
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyInstructionReference {
     fn name<'py>(&self, py: Python<'py>) -> PyResult<String> {
@@ -74,3 +76,9 @@ impl PyInstructionReference {
         self.wires(py).map(|w| w.get_num_dits())
     }
 }
+
+fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
+    parent_module.add_class::<PyInstructionReference>()?;
+    Ok(())
+}
+inventory::submit!(crate::python::PyCircuitRegistrar { func: register });

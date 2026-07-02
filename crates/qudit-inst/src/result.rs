@@ -198,19 +198,25 @@ mod python {
     use super::*;
     use crate::python::PyInstantiationRegistrar;
     use pyo3::prelude::*;
+    use pyo3_stub_gen::derive::*;
+    use pyo3_stub_gen::impl_stub_type;
     use qudit_core::c32;
     use qudit_core::c64;
+
+    impl_stub_type!(InstantiationResult<c64> = PyInstantiationResult);
 
     /// Python binding for InstantiationResult using f64 as the real number type.
     ///
     /// This provides a concrete instantiation of InstantiationResult for use in Python,
     /// using f64 for real numbers (corresponding to Complex64 complex scalars).
-    #[pyclass(name = "InstantiationResult", frozen, from_py_object)]
+    #[gen_stub_pyclass]
+    #[pyclass(name = "InstantiationResult", module = "openqudit.instantiation", frozen, from_py_object)]
     #[derive(Clone, Debug)]
     pub struct PyInstantiationResult {
         inner: InstantiationResult<c64>,
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyInstantiationResult {
         /// Creates a new InstantiationResult.
