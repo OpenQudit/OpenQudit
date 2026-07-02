@@ -75,8 +75,8 @@ impl UnitaryExpression {
 
     pub fn transpose(&mut self) {
         let dim = self.dimension();
-        for i in 1..dim {
-            for j in i..dim {
+        for i in 0..dim {
+            for j in (i + 1)..dim {
                 let (head, tail) = self.split_at_mut(j * dim + i);
                 std::mem::swap(&mut head[i * dim + j], &mut tail[0]);
             }
@@ -517,9 +517,9 @@ impl QuditSystem for UnitaryExpression {
 mod python {
     use super::*;
     use crate::python::PyExpressionRegistrar;
-    use numpy::ndarray::ArrayViewMut2;
     use numpy::PyArray2;
     use numpy::PyArrayMethods;
+    use numpy::ndarray::ArrayViewMut2;
     use pyo3::prelude::*;
     use pyo3::types::PyTuple;
     use qudit_core::Radix;

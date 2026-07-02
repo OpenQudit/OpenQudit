@@ -2,17 +2,17 @@ use qudit_core::{ClassicalSystem, HybridSystem, ParamIndices, QuditSystem};
 use qudit_core::{HasParams, Radices};
 
 use serde::{Deserialize, Serialize};
+use slotmap::new_key_type;
 use slotmap::Key;
 use slotmap::SlotMap;
-use slotmap::new_key_type;
 new_key_type! { pub struct CircuitId; }
 
-use crate::OpCode;
-use crate::Result;
 use crate::circuit::InternableOperation;
 use crate::instruction::Instruction;
 use crate::operation::OperationSet;
 use crate::param::{IntoArgumentList, ParameterVector};
+use crate::OpCode;
+use crate::Result;
 
 /// A CircuitOperation is a circuit that has been converted to an operation.
 ///
@@ -63,7 +63,7 @@ impl CircuitOperation {
 
         let mut specialized_instructions = Vec::with_capacity(self.instructions.len());
 
-        for mut inst in self.instructions {
+        for inst in self.instructions {
             // 1. Fetch the original operation from the Source context
             let op = source_ops
                 .get(inst.op_code())

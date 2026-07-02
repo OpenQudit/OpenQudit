@@ -1,39 +1,13 @@
-use qudit_expr::library::ClassicallyControlled;
-use qudit_expr::library::Controlled;
-use qudit_expr::library::Dagger;
-use qudit_expr::library::HGate;
-use qudit_expr::library::IGate;
-use qudit_expr::library::PGate;
-use qudit_expr::library::RXGate;
-use qudit_expr::library::RXXGate;
-use qudit_expr::library::RYGate;
-use qudit_expr::library::RZGate;
-use qudit_expr::library::RZZGate;
-use qudit_expr::library::SGate;
-use qudit_expr::library::SXGate;
-use qudit_expr::library::SwapGate;
-use qudit_expr::library::TGate;
-use qudit_expr::library::U1Gate;
-use qudit_expr::library::U2Gate;
-use qudit_expr::library::U3Gate;
-use qudit_expr::library::XGate;
-use qudit_expr::library::YGate;
-use qudit_expr::library::ZGate;
-use qudit_expr::library::ZMeasurement;
-
-use crate::operation::ExpressionOperation;
-use crate::Operation;
-use crate::param::ArgumentList;
 /// Parses an OpenQASM 2.0 program into a `QuditCircuit`.
 ///
 /// # OpenQASM 2.0 Grammar (Backus-Naur Form)
-/// 
+///
 /// ```text
 /// <mainprogram> ::= OPENQASM <real>; <program>
-/// 
+///
 /// <program>     ::= <statement>
 ///                 | <program> <statement>
-/// 
+///
 /// <statement>   ::= <decl>
 ///                 | <gatedecl> <goplist> }
 ///                 | <gatedecl> }
@@ -44,68 +18,68 @@ use crate::param::ArgumentList;
 ///                 | if ( <id> == <nninteger> ) <qop>
 ///                 | include " <id> " ;
 ///                 | barrier <anylist> ;
-/// 
-/// <decl>        ::= qreg <id> [ <nninteger> ] ; 
+///
+/// <decl>        ::= qreg <id> [ <nninteger> ] ;
 ///                 | creg <id> [ <nninteger> ] ;
-/// 
+///
 /// <gatedecl>    ::= gate <id> <idlist> {
 ///                 | gate <id> ( ) <idlist> {
 ///                 | gate <id> ( <idlist> ) <idlist> {
-/// 
+///
 /// <goplist>     ::= <uop>
 ///                 | barrier <idlist> ;
 ///                 | <goplist> <uop>
 ///                 | <goplist> barrier <idlist> ;
-/// 
+///
 /// <qop>         ::= <uop>
 ///                 | measure <argument> -> <argument> ;
 ///                 | reset <argument> ;
-/// 
+///
 /// <uop>         ::= U ( <explist> ) <argument> ;
 ///                 | CX <argument> , <argument> ;
 ///                 | <id> <anylist> ;
 ///                 | <id> () <anylist> ;
 ///                 | <id> ( <explist> ) <anylist> ;
-/// 
+///
 /// <anylist>     ::= <idlist>
 ///                 | <mixedlist>
-/// 
+///
 /// <idlist>      ::= <id>
 ///                 | <idlist> , <id>
-/// 
-/// <mixedlist>   ::= <id> [ <nninteger> ] 
-///                 | <mixedlist> , <id> 
-///                 | <mixedlist> , <id> [ <nninteger> ] 
+///
+/// <mixedlist>   ::= <id> [ <nninteger> ]
+///                 | <mixedlist> , <id>
+///                 | <mixedlist> , <id> [ <nninteger> ]
 ///                 | <idlist> , <id> [ <nninteger> ]
-/// 
-/// <argument>    ::= <id> 
+///
+/// <argument>    ::= <id>
 ///                 | <id> [ <nninteger> ]
-/// 
-/// <explist>     ::= <exp> 
+///
+/// <explist>     ::= <exp>
 ///                 | <explist> , <exp>
-/// 
-/// <exp>         ::= <real> 
-///                 | <nninteger> 
-///                 | pi 
-///                 | <id> 
-///                 | <exp> + <exp> 
-///                 | <exp> - <exp> 
-///                 | <exp> * <exp> 
-///                 | <exp> / <exp> 
-///                 | - <exp> 
-///                 | <exp> ^ <exp> 
-///                 | ( <exp> ) 
+///
+/// <exp>         ::= <real>
+///                 | <nninteger>
+///                 | pi
+///                 | <id>
+///                 | <exp> + <exp>
+///                 | <exp> - <exp>
+///                 | <exp> * <exp>
+///                 | <exp> / <exp>
+///                 | - <exp>
+///                 | <exp> ^ <exp>
+///                 | ( <exp> )
 ///                 | <unaryop> ( <exp> )
-/// 
+///
 /// <unaryop>     ::= sin | cos | tan | exp | ln | sqrt
 /// ```
-/// 
+///
 /// # Lexical Tokens (regular expressions):
-/// 
+///
 /// ```text
 /// <id>          ::= [a-z][A-Za-z0-9_]*
 /// <real>        ::= ([0-9]+\.[0-9]*|[0-9]*\.[0-9]+)([eE][-+]?[0-9]+)?
-/// <nninteger>   ::= [1-9]+[0-9]*|0 
+/// <nninteger>   ::= [1-9]+[0-9]*|0
 /// ```
 ///
 /// # Implementation Notes
@@ -113,1396 +87,856 @@ use crate::param::ArgumentList;
 /// This lexer intentionally accepts the following super-sets of the strict grammar:
 /// - `<nninteger>`: leading zeros (e.g., `007`) are accepted and parsed as their decimal value.
 /// - `<real>`: bare exponent notation without a decimal point (e.g., `1e5`) is accepted.
-/// - `<id>`: identifiers may start with any alphabetic character or `_`, not just `[a-z]`. 
+/// - `<id>`: identifiers may start with any alphabetic character or `_`, not just `[a-z]`.
+mod ast;
+mod lexer;
+mod lower;
+mod parser;
+mod write;
 
+use super::QuantumLanguageParser;
+use super::QuantumLanguageWriter;
 use crate::QuditCircuit;
 use crate::Result;
 
-use std::collections::HashMap;
-use std::iter::Peekable;
-use std::str::Chars;
-
-use super::QuantumLanguageParser;
-
-// ============================================================================
-// 1. AST Definitions
-// ============================================================================
-
-#[derive(Debug, PartialEq)]
-pub struct QASMProgram {
-    version: f64,
-    statements: Vec<QASMParsedStatement>,
-}
-
-/// A parsed statement together with the source line it starts on.
-#[derive(Debug, PartialEq)]
-pub struct QASMParsedStatement {
-    pub line: usize,
-    pub kind: QASMStatement,
-}
-
-#[derive(Debug, PartialEq)]
-pub struct QASMGateDecl {
-    pub name: String,
-    pub params: Vec<String>,
-    pub qargs: Vec<String>,
-    pub body: Vec<GateOp>,
-}
-
-#[derive(Debug, PartialEq)]
-pub enum QASMStatement {
-    QReg(String, usize),
-    CReg(String, usize),
-    Include(String),
-    GateDecl(QASMGateDecl),
-    OpaqueDecl {
-        name: String,
-        params: Vec<String>,
-        qargs: Vec<String>,
-    },
-    Qop(Qop),
-    If {
-        creg: String,
-        value: usize,
-        op: Qop,
-    },
-    Barrier(Vec<Argument>),
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum GateOp {
-    Uop(Uop),
-    Barrier(Vec<Argument>),
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Qop {
-    Uop(Uop),
-    Measure(Argument, Argument),
-    Reset(Argument),
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Uop {
-    U {
-        theta: Expr,
-        phi: Expr,
-        lambda: Expr,
-        target: Argument,
-    },
-    CX {
-        control: Argument,
-        target: Argument,
-    },
-    Custom {
-        name: String,
-        params: Vec<Expr>,
-        args: Vec<Argument>,
-    },
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Argument {
-    Register(String),
-    Bit(String, usize),
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Expr {
-    Real(f64),
-    Integer(usize),
-    Pi,
-    Id(String),
-    BinaryOp(Box<Expr>, BinaryOperator, Box<Expr>), // (+, -, *, /)
-    UnaryOp(UnaryOperator, Box<Expr>),             // sin, cos, etc.
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum BinaryOperator {
-    Plus,
-    Minus,
-    Multiply,
-    Divide,
-    Power,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum UnaryOperator {
-    Negate,
-    Sin,
-    Cos,
-    Tan,
-    Exp,
-    Ln,
-    Sqrt,
-}
-
-// ============================================================================
-// 2. Lexer
-// ============================================================================
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Token {
-    // Keywords
-    OpenQasm,
-    Include,
-    Qreg,
-    Creg,
-    Gate,
-    Opaque,
-    If,
-    Barrier,
-    Measure,
-    Reset,
-    U,
-    CX,
-    Pi,
-
-    // Logic & Control
-    Arrow, // ->
-    EqEq,  // ==
-    
-    // Binary Operators
-    Plus, Minus, Star, Slash, Caret,
-    
-    // Unary Math Functions
-    Sin, Cos, Tan, Exp, Ln, Sqrt,
-
-    // Data
-    Ident(String),
-    StringLit(String),
-    Int(usize),
-    Real(f64),
-    
-    // Punctuation: (, ), [, ], {, }, ;, ,
-    Punct(char), 
-    
-    Eof,
-}
-
-pub struct Lexer<'a> {
-    chars: Peekable<Chars<'a>>,
-    line: usize,
-}
-
-impl<'a> Lexer<'a> {
-    pub fn new(source: &'a str) -> Self {
-        Lexer { chars: source.chars().peekable(), line: 1 }
-    }
-
-    /// Advances the iterator and tracks newlines for error reporting.
-    fn advance(&mut self) -> Option<char> {
-        let c = self.chars.next();
-        if c == Some('\n') {
-            self.line += 1;
-        }
-        c
-    }
-
-    fn lex_error(&self, message: impl Into<String>) -> crate::Error {
-        crate::Error::LanguageError { message: message.into(), lineno: self.line }
-    }
-
-    fn skip_whitespace(&mut self) {
-        while self.chars.peek().is_some_and(|&c| c.is_whitespace()) {
-            self.advance();
-        }
-    }
-
-    pub fn next_token(&mut self) -> Result<Token> {
-        // Use a loop so if we consume a comment, we can restart the token search
-        loop {
-            self.skip_whitespace();
-
-            let c = match self.advance() {
-                Some(c) => c,
-                None => return Ok(Token::Eof),
-            };
-
-            match c {
-                '/' => {
-                    if self.chars.peek().is_some_and(|&nc| nc == '/') {
-                        // Comment: skip to end of line and restart loop
-                        while self.chars.peek().is_some_and(|&nc| nc != '\n') {
-                            self.advance();
-                        }
-                        continue;
-                    } else {
-                        // Division operator
-                        return Ok(Token::Slash);
-                    }
-                }
-
-                ';' | ',' | '(' | ')' | '[' | ']' | '{' | '}' => return Ok(Token::Punct(c)),
-                '+' => return Ok(Token::Plus),
-                '*' => return Ok(Token::Star),
-                '^' => return Ok(Token::Caret),
-                '-' => {
-                    if self.chars.peek().is_some_and(|&nc| nc == '>') {
-                        self.advance();
-                        return Ok(Token::Arrow);
-                    } else {
-                        return Ok(Token::Minus);
-                    }
-                }
-                '=' => {
-                    if self.chars.peek().is_some_and(|&nc| nc == '=') {
-                        self.advance();
-                        return Ok(Token::EqEq);
-                    } else {
-                        return Err(self.lex_error("expected '==' but found single '='"));
-                    }
-                }
-                '"' => {
-                    let mut s = String::new();
-                    loop {
-                        match self.advance() {
-                            Some('"') => break,
-                            Some(nc)  => s.push(nc),
-                            None => return Err(self.lex_error("unterminated string literal")),
-                        }
-                    }
-                    return Ok(Token::StringLit(s));
-                }
-                _ if c.is_alphabetic() || c == '_' => {
-                    let mut s = String::new();
-                    s.push(c);
-                    while self.chars.peek().is_some_and(|&nc| nc.is_alphanumeric() || nc == '_') {
-                        // peek() confirmed Some, so advance() is infallible here
-                        s.push(self.advance().expect("peek guaranteed Some"));
-                    }
-                    return Ok(match s.as_str() {
-                        "OPENQASM" => Token::OpenQasm,
-                        "include"  => Token::Include,
-                        "qreg"     => Token::Qreg,
-                        "creg"     => Token::Creg,
-                        "gate"     => Token::Gate,
-                        "opaque"   => Token::Opaque,
-                        "if"       => Token::If,
-                        "barrier"  => Token::Barrier,
-                        "measure"  => Token::Measure,
-                        "reset"    => Token::Reset,
-                        "U"        => Token::U,
-                        "CX"       => Token::CX,
-                        "pi"       => Token::Pi,
-                        "sin"      => Token::Sin,
-                        "cos"      => Token::Cos,
-                        "tan"      => Token::Tan,
-                        "exp"      => Token::Exp,
-                        "ln"       => Token::Ln,
-                        "sqrt"     => Token::Sqrt,
-                        _          => Token::Ident(s),
-                    });
-                }
-                _ if c.is_ascii_digit() || c == '.' => {
-                    let mut s = String::new();
-                    s.push(c);
-                    let mut is_real = c == '.';
-
-                    while let Some(&nc) = self.chars.peek() {
-                        if nc.is_ascii_digit() || nc == '.' || nc == 'e' || nc == 'E' ||
-                           ((nc == '+' || nc == '-') && (s.ends_with('e') || s.ends_with('E')))
-                        {
-                            if nc == '.' || nc == 'e' || nc == 'E' { is_real = true; }
-                            // peek() confirmed Some, so advance() is infallible here
-                            s.push(self.advance().expect("peek guaranteed Some"));
-                        } else {
-                            break;
-                        }
-                    }
-
-                    if is_real {
-                        let val = s.parse::<f64>().map_err(|e| {
-                            self.lex_error(format!("invalid float literal '{}': {}", s, e))
-                        })?;
-                        return Ok(Token::Real(val));
-                    } else {
-                        let val = s.parse::<usize>().map_err(|e| {
-                            self.lex_error(format!("invalid integer literal '{}': {}", s, e))
-                        })?;
-                        return Ok(Token::Int(val));
-                    }
-                }
-                _ => return Err(self.lex_error(format!("unexpected character '{}'", c))),
-            }
-        }
-    }
-}
-
-// ============================================================================
-// 3. Recursive Descent Parser
-// ============================================================================
-
-struct Parser<'a> {
-    lexer: Lexer<'a>,
-    /// One-token lookahead buffer.
-    peeked: Option<Token>,
-}
-
-impl<'a> Parser<'a> {
-    fn new(source: &'a str) -> Self {
-        Parser { lexer: Lexer::new(source), peeked: None }
-    }
-
-    /// Returns a clone of the next token without consuming it.
-    fn peek(&mut self) -> Result<Token> {
-        if self.peeked.is_none() {
-            self.peeked = Some(self.lexer.next_token()?);
-        }
-        Ok(self.peeked.as_ref().unwrap().clone())
-    }
-
-    /// Consumes and returns the next token.
-    fn advance(&mut self) -> Result<Token> {
-        match self.peeked.take() {
-            Some(t) => Ok(t),
-            None => self.lexer.next_token(),
-        }
-    }
-
-    fn parse_error(&self, message: impl Into<String>) -> crate::Error {
-        crate::Error::LanguageError { message: message.into(), lineno: self.lexer.line }
-    }
-
-    fn expect_punct(&mut self, ch: char) -> Result<()> {
-        match self.advance()? {
-            Token::Punct(c) if c == ch => Ok(()),
-            t => Err(self.parse_error(format!("expected '{}', got {:?}", ch, t))),
-        }
-    }
-
-    fn expect_ident(&mut self) -> Result<String> {
-        match self.advance()? {
-            Token::Ident(s) => Ok(s),
-            t => Err(self.parse_error(format!("expected identifier, got {:?}", t))),
-        }
-    }
-
-    fn expect_int(&mut self) -> Result<usize> {
-        match self.advance()? {
-            Token::Int(n) => Ok(n),
-            t => Err(self.parse_error(format!("expected integer, got {:?}", t))),
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Top-level: Entry
-    // -----------------------------------------------------------------------
-
-    /// `<mainprogram> ::= OPENQASM <real> ; <program>`
-    fn parse_program(&mut self) -> Result<QASMProgram> {
-        match self.advance()? {
-            Token::OpenQasm => {}
-            t => return Err(self.parse_error(format!("expected 'OPENQASM', got {:?}", t))),
-        }
-        let version = match self.advance()? {
-            Token::Real(v) => v,
-            Token::Int(n)  => n as f64,
-            t => return Err(self.parse_error(format!("expected version number, got {:?}", t))),
-        };
-        self.expect_punct(';')?;
-        let statements = self.parse_body()?;
-        Ok(QASMProgram { version, statements })
-    }
-
-    /// `<program> ::= <statement>*`
-    ///
-    /// Parses a sequence of statements without a leading `OPENQASM` header.
-    /// This is the entry point used when parsing included files, which are
-    /// not required to carry their own version declaration.
-    fn parse_body(&mut self) -> Result<Vec<QASMParsedStatement>> {
-        let mut statements = Vec::new();
-        while self.peek()? != Token::Eof {
-            statements.push(self.parse_statement()?);
-        }
-        Ok(statements)
-    }
-
-    // -----------------------------------------------------------------------
-    // Statements
-    // -----------------------------------------------------------------------
-
-    fn parse_statement(&mut self) -> Result<QASMParsedStatement> {
-        // Load the lookahead token first so that lexer.line already reflects
-        // the line on which this statement begins.
-        self.peek()?;
-        let line = self.lexer.line;
-        let kind = match self.peek()? {
-            Token::Qreg | Token::Creg => self.parse_decl()?,
-            Token::Gate               => self.parse_gate_decl_stmt()?,
-            Token::Opaque             => self.parse_opaque()?,
-            Token::If                 => self.parse_if()?,
-            Token::Include            => self.parse_include()?,
-            Token::Barrier => {
-                self.advance()?;
-                let args = self.parse_anylist()?;
-                self.expect_punct(';')?;
-                QASMStatement::Barrier(args)
-            }
-            _ => QASMStatement::Qop(self.parse_qop()?),
-        };
-        Ok(QASMParsedStatement { line, kind })
-    }
-
-    /// `<decl> ::= qreg <id> [ <nninteger> ] ; | creg <id> [ <nninteger> ] ;`
-    fn parse_decl(&mut self) -> Result<QASMStatement> {
-        let is_qreg = matches!(self.advance()?, Token::Qreg);
-        let name    = self.expect_ident()?;
-        self.expect_punct('[')?;
-        let size = self.expect_int()?;
-        self.expect_punct(']')?;
-        self.expect_punct(';')?;
-        if is_qreg { Ok(QASMStatement::QReg(name, size)) } else { Ok(QASMStatement::CReg(name, size)) }
-    }
-
-    /// `<gatedecl> <goplist> } | <gatedecl> }`
-    fn parse_gate_decl_stmt(&mut self) -> Result<QASMStatement> {
-        self.advance()?; // consume 'gate'
-        let name   = self.expect_ident()?;
-        let params = self.parse_optional_param_idlist()?;
-        let qargs  = self.parse_idlist()?;
-        self.expect_punct('{')?;
-        let body = if self.peek()? == Token::Punct('}') { vec![] } else { self.parse_goplist()? };
-        self.expect_punct('}')?;
-        Ok(QASMStatement::GateDecl(QASMGateDecl { name, params, qargs, body }))
-    }
-
-    /// `opaque <id> <idlist> ; | opaque <id> () <idlist> ; | opaque <id> (<idlist>) <idlist> ;`
-    fn parse_opaque(&mut self) -> Result<QASMStatement> {
-        self.advance()?; // consume 'opaque'
-        let name   = self.expect_ident()?;
-        let params = self.parse_optional_param_idlist()?;
-        let qargs  = self.parse_idlist()?;
-        self.expect_punct(';')?;
-        Ok(QASMStatement::OpaqueDecl { name, params, qargs })
-    }
-
-    /// Parses an optional `( <idlist> )` or `()` parameter list, returning the identifiers.
-    /// If there is no opening `(`, returns an empty `Vec`.
-    fn parse_optional_param_idlist(&mut self) -> Result<Vec<String>> {
-        if self.peek()? != Token::Punct('(') {
-            return Ok(vec![]);
-        }
-        self.advance()?; // consume '('
-        let params = if self.peek()? == Token::Punct(')') { vec![] } else { self.parse_idlist()? };
-        self.expect_punct(')')?;
-        Ok(params)
-    }
-
-    /// `if ( <id> == <nninteger> ) <qop>`
-    fn parse_if(&mut self) -> Result<QASMStatement> {
-        self.advance()?; // consume 'if'
-        self.expect_punct('(')?;
-        let creg = self.expect_ident()?;
-        match self.advance()? {
-            Token::EqEq => {}
-            t => return Err(self.parse_error(format!("expected '==', got {:?}", t))),
-        }
-        let value = self.expect_int()?;
-        self.expect_punct(')')?;
-        let op = self.parse_qop()?;
-        Ok(QASMStatement::If { creg, value, op })
-    }
-
-    /// `include " <string> " ;`
-    fn parse_include(&mut self) -> Result<QASMStatement> {
-        self.advance()?; // consume 'include'
-        match self.advance()? {
-            Token::StringLit(s) => {
-                self.expect_punct(';')?;
-                Ok(QASMStatement::Include(s))
-            }
-            t => Err(self.parse_error(format!("expected string literal after 'include', got {:?}", t))),
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Gate body
-    // -----------------------------------------------------------------------
-
-    /// `<goplist> ::= (<uop> | barrier <idlist> ;)*`
-    fn parse_goplist(&mut self) -> Result<Vec<GateOp>> {
-        let mut ops = Vec::new();
-        loop {
-            match self.peek()? {
-                Token::Punct('}') | Token::Eof => break,
-                Token::Barrier => {
-                    self.advance()?;
-                    let args = self.parse_idlist()?
-                        .into_iter()
-                        .map(Argument::Register)
-                        .collect();
-                    self.expect_punct(';')?;
-                    ops.push(GateOp::Barrier(args));
-                }
-                _ => ops.push(GateOp::Uop(self.parse_uop()?)),
-            }
-        }
-        Ok(ops)
-    }
-
-    // -----------------------------------------------------------------------
-    // Quantum operations
-    // -----------------------------------------------------------------------
-
-    /// `<qop> ::= <uop> | measure <argument> -> <argument> ; | reset <argument> ;`
-    fn parse_qop(&mut self) -> Result<Qop> {
-        match self.peek()? {
-            Token::Measure => {
-                self.advance()?;
-                let src = self.parse_argument()?;
-                match self.advance()? {
-                    Token::Arrow => {}
-                    t => return Err(self.parse_error(format!("expected '->', got {:?}", t))),
-                }
-                let dst = self.parse_argument()?;
-                self.expect_punct(';')?;
-                Ok(Qop::Measure(src, dst))
-            }
-            Token::Reset => {
-                self.advance()?;
-                let arg = self.parse_argument()?;
-                self.expect_punct(';')?;
-                Ok(Qop::Reset(arg))
-            }
-            _ => Ok(Qop::Uop(self.parse_uop()?)),
-        }
-    }
-
-    /// `<uop> ::= U(<explist>) <argument> ;`
-    ///          `| CX <argument> , <argument> ;`
-    ///          `| <id> [(<explist>)] <anylist> ;`
-    fn parse_uop(&mut self) -> Result<Uop> {
-        match self.peek()? {
-            Token::U => {
-                self.advance()?;
-                self.expect_punct('(')?;
-                let mut params = self.parse_explist()?;
-                if params.len() != 3 {
-                    return Err(self.parse_error(
-                        format!("U gate requires exactly 3 parameters, got {}", params.len()),
-                    ));
-                }
-                self.expect_punct(')')?;
-                let lambda = params.pop().unwrap();
-                let phi    = params.pop().unwrap();
-                let theta  = params.pop().unwrap();
-                let target = self.parse_argument()?;
-                self.expect_punct(';')?;
-                Ok(Uop::U { theta, phi, lambda, target })
-            }
-            Token::CX => {
-                self.advance()?;
-                let control = self.parse_argument()?;
-                self.expect_punct(',')?;
-                let target  = self.parse_argument()?;
-                self.expect_punct(';')?;
-                Ok(Uop::CX { control, target })
-            }
-            Token::Ident(_) => {
-                let name   = self.expect_ident()?;
-                let params = self.parse_optional_param_explist()?;
-                let args   = self.parse_anylist()?;
-                self.expect_punct(';')?;
-                Ok(Uop::Custom { name, params, args })
-            }
-            t => Err(self.parse_error(format!("expected gate operation (U, CX, or identifier), got {:?}", t))),
-        }
-    }
-
-    /// Parses an optional `( <explist> )` or `()` expression parameter list.
-    /// If there is no opening `(`, returns an empty `Vec`.
-    fn parse_optional_param_explist(&mut self) -> Result<Vec<Expr>> {
-        if self.peek()? != Token::Punct('(') {
-            return Ok(vec![]);
-        }
-        self.advance()?; // consume '('
-        let params = if self.peek()? == Token::Punct(')') { vec![] } else { self.parse_explist()? };
-        self.expect_punct(')')?;
-        Ok(params)
-    }
-
-    // -----------------------------------------------------------------------
-    // Lists
-    // -----------------------------------------------------------------------
-
-    /// `<anylist> ::= <idlist> | <mixedlist>`
-    ///
-    /// Parsed uniformly: a comma-separated list of `<id>` or `<id> [ <nninteger> ]`.
-    fn parse_anylist(&mut self) -> Result<Vec<Argument>> {
-        let mut args = vec![self.parse_argument()?];
-        while self.peek()? == Token::Punct(',') {
-            self.advance()?;
-            args.push(self.parse_argument()?);
-        }
-        Ok(args)
-    }
-
-    /// `<idlist> ::= <id> | <idlist> , <id>`
-    fn parse_idlist(&mut self) -> Result<Vec<String>> {
-        let mut ids = vec![self.expect_ident()?];
-        while self.peek()? == Token::Punct(',') {
-            // Peek ahead to distinguish `id,` from what follows in other contexts.
-            // We only consume the comma if the next token after it is an identifier
-            // without a following `[`, to avoid over-consuming in anylist/argument
-            // contexts.  For idlist the spec guarantees the next item is a plain id.
-            self.advance()?; // consume ','
-            ids.push(self.expect_ident()?);
-        }
-        Ok(ids)
-    }
-
-    /// `<argument> ::= <id> | <id> [ <nninteger> ]`
-    fn parse_argument(&mut self) -> Result<Argument> {
-        let id = self.expect_ident()?;
-        if self.peek()? == Token::Punct('[') {
-            self.advance()?;
-            let idx = self.expect_int()?;
-            self.expect_punct(']')?;
-            Ok(Argument::Bit(id, idx))
-        } else {
-            Ok(Argument::Register(id))
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Expressions
-    // -----------------------------------------------------------------------
-
-    /// `<explist> ::= <exp> | <explist> , <exp>`
-    fn parse_explist(&mut self) -> Result<Vec<Expr>> {
-        let mut exps = vec![self.parse_exp()?];
-        while self.peek()? == Token::Punct(',') {
-            self.advance()?;
-            exps.push(self.parse_exp()?);
-        }
-        Ok(exps)
-    }
-
-    /// `<exp> ::= <term> (('+' | '-') <term>)*`  (left-associative, lowest precedence)
-    fn parse_exp(&mut self) -> Result<Expr> {
-        let mut lhs = self.parse_term()?;
-        loop {
-            let op = match self.peek()? {
-                Token::Plus  => BinaryOperator::Plus,
-                Token::Minus => BinaryOperator::Minus,
-                _            => break,
-            };
-            self.advance()?;
-            lhs = Expr::BinaryOp(Box::new(lhs), op, Box::new(self.parse_term()?));
-        }
-        Ok(lhs)
-    }
-
-    /// `<term> ::= <power> (('*' | '/') <power>)*`  (left-associative)
-    fn parse_term(&mut self) -> Result<Expr> {
-        let mut lhs = self.parse_power()?;
-        loop {
-            let op = match self.peek()? {
-                Token::Star  => BinaryOperator::Multiply,
-                Token::Slash => BinaryOperator::Divide,
-                _            => break,
-            };
-            self.advance()?;
-            lhs = Expr::BinaryOp(Box::new(lhs), op, Box::new(self.parse_power()?));
-        }
-        Ok(lhs)
-    }
-
-    /// `<power> ::= <atom> ('^' <power>)?`  (right-associative, highest binary precedence)
-    fn parse_power(&mut self) -> Result<Expr> {
-        let base = self.parse_exp_atom()?;
-        if self.peek()? == Token::Caret {
-            self.advance()?;
-            Ok(Expr::BinaryOp(Box::new(base), BinaryOperator::Power, Box::new(self.parse_power()?)))
-        } else {
-            Ok(base)
-        }
-    }
-
-    /// Parses an atomic expression (no binary operators at this level).
-    fn parse_exp_atom(&mut self) -> Result<Expr> {
-        match self.peek()? {
-            // Unary minus: `-<atom>` (binds tightly, same as any unary prefix)
-            Token::Minus => {
-                self.advance()?;
-                let inner = self.parse_exp_atom()?;
-                Ok(Expr::UnaryOp(UnaryOperator::Negate, Box::new(inner)))
-            }
-            // Grouped expression
-            Token::Punct('(') => {
-                self.advance()?;
-                let inner = self.parse_exp()?;
-                self.expect_punct(')')?;
-                Ok(inner)
-            }
-            Token::Real(v) => {
-                self.advance()?;
-                Ok(Expr::Real(v))
-            }
-            Token::Int(n) => {
-                self.advance()?;
-                Ok(Expr::Integer(n))
-            }
-            Token::Pi => {
-                self.advance()?;
-                Ok(Expr::Pi)
-            }
-            Token::Ident(s) => {
-                self.advance()?;
-                Ok(Expr::Id(s))
-            }
-            // Named unary math functions: `<unaryop> ( <exp> )`
-            Token::Sin | Token::Cos | Token::Tan
-            | Token::Exp | Token::Ln | Token::Sqrt => {
-                let op = match self.advance()? {
-                    Token::Sin  => UnaryOperator::Sin,
-                    Token::Cos  => UnaryOperator::Cos,
-                    Token::Tan  => UnaryOperator::Tan,
-                    Token::Exp  => UnaryOperator::Exp,
-                    Token::Ln   => UnaryOperator::Ln,
-                    Token::Sqrt => UnaryOperator::Sqrt,
-                    _           => unreachable!(),
-                };
-                self.expect_punct('(')?;
-                let inner = self.parse_exp()?;
-                self.expect_punct(')')?;
-                Ok(Expr::UnaryOp(op, Box::new(inner)))
-            }
-            t => Err(self.parse_error(format!("expected expression atom, got {:?}", t))),
-        }
-    }
-}
-
-// ============================================================================
-// 4. Lowering Passes
-// ============================================================================
-
-fn resolve_stmts(stmts: Vec<QASMParsedStatement>) -> Result<Vec<QASMParsedStatement>> {
-    let mut out = Vec::new();
-    for stmt in stmts {
-        if let QASMStatement::Include(path) = stmt.kind {
-            if path == "qelib1.inc" {
-                // If the standard library file is present on disk, load it;
-                // otherwise its gates are available implicitly and we skip it.
-                match std::fs::read_to_string(&path) {
-                    Ok(source) => {
-                        let included = Parser::new(&source).parse_body()?;
-                        out.extend(resolve_stmts(included)?);
-                    }
-                    Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                    Err(e) => return Err(crate::Error::LanguageError {
-                        message: format!("failed to read include '{}': {}", path, e),
-                        lineno: stmt.line,
-                    }),
-                }
-            } else {
-                let source = std::fs::read_to_string(&path).map_err(|e| {
-                    crate::Error::LanguageError {
-                        message: format!("failed to read include '{}': {}", path, e),
-                        lineno: stmt.line,
-                    }
-                })?;
-                let included = Parser::new(&source).parse_body()?;
-                out.extend(resolve_stmts(included)?);
-            }
-        } else {
-            out.push(stmt);
-        }
-    }
-    Ok(out)
-}
-
-/// Recursively resolves `include` statements in a parsed program.
+/// Parses an OpenQASM 2.0 program into a [`QuditCircuit`].
 ///
-/// - `include "qelib1.inc";` is silently dropped: its gates are always
-///   available implicitly.
-/// - All other includes are read from disk relative to the process working
-///   directory, parsed, and their statements spliced in at the include site.
-///   Nested includes are resolved depth-first.
-fn resolve_includes(program: QASMProgram) -> Result<QASMProgram> {
-    let statements = resolve_stmts(program.statements)?;
-    Ok(QASMProgram { version: program.version, statements })
-}
-
-enum GateBody {
-    Circ(QuditCircuit),
-    Op(Operation),
-}
-
-
-fn build_default_gate_table() -> HashMap<String, GateBody> {
-    let mut gate_table = HashMap::new();
-    // Default QASM gates
-    gate_table.insert("U".into(), GateBody::Op(U3Gate().into()));
-    gate_table.insert("CX".into(), GateBody::Op(Controlled(XGate(2), [2].into(), None).into()));
-
-    // qelib1.inc gates
-    gate_table.insert("u3".into(), GateBody::Op(U3Gate().into()));
-    gate_table.insert("u2".into(), GateBody::Op(U2Gate().into()));
-    gate_table.insert("u1".into(), GateBody::Op(U1Gate().into()));
-    gate_table.insert("cx".into(), GateBody::Op(Controlled(XGate(2), [2].into(), None).into()));
-    gate_table.insert("id".into(), GateBody::Op(IGate(2).into()));
-    gate_table.insert("u0".into(), GateBody::Op(IGate(2).into()));
-    gate_table.insert("u".into(), GateBody::Op(U3Gate().into()));
-    gate_table.insert("p".into(), GateBody::Op(PGate(2).into()));
-    gate_table.insert("x".into(), GateBody::Op(XGate(2).into()));
-    gate_table.insert("y".into(), GateBody::Op(YGate(2).into()));
-    gate_table.insert("z".into(), GateBody::Op(ZGate(2).into()));
-    gate_table.insert("h".into(), GateBody::Op(HGate(2).into()));
-    gate_table.insert("s".into(), GateBody::Op(SGate(2).into()));
-    gate_table.insert("sdg".into(), GateBody::Op(Dagger(SGate(2)).into()));
-    gate_table.insert("t".into(), GateBody::Op(TGate(2).into()));
-    gate_table.insert("tdg".into(), GateBody::Op(Dagger(TGate(2)).into()));
-    gate_table.insert("rx".into(), GateBody::Op(RXGate().into()));
-    gate_table.insert("ry".into(), GateBody::Op(RYGate().into()));
-    gate_table.insert("rz".into(), GateBody::Op(RZGate().into()));
-    gate_table.insert("sx".into(), GateBody::Op(SXGate().into()));
-    gate_table.insert("sxdg".into(), GateBody::Op(Dagger(SXGate()).into()));
-    gate_table.insert("swap".into(), GateBody::Op(SwapGate(2).into()));
-    gate_table.insert("cz".into(), GateBody::Op(Controlled(ZGate(2), [2].into(), None).into()));
-    gate_table.insert("cy".into(), GateBody::Op(Controlled(YGate(2), [2].into(), None).into()));
-    gate_table.insert("ch".into(), GateBody::Op(Controlled(HGate(2), [2].into(), None).into()));
-    gate_table.insert("ccx".into(), GateBody::Op(Controlled(XGate(2), [2, 2].into(), None).into()));
-    gate_table.insert("cswap".into(), GateBody::Op(Controlled(SwapGate(2), [2].into(), None).into()));
-    gate_table.insert("crx".into(), GateBody::Op(Controlled(RXGate(), [2].into(), None).into()));
-    gate_table.insert("cry".into(), GateBody::Op(Controlled(RYGate(), [2].into(), None).into()));
-    gate_table.insert("crz".into(), GateBody::Op(Controlled(RZGate(), [2].into(), None).into()));
-    gate_table.insert("cu1".into(), GateBody::Op(Controlled(U1Gate(), [2].into(), None).into()));
-    gate_table.insert("cp".into(), GateBody::Op(Controlled(PGate(2), [2].into(), None).into()));
-    gate_table.insert("cu3".into(), GateBody::Op(Controlled(U3Gate(), [2].into(), None).into()));
-    gate_table.insert("csx".into(), GateBody::Op(Controlled(SXGate(), [2].into(), None).into()));
-    gate_table.insert("cu".into(), GateBody::Op(Controlled(U3Gate(), [2].into(), None).into()));
-    gate_table.insert("rxx".into(), GateBody::Op(RXXGate().into()));
-    gate_table.insert("rzz".into(), GateBody::Op(RZZGate().into()));
-    gate_table.insert("c3x".into(), GateBody::Op(Controlled(XGate(2), [2, 2].into(), None).into()));
-    gate_table.insert("c4x".into(), GateBody::Op(Controlled(XGate(2), [2, 2, 2].into(), None).into()));
-    gate_table.insert("c3sqrtx".into(), GateBody::Op(Controlled(SXGate(), [2, 2].into(), None).into()));
-
-    // rccx
-    let cx = Controlled(XGate(2), [2].into(), None);
-    let mut rccx_circuit = QuditCircuit::pure([2, 2, 2]);
-    rccx_circuit.append(U2Gate(), [2], ["0", "pi"]);
-    rccx_circuit.append(U1Gate(), [2], ["pi/4"]);
-    rccx_circuit.append(cx.clone(), [1, 2], None);
-    rccx_circuit.append(U1Gate(), [2], ["-pi/4"]);
-    rccx_circuit.append(cx.clone(), [0, 2], None);
-    rccx_circuit.append(U1Gate(), [2], ["pi/4"]);
-    rccx_circuit.append(cx.clone(), [1, 2], None);
-    rccx_circuit.append(U1Gate(), [2], ["-pi/4"]);
-    rccx_circuit.append(U2Gate(), [2], ["0", "pi"]);
-    gate_table.insert("rccx".into(), GateBody::Circ(rccx_circuit));
-
-    // rc3x
-    let mut rc3x_circuit = QuditCircuit::pure([2, 2, 2, 2]);
-    rc3x_circuit.append(U2Gate(), [3], ["0", "pi"]);
-    rc3x_circuit.append(U1Gate(), [3], ["pi/4"]);
-    rc3x_circuit.append(cx.clone(), [2, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["-pi/4"]);
-    rc3x_circuit.append(U2Gate(), [3], ["0", "pi"]);
-    rc3x_circuit.append(cx.clone(), [0, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["pi/4"]);
-    rc3x_circuit.append(cx.clone(), [1, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["-pi/4"]);
-    rc3x_circuit.append(cx.clone(), [0, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["pi/4"]);
-    rc3x_circuit.append(cx.clone(), [1, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["-pi/4"]);
-    rc3x_circuit.append(U2Gate(), [3], ["0", "pi"]);
-    rc3x_circuit.append(U1Gate(), [3], ["pi/4"]);
-    rc3x_circuit.append(cx.clone(), [2, 3], None);
-    rc3x_circuit.append(U1Gate(), [3], ["-pi/4"]);
-    rc3x_circuit.append(U2Gate(), [3], ["0", "pi"]);
-    gate_table.insert("rc3x".into(), GateBody::Circ(rc3x_circuit));
-
-    // Directives
-    gate_table.insert("barrier".into(), GateBody::Op(Operation::Directive(crate::operation::DirectiveOperation::Barrier)));
-    gate_table.insert("Barrier".into(), GateBody::Op(Operation::Directive(crate::operation::DirectiveOperation::Barrier)));
-
-    // Return
-    gate_table
-}
-
-/// Serialises an [`Expr`] node to a string. Used internally as a bridge for
-/// compound expressions where the `qudit_expr` builder API is not directly
-/// accessible. Prefer [`expr_to_param_argument`] for all call sites.
-fn expr_to_string(expr: &Expr) -> String {
-    match expr {
-        Expr::Real(v)    => v.to_string(),
-        Expr::Integer(n) => n.to_string(),
-        Expr::Pi         => "pi".into(),
-        Expr::Id(s)      => s.clone(),
-        Expr::BinaryOp(l, op, r) => {
-            let sym = match op {
-                BinaryOperator::Plus     => "+",
-                BinaryOperator::Minus    => "-",
-                BinaryOperator::Multiply => "*",
-                BinaryOperator::Divide   => "/",
-                BinaryOperator::Power    => "^",
-            };
-            format!("({} {} {})", expr_to_string(l), sym, expr_to_string(r))
-        }
-        Expr::UnaryOp(op, inner) => match op {
-            UnaryOperator::Negate => format!("(-{})",         expr_to_string(inner)),
-            UnaryOperator::Sin    => format!("sin({})",       expr_to_string(inner)),
-            UnaryOperator::Cos    => format!("cos({})",       expr_to_string(inner)),
-            UnaryOperator::Tan    => format!("tan({})",       expr_to_string(inner)),
-            UnaryOperator::Exp    => format!("exp({})",       expr_to_string(inner)),
-            UnaryOperator::Ln     => format!("ln({})",        expr_to_string(inner)),
-            UnaryOperator::Sqrt   => format!("sqrt({})",      expr_to_string(inner)),
-        },
-    }
-}
-
-/// Converts a QASM2 [`Expr`] AST node directly into a [`crate::param::Argument`],
-/// bypassing any string-serialisation round-trip.
+/// All standard `qelib1.inc` gates are available implicitly — `include
+/// "qelib1.inc";` is accepted and silently skipped regardless of whether the
+/// file exists on disk. Other `include` paths are read relative to the process
+/// working directory.
 ///
-/// Leaf nodes (`Real`, `Integer`, `Pi`, `Id`) are constructed without going
-/// through the parser. Compound expressions (`BinaryOp`, `UnaryOp`) fall back
-/// to the string bridge since the `qudit_expr::Expression` builder API is not
-/// exposed at this level.
-fn expr_to_param_argument(expr: &Expr) -> Result<crate::param::Argument> {
-    use qudit_expr::Expression as QExpr;
-    match expr {
-        Expr::Real(v)    => Ok(crate::param::Argument::Float64(*v)),
-        Expr::Integer(n) => Ok(crate::param::Argument::Float64(*n as f64)),
-        Expr::Pi         => Ok(crate::param::Argument::Expression(QExpr::Pi)),
-        Expr::Id(s)      => Ok(crate::param::Argument::Expression(QExpr::Variable(s.clone()))),
-        compound => crate::param::Argument::try_from(expr_to_string(compound)).map_err(|e| {
-            crate::Error::LanguageError {
-                message: format!("invalid parameter expression: {}", e),
-                lineno: 0,
-            }
-        }),
-    }
-}
-
-/// Resolves a gate-body [`Argument`] to its 0-based qubit index
-/// formal-argument-name → index map built from the enclosing `gate` declaration.
-fn resolve_gate_decl_qarg_idx(
-    arg: &Argument,
-    qarg_index: &HashMap<&str, usize>,
-    gate_name: &str,
-    line: usize,
-) -> Result<usize> {
-    match arg {
-        Argument::Register(name) => {
-            qarg_index.get(name.as_str()).copied().ok_or_else(|| crate::Error::LanguageError {
-                message: format!("unknown qubit argument '{}' in gate '{}'", name, gate_name),
-                lineno: line,
-            })
-        }
-        Argument::Bit(name, _) => Err(crate::Error::LanguageError {
-            message: format!("indexed qubit '{}[...]' is not allowed inside a gate body", name),
-            lineno: line,
-        }),
-    }
-}
-
-/// Resolves a [`QASMGateDecl`] into a [`QuditCircuit`] by lowering each
-/// [`GateOp`] in its body against the gate operations already present in `table`.
+/// The parser accepts a small superset of the strict grammar; see the
+/// module-level documentation for the full grammar and the accepted extensions.
 ///
-/// All qubits are assumed to be dimension-2 (qubit) operands.
-fn resolve_gate_decl(
-    decl: &QASMGateDecl,
-    table: &HashMap<String, GateBody>,
-    line: usize,
-) -> Result<QuditCircuit> {
-    let qarg_index: HashMap<&str, usize> =
-        decl.qargs.iter().enumerate().map(|(i, s)| (s.as_str(), i)).collect();
-
-    let mut circuit = QuditCircuit::pure(vec![2usize; decl.qargs.len()]);
-
-    for gate_op in &decl.body {
-        let (op_name, indices, param_args): (&str, Vec<usize>, ArgumentList) = match gate_op {
-            GateOp::Uop(Uop::U { theta, phi, lambda, target }) => {
-                let idx = resolve_gate_decl_qarg_idx(target, &qarg_index, &decl.name, line)?;
-                let params = ArgumentList::new(vec![
-                    expr_to_param_argument(theta)?,
-                    expr_to_param_argument(phi)?,
-                    expr_to_param_argument(lambda)?,
-                ]);
-                ("U", vec![idx], params)
-            }
-            GateOp::Uop(Uop::CX { control, target }) => {
-                let ctrl = resolve_gate_decl_qarg_idx(control, &qarg_index, &decl.name, line)?;
-                let tgt  = resolve_gate_decl_qarg_idx(target,  &qarg_index, &decl.name, line)?;
-                ("CX", vec![ctrl, tgt], ArgumentList::new(vec![]))
-            }
-            GateOp::Uop(Uop::Custom { name, params: exprs, args: qargs }) => {
-                let indices = qargs.iter()
-                    .map(|a| resolve_gate_decl_qarg_idx(a, &qarg_index, &decl.name, line))
-                    .collect::<Result<Vec<_>>>()?;
-                let params = ArgumentList::new(
-                    exprs.iter().map(expr_to_param_argument).collect::<Result<Vec<_>>>()?)
-                ;
-                (name.as_str(), indices, params)
-            }
-            GateOp::Barrier(qargs) => {
-                let indices = qargs.iter()
-                    .map(|a| resolve_gate_decl_qarg_idx(a, &qarg_index, &decl.name, line))
-                    .collect::<Result<Vec<_>>>()?;
-                ("barrier", indices, ArgumentList::new(vec![]))
-            }
-        };
-
-        let gate_body = table.get(op_name).ok_or_else(|| crate::Error::LanguageError {
-            message: format!("unknown gate '{}' used in definition of '{}'", op_name, decl.name),
-            lineno: line,
-        })?;
-
-        match gate_body {
-            GateBody::Op(op)     => circuit.append(op.clone(),   indices, param_args)?,
-            GateBody::Circ(circ) => circuit.append(circ.clone(), indices, param_args)?,
-        };
-    }
-
-    Ok(circuit)
-}
-
-/// Builds a complete gate-name → [`GateBody`] table for `program`.
+/// # Limitations
 ///
-/// Starts from the built-in default table (U, CX, and all qelib1.inc gates)
-/// and then processes every [`QASMStatement::GateDecl`] and
-/// [`QASMStatement::OpaqueDecl`] in order, so that gates may only reference
-/// names that were declared earlier (matching the OPENQASM 2.0 spec).
-fn resolve_gate_table(program: &QASMProgram) -> Result<HashMap<String, GateBody>> {
-    let mut table = build_default_gate_table();
-
-    for stmt in &program.statements {
-        match &stmt.kind {
-            QASMStatement::GateDecl(g) => {
-                if table.contains_key(&g.name) {
-                    return Err(crate::Error::LanguageError {
-                        message: format!("gate '{}' is already defined", g.name),
-                        lineno: stmt.line,
-                    });
-                }
-                let circuit = resolve_gate_decl(g, &table, stmt.line)?;
-                table.insert(g.name.clone(), GateBody::Circ(circuit));
-            }
-            QASMStatement::OpaqueDecl { .. } => {
-                return Err(crate::Error::LanguageError {
-                    message: "Opaque gate definitions are not supported.".into(),
-                    lineno: stmt.line,
-                });
-            }
-            _ => {}
-        }
-    }
-
-    Ok(table)
-}
-
-/// Maps a QASM register name to its `(start_index, size)` within the
-/// `QuditCircuit`'s linear qubit or clbit space.
-type ArgTable = HashMap<String, (usize, usize)>;
-
-/// Walks `program` collecting all `qreg` and `creg` declarations and assigns
-/// each register a contiguous slice of linear qubit / clbit indices.
-///
-/// Duplicate register names produce an error with the offending line number.
-/// Returns `(qreg_table, creg_table)`.
-fn resolve_registers(program: &QASMProgram) -> Result<(ArgTable, ArgTable)> {
-    let mut qregs: ArgTable = HashMap::new();
-    let mut cregs: ArgTable = HashMap::new();
-    let mut next_qubit: usize = 0;
-    let mut next_clbit: usize = 0;
-
-    for stmt in &program.statements {
-        match &stmt.kind {
-            QASMStatement::QReg(name, size) => {
-                if qregs.contains_key(name) {
-                    return Err(crate::Error::LanguageError {
-                        message: format!("quantum register '{}' is already declared", name),
-                        lineno: stmt.line,
-                    });
-                }
-                qregs.insert(name.clone(), (next_qubit, *size));
-                next_qubit += size;
-            }
-            QASMStatement::CReg(name, size) => {
-                if cregs.contains_key(name) {
-                    return Err(crate::Error::LanguageError {
-                        message: format!("classical register '{}' is already declared", name),
-                        lineno: stmt.line,
-                    });
-                }
-                cregs.insert(name.clone(), (next_clbit, *size));
-                next_clbit += size;
-            }
-            _ => {}
-        }
-    }
-
-    Ok((qregs, cregs))
-}
-
-/// Resolves a QASM [`Argument`] to a list of linear circuit bit indices.
-///
-/// - `id[n]` → `[start + n]`
-/// - `id`    → `[start, start+1, …, start+size-1]`
-fn resolve_arg(arg: &Argument, table: &ArgTable, line: usize) -> Result<Vec<usize>> {
-    match arg {
-        Argument::Bit(name, idx) => {
-            let &(start, size) = table.get(name).ok_or_else(|| crate::Error::LanguageError {
-                message: format!("unknown register '{}'", name),
-                lineno: line,
-            })?;
-            if *idx >= size {
-                return Err(crate::Error::LanguageError {
-                    message: format!("index {} out of bounds for register '{}[{}]'", idx, name, size),
-                    lineno: line,
-                });
-            }
-            Ok(vec![start + idx])
-        }
-        Argument::Register(name) => {
-            let &(start, size) = table.get(name).ok_or_else(|| crate::Error::LanguageError {
-                message: format!("unknown register '{}'", name),
-                lineno: line,
-            })?;
-            Ok((start..start + size).collect())
-        }
-    }
-}
-
-/// Expands a gate's argument list into one or more per-qubit index lists,
-/// implementing QASM 2.0 register broadcasting.
-///
-/// All register arguments must have the same size; single-bit arguments are
-/// replicated across every broadcast step.
-fn expand_gate_arguments(
-    args: &[Argument],
-    qreg_table: &ArgTable,
-    line: usize,
-) -> Result<Vec<Vec<usize>>> {
-    let resolved: Vec<Vec<usize>> = args.iter()
-        .map(|a| resolve_arg(a, qreg_table, line))
-        .collect::<Result<_>>()?;
-
-    let broadcast_size = resolved.iter().map(|v| v.len()).max().unwrap_or(1);
-
-    for v in &resolved {
-        if v.len() > 1 && v.len() != broadcast_size {
-            return Err(crate::Error::LanguageError {
-                message: "register sizes do not match in broadcast gate application".into(),
-                lineno: line,
-            });
-        }
-    }
-
-    Ok((0..broadcast_size)
-        .map(|i| resolved.iter().map(|v| if v.len() == 1 { v[0] } else { v[i] }).collect())
-        .collect())
-}
-
-/// Lowers a [`Uop`] to one or more `circuit.append` calls,
-/// handling register broadcasting.
-fn lower_uop(
-    uop: &Uop,
-    circuit: &mut QuditCircuit,
-    gate_table: &HashMap<String, GateBody>,
-    qreg_table: &ArgTable,
-    line: usize,
-) -> Result<()> {
-    let (op_name, qasm_args, params): (&str, Vec<Argument>, ArgumentList) = match uop {
-        Uop::U { theta, phi, lambda, target } => {
-            let params = ArgumentList::new(vec![
-                expr_to_param_argument(theta)?,
-                expr_to_param_argument(phi)?,
-                expr_to_param_argument(lambda)?,
-            ]);
-            ("U", vec![target.clone()], params)
-        }
-        Uop::CX { control, target } => {
-            ("CX", vec![control.clone(), target.clone()], ArgumentList::new(vec![]))
-        }
-        Uop::Custom { name, params: exprs, args } => {
-            let params = ArgumentList::new(
-                exprs.iter().map(expr_to_param_argument).collect::<Result<Vec<_>>>()?)
-            ;
-            (name.as_str(), args.clone(), params)
-        }
-    };
-
-    let gate_body = gate_table.get(op_name).ok_or_else(|| crate::Error::LanguageError {
-        message: format!("unknown gate '{}'", op_name),
-        lineno: line,
-    })?;
-
-    for indices in expand_gate_arguments(&qasm_args, qreg_table, line)? {
-        match gate_body {
-            GateBody::Op(op)     => circuit.append(op.clone(),  indices, params.clone())?,
-            GateBody::Circ(circ) => circuit.append(circ.clone(), indices, params.clone())?,
-        };
-    }
-
-    Ok(())
-}
-
-/// Final lowering pass: walks `program` and appends all quantum operations
-/// to a freshly created [`QuditCircuit`].
-fn lower_program(
-    program: &QASMProgram,
-    gate_table: &HashMap<String, GateBody>,
-    qreg_table: &ArgTable,
-    creg_table: &ArgTable,
-) -> Result<QuditCircuit> {
-    let total_qubits: usize = qreg_table.values().map(|&(_, size)| size).sum();
-    let total_clbits: usize = creg_table.values().map(|&(_, size)| size).sum();
-    let mut circuit = QuditCircuit::new(vec![2usize; total_qubits], vec![2usize; total_clbits]);
-
-    for stmt in &program.statements {
-        match &stmt.kind {
-            QASMStatement::Qop(qop) => match qop {
-                Qop::Uop(uop) => {
-                    lower_uop(uop, &mut circuit, gate_table, qreg_table, stmt.line)?;
-                }
-                Qop::Measure(src, dst) => {
-                    let qubit_indices = resolve_arg(src, qreg_table, stmt.line)?;
-                    let clbit_indices = resolve_arg(dst, creg_table, stmt.line)?;
-                    if qubit_indices.len() != clbit_indices.len() {
-                        return Err(crate::Error::LanguageError {
-                            message: format!(
-                                "measurement size mismatch: {} qubit(s) vs {} classical bit(s)",
-                                qubit_indices.len(), clbit_indices.len(),
-                            ),
-                            lineno: stmt.line,
-                        });
-                    }
-                    for (q, c) in qubit_indices.into_iter().zip(clbit_indices) {
-                        circuit.append(
-                            ZMeasurement(2),
-                            (vec![q], vec![c]),
-                            ArgumentList::new(vec![]),
-                        )?;
-                    }
-                }
-                Qop::Reset(_arg) => {
-                    return Err(crate::Error::LanguageError {
-                        message: "reset is not supported".into(),
-                        lineno: stmt.line,
-                    });
-                }
-            },
-            QASMStatement::If { creg, value, op } => {
-                let &(creg_start, creg_size) = creg_table.get(creg).ok_or_else(|| {
-                    crate::Error::LanguageError {
-                        message: format!("unknown classical register '{}'", creg),
-                        lineno: stmt.line,
-                    }
-                })?;
-                let clbit_indices: Vec<usize> = (creg_start..creg_start + creg_size).collect();
-
-                let Qop::Uop(uop) = op else {
-                    return Err(crate::Error::LanguageError {
-                        message: "only unitary gate operations are supported inside if statements".into(),
-                        lineno: stmt.line,
-                    });
-                };
-
-                let (op_name, qasm_args, params): (&str, Vec<Argument>, ArgumentList) = match uop {
-                    Uop::U { theta, phi, lambda, target } => {
-                        let params = ArgumentList::new(vec![
-                            expr_to_param_argument(theta)?,
-                            expr_to_param_argument(phi)?,
-                            expr_to_param_argument(lambda)?,
-                        ]);
-                        ("U", vec![target.clone()], params)
-                    }
-                    Uop::CX { control, target } => {
-                        ("CX", vec![control.clone(), target.clone()], ArgumentList::new(vec![]))
-                    }
-                    Uop::Custom { name, params: exprs, args } => {
-                        let params = ArgumentList::new(
-                            exprs.iter().map(expr_to_param_argument).collect::<Result<Vec<_>>>()?)
-                        ;
-                        (name.as_str(), args.clone(), params)
-                    }
-                };
-
-                let gate_body = gate_table.get(op_name).ok_or_else(|| crate::Error::LanguageError {
-                    message: format!("unknown gate '{}'", op_name),
-                    lineno: stmt.line,
-                })?;
-
-                for qubit_indices in expand_gate_arguments(&qasm_args, qreg_table, stmt.line)? {
-                    match gate_body {
-                        GateBody::Op(op) => {
-                            if let Operation::Expression(expr_op) = op {
-                                if let ExpressionOperation::UnitaryGate(u_expr) = expr_op {
-                                    // Assuming all qubits are dimension 2 for target radices.
-                                    // The ClassicallyControlled gate expects radices for its target qubits
-                                    // in the format Option<Vec<Vec<usize>>> for multi-qudit support.
-                                    let target_radices: Vec<usize> = qubit_indices.iter().map(|_| 2usize).collect();
-                                    let wrapped: Operation = ClassicallyControlled(
-                                        u_expr.clone(),
-                                        target_radices.into(),
-                                        None,
-                                    ).into();
-                                    circuit.append(wrapped, (qubit_indices, clbit_indices.clone()), params.clone())?;
-                                } else {
-                                    return Err(crate::Error::LanguageError {
-                                        message: format!("Gate '{}' cannot be classically controlled currently.", op_name),
-                                        lineno: stmt.line,
-                                    });
-                                }
-                            } else {
-                                return Err(crate::Error::LanguageError {
-                                    message: format!("Gate '{}' cannot be classically controlled currently.", op_name),
-                                    lineno: stmt.line,
-                                });
-                            }
-                        }
-                        GateBody::Circ(circ) => return Err(crate::Error::LanguageError {
-                            message: format!("Gate '{}' cannot be classically controlled currently.", op_name),
-                            lineno: stmt.line,
-                        }),
-                    };
-                }
-            }
-            QASMStatement::Barrier(args) => {
-                // A barrier spans all its arguments simultaneously — collect
-                // all qubit indices into a single flat list.
-                let indices: Vec<usize> = args.iter()
-                    .map(|a| resolve_arg(a, qreg_table, stmt.line))
-                    .collect::<Result<Vec<_>>>()?                    
-                    .into_iter().flatten().collect();
-                let barrier_body = gate_table.get("barrier")
-                    .expect("barrier is always present in the gate table");
-                if let GateBody::Op(op) = barrier_body {
-                    circuit.append(op.clone(), indices, ArgumentList::new(vec![]))?;
-                }
-            }
-            // Consumed by earlier passes.
-            QASMStatement::QReg(..)
-            | QASMStatement::CReg(..)
-            | QASMStatement::GateDecl(..)
-            | QASMStatement::OpaqueDecl { .. }
-            | QASMStatement::Include(..) => {}
-        }
-    }
-
-    Ok(circuit)
-}
-
-// ============================================================================
-// 5. Public API
-// ============================================================================
-
+/// - `reset` and `opaque` statements are not supported and produce an error.
+/// - Classically-controlled gates (`if`) are only supported for single-qubit
+///   unitary targets; multi-qubit targets return an error.
 pub struct QASM2Parser;
 
 impl QuantumLanguageParser for QASM2Parser {
     fn parse(&self, source: &str) -> Result<QuditCircuit> {
-        let ast = Parser::new(source).parse_program()?;
-        let ast = resolve_includes(ast)?;
-        let gate_table = resolve_gate_table(&ast)?;
-        let (qreg_table, creg_table) = resolve_registers(&ast)?;
-        lower_program(&ast, &gate_table, &qreg_table, &creg_table)
+        let ast = parser::parse_qasm_program(source)?;
+        lower::lower_qasm(ast)
     }
 
     fn supported_extensions(&self) -> &[&str] {
         &["qasm", "qasm2"]
+    }
+}
+
+/// Serializes a [`QuditCircuit`] to an OpenQASM 2.0 string.
+///
+/// The emitted program always begins with `OPENQASM 2.0;\ninclude
+/// "qelib1.inc";\n` and uses a single `qreg q[N]` and `creg c[N]`,
+/// collapsing multiple source registers by global qudit/dit index.
+///
+/// Gate parameters are formatted as exact `pi`-fraction expressions where
+/// possible (e.g., `pi/2`, `3*pi/4`, `-pi/4`), and fall back to scientific
+/// notation for arbitrary floats.
+///
+/// # Limitations
+///
+/// - Operations backed by subcircuits (custom gate definitions) cannot be
+///   serialized and return an error. Only primitive gates from `qelib1.inc`
+///   and built-in directives (measurement, barrier, classical control) are
+///   supported.
+pub struct QASM2Writer;
+
+impl QuantumLanguageWriter for QASM2Writer {
+    fn write(&self, circuit: &QuditCircuit) -> Result<String> {
+        write::write_qasm(circuit)
+    }
+
+    fn supported_extensions(&self) -> &[&str] {
+        &["qasm", "qasm2"]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::QASM2Parser;
+    use crate::lang::QuantumLanguageParser;
+    use qudit_core::{ClassicalSystem, QuditSystem};
+
+    // -----------------------------------------------------------------------
+    // Helpers
+    // -----------------------------------------------------------------------
+
+    fn parse(src: &str) -> crate::QuditCircuit {
+        QASM2Parser
+            .parse(src)
+            .unwrap_or_else(|e| panic!("parse failed: {e}"))
+    }
+
+    fn parse_err(src: &str) -> String {
+        match QASM2Parser.parse(src) {
+            Ok(_) => panic!("expected parse to fail but it succeeded"),
+            Err(e) => e.to_string(),
+        }
+    }
+
+    // Full QASM2 preamble used in most tests.
+    const HEADER: &str = "OPENQASM 2.0;\ninclude \"qelib1.inc\";\n";
+
+    fn prog(body: &str) -> String {
+        format!("{HEADER}{body}")
+    }
+
+    // -----------------------------------------------------------------------
+    // Parse happy-path: registers
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_empty_program() {
+        let circ = parse(&prog(""));
+        assert_eq!(circ.num_qudits(), 0);
+        assert_eq!(circ.num_dits(), 0);
+        assert_eq!(circ.iter_sorted().count(), 0);
+    }
+
+    #[test]
+    fn parse_qreg_only() {
+        let circ = parse(&prog("qreg q[3];\n"));
+        assert_eq!(circ.num_qudits(), 3);
+        assert_eq!(circ.num_dits(), 0);
+    }
+
+    #[test]
+    fn parse_creg_only() {
+        let circ = parse(&prog("creg c[2];\n"));
+        assert_eq!(circ.num_qudits(), 0);
+        assert_eq!(circ.num_dits(), 2);
+    }
+
+    #[test]
+    fn parse_multiple_registers() {
+        let circ = parse(&prog("qreg a[2];\nqreg b[3];\ncreg c[2];\n"));
+        assert_eq!(circ.num_qudits(), 5);
+        assert_eq!(circ.num_dits(), 2);
+    }
+
+    // -----------------------------------------------------------------------
+    // Parse happy-path: single-qubit gates
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_standard_single_qubit_gates() {
+        let src = prog(
+            "qreg q[1];\n\
+             h q[0];\nx q[0];\ny q[0];\nz q[0];\n\
+             s q[0];\nt q[0];\nsx q[0];\nid q[0];\n",
+        );
+        let circ = parse(&src);
+        assert_eq!(circ.num_qudits(), 1);
+        assert_eq!(circ.iter_sorted().count(), 8);
+    }
+
+    #[test]
+    fn parse_sdg_tdg_sxdg() {
+        let src = prog("qreg q[1];\nsdg q[0];\ntdg q[0];\nsxdg q[0];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 3);
+    }
+
+    #[test]
+    fn parse_parametrized_single_qubit_gates() {
+        let src = prog(
+            "qreg q[1];\n\
+             rx(pi/2) q[0];\nry(pi/4) q[0];\nrz(pi) q[0];\n\
+             p(pi/3) q[0];\nu1(pi/6) q[0];\nu2(0,pi) q[0];\n",
+        );
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 6);
+    }
+
+    #[test]
+    fn parse_u_gate_with_expressions() {
+        let src = prog("qreg q[1];\nU(pi/2, 0, pi) q[0];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_negative_param() {
+        let src = prog("qreg q[1];\nrx(-pi/4) q[0];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_complex_param_expression() {
+        let src = prog("qreg q[1];\nrz(2*pi/3 + 0.5) q[0];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Parse happy-path: two-qubit gates
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_cx_gate() {
+        let src = prog("qreg q[2];\ncx q[0], q[1];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.num_qudits(), 2);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_cx_uppercase() {
+        let src = prog("qreg q[2];\nCX q[0], q[1];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_swap_gate() {
+        let src = prog("qreg q[2];\nswap q[0], q[1];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_cz_cy_ch_gates() {
+        let src = prog("qreg q[2];\ncz q[0], q[1];\ncy q[0], q[1];\nch q[0], q[1];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 3);
+    }
+
+    #[test]
+    fn parse_crx_cry_crz() {
+        let src =
+            prog("qreg q[2];\ncrx(pi/2) q[0], q[1];\ncry(pi/4) q[0], q[1];\ncrz(pi) q[0], q[1];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 3);
+    }
+
+    #[test]
+    fn parse_ccx_gate() {
+        let src = prog("qreg q[3];\nccx q[0], q[1], q[2];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.num_qudits(), 3);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_cswap_gate() {
+        let src = prog("qreg q[3];\ncswap q[0], q[1], q[2];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Parse happy-path: measurement and barrier
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_measure_single() {
+        let src = prog("qreg q[1];\ncreg c[1];\nmeasure q[0] -> c[0];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.num_qudits(), 1);
+        assert_eq!(circ.num_dits(), 1);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_measure_broadcast() {
+        let src = prog("qreg q[3];\ncreg c[3];\nmeasure q -> c;\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 3);
+    }
+
+    #[test]
+    fn parse_barrier() {
+        let src = prog("qreg q[3];\nh q[0];\nbarrier q[0], q[1], q[2];\nh q[1];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 3);
+    }
+
+    // -----------------------------------------------------------------------
+    // Parse happy-path: classical control
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_if_statement() {
+        let src = prog("qreg q[1];\ncreg c[1];\nif (c == 1) x q[0];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Parse happy-path: register broadcasting
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_broadcast_full_register() {
+        let src = prog("qreg q[3];\nh q;\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 3);
+    }
+
+    #[test]
+    fn parse_broadcast_cx_one_vs_register() {
+        // cx q[0], r; broadcasts over r
+        let src = prog("qreg q[1];\nqreg r[3];\ncx q[0], r;\n");
+        let circ = parse(&src);
+        assert_eq!(circ.num_qudits(), 4);
+        assert_eq!(circ.iter_sorted().count(), 3);
+    }
+
+    // -----------------------------------------------------------------------
+    // Parse happy-path: custom gate declarations
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_custom_gate_no_params() {
+        let src = prog(
+            "gate bell a, b { h a; cx a, b; }\n\
+             qreg q[2];\nbell q[0], q[1];\n",
+        );
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_custom_gate_with_params() {
+        let src = prog(
+            "gate myrot(theta) q { rx(theta) q; }\n\
+             qreg q[1];\nmyrot(pi/4) q[0];\n",
+        );
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_custom_gate_calling_another() {
+        let src = prog(
+            "gate bell a, b { h a; cx a, b; }\n\
+             gate double_bell a, b, c, d { bell a, b; bell c, d; }\n\
+             qreg q[4];\ndouble_bell q[0], q[1], q[2], q[3];\n",
+        );
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Parse happy-path: include
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_include_qelib1_is_accepted() {
+        // include "qelib1.inc" must not error even when the file is absent
+        let src = "OPENQASM 2.0;\ninclude \"qelib1.inc\";\nqreg q[1];\nh q[0];\n";
+        let circ = parse(src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Error cases
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn error_missing_version_header() {
+        let err = parse_err("qreg q[1];\nh q[0];\n");
+        assert!(
+            err.contains("OPENQASM"),
+            "expected OPENQASM mention, got: {err}"
+        );
+    }
+
+    // Note: the parser stores but does not validate the version field, so
+    // non-2.0 version strings are accepted without error.
+    #[test]
+    fn parse_non_standard_version_is_accepted() {
+        let circ = parse("OPENQASM 3.0;\nqreg q[1];\n");
+        assert_eq!(circ.num_qudits(), 1);
+    }
+
+    #[test]
+    fn error_unknown_gate() {
+        let err = parse_err(&prog("qreg q[1];\nfoo q[0];\n"));
+        assert!(
+            err.contains("foo"),
+            "expected gate name in error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn error_duplicate_qreg() {
+        let err = parse_err(&prog("qreg q[2];\nqreg q[2];\n"));
+        assert!(
+            err.contains("already declared") || err.contains("already defined"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn error_index_out_of_bounds() {
+        let err = parse_err(&prog("qreg q[2];\nh q[5];\n"));
+        assert!(
+            err.contains("out of bounds") || err.contains("out-of-bounds"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn error_unknown_register() {
+        let err = parse_err(&prog("h r[0];\n"));
+        assert!(err.contains("r") || err.contains("unknown"), "{err}");
+    }
+
+    #[test]
+    fn error_reset_not_supported() {
+        let err = parse_err(&prog("qreg q[1];\nreset q[0];\n"));
+        assert!(err.contains("reset"), "{err}");
+    }
+
+    #[test]
+    fn error_opaque_not_supported() {
+        let err = parse_err(&prog("opaque mygate(a) q;\n"));
+        assert!(err.contains("paque"), "{err}");
+    }
+
+    #[test]
+    fn error_gate_redefinition() {
+        let err = parse_err(&prog(
+            "gate mygate a { h a; }\ngate mygate a { x a; }\nqreg q[1];\nmygate q[0];\n",
+        ));
+        assert!(
+            err.contains("mygate") || err.contains("already defined"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn error_broadcast_size_mismatch() {
+        // cx between two registers of different sizes — neither is 1 — must fail
+        let err = parse_err(&prog("qreg a[2];\nqreg b[3];\ncx a, b;\n"));
+        assert!(
+            err.contains("broadcast") || err.contains("mismatch"),
+            "{err}"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // Roundtrips: write then re-parse preserves structure
+    // -----------------------------------------------------------------------
+
+    // -----------------------------------------------------------------------
+    // Additional standard gates: u0 / u / u3 aliases
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_u0_u_u3_aliases() {
+        let src = prog(
+            "qreg q[1];\n\
+             u0(pi) q[0];\n\
+             u(pi/2, 0, pi) q[0];\n\
+             u3(pi/2, 0, pi) q[0];\n",
+        );
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 3);
+    }
+
+    // -----------------------------------------------------------------------
+    // Additional standard gates: controlled parametrized
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_cu1_cp_gates() {
+        let src = prog("qreg q[2];\ncu1(pi/4) q[0], q[1];\ncp(pi/4) q[0], q[1];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 2);
+    }
+
+    #[test]
+    fn parse_cu3_cu_gates() {
+        let src = prog("qreg q[2];\ncu3(pi/2, 0, pi) q[0], q[1];\ncu(pi/2, 0, pi) q[0], q[1];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 2);
+    }
+
+    #[test]
+    fn parse_csx_gate() {
+        let src = prog("qreg q[2];\ncsx q[0], q[1];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Additional standard gates: two-qubit entangling
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_rxx_rzz_gates() {
+        let src = prog("qreg q[2];\nrxx(pi/4) q[0], q[1];\nrzz(pi/4) q[0], q[1];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 2);
+    }
+
+    // -----------------------------------------------------------------------
+    // Additional standard gates: multi-controlled X
+    //
+    // In QASM 2.0 / qelib1.inc:
+    //   c3x    = 3-controlled-X → 4 qubits (3 controls + 1 target)
+    //   c4x    = 4-controlled-X → 5 qubits (4 controls + 1 target)
+    //   c3sqrtx = 3-controlled-SX → 4 qubits
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_c3x_gate() {
+        let src = prog("qreg q[4];\nc3x q[0], q[1], q[2], q[3];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.num_qudits(), 4);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_c4x_gate() {
+        let src = prog("qreg q[5];\nc4x q[0], q[1], q[2], q[3], q[4];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.num_qudits(), 5);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_c3sqrtx_gate() {
+        let src = prog("qreg q[4];\nc3sqrtx q[0], q[1], q[2], q[3];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.num_qudits(), 4);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Additional standard gates: circuit-backed rccx / rc3x
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_rccx_gate() {
+        let src = prog("qreg q[3];\nrccx q[0], q[1], q[2];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.num_qudits(), 3);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_rc3x_gate() {
+        let src = prog("qreg q[4];\nrc3x q[0], q[1], q[2], q[3];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.num_qudits(), 4);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Expression functions: sin, cos, tan, exp, ln, sqrt, power
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_trig_functions_in_params() {
+        let src = prog(
+            "qreg q[1];\n\
+             rx(sin(pi/2)) q[0];\n\
+             ry(cos(0)) q[0];\n\
+             rz(tan(pi/4)) q[0];\n",
+        );
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 3);
+    }
+
+    #[test]
+    fn parse_exp_ln_sqrt_in_params() {
+        let src = prog(
+            "qreg q[1];\n\
+             rx(exp(0)) q[0];\n\
+             ry(ln(1)) q[0];\n\
+             rz(sqrt(2)) q[0];\n",
+        );
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 3);
+    }
+
+    #[test]
+    fn parse_power_expression() {
+        let src = prog("qreg q[1];\nrx(2^3) q[0];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Lexer features: comments and number formats
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_with_line_comments() {
+        let src = prog(
+            "// This is a comment\n\
+             qreg q[2]; // inline comment\n\
+             h q[0]; // apply H\n\
+             // another comment\n\
+             cx q[0], q[1];\n",
+        );
+        let circ = parse(&src);
+        assert_eq!(circ.num_qudits(), 2);
+        assert_eq!(circ.iter_sorted().count(), 2);
+    }
+
+    #[test]
+    fn parse_leading_zero_integer() {
+        // The lexer accepts leading zeros (super-set of spec)
+        let src = prog("qreg q[007];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.num_qudits(), 7);
+    }
+
+    #[test]
+    fn parse_bare_exponent_float() {
+        // The lexer accepts bare exponent notation like 1e0
+        let src = prog("qreg q[1];\nrx(1e0) q[0];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_version_integer_is_accepted() {
+        // OPENQASM 2; (integer, not float) should parse without error
+        let circ = parse("OPENQASM 2;\nqreg q[1];\n");
+        assert_eq!(circ.num_qudits(), 1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Gate body features
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_gate_empty_body() {
+        // A gate with an empty body is valid — it is a no-op subcircuit
+        let src = prog("gate noop a {}\nqreg q[1];\nnoop q[0];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_gate_empty_param_list() {
+        // Explicit empty param list `gate foo () a { ... }` is legal
+        let src = prog("gate myid () q { id q; }\nqreg q[1];\nmyid q[0];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_gate_with_barrier_in_body() {
+        let src = prog(
+            "gate mygate a, b { h a; barrier a, b; cx a, b; }\n\
+             qreg q[2];\nmygate q[0], q[1];\n",
+        );
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_gate_u_inside_body() {
+        // Primitive U gate usable inside a gate body
+        let src = prog(
+            "gate myu(t, p, l) q { U(t, p, l) q; }\n\
+             qreg q[1];\nmyu(pi/2, 0, pi) q[0];\n",
+        );
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_gate_cx_inside_body() {
+        // Primitive CX gate usable inside a gate body
+        let src = prog(
+            "gate mycx a, b { CX a, b; }\n\
+             qreg q[2];\nmycx q[0], q[1];\n",
+        );
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Classical control: additional if-statement cases
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_if_value_zero() {
+        let src = prog("qreg q[1];\ncreg c[1];\nif (c == 0) x q[0];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    #[test]
+    fn parse_if_with_cx_gate() {
+        // Classically controlling a 2-qubit gate triggers a tensor-dimension
+        // mismatch in qudit-expr's ClassicallyControlledUnitary constructor.
+        // This is a known limitation: only 1-qubit gates can be used in `if`
+        // statements currently.
+        let src = prog("qreg q[2];\ncreg c[1];\nif (c == 1) cx q[0], q[1];\n");
+        assert!(
+            QASM2Parser.parse(&src).is_err(),
+            "classically-controlled 2-qubit gate should error (known limitation)"
+        );
+    }
+
+    #[test]
+    fn parse_if_with_parametrized_gate() {
+        let src = prog("qreg q[1];\ncreg c[1];\nif (c == 1) rx(pi/2) q[0];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Register semantics: index correctness
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn multiple_qregs_gate_on_second_register() {
+        // q[2] occupies qubits 0..1; r[3] occupies qubits 2..4
+        let src = prog("qreg q[2];\nqreg r[3];\nh r[0];\nh r[1];\nh r[2];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.num_qudits(), 5);
+        assert_eq!(circ.iter_sorted().count(), 3);
+    }
+
+    #[test]
+    fn measure_into_second_creg() {
+        // a[2] occupies classical bits 0..1; b[2] occupies classical bits 2..3
+        let src = prog(
+            "qreg q[2];\ncreg a[2];\ncreg b[2];\n\
+             measure q[0] -> b[0];\nmeasure q[1] -> b[1];\n",
+        );
+        let circ = parse(&src);
+        assert_eq!(circ.num_qudits(), 2);
+        assert_eq!(circ.num_dits(), 4);
+        assert_eq!(circ.iter_sorted().count(), 2);
+    }
+
+    // -----------------------------------------------------------------------
+    // Barrier variations
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn parse_barrier_full_register_name() {
+        // `barrier q;` should expand to all qubits in q as one barrier op
+        let src = prog("qreg q[3];\nh q[0];\nbarrier q;\nh q[1];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 3); // h, barrier, h
+    }
+
+    #[test]
+    fn parse_barrier_spans_multiple_registers() {
+        let src = prog("qreg a[2];\nqreg b[2];\nbarrier a[0], b[0];\n");
+        let circ = parse(&src);
+        assert_eq!(circ.iter_sorted().count(), 1);
+    }
+
+    // -----------------------------------------------------------------------
+    // Additional error cases
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn error_duplicate_creg() {
+        let err = parse_err(&prog("creg c[2];\ncreg c[2];\n"));
+        assert!(
+            err.contains("already declared") || err.contains("already defined"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn error_measure_size_mismatch() {
+        // 2 qubits measured into 1 classical bit → error
+        let err = parse_err(&prog("qreg q[2];\ncreg c[1];\nmeasure q -> c;\n"));
+        assert!(err.contains("mismatch") || err.contains("size"), "{err}");
+    }
+
+    #[test]
+    fn error_u_gate_wrong_param_count() {
+        let err = parse_err(&prog("qreg q[1];\nU(pi/2, 0) q[0];\n"));
+        assert!(err.contains("3") || err.contains("parameter"), "{err}");
+    }
+
+    #[test]
+    fn error_unknown_creg_in_if() {
+        let err = parse_err(&prog("qreg q[1];\nif (nosuch == 1) x q[0];\n"));
+        assert!(err.contains("nosuch") || err.contains("unknown"), "{err}");
+    }
+
+    #[test]
+    fn error_if_with_measure() {
+        // `measure` is a Qop::Measure, not a Uop — lowering must reject it inside if
+        let err = parse_err(&prog(
+            "qreg q[1];\ncreg c[1];\ncreg d[1];\nif (c == 1) measure q[0] -> d[0];\n",
+        ));
+        assert!(
+            err.contains("unitary") || err.contains("measure") || err.contains("support"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn error_if_with_circuit_backed_gate() {
+        // bell is a GateBody::Circ — lowering must reject it inside if
+        let err = parse_err(&prog(
+            "gate bell a, b { h a; cx a, b; }\n\
+             qreg q[2];\ncreg c[1];\nif (c == 1) bell q[0], q[1];\n",
+        ));
+        assert!(
+            err.contains("classically") || err.contains("cannot") || err.contains("support"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn error_qreg_used_as_creg_in_measure() {
+        // Using a qreg name as measure destination must fail
+        let err = parse_err(&prog("qreg q[1];\nqreg r[1];\nmeasure q[0] -> r[0];\n"));
+        assert!(err.contains("r") || err.contains("unknown"), "{err}");
+    }
+
+    #[test]
+    fn error_creg_used_as_qubit() {
+        // Using a creg name where a qubit register is expected must fail
+        let err = parse_err(&prog("creg c[1];\nh c[0];\n"));
+        assert!(err.contains("c") || err.contains("unknown"), "{err}");
+    }
+
+    #[test]
+    fn error_indexed_qubit_in_gate_body() {
+        // Indexed argument `a[0]` inside a gate body is forbidden by the spec
+        let err = parse_err(&prog("gate foo a { h a[0]; }\nqreg q[1];\nfoo q[0];\n"));
+        assert!(
+            err.contains("indexed") || err.contains("not allowed") || err.contains("["),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn error_redefine_builtin_gate() {
+        // Redefining a built-in qelib1 gate must error
+        let err = parse_err(&prog("gate h a { x a; }\nqreg q[1];\nh q[0];\n"));
+        assert!(
+            err.contains("already defined") || err.contains("h"),
+            "{err}"
+        );
+    }
+
+    #[test]
+    fn error_unknown_gate_in_gate_body() {
+        let err = parse_err(&prog("gate foo a { nogate a; }\nqreg q[1];\nfoo q[0];\n"));
+        assert!(err.contains("nogate") || err.contains("unknown"), "{err}");
+    }
+
+    #[test]
+    fn error_creg_index_out_of_bounds() {
+        let err = parse_err(&prog("qreg q[1];\ncreg c[2];\nmeasure q[0] -> c[5];\n"));
+        assert!(
+            err.contains("out of bounds") || err.contains("out-of-bounds"),
+            "{err}"
+        );
     }
 }

@@ -3,33 +3,20 @@ use crate::cycle::CycleList;
 use crate::cycle::{CycleId, CycleIndex};
 use crate::instruction::{Instruction, InstructionId};
 use crate::operation::OpCode;
-use crate::operation::OperationSet;
-use crate::operation::{
-    CircuitOperation, DirectiveOperation, ExpressionOperation, OpKind, Operation,
-};
-use crate::param::{Argument as ParameterEntry, ArgumentList, Parameter, ParameterVector};
+use crate::operation::Operation;
+use crate::param::ArgumentList;
 use crate::wire::Wire;
 use crate::wire::WireList;
-use qudit_core::Radices;
 use qudit_core::array::Tensor;
-use qudit_core::{
-    ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, ParamInfo, QuditSystem,
-};
-use qudit_expr::index::IndexDirection;
-use qudit_expr::{
-    BraSystemExpression, FUNCTION, KetExpression, KrausOperatorsExpression, TensorExpression,
-    UnitaryExpression, UnitarySystemExpression,
-};
-use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
-use rustc_hash::{FxHashMap, FxHashSet};
+use qudit_core::QuditSystem;
 use std::collections::HashMap;
 
 use crate::instruction::PyInstructionReference;
 use crate::python::PyCircuitRegistrar;
 use bincode::{deserialize, serialize};
+use numpy::ndarray::ArrayViewMut3;
 use numpy::PyArray3;
 use numpy::PyArrayMethods;
-use numpy::ndarray::ArrayViewMut3;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyTuple};
@@ -472,11 +459,45 @@ impl PyQuditCircuit {
     // save
     // to
 
+    /// Load a circuit from a file.  The format is inferred from the file
+    /// extension (e.g. `.qasm` or `.qasm2` selects the QASM 2.0 parser).
     #[staticmethod]
-    pub fn load(py: Python<'_>, path: String) -> PyResult<PyQuditCircuit> {
+    pub fn load(_py: Python<'_>, path: String) -> PyResult<PyQuditCircuit> {
         let circuit = QuditCircuit::load(path.as_str())
-            .map_err(|e| PyTypeError::new_err(format!("Failed to load circuit: {}", e)))?;
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
         Ok(PyQuditCircuit { circuit })
+    }
+
+    /// Parse a circuit from a string.
+    ///
+    /// Args:
+    ///     source: The source string to parse.
+    ///     format: The format name or file extension to use (default ``"qasm2"``).
+    #[staticmethod]
+    #[pyo3(signature = (source, *, format = "qasm2"))]
+    pub fn loads(source: String, format: &str) -> PyResult<PyQuditCircuit> {
+        let circuit = QuditCircuit::loads(&source, format)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(PyQuditCircuit { circuit })
+    }
+
+    /// Write the circuit to a file.  The format is inferred from the file
+    /// extension (e.g. `.qasm` or `.qasm2` selects the QASM 2.0 writer).
+    pub fn dump(&self, path: String) -> PyResult<()> {
+        self.circuit
+            .dump(path.as_str())
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
+    }
+
+    /// Serialise the circuit to a string.
+    ///
+    /// Args:
+    ///     format: The format name or file extension to use (default ``"qasm2"``).
+    #[pyo3(signature = (*, format = "qasm2"))]
+    pub fn dumps(&self, format: &str) -> PyResult<String> {
+        self.circuit
+            .saves(format)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     // from_unitary

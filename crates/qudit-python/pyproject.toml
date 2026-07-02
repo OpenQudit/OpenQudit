@@ -1,47 +1,45 @@
+[project]
+name = "openqudit"
+requires-python = ">=3.9"
+license = "BSD-3-Clause"
+license-files = ["LICENSE", "THIRD-PARTY-LICENSES.json"]
+classifiers = [
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+  "Programming Language :: Rust",
+]
+dependencies = ["numpy>=2"]
+dynamic = ["version"]
+
 [build-system]
 requires = ["maturin>=1.9.4,<2.0"]
 build-backend = "maturin"
-
-[project]
-name = "openqudit"
-license = "BSD-3-Clause"
-license-files = [
-    "LICENSE",
-    "THIRD-PARTY-LICENSES.json"
-]
-requires-python = ">=3.9"
-classifiers = [
-    "Programming Language :: Rust",
-    "Programming Language :: Python :: Implementation :: CPython",
-    "Programming Language :: Python :: Implementation :: PyPy",
-]
-dependencies = [
-    "numpy>=2"
-]
-dynamic = ['version']
 
 [tool.cibuildwheel]
 build = "cp39-*"
 container-engine = "podman"
 skip = "*musllinux*"
-test-sources = ['.github/test.py']
-test-command = 'python .github/test.py'
+test-sources = [".github/test.py"]
+test-command = "python .github/test.py"
 
 [tool.cibuildwheel.environment]
 PYO3_BUILD_EXTENSION_MODULE = "True"
 
 [tool.cibuildwheel.linux]
 manylinux-x86_64-image = "manylinux_2_28"
-before-all = "dnf install -y llvm-devel-18.1.8-3.module_el8.10.0+3903+ca21d481 libffi-devel ncurses-devel"
+before-all = "dnf install -y llvm-devel-21.1.8-1.module_el8.10.0+4172+b6b13d75 libffi-devel ncurses-devel"
 
 [tool.cibuildwheel.linux.config-settings]
 build-args = "--features dynamic"
 
 [tool.cibuildwheel.macos]
 before-all = """
-    brew install llvm@18
-    export PATH="$(brew --prefix llvm@18)/bin:$PATH"
-    rm $(brew --prefix llvm@18)/lib/libunwind.dylib
+    brew install llvm@21
+    LLVM21_PREFIX="$(brew --prefix llvm@21)"
+    export PATH="$LLVM21_PREFIX/bin:$PATH"
+    # Remove LLVM's libunwind so the linker uses the macOS system libunwind instead,
+    # preventing conflicts in the final wheel on machines without LLVM installed.
+    find "$LLVM21_PREFIX/lib" -name "libunwind.dylib" -delete
 """
 
 [tool.cibuildwheel.macos.environment]
@@ -49,7 +47,7 @@ MACOSX_DEPLOYMENT_TARGET = "11.0"
 
 [tool.cibuildwheel.windows]
 archs = ["auto64"]
-environment = { LIB='D:\\a\\OpenQudit\\OpenQudit\\vcpkg\\installed\\x64-windows-static\\lib\\;$LIB' }
+environment = { LIB = 'D:\\a\\OpenQudit\\OpenQudit\\vcpkg\\installed\\x64-windows-static\\lib\\;$LIB' }
 
 # Run delvewheel
 before-build = "pip install delvewheel"
@@ -59,4 +57,3 @@ repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
 dev = [
     "pytest>=8.4.2",
 ]
-

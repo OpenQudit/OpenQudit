@@ -3,15 +3,15 @@ use qudit_core::ParamIndices;
 use qudit_core::QuditSystem;
 use qudit_core::Radices;
 
+use crate::OpCode;
+use crate::Result;
 use crate::circuit::InternableOperation;
+use crate::operation::OperationSet;
 use crate::operation::directive::DirectiveOperation;
 use crate::operation::expression::ExpressionOperation;
 use crate::operation::subcircuit::CircuitOperation;
-use crate::operation::OperationSet;
 use crate::param::IntoArgumentList;
 use crate::param::ParameterVector;
-use crate::OpCode;
-use crate::Result;
 
 /// An operation in a circuit
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -39,16 +39,16 @@ impl Operation {
     /// Specializes the operation for a specific call site by binding it to the provided arguments.
     ///
     /// # Arguments
-    /// * `args` - The [`ArgumentList`] containing the expressions or values to bind 
+    /// * `args` - The `ArgumentList` containing the expressions or values to bind
     ///   to the operation's parameters.
-    /// * `source_ops` - The [`OperationSet`] where the current operation's internal 
+    /// * `source_ops` - The `OperationSet` where the current operation's internal
     ///   dependencies (like nested subcircuits) are defined.
-    /// * `target_ops` - The [`OperationSet`] where the newly specialized versions 
+    /// * `target_ops` - The `OperationSet` where the newly specialized versions
     ///   of this operation's dependencies will be interned.
     ///
     /// # Returns
-    /// A new specialized [`Operation`] that is compatible with the `target_ops` context. 
-    /// Note that for complex operations like subcircuits, this method will recursively 
+    /// A new specialized [`Operation`] that is compatible with the `target_ops` context.
+    /// Note that for complex operations like subcircuits, this method will recursively
     /// specialize and intern all internal instructions into `target_ops`.
     pub fn specialize(
         self,
@@ -58,17 +58,19 @@ impl Operation {
     ) -> Result<Operation> {
         match self {
             Operation::Expression(op) => {
-                // Expressions are self-contained and only need 
+                // Expressions are self-contained and only need
                 // to transform their internal symbolic trees.
                 Ok(Operation::Expression(op.specialize(args)?))
             }
             Operation::Subcircuit(op) => {
                 // Subcircuits require the source_ops to resolve inner OpCodes
                 // and the target_ops to store the new specialized definitions.
-                Ok(Operation::Subcircuit(op.specialize(args, source_ops, target_ops)?))
+                Ok(Operation::Subcircuit(
+                    op.specialize(args, source_ops, target_ops)?,
+                ))
             }
             Operation::Directive(op) => {
-                // Directives usually ignore arguments but 
+                // Directives usually ignore arguments but
                 // are included for trait completeness.
                 Ok(Operation::Directive(op.specialize(args)?))
             }
@@ -93,11 +95,36 @@ impl HasParams for Operation {
 }
 
 impl InternableOperation for Operation {
-    fn intern_operation(self, operation_set: &mut OperationSet, parameter_vector: &mut ParameterVector, args: impl IntoArgumentList, qudit_radices: Radices, dit_radices: Radices) -> Result<(OpCode, ParamIndices)> {
+    fn intern_operation(
+        self,
+        operation_set: &mut OperationSet,
+        parameter_vector: &mut ParameterVector,
+        args: impl IntoArgumentList,
+        qudit_radices: Radices,
+        dit_radices: Radices,
+    ) -> Result<(OpCode, ParamIndices)> {
         match self {
-            Operation::Expression(e) => e.intern_operation(operation_set, parameter_vector, args, qudit_radices, dit_radices),
-            Operation::Subcircuit(c) => c.intern_operation(operation_set, parameter_vector, args, qudit_radices, dit_radices),
-            Operation::Directive(d) => d.intern_operation(operation_set, parameter_vector, args, qudit_radices, dit_radices),
+            Operation::Expression(e) => e.intern_operation(
+                operation_set,
+                parameter_vector,
+                args,
+                qudit_radices,
+                dit_radices,
+            ),
+            Operation::Subcircuit(c) => c.intern_operation(
+                operation_set,
+                parameter_vector,
+                args,
+                qudit_radices,
+                dit_radices,
+            ),
+            Operation::Directive(d) => d.intern_operation(
+                operation_set,
+                parameter_vector,
+                args,
+                qudit_radices,
+                dit_radices,
+            ),
         }
     }
 }
@@ -108,7 +135,7 @@ mod python {
     use crate::python::PyCircuitRegistrar;
     use pyo3::{exceptions::PyTypeError, prelude::*};
 
-    #[pyclass(name = "Operation")]
+    #[pyclass(name = "Operation", from_py_object)]
     #[derive(Clone)]
     pub struct PyOperation {
         pub(crate) inner: Operation,

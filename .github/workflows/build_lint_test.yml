@@ -31,7 +31,7 @@ jobs:
       - name: Setup LLVM
         uses: ZhongRuoyu/setup-llvm@v0
         with:
-          llvm-version: 18
+          llvm-version: 21
 
       - name: Install cargo-deny
         uses: taiki-e/install-action@cargo-deny
@@ -71,7 +71,7 @@ jobs:
         run: cargo clippy --verbose --workspace --features python --all-targets -- -D warnings
 
       - name: Run tests
-        run: cargo test --verbose --workspace --features python
+        run: cargo test --verbose --workspace --features python --no-fail-fast
 
       - name: Build docs
         run: cargo doc --workspace --no-deps

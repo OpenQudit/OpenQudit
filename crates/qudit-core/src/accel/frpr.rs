@@ -8,7 +8,6 @@
 use std::collections::VecDeque;
 use std::num::Wrapping;
 
-use super::cartesian_match;
 use faer::MatMut;
 use faer::MatRef;
 

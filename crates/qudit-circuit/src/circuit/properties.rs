@@ -1,31 +1,6 @@
-use crate::cycle::CycleList;
-use crate::cycle::{CycleId, CycleIndex};
-use crate::instruction::{Instruction, InstructionId};
-use crate::operation::OpCode;
-use crate::operation::OperationSet;
-use crate::operation::{
-    CircuitOperation, DirectiveOperation, ExpressionOperation, OpKind, Operation,
-};
-use crate::Result;
-use crate::param::{Argument as ParameterEntry, ArgumentList, Parameter, ParameterVector};
-use crate::wire::Wire;
-use crate::wire::WireList;
-use qudit_core::Radices;
-use qudit_core::array::Tensor;
-use qudit_core::{
-    ClassicalSystem, ComplexScalar, HasParams, HybridSystem, ParamIndices, ParamInfo, QuditSystem,
-};
-use qudit_expr::index::IndexDirection;
-use qudit_expr::{
-    BraSystemExpression, FUNCTION, KetExpression, KrausOperatorsExpression, TensorExpression,
-    UnitaryExpression, UnitarySystemExpression,
-};
-use qudit_tensor::{QuditCircuitTensorNetworkBuilder, QuditTensor, QuditTensorNetwork};
-use rustc_hash::{FxHashMap, FxHashSet};
-use std::collections::HashMap;
 use super::*;
-
-
+use crate::operation::OperationSet;
+use crate::param::{Parameter, ParameterVector};
 
 /// Properties
 impl QuditCircuit {
@@ -84,14 +59,8 @@ impl QuditCircuit {
     ///     - `w` is the number of wires in the circuit.
     pub fn active_qudits(&self) -> Vec<usize> {
         self.front
-            .iter()
-            .filter_map(|(wire, _)| {
-                if wire.is_quantum() {
-                    Some(wire.index())
-                } else {
-                    None
-                }
-            })
+            .keys()
+            .filter_map(|wire| wire.is_quantum().then_some(wire.index()))
             .collect()
     }
 
@@ -109,14 +78,8 @@ impl QuditCircuit {
     ///     - `w` is the number of wires in the circuit.
     pub fn active_dits(&self) -> Vec<usize> {
         self.front
-            .iter()
-            .filter_map(|(wire, _)| {
-                if wire.is_classical() {
-                    Some(wire.index())
-                } else {
-                    None
-                }
-            })
+            .keys()
+            .filter_map(|wire| wire.is_classical().then_some(wire.index()))
             .collect()
     }
 
@@ -151,4 +114,3 @@ impl QuditCircuit {
         self.cycles.is_empty()
     }
 }
-

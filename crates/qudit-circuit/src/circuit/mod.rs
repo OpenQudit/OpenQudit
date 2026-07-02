@@ -1,4 +1,3 @@
-use crate::Result;
 use crate::cycle::CycleId;
 use crate::cycle::CycleList;
 use crate::instruction::InstructionId;
@@ -7,6 +6,7 @@ use crate::param::IntoArgumentList;
 use crate::param::ParameterVector;
 use crate::wire::Wire;
 use crate::wire::WireList;
+use crate::Result;
 use qudit_core::HybridSystem;
 use qudit_core::Radices;
 use rustc_hash::FxHashMap;
@@ -70,10 +70,10 @@ use serde::Serialize;
 mod tests {
     use super::*;
     use qudit_core::c32;
-    use qudit_expr::GRADIENT;
     use qudit_expr::library::Controlled;
     use qudit_expr::library::U3Gate;
     use qudit_expr::library::XGate;
+    use qudit_expr::GRADIENT;
 
     pub fn build_qsearch_thin_step_circuit(n: usize) -> QuditCircuit {
         let block_expr = U3Gate()
@@ -81,11 +81,11 @@ mod tests {
             .dot(Controlled(XGate(2), [2].into(), None));
         let mut circ = QuditCircuit::pure(vec![2; n]);
         for i in 0..n {
-            circ.append(U3Gate(), [i], None);
+            circ.append(U3Gate(), [i], None).unwrap();
         }
         for _ in 0..2 {
             for i in 0..(n - 1) {
-                circ.append(block_expr.clone(), [i, i + 1], None);
+                circ.append(block_expr.clone(), [i, i + 1], None).unwrap();
             }
         }
         circ

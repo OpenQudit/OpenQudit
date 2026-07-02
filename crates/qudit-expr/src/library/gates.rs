@@ -128,13 +128,14 @@ pub fn HGate(radix: usize) -> UnitaryExpression {
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
 pub fn SwapGate(radix: usize) -> UnitaryExpression {
     let proto = format!("Swap<{}, {}>()", radix, radix);
+    let dim = radix * radix;
     let mut body = "".to_string();
     body += "[";
-    for i in 0..radix {
+    for i in 0..dim {
         body += "[";
         let a_i = i / radix;
         let b_i = i % radix;
-        for j in 0..radix {
+        for j in 0..dim {
             let a_j = j / radix;
             let b_j = j % radix;
             if a_i == b_j && b_i == a_j {
@@ -717,7 +718,9 @@ pub fn Invert(mut expr: UnitaryExpression) -> UnitaryExpression {
 /// gives $T^\dagger$.
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 pub fn Dagger(mut expr: UnitaryExpression) -> UnitaryExpression {
+    let new_name = format!("Dagger({})", expr.name());
     expr.dagger();
+    expr.set_name(new_name);
     expr
 }
 
@@ -1069,4 +1072,15 @@ mod python {
 mod tests {
     use super::*;
 
+    #[test]
+    fn dagger_renames_s() {
+        let dg = Dagger(SGate(2));
+        assert_eq!(dg.name(), "Dagger(S)");
+    }
+
+    #[test]
+    fn dagger_renames_t() {
+        let dg = Dagger(TGate(2));
+        assert_eq!(dg.name(), "Dagger(T)");
+    }
 }

@@ -3,10 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use qudit_expr::{
-    ExpressionCache, TensorExpression,
-    index::{IndexDirection, TensorIndex},
-};
+use qudit_expr::{ExpressionCache, index::TensorIndex};
 use rustc_hash::FxHashMap;
 use serde::{Deserialize, Serialize};
 use slotmap::{Key, KeyData};
@@ -40,7 +37,7 @@ impl<'a> Iterator for OperationSetIter<'a> {
     type Item = Operation;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(op_code) = self.op_codes.next() {
+        for op_code in &mut self.op_codes {
             if let Some(operation) = self.operation_set.get(op_code) {
                 return Some(operation);
             }
@@ -71,7 +68,7 @@ impl<'a> Iterator for OperationsWithCountsIter<'a> {
     type Item = (Operation, usize);
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some((op_code, count)) = self.ops_iter.next() {
+        for (op_code, count) in &mut self.ops_iter {
             if let Some(operation) = self.operation_set.get(op_code) {
                 return Some((operation, count));
             }

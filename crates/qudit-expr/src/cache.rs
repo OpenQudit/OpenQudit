@@ -178,11 +178,11 @@ impl CachedTensorExpression {
         &'a self,
         mut builder: ModuleBuilder<'a, R>,
     ) -> ModuleBuilder<'a, R> {
-        if self.expressions.func.is_some() {
+        if let Some(func) = &self.expressions.func {
             // println!("Adding {} function to module", self.name.clone() + "_" + "1");
             let unit = CompilableUnit::new(
                 &(format!("expr_{}_{}", self.base_id, "1")),
-                self.expressions.func.as_ref().unwrap(),
+                func.as_ref(),
                 self.variables.clone(),
                 self.expressions.original.len() * 2,
             );
@@ -190,11 +190,11 @@ impl CachedTensorExpression {
             builder = builder.add_unit(unit);
         }
 
-        if self.expressions.grad.is_some() {
+        if let Some(grad) = &self.expressions.grad {
             // println!("Adding {} function to module", self.name.clone() + "_" + "2");
             let unit = CompilableUnit::new(
                 &(format!("expr_{}_{}", self.base_id, "2")),
-                self.expressions.grad.as_ref().unwrap(),
+                grad.as_ref(),
                 self.variables.clone(),
                 self.expressions.original.len() * 2,
             );
