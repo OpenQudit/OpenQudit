@@ -2,7 +2,7 @@ use std::path::Path;
 
 use super::*;
 use crate::instruction::{Instruction, InstructionId};
-use crate::lang::all_parsers;
+use crate::lang::{all_parsers, all_writers};
 use crate::operation::ExpressionOperation;
 use crate::operation::{CircuitOperation, OpCode};
 use crate::param::{ArgumentList, Parameter};
@@ -183,8 +183,104 @@ impl QuditCircuit {
                 return parser.parse(&source);
             }
         }
-
         Err(format!("no parser registered for extension '.{ext}'").into())
+    }
+
+    /// Loads a circuit directly from a string using a registered parser.
+    ///
+    /// # Arguments
+    ///
+    /// * `source` - The string containing the circuit data.
+    /// * `format` - The format identifier (e.g., "qasm") used to select the parser.
+    ///
+    /// # Returns
+    ///
+    /// Returns the parsed [`QuditCircuit`] on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// * No registered parser supports the specified format.
+    /// * The selected parser fails to parse the string.
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use qudit_circuit::QuditCircuit;
+    /// let source = "OPENQASM 2.0; qreg q[2]; cx q[0],q[1];";
+    /// let circuit = QuditCircuit::loads(source, "qasm")?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn loads(source: &str, format: &str) -> Result<Self> {
+        for parser in all_parsers() {
+            if parser.supported_extensions().contains(&format) {
+                return parser.parse(source);
+            }
+        }
+        Err(format!("no parser registered for format '{format}'").into())
+    }
+
+    /// Serializes the circuit and writes it to a file.
+    ///
+    /// The output format is inferred from the file extension.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The destination path for the output file.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// * No registered writer supports the file's extension.
+    /// * The file cannot be created or written to.
+    /// * The selected writer fails to serialize the circuit.
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use qudit_circuit::QuditCircuit;
+    /// let circuit = QuditCircuit::pure([2]);
+    /// circuit.dump("output.qasm")?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn dump(&self, path: impl AsRef<Path>) -> Result<()> {
+        let path = path.as_ref();
+        let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
+        let content = self.saves(ext)?;
+        std::fs::write(path, content).map_err(|e| crate::Error::GenericError(e.to_string()))
+    }
+
+    /// Serializes the circuit into a string of the specified format.
+    ///
+    /// # Arguments
+    ///
+    /// * `format` - The format identifier (e.g., "qasm") used to select the writer.
+    ///
+    /// # Returns
+    ///
+    /// Returns a [`String`] containing the serialized circuit on success.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    ///
+    /// * No registered writer supports the specified format.
+    /// * The selected writer fails to serialize the circuit.
+    ///
+    /// # Examples
+    /// ```no_run
+    /// use qudit_circuit::QuditCircuit;
+    /// let circuit = QuditCircuit::pure([2]);
+    /// let qasm_string = circuit.saves("qasm")?;
+    /// # Ok::<(), Box<dyn std::error::Error>>(())
+    /// ```
+    pub fn saves(&self, format: &str) -> Result<String> {
+        for writer in all_writers() {
+            if writer.supported_extensions().contains(&format) {
+                return writer.write(self);
+            }
+        }
+        Err(format!("no writer registered for format '{format}'").into())
     }
 }
 
@@ -197,8 +293,10 @@ impl InternableOperation for QuditCircuit {
         qudit_radices: Radices,
         dit_radices: Radices,
     ) -> Result<(OpCode, ParamIndices)> {
-        // 1. Align provided args with the circuit's unassigned parameters
-        let args = args.into_args(self.num_params())?;
+        // 1. Align provided args with the circuit's unassigned parameters.
+        // Only Unassigned slots need to be filled externally; Assigned slots
+        // already carry their concrete values and are re-injected below.
+        let args = args.into_args(self.num_unassigned_params())?;
         let mut complete_args = Vec::new();
         let mut unassigned_ptr = 0;
 
