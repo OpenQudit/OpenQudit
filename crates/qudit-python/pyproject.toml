@@ -1,6 +1,6 @@
 [project]
 name = "openqudit"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "BSD-3-Clause"
 license-files = ["LICENSE", "THIRD-PARTY-LICENSES.json"]
 classifiers = [
@@ -16,7 +16,7 @@ requires = ["maturin>=1.9.4,<2.0"]
 build-backend = "maturin"
 
 [tool.cibuildwheel]
-build = "cp39-*"
+build = "cp310-*"
 container-engine = "podman"
 skip = "*musllinux*"
 test-sources = [".github/test.py"]
@@ -52,3 +52,7 @@ environment = { LIB = 'D:\\a\\OpenQudit\\OpenQudit\\vcpkg\\installed\\x64-window
 # Run delvewheel
 before-build = "pip install delvewheel"
 repair-wheel-command = "delvewheel repair -w {dest_dir} {wheel}"
+
+[tool.maturin]
+module-name = "openqudit._openqudit"
+python-source = "."
