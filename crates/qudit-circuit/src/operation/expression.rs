@@ -3,8 +3,6 @@ use qudit_core::HasParams;
 use qudit_core::ParamIndices;
 use qudit_core::QuditSystem;
 use qudit_core::Radices;
-use qudit_expr::index::IndexDirection;
-use qudit_expr::index::TensorIndex;
 use qudit_expr::BraSystemExpression;
 use qudit_expr::KetExpression;
 use qudit_expr::KrausOperatorsExpression;
@@ -12,6 +10,8 @@ use qudit_expr::NamedExpression;
 use qudit_expr::TensorExpression;
 use qudit_expr::UnitaryExpression;
 use qudit_expr::UnitarySystemExpression;
+use qudit_expr::index::IndexDirection;
+use qudit_expr::index::TensorIndex;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -205,12 +205,12 @@ impl From<KetExpression> for ExpressionOperation {
     }
 }
 
+use crate::OpCode;
+use crate::Result;
 use crate::circuit::InternableOperation;
 use crate::operation::OperationSet;
 use crate::param::IntoArgumentList;
 use crate::param::ParameterVector;
-use crate::OpCode;
-use crate::Result;
 
 impl<E: Into<ExpressionOperation>> InternableOperation for E {
     fn intern_operation(

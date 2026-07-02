@@ -71,6 +71,8 @@ feature-depth = 1
 # output a note when they are encountered.
 ignore = [
     { id = "RUSTSEC-2024-0436", reason = "World won't end and see: https://github.com/sarah-quinones/gemm/pull/36" },
+    { id = "RUSTSEC-2026-0194", reason = "quick-xml pulled in transitively via pprof(flamegraph) -> inferno, a dev-dependency used only for criterion benchmarks. We never parse untrusted XML with it. inferno 0.12.6 (latest) still pins quick-xml to \"0.39\", so no update can reach the patched >=0.41.0 yet." },
+    { id = "RUSTSEC-2026-0195", reason = "Same transitive dev-dependency path as RUSTSEC-2026-0194 (pprof(flamegraph) -> inferno -> quick-xml); no untrusted XML is parsed in this codebase." },
     #"RUSTSEC-0000-0000",
     #{ id = "RUSTSEC-0000-0000", reason = "you can specify a reason the advisory is ignored" },
     #"a-crate-that-is-yanked@0.1.1", # you can also ignore yanked crate versions if you wish

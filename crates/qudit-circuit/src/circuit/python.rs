@@ -7,16 +7,16 @@ use crate::operation::Operation;
 use crate::param::ArgumentList;
 use crate::wire::Wire;
 use crate::wire::WireList;
-use qudit_core::array::Tensor;
 use qudit_core::QuditSystem;
+use qudit_core::array::Tensor;
 use std::collections::HashMap;
 
 use crate::instruction::PyInstructionReference;
 use crate::python::PyCircuitRegistrar;
 use bincode::{deserialize, serialize};
-use numpy::ndarray::ArrayViewMut3;
 use numpy::PyArray3;
 use numpy::PyArrayMethods;
+use numpy::ndarray::ArrayViewMut3;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyBytes, PyTuple};
