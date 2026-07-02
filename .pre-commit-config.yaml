@@ -1,0 +1,53 @@
+# Mirrors the checks in .github/workflows/build_lint_test.yml and the manual
+# steps in CONTRIBUTING.md's Pull Request Process, so issues are caught
+# locally before they show up in CI. See CONTRIBUTING.md for setup.
+
+default_install_hook_types: [pre-commit, pre-push]
+
+repos:
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: cargo fmt
+        description: Formats code in place (matches `cargo fmt` from CONTRIBUTING.md).
+        entry: cargo fmt
+        language: system
+        types: [rust]
+        pass_filenames: false
+        stages: [pre-commit]
+
+      - id: cargo-deny
+        name: cargo deny check
+        description: Mirrors the "Check licenses and advisories" CI step.
+        entry: cargo deny --all-features check -c .cargo/deny.toml
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      - id: cargo-clippy
+        name: cargo clippy --workspace
+        description: Mirrors the "Check build and lint errors" CI step.
+        entry: cargo clippy --workspace --features python --all-targets -- -D warnings
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      - id: cargo-test
+        name: cargo test --workspace
+        description: Mirrors the "Run tests" CI step.
+        entry: cargo test --workspace --features python
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
+      - id: cargo-doc
+        name: cargo doc --workspace
+        description: Mirrors the "Build docs" CI step.
+        entry: bash -c 'RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps'
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

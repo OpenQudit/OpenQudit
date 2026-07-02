@@ -464,11 +464,45 @@ impl PyQuditCircuit {
     // save
     // to
 
+    /// Load a circuit from a file.  The format is inferred from the file
+    /// extension (e.g. `.qasm` or `.qasm2` selects the QASM 2.0 parser).
     #[staticmethod]
     pub fn load(_py: Python<'_>, path: String) -> PyResult<PyQuditCircuit> {
         let circuit = QuditCircuit::load(path.as_str())
-            .map_err(|e| PyTypeError::new_err(format!("Failed to load circuit: {}", e)))?;
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))?;
         Ok(PyQuditCircuit { circuit })
+    }
+
+    /// Parse a circuit from a string.
+    ///
+    /// Args:
+    ///     source: The source string to parse.
+    ///     format: The format name or file extension to use (default ``"qasm2"``).
+    #[staticmethod]
+    #[pyo3(signature = (source, *, format = "qasm2"))]
+    pub fn loads(source: String, format: &str) -> PyResult<PyQuditCircuit> {
+        let circuit = QuditCircuit::loads(&source, format)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))?;
+        Ok(PyQuditCircuit { circuit })
+    }
+
+    /// Write the circuit to a file.  The format is inferred from the file
+    /// extension (e.g. `.qasm` or `.qasm2` selects the QASM 2.0 writer).
+    pub fn dump(&self, path: String) -> PyResult<()> {
+        self.circuit
+            .dump(path.as_str())
+            .map_err(|e| pyo3::exceptions::PyIOError::new_err(e.to_string()))
+    }
+
+    /// Serialise the circuit to a string.
+    ///
+    /// Args:
+    ///     format: The format name or file extension to use (default ``"qasm2"``).
+    #[pyo3(signature = (*, format = "qasm2"))]
+    pub fn dumps(&self, format: &str) -> PyResult<String> {
+        self.circuit
+            .saves(format)
+            .map_err(|e| pyo3::exceptions::PyValueError::new_err(e.to_string()))
     }
 
     // from_unitary
