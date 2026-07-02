@@ -28,7 +28,7 @@ name = "tnvm"
 
 [dependencies]
 aligned-vec = { workspace = true }
-bincode = "1"
+postcard = { version = "1", default-features = false, features = ["alloc"] }
 bit-set = { workspace = true }
 bytemuck = { workspace = true }
 faer = { workspace = true }

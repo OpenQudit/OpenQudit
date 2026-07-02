@@ -1,4 +1,3 @@
-use qudit_core::ClassicalSystem;
 use qudit_core::HasParams;
 use qudit_core::ParamIndices;
 use qudit_core::QuditSystem;

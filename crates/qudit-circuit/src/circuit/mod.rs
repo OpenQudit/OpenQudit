@@ -1,12 +1,9 @@
-use crate::Result;
 use crate::cycle::CycleId;
 use crate::cycle::CycleList;
-use crate::instruction::InstructionId;
 use crate::operation::OperationSet;
 use crate::param::IntoArgumentList;
 use crate::param::ParameterVector;
 use crate::wire::Wire;
-use crate::wire::WireList;
 use qudit_core::HybridSystem;
 use qudit_core::Radices;
 use rustc_hash::FxHashMap;

@@ -1,6 +1,5 @@
 use super::QuditCircuit;
-use crate::cycle::CycleList;
-use crate::cycle::{CycleId, CycleIndex};
+use crate::cycle::CycleIndex;
 use crate::instruction::{Instruction, InstructionId};
 use crate::operation::OpCode;
 use crate::operation::Operation;
@@ -13,7 +12,6 @@ use std::collections::HashMap;
 
 use crate::instruction::PyInstructionReference;
 use crate::python::PyCircuitRegistrar;
-use bincode::{deserialize, serialize};
 use numpy::PyArray3;
 use numpy::PyArrayMethods;
 use numpy::ndarray::ArrayViewMut3;
@@ -505,13 +503,13 @@ impl PyQuditCircuit {
     // rebuild_circuit
 
     pub fn __setstate__(&mut self, state: &Bound<'_, PyBytes>) -> PyResult<()> {
-        self.circuit = deserialize(state.as_bytes())
+        self.circuit = postcard::from_bytes(state.as_bytes())
             .map_err(|e| PyTypeError::new_err(format!("Failed to deserialize circuit: {e}")))?;
         Ok(())
     }
 
     pub fn __getstate__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
-        let bytes = serialize(&self.circuit)
+        let bytes: Vec<u8> = postcard::to_allocvec(&self.circuit)
             .map_err(|e| PyTypeError::new_err(format!("Failed to serialize circuit: {e}")))?;
         Ok(PyBytes::new(py, &bytes))
     }

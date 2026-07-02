@@ -125,11 +125,11 @@ impl HybridSystem for CircuitOperation {}
 impl InternableOperation for CircuitOperation {
     fn intern_operation(
         self,
-        operation_set: &mut OperationSet,
-        parameter_vector: &mut ParameterVector,
-        args: impl IntoArgumentList,
-        qudit_radices: Radices,
-        dit_radices: Radices,
+        _operation_set: &mut OperationSet,
+        _parameter_vector: &mut ParameterVector,
+        _args: impl IntoArgumentList,
+        _qudit_radices: Radices,
+        _dit_radices: Radices,
     ) -> Result<(OpCode, ParamIndices)> {
         // CircuitOperations are tricky, since you add QuditCircuit objects directly to the
         // circuit. They get converted internally to CircuitOperations. At this point, the
