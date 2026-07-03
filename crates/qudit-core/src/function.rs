@@ -816,7 +816,14 @@ mod python {
     /// This provides parameter index functionality to Python, supporting both
     /// consecutive (Joint) and disjoint parameter representations.
     #[gen_stub_pyclass]
-    #[pyclass(name = "ParamIndices", module = "openqudit", frozen, eq, hash, from_py_object)]
+    #[pyclass(
+        name = "ParamIndices",
+        module = "openqudit",
+        frozen,
+        eq,
+        hash,
+        from_py_object
+    )]
     #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct PyParamIndices {
         inner: ParamIndices,

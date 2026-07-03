@@ -209,7 +209,32 @@ class QuditCircuit:
     def count(self, op_code: OpCode) -> builtins.int: ...
     def __iter__(self) -> QuditCircuitIterator: ...
     @staticmethod
-    def load(path: builtins.str) -> QuditCircuit: ...
+    def load(path: builtins.str) -> QuditCircuit:
+        r"""
+        Load a circuit from a file.  The format is inferred from the file
+        extension (e.g. `.qasm` or `.qasm2` selects the QASM 2.0 parser).
+        """
+    @staticmethod
+    def loads(source: builtins.str, *, format: builtins.str = 'qasm2') -> QuditCircuit:
+        r"""
+        Parse a circuit from a string.
+        
+        Args:
+            source: The source string to parse.
+            format: The format name or file extension to use (default ``"qasm2"``).
+        """
+    def dump(self, path: builtins.str) -> None:
+        r"""
+        Write the circuit to a file.  The format is inferred from the file
+        extension (e.g. `.qasm` or `.qasm2` selects the QASM 2.0 writer).
+        """
+    def dumps(self, *, format: builtins.str = 'qasm2') -> builtins.str:
+        r"""
+        Serialise the circuit to a string.
+        
+        Args:
+            format: The format name or file extension to use (default ``"qasm2"``).
+        """
 
 @typing.final
 class QuditCircuitIterator:

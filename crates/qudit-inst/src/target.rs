@@ -23,7 +23,11 @@ mod python {
     impl_stub_type!(InstantiationTarget<c64> = PyInstantiationTarget);
 
     #[gen_stub_pyclass]
-    #[pyclass(name = "InstantiationTarget", module = "openqudit.instantiation", from_py_object)]
+    #[pyclass(
+        name = "InstantiationTarget",
+        module = "openqudit.instantiation",
+        from_py_object
+    )]
     #[derive(Clone)]
     pub struct PyInstantiationTarget {
         inner: InstantiationTarget<c64>,

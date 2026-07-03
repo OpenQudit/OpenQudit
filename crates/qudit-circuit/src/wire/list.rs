@@ -910,7 +910,14 @@ mod python {
 
     /// Python wrapper for WireList
     #[gen_stub_pyclass]
-    #[pyclass(name = "WireList", module = "openqudit.circuit", frozen, hash, eq, from_py_object)]
+    #[pyclass(
+        name = "WireList",
+        module = "openqudit.circuit",
+        frozen,
+        hash,
+        eq,
+        from_py_object
+    )]
     #[derive(Clone, Hash, PartialEq, Eq)]
     pub struct PyWireList {
         inner: WireList,

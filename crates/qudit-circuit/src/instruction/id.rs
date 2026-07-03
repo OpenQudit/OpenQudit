@@ -51,7 +51,15 @@ pub(crate) mod python {
     /// This wrapper allows Python code to work with instruction identifiers while
     /// maintaining type safety and preventing invalid construction.
     #[gen_stub_pyclass]
-    #[pyclass(name = "InstructionId", module = "openqudit.circuit", frozen, hash, eq, ord, from_py_object)]
+    #[pyclass(
+        name = "InstructionId",
+        module = "openqudit.circuit",
+        frozen,
+        hash,
+        eq,
+        ord,
+        from_py_object
+    )]
     #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
     pub struct PyInstructionId {
         inner: InstructionId,

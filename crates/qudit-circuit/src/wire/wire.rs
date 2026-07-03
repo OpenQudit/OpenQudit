@@ -363,7 +363,15 @@ mod python {
     ///
     /// Provides access to quantum circuit wire functionality from Python.
     #[gen_stub_pyclass]
-    #[pyclass(name = "Wire", module = "openqudit.circuit", frozen, hash, eq, ord, from_py_object)]
+    #[pyclass(
+        name = "Wire",
+        module = "openqudit.circuit",
+        frozen,
+        hash,
+        eq,
+        ord,
+        from_py_object
+    )]
     #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub struct PyWire {
         inner: Wire,

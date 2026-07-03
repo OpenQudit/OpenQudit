@@ -34,7 +34,15 @@ mod python {
 
     /// Python wrapper for OpKind.
     #[gen_stub_pyclass]
-    #[pyclass(name = "OpKind", module = "openqudit.circuit", frozen, eq, hash, ord, from_py_object)]
+    #[pyclass(
+        name = "OpKind",
+        module = "openqudit.circuit",
+        frozen,
+        eq,
+        hash,
+        ord,
+        from_py_object
+    )]
     #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub struct PyOpKind(OpKind);
 

@@ -204,7 +204,7 @@ impl Instruction {
     /// # Arguments
     ///
     /// * `op` - The quantum operation code
-    /// * `wires` - Target wires for the operation  
+    /// * `wires` - Target wires for the operation
     /// * `param_indices` - Indices referencing parameters (by id) in the owner's parameter vector
     pub fn new(op: OpCode, wires: WireList, param_indices: ParamIndices) -> Self {
         let wires: CompactVec<Wire> = wires.into();
@@ -390,7 +390,14 @@ mod python {
     /// This provides a read-only view of instructions from Python, with
     /// access to operation codes, target wires, and parameter indices.
     #[gen_stub_pyclass]
-    #[pyclass(name = "Instruction", module = "openqudit.circuit", frozen, eq, hash, from_py_object)]
+    #[pyclass(
+        name = "Instruction",
+        module = "openqudit.circuit",
+        frozen,
+        eq,
+        hash,
+        from_py_object
+    )]
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
     pub struct PyInstruction {
         inner: Instruction,

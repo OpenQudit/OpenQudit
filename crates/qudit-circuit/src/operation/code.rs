@@ -81,7 +81,15 @@ mod python {
     ///
     /// Provides access to quantum operation code functionality from Python.
     #[gen_stub_pyclass]
-    #[pyclass(name = "OpCode", module = "openqudit.circuit", frozen, eq, ord, hash, from_py_object)]
+    #[pyclass(
+        name = "OpCode",
+        module = "openqudit.circuit",
+        frozen,
+        eq,
+        ord,
+        hash,
+        from_py_object
+    )]
     #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub struct PyOpCode {
         inner: OpCode,
