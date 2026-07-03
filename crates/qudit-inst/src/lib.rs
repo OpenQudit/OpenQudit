@@ -128,7 +128,7 @@ mod tests {
     pub fn build_dynamic_circuit() -> QuditCircuit {
         let mut circ: QuditCircuit = QuditCircuit::new([2, 2, 2, 2], [2, 2]);
 
-        circ.zero_initialize([1, 2]);
+        circ.zero_initialize([1, 2]).unwrap();
 
         for i in 0..4 {
             circ.append(qudit_expr::library::U3Gate(), [i], None)
