@@ -79,6 +79,14 @@ To run Python tests, in the [qudit-python](./crates/qudit-python) crate, run:
 uv run pytest tests
 ```
 
+#### Python Stubs
+
+Python stubs will automatically be built by pre-commit (see the [next section](#pre-commit-hooks-recommended)).
+
+If you'd like to build the stubs manually to test Python additions, you can run `cargo run --bin stub_gen` in [./crates/qudit-python](./crates/qudit-python), and it will automatically generate new stubs in the [openqudit](./crates/qudit-python/openqudit) folder.
+
+Stubs are built from the associated Rust/pyo3 implementation and doc comments.
+
 ### Pre-commit Hooks (recommended)
 
 This repo ships a `.pre-commit-config.yaml` that runs the checks from the [Pull Request Process](#pull-request-process) below automatically:
@@ -101,11 +109,14 @@ pre-commit install
 This installs two git hooks:
 
 - **pre-commit** (every commit): runs `cargo fmt`, reformatting files in place. If it changes anything, the commit is aborted so you can review and re-stage.
-- **pre-push** (every push): runs `cargo deny`, `cargo clippy`, `cargo test`, and `cargo doc`.
+- **pre-push** (every push): runs `cargo deny`, `cargo clippy`, `cargo test`, `cargo doc`, `pytest`, and `cargo run --bin stub_gen`.
 
 You can also run all the push-stage checks manually at any time with `pre-commit run --all-files --hook-stage pre-push`.
 
 ## Pull Request Process
+
+> [!TIP]
+> Almost all of these steps can be run automatically or in one command with [pre-commit](#pre-commit-hooks-recommended)
 
 When you're ready to submit your contribution:
 
@@ -140,20 +151,38 @@ cargo clippy --workspace --features python --all-targets -- -D warnings
 RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
 ```
 
-7.  **Run all tests:**
+7.  **Run Rust tests:**
 
 ```bash
 cargo test --workspace --features python
 ```
 
-8.  **Push** your branch to your fork on GitHub:
+8.  **Generate Python stubs:**
 
 ```bash
+cd crates/qudit-python
+cargo run --bin stub_gen
+```
+
+9.  **Run Python tests:**
+
+```bash
+# In crates/qudit-python
+uv run pytest tests/
+```
+
+10. **Push** your branch to your fork on GitHub:
+
+```bash
+# Back in project root
+git add .
+git commit -m "added my feature"
 git push origin my-feature-branch
 ```
 
-9.  **Open a Pull Request** (PR) on the main repository.
-10. In your PR description:
+11. **Open a Pull Request** (PR) on the main repository.
+
+12. In your PR description:
 
 - Clearly describe the problem and your solution.
 - If your PR fixes an existing issue, link it (e.g., "Fixes #123").
