@@ -1,6 +1,7 @@
 use qudit_core::{ClassicalSystem, HybridSystem, ParamIndices, QuditSystem};
 use qudit_core::{HasParams, Radices};
 
+use serde::{Deserialize, Serialize};
 use slotmap::Key;
 use slotmap::SlotMap;
 use slotmap::new_key_type;
@@ -22,7 +23,7 @@ use crate::param::{IntoArgumentList, ParameterVector};
 ///
 /// These cannot be constructed manually, but rather, are made implicitly when
 /// appending or inserting a circuit into another circuit.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CircuitOperation {
     qudit_radices: Radices,
     dit_radices: Radices,
@@ -149,7 +150,7 @@ impl std::ops::Deref for CircuitOperation {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct CircuitCache {
     circuits: SlotMap<CircuitId, CircuitOperation>,
 }

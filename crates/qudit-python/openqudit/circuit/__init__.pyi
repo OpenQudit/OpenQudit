@@ -235,6 +235,9 @@ class QuditCircuit:
         Args:
             format: The format name or file extension to use (default ``"qasm2"``).
         """
+    def __setstate__(self, state: bytes) -> None: ...
+    def __getstate__(self) -> bytes: ...
+    def __getnewargs__(self) -> tuple[builtins.list[builtins.int]]: ...
 
 @typing.final
 class QuditCircuitIterator:

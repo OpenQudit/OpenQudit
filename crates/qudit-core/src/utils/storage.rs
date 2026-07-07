@@ -1,10 +1,12 @@
+use serde::{Serialize, de::DeserializeOwned};
+
 /// A trait for types that can be stored compactly by attempting to fit them into smaller storage types.
 ///
 /// This trait is designed for scenarios where values are often, but not always, small enough to fit in a more compact
 /// representation (e.g., storing i32 values that typically fit in i8 to save memory).
 pub trait CompactStorage: Copy + 'static {
     /// The compact storage type used for inline representation
-    type InlineType: Copy + Default + 'static;
+    type InlineType: Copy + Default + 'static + Serialize + DeserializeOwned;
     /// Whether conversion to inline type is guaranteed to never fail
     const CONVERSION_INFALLIBLE: bool;
 

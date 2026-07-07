@@ -3,6 +3,7 @@ use num::ToPrimitive;
 use num::bigint::BigInt;
 use num::rational::Ratio;
 use qudit_core::RealScalar;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::collections::HashSet;
 
@@ -11,7 +12,7 @@ use crate::analysis::simplify;
 pub type Rational = Ratio<BigInt>;
 pub type Constant = Rational;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub enum Expression {
     Pi,
     Variable(String),

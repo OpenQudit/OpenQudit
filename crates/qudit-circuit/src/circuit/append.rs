@@ -131,16 +131,15 @@ impl QuditCircuit {
     }
 
     /// Initialize the qudits specified in a zero state
-    pub fn zero_initialize<W: Into<WireList>>(&mut self, wires: W) -> InstructionId {
+    pub fn zero_initialize<W: Into<WireList>>(&mut self, wires: W) -> Result<InstructionId> {
         let wires = wires.into();
         let location_radices = wires
             .qudits()
             .map(|q| self.qudit_radices[q])
             .collect::<Radices>();
         let state = KetExpression::zero(location_radices);
-        let _op = ExpressionOperation::QuditInitialization(state);
-        // self.append(op, wires, None::<ArgumentList>)
-        todo!()
+        let op = ExpressionOperation::QuditInitialization(state);
+        self.append(op, wires, None::<ArgumentList>)
     }
 
     /// Loads a circuit from a file using a registered parser.

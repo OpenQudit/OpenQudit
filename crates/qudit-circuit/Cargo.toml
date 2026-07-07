@@ -38,12 +38,14 @@ num = { workspace = true }
 num-complex = { workspace = true }
 num-traits = { workspace = true }
 numpy = { workspace = true, optional = true }
+postcard = { version = "1", default-features = false, features = ["alloc"] }
 pyo3 = { workspace = true, optional = true }
 pyo3-stub-gen = { workspace = true, optional = true }
 qudit-core = { workspace = true }
 qudit-expr = { workspace = true }
 qudit-tensor = { workspace = true }
 rustc-hash = { workspace = true }
+serde = { workspace = true }
 slotmap = { workspace = true }
 thiserror = { workspace = true }
 

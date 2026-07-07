@@ -1,6 +1,7 @@
 //! Radix (number base) representation with compile-time validation.
 
 use num_traits::AsPrimitive;
+use serde::{Deserialize, Serialize};
 
 use crate::CompactStorage;
 
@@ -20,7 +21,9 @@ use crate::CompactStorage;
 /// let base = usize::from(radix);
 /// let base: u64 = radix.into();
 /// ```
-#[derive(Default, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, Copy, Clone)]
+#[derive(
+    Default, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, Copy, Clone, Serialize, Deserialize,
+)]
 #[repr(transparent)]
 pub struct Radix(u8);
 

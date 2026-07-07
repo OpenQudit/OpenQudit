@@ -3,6 +3,47 @@ use std::fmt;
 use std::hash::Hash;
 use std::ptr::NonNull;
 
+use serde::{Deserialize, Serialize};
+
+impl<T: Serialize> Serialize for LimitedSizeVec<T> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeSeq;
+        let mut seq = serializer.serialize_seq(Some(self.len()))?;
+        for item in self.as_slice() {
+            seq.serialize_element(item)?;
+        }
+        seq.end()
+    }
+}
+
+impl<'de, T: Deserialize<'de>> Deserialize<'de> for LimitedSizeVec<T> {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        struct Visitor<T>(std::marker::PhantomData<T>);
+
+        impl<'de, T: Deserialize<'de>> serde::de::Visitor<'de> for Visitor<T> {
+            type Value = LimitedSizeVec<T>;
+
+            fn expecting(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+                write!(f, "a sequence")
+            }
+
+            fn visit_seq<A: serde::de::SeqAccess<'de>>(
+                self,
+                mut seq: A,
+            ) -> Result<Self::Value, A::Error> {
+                let capacity = seq.size_hint().unwrap_or(DEFAULT_CAPACITY as usize);
+                let mut vec = LimitedSizeVec::new_with_capacity(capacity.max(1) as u32);
+                while let Some(item) = seq.next_element()? {
+                    vec.push(item);
+                }
+                Ok(vec)
+            }
+        }
+
+        deserializer.deserialize_seq(Visitor(std::marker::PhantomData))
+    }
+}
+
 /// A vector-like container with 32-bit length and capacity limits.
 ///
 /// `LimitedSizeVec` is a performance-optimized vector implementation that uses

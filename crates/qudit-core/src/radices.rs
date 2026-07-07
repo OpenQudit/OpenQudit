@@ -2,6 +2,8 @@
 // TODO: Order mods: implementations; python; strategies; test
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
+
 use crate::radix::Radix;
 use crate::{CompactStorage, CompactVec, QuditSystem};
 
@@ -26,7 +28,7 @@ use crate::{CompactStorage, CompactVec, QuditSystem};
 /// the previous example is the most significant qudit and the qutrit is
 /// the least significant qudit. For example, in the same system, a state
 /// |10> would be represented by the decimal number 3.
-#[derive(Hash, PartialEq, Eq, Clone)]
+#[derive(Hash, PartialEq, Eq, Clone, Serialize, Deserialize)]
 pub struct Radices(CompactVec<Radix>);
 
 impl Radices {

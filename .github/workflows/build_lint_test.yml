@@ -52,6 +52,12 @@ jobs:
             ${{ runner.os }}-cargo-
 
       # ------------------------------------------------------------------
+      # Setup Python / uv
+      # ------------------------------------------------------------------
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+
+      # ------------------------------------------------------------------
       # Run Checks
       # ------------------------------------------------------------------
       - name: Check formatting
@@ -77,3 +83,7 @@ jobs:
         run: cargo doc --workspace --no-deps
         env:
           RUSTDOCFLAGS: "-D warnings"
+
+      - name: Run Python tests
+        working-directory: crates/qudit-python
+        run: uv run --reinstall-package=openqudit pytest tests/ -v

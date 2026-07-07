@@ -1,7 +1,9 @@
+use serde::{Deserialize, Serialize};
+
 use super::kind::OpKind;
 
 /// Encodes an operation kind and persistent reference in a 64-bit value.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, Copy, PartialOrd, Ord)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq, Copy, PartialOrd, Ord, Serialize, Deserialize)]
 #[repr(transparent)]
 pub struct OpCode(u64);
 

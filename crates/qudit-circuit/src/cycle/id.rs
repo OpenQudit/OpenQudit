@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use slotmap::new_key_type;
 use std::ops::{Add, AddAssign, Sub, SubAssign};
 
@@ -14,7 +15,9 @@ new_key_type! {
 /// Note: imposes a maximum number of cycles as identifiers are never reused.
 /// There can only `std::u64::MAX - 1` cycles ever created for a single circuit.
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize,
+)]
 pub struct CycleId(pub u64);
 
 /// A index for a cycle describing execution order of cycles.
@@ -22,7 +25,9 @@ pub struct CycleId(pub u64);
 /// These may change and should not be used to identify cycles.
 /// Instead, use CycleId.
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default, Serialize, Deserialize,
+)]
 pub struct CycleIndex(pub u64);
 
 impl CycleId {

@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+
 /// A unique identifier for a tensor index.
 ///
 /// Tensor indices are identified in two distinct locations by this type alias:
@@ -58,7 +60,7 @@ pub type WeightedIndex = (IndexId, IndexSize);
 ///
 /// Batch indices are used for measurements/Kraus operators or for batch executions
 /// of a network.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum IndexDirection {
     /// For gradients and hessians
     Derivative,
@@ -117,7 +119,7 @@ impl IndexDirection {
 ///
 /// - `[super::tensor::QuditTensor]` - Tensor object capturing how tensors are generated.
 /// - `[super::network::QuditTensorNetwork]` - Tensor network describing a desired calculation.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct TensorIndex {
     /// The direction of the tensor leg. Important for mapping to dimensions
     /// of a TensorExpression's generated data.

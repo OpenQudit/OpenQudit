@@ -11,8 +11,10 @@ use qudit_expr::UnitaryExpression;
 use qudit_expr::UnitarySystemExpression;
 use qudit_expr::index::IndexDirection;
 use qudit_expr::index::TensorIndex;
+use serde::Deserialize;
+use serde::Serialize;
 
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Deserialize, Serialize)]
 pub enum ExpressionOpKind {
     UnitaryGate,
     KrausOperators,
@@ -256,6 +258,7 @@ impl<E: Into<ExpressionOperation>> InternableOperation for E {
         };
 
         let op_code = operation_set.insert_expression(subbed_op)?;
+        operation_set.increment(op_code);
 
         Ok((op_code, param_ids))
     }

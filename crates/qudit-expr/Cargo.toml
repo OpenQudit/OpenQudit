@@ -23,7 +23,7 @@ inkwell = { workspace = true }
 inventory = { workspace = true, optional = true }
 itertools = { workspace = true }
 llvm-sys = { workspace = true }
-num = { workspace = true }
+num = { workspace = true, features = ["serde"] }
 numpy = { workspace = true, optional = true }
 ordered-float = { workspace = true }
 pyo3 = { workspace = true, optional = true }
@@ -31,6 +31,7 @@ pyo3-stub-gen = { workspace = true, optional = true }
 qudit-core = { workspace = true }
 rand = { workspace = true }
 rustc-hash = { workspace = true }
+serde = "1.0.228"
 
 [dev-dependencies]
 criterion = { workspace = true }

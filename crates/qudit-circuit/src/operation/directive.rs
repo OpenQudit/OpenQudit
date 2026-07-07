@@ -25,6 +25,7 @@ impl InternableOperation for DirectiveOperation {
         _dit_radices: Radices,
     ) -> Result<(OpCode, ParamIndices)> {
         let op_code = operation_set.convert_directive(self);
+        operation_set.increment(op_code);
         match self {
             DirectiveOperation::Barrier => Ok((op_code, ParamIndices::empty())),
         }

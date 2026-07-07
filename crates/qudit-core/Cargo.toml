@@ -33,6 +33,7 @@ inventory = { workspace = true, optional = true }
 numpy = { workspace = true, optional = true }
 pyo3 = { workspace = true, optional = true }
 pyo3-stub-gen = { workspace = true, optional = true }
+serde = "1.0.228"
 
 [dev-dependencies]
 criterion = { workspace = true }
