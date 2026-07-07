@@ -19,7 +19,7 @@ use rustc_hash::FxHashMap;
 /// by a persistent identifier, which never changes and enables fast O(1) lookup.
 /// This additionally enables instruction identifiers that will always point
 /// to their correct instruction, no matter how the circuit changes underneath.
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct QuditCircuit {
     /// The QuditRadices object that describes the quantum dimension of the circuit.
     qudit_radices: Radices,
@@ -60,6 +60,8 @@ pub use append::InternableOperation;
 
 #[cfg(feature = "python")]
 pub use python::PyQuditCircuit;
+use serde::Deserialize;
+use serde::Serialize;
 
 #[cfg(test)]
 mod tests {

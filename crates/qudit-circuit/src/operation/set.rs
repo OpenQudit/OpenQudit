@@ -5,9 +5,11 @@ use std::{
 
 use qudit_expr::{ExpressionCache, index::TensorIndex};
 use rustc_hash::FxHashMap;
+use serde::{Deserialize, Serialize};
 use slotmap::{Key, KeyData};
 
 use super::kind::OpKind;
+
 use crate::{
     OpCode,
     operation::{
@@ -18,7 +20,7 @@ use crate::{
     },
 };
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize, Serialize)]
 pub struct OperationSet {
     expressions: Arc<Mutex<ExpressionCache>>,
     subcircuits: CircuitCache,

@@ -1,6 +1,8 @@
 use std::collections::BTreeMap;
 use std::fmt;
 
+use serde::Deserialize;
+use serde::Serialize;
 use slotmap::SlotMap;
 use std::collections::HashSet;
 
@@ -11,7 +13,7 @@ use crate::Wire;
 use crate::WireList;
 use crate::instruction::Instruction;
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 #[repr(align(128))]
 pub struct QuditCycle {
     pub insts: SlotMap<InstId, Instruction>,

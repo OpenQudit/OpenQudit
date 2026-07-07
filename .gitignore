@@ -33,4 +33,4 @@ wheelhouse/
 .env
 Cargo.lock
 scratch/
-
+.venv/

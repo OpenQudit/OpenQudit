@@ -1,6 +1,8 @@
 use std::ops::{Index, IndexMut};
 
 use rustc_hash::FxHashMap;
+use serde::Deserialize;
+use serde::Serialize;
 
 use super::CycleId;
 use super::CycleIndex;
@@ -13,7 +15,7 @@ use super::QuditCycle;
 ///    get shifted around when operations are removed. They can change.
 /// 2. Access by cycle id: These are unique identifiers for each cycle.
 ///    They never change once assigned to a cycle.
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct CycleList {
     /// The raw vector of cycles accessed by physical indices.
     cycles: Vec<QuditCycle>,

@@ -1,9 +1,10 @@
 use crate::{OpCode, Wire, WireList};
 use qudit_core::{CompactVec, LimitedSizeVec};
 use qudit_core::{HasParams, ParamIndices};
+use serde::{Deserialize, Serialize};
 
 /// Compact storage for parameter indices within instruction memory layout.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub enum CompactParamIndices {
     /// Up to 3 parameter indices stored as u8 values.
     ///
@@ -123,7 +124,7 @@ impl From<CompactParamIndices> for ParamIndices {
 /// Instructions are stored inline within 32 bytes when possible, automatically falling back
 /// to heap allocation for complex cases. Each instruction references parameters by index
 /// in the owner's parameter vector rather than storing values directly.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub enum Instruction {
     /// Inline storage for small instructions (up to 7 wires, limited parameters).
     ///
@@ -204,7 +205,7 @@ impl Instruction {
     /// # Arguments
     ///
     /// * `op` - The quantum operation code
-    /// * `wires` - Target wires for the operation  
+    /// * `wires` - Target wires for the operation
     /// * `param_indices` - Indices referencing parameters (by id) in the owner's parameter vector
     pub fn new(op: OpCode, wires: WireList, param_indices: ParamIndices) -> Self {
         let wires: CompactVec<Wire> = wires.into();

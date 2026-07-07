@@ -4,55 +4,64 @@ version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
 description = { workspace = true }
+readme = { workspace = true }
 repository = { workspace = true }
-readme = { workspace = true } 
+license = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
-license = { workspace = true }
-
-
-[dependencies]
-qudit-core = { workspace = true }
-qudit-expr = { workspace = true }
-qudit-tensor = { workspace = true }
-indexmap = { workspace = true }
-itertools = { workspace = true }
-num = { workspace = true }
-num-traits = { workspace = true }
-num-complex = { workspace = true }
-faer = { workspace = true }
-pyo3 = { workspace = true, optional = true }
-inventory = { workspace = true, optional = true }
-aligned-vec = { workspace = true }
-bytemuck = { workspace = true }
-bit-set = { workspace = true }
-slotmap = { workspace = true }
-rustc-hash = { workspace = true }
-numpy = { workspace = true, optional = true }
-thiserror = { workspace = true }
-
-[dev-dependencies]
-proptest = { workspace = true }
-criterion = { workspace = true }
-pprof = { workspace = true }
-rand = { workspace = true }
 
 [package.metadata.docs.rs]
 rustdoc-args = [
-    "--html-in-header","./.cargo/html/docs-header.html",
-    "--html-before-content","./.cargo/html/docs-before-content.html"
+  "--html-in-header",
+  "./.cargo/html/docs-header.html",
+  "--html-before-content",
+  "./.cargo/html/docs-before-content.html"
 ]
 
 [[bench]]
-name = "circuit_struct"
 harness = false
+name = "circuit_struct"
 
 [[bench]]
-name = "tnvm"
 harness = false
+name = "tnvm"
+
+[dependencies]
+aligned-vec = { workspace = true }
+postcard = { version = "1", default-features = false, features = ["alloc"] }
+bit-set = { workspace = true }
+bytemuck = { workspace = true }
+faer = { workspace = true }
+indexmap = { workspace = true }
+inventory = { workspace = true, optional = true }
+itertools = { workspace = true }
+num = { workspace = true }
+num-complex = { workspace = true }
+num-traits = { workspace = true }
+numpy = { workspace = true, optional = true }
+pyo3 = { workspace = true, optional = true }
+qudit-core = { workspace = true }
+qudit-expr = { workspace = true }
+qudit-tensor = { workspace = true }
+rustc-hash = { workspace = true }
+serde = { workspace = true }
+slotmap = { workspace = true }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+pprof = { workspace = true }
+proptest = { workspace = true }
+rand = { workspace = true }
 
 [features]
-python = ["qudit-core/python", "qudit-expr/python", "dep:numpy", "dep:pyo3", "dep:inventory"]
+python = [
+  "dep:inventory",
+  "dep:numpy",
+  "dep:pyo3",
+  "qudit-core/python",
+  "qudit-expr/python"
+]
 
 [lints]
 workspace = true

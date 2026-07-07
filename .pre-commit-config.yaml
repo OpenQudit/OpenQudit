@@ -51,3 +51,12 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
+
+      - id: pytest
+        name: pytest (python bindings)
+        description: Mirrors the "Run Python tests" CI step.
+        entry: uv run --project crates/qudit-python --reinstall-package=openqudit pytest crates/qudit-python/tests/
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]

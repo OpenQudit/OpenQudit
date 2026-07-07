@@ -1,5 +1,6 @@
 use super::LimitedSizeVec;
 use super::storage::CompactStorage;
+use serde::{Deserialize, Serialize};
 use std::any::TypeId;
 use std::hash::Hash;
 
@@ -22,7 +23,7 @@ const INLINE_CAPACITY: usize = 7;
 /// assert_eq!(vec.len(), 3);
 /// assert!(vec.is_inline());
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CompactVec<T: CompactStorage> {
     /// Inline storage for up to INLINE_CAPACITY elements.
     Inline([T::InlineType; INLINE_CAPACITY], u8),

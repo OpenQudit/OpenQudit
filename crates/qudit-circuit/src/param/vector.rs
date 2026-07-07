@@ -3,6 +3,8 @@ use std::collections::hash_map::Entry;
 
 use qudit_core::ParamIndices;
 use rustc_hash::FxHashMap;
+use serde::Deserialize;
+use serde::Serialize;
 
 use super::ArgumentList;
 use super::NameOrParameter;
@@ -18,7 +20,7 @@ pub type ParameterIndex = usize;
 /// has to be sacrificed. This imposes a limit on the total number of
 /// parameters that can ever be created with a single ParameterVector to
 /// be `std::usize::MAX`.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct ParameterVector {
     params: Vec<Parameter>,
     named_param_ids: HashMap<String, ParameterId>,

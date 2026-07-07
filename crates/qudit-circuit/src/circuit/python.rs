@@ -17,7 +17,7 @@ use numpy::PyArrayMethods;
 use numpy::ndarray::ArrayViewMut3;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use pyo3::types::PyTuple;
+use pyo3::types::{PyBytes, PyTuple};
 use qudit_core::c64;
 
 #[pyclass]
@@ -114,7 +114,7 @@ fn parse_int_or_iterable<'py>(input: &Bound<'py, PyAny>) -> PyResult<Vec<usize>>
     }
 }
 
-#[pyclass(from_py_object)]
+#[pyclass(from_py_object, module = "openqudit.circuit")]
 #[pyo3(name = "QuditCircuit")]
 #[derive(Clone)]
 pub struct PyQuditCircuit {
@@ -501,6 +501,24 @@ impl PyQuditCircuit {
     // from_unitary
     // __reduce__
     // rebuild_circuit
+
+    pub fn __setstate__(&mut self, state: &Bound<'_, PyBytes>) -> PyResult<()> {
+        self.circuit = postcard::from_bytes(state.as_bytes())
+            .map_err(|e| PyTypeError::new_err(format!("Failed to deserialize circuit: {e}")))?;
+        Ok(())
+    }
+
+    pub fn __getstate__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        let bytes: Vec<u8> = postcard::to_allocvec(&self.circuit)
+            .map_err(|e| PyTypeError::new_err(format!("Failed to serialize circuit: {e}")))?;
+        Ok(PyBytes::new(py, &bytes))
+    }
+
+    pub fn __getnewargs__(&self) -> PyResult<(Vec<usize>,)> {
+        // Dummy args: __setstate__ fully restores the circuit, so we just need
+        // any valid value for the qudits argument of __new__.
+        Ok((vec![2],))
+    }
 }
 
 impl<'py> IntoPyObject<'py> for QuditCircuit {
