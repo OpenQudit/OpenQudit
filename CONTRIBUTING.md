@@ -61,41 +61,47 @@ We use a Rust workspace to manage multiple crates.
 
 ### Python Development Setup
 
-OpenQudit uses [Maturin](https://github.com/PyO3/maturin) to build the python library from the qudit-python crate. This sets the `python` feature flag on all of the other rust crates. If you would like to do python-driven development, then after ensuring a suitable version of Python is setup and you have forked and cloned the repo:
+OpenQudit uses [Maturin](https://github.com/PyO3/maturin) and [uv](https://docs.astral.sh/uv) to build the python library from the qudit-python crate. This sets the `python` feature flag on all of the other rust crates. If you would like to do python-driven development, after ensuring you have installed `uv` and you have forked and cloned the repo:
 
-1. **Setup** a virtual environment. For example with `venv`:
-   ```bash
-   python -m venv .env
-   source .env/bin/activate
-   ```
-2. **Install** maturin:
+Setup (in [crates/qudit-python](./crates/qudit-python)) a virtual environment:
 
-   ```bash
-   pip install maturin
-   ```
+```bash
+uv sync --group=dev
+```
 
-3. **Build** the OpenQudit python library and install it into the virtual environment:
-   ```bash
-   cd crates/qudit-python
-   maturin develop
-   ```
+This may take a second to build the package the first time.
+
+#### Python Tests
+
+To run Python tests, in the [qudit-python](./crates/qudit-python) crate, run:
+
+```bash
+uv run pytest tests
+```
 
 ### Pre-commit Hooks (recommended)
 
 This repo ships a `.pre-commit-config.yaml` that runs the checks from the [Pull Request Process](#pull-request-process) below automatically:
 
+**Note**: You will need `uv` installed to run all the pre-commit hooks, as one of them runs Python tests.
+
 1.  **Install** [pre-commit](https://pre-commit.com/) and [cargo-deny](https://github.com/EmbarkStudios/cargo-deny):
-    ```bash
-    pip install pre-commit
-    cargo install cargo-deny
-    ```
+
+```bash
+pip install pre-commit
+cargo install cargo-deny
+```
+
 2.  **Set up the hooks** from the repo root:
-    ```bash
-    pre-commit install
-    ```
-    This installs two git hooks:
-    - **pre-commit** (every commit): runs `cargo fmt`, reformatting files in place. If it changes anything, the commit is aborted so you can review and re-stage.
-    - **pre-push** (every push): runs `cargo deny`, `cargo clippy`, `cargo test`, and `cargo doc`.
+
+```bash
+pre-commit install
+```
+
+This installs two git hooks:
+
+- **pre-commit** (every commit): runs `cargo fmt`, reformatting files in place. If it changes anything, the commit is aborted so you can review and re-stage.
+- **pre-push** (every push): runs `cargo deny`, `cargo clippy`, `cargo test`, and `cargo doc`.
 
 You can also run all the push-stage checks manually at any time with `pre-commit run --all-files --hook-stage pre-push`.
 
@@ -104,42 +110,61 @@ You can also run all the push-stage checks manually at any time with `pre-commit
 When you're ready to submit your contribution:
 
 1.  Create a new branch for your changes:
-    ```bash
-    git checkout -b my-feature-branch
-    ```
+
+```bash
+git checkout -b my-feature-branch
+```
+
 2.  Make your changes and commit them with a clear message.
 3.  **Format your code:**
-    ```bash
-    cargo fmt
-    ```
+
+```bash
+cargo fmt
+```
+
 4.  **Check licenses and advisories:**
-    ```bash
-    cargo deny --all-features check -c .cargo/deny.toml
-    ```
+
+```bash
+cargo deny --all-features check -c .cargo/deny.toml
+```
+
 5.  **Check for lint warnings:**
-    ```bash
-    cargo clippy --workspace --features python --all-targets -- -D warnings
-    ```
+
+```bash
+cargo clippy --workspace --features python --all-targets -- -D warnings
+```
+
 6.  **Check for doc warnings:**
-    ```bash
-    RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
-    ```
+
+```bash
+RUSTDOCFLAGS="-D warnings" cargo doc --workspace --no-deps
+```
+
 7.  **Run all tests:**
-    ```bash
-    cargo test --workspace --features python
-    ```
+
+```bash
+cargo test --workspace --features python
+```
+
 8.  **Push** your branch to your fork on GitHub:
-    ```bash
-    git push origin my-feature-branch
-    ```
+
+```bash
+git push origin my-feature-branch
+```
+
 9.  **Open a Pull Request** (PR) on the main repository.
 10. In your PR description:
-    - Clearly describe the problem and your solution.
-    - If your PR fixes an existing issue, link it (e.g., "Fixes #123").
-    - Ensure all CI checks (GitHub Actions) are passing.
+
+- Clearly describe the problem and your solution.
+- If your PR fixes an existing issue, link it (e.g., "Fixes #123").
+- Ensure all CI checks (GitHub Actions) are passing.
 
 A maintainer will review your PR, provide feedback, and merge it when it's ready.
 
 ## Licensing
 
 By contributing to this project, you agree that your contributions will be licensed under its [BSD-3-Clause](LICENSE) license.
+
+```
+
+```
