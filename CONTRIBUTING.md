@@ -83,7 +83,7 @@ uv run pytest tests
 
 This repo ships a `.pre-commit-config.yaml` that runs the checks from the [Pull Request Process](#pull-request-process) below automatically:
 
-**Note**: You will need `uv` installed to run all the pre-commit hooks, as one of them runs Python tests.
+**Note**: You will need `uv` installed (see [docs.astral.sh/uv](https://docs.astral.sh/uv) to run all the pre-commit hooks, as one of them runs Python tests.
 
 1.  **Install** [pre-commit](https://pre-commit.com/) and [cargo-deny](https://github.com/EmbarkStudios/cargo-deny):
 
@@ -164,7 +164,3 @@ A maintainer will review your PR, provide feedback, and merge it when it's ready
 ## Licensing
 
 By contributing to this project, you agree that your contributions will be licensed under its [BSD-3-Clause](LICENSE) license.
-
-```
-
-```
