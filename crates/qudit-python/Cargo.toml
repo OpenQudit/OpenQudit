@@ -4,25 +4,26 @@ version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
 description = { workspace = true }
+readme = { workspace = true }
 repository = { workspace = true }
-readme = { workspace = true } 
+license = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
-license = { workspace = true }
 
 [lib]
+crate-type = ["cdylib", "rlib"]
 name = "openqudit"
-crate-type = ["cdylib"]
 
 [dependencies]
+qudit-circuit = { workspace = true, features = ["python"] }
 qudit-core = { workspace = true, features = ["python"] }
 qudit-expr = { workspace = true, features = ["python"] }
-qudit-circuit = { workspace = true, features = ["python"] }
 qudit-inst = { workspace = true, features = ["python"] }
 
-pyo3 = { workspace = true }
 inventory = { workspace = true }
 numpy = { workspace = true }
+pyo3 = { workspace = true }
+pyo3-stub-gen = { workspace = true }
 
 [target.'cfg(target_vendor = "apple")'.dependencies]
 zstd = "0.13"

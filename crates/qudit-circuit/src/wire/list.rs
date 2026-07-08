@@ -903,9 +903,21 @@ mod python {
     use crate::python::PyCircuitRegistrar;
     use pyo3::types::PyList;
     use pyo3::{prelude::*, types::PyTuple};
+    use pyo3_stub_gen::derive::*;
+    use pyo3_stub_gen::impl_stub_type;
+
+    impl_stub_type!(WireList = PyWireList);
 
     /// Python wrapper for WireList
-    #[pyclass(name = "WireList", frozen, hash, eq, from_py_object)]
+    #[gen_stub_pyclass]
+    #[pyclass(
+        name = "WireList",
+        module = "openqudit.circuit",
+        frozen,
+        hash,
+        eq,
+        from_py_object
+    )]
     #[derive(Clone, Hash, PartialEq, Eq)]
     pub struct PyWireList {
         inner: WireList,
@@ -929,6 +941,7 @@ mod python {
         }
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyWireList {
         /// Create a purely quantum WireList from Python
@@ -1087,7 +1100,8 @@ mod python {
         }
     }
 
-    #[pyclass]
+    #[gen_stub_pyclass]
+    #[pyclass(name = "WireListIterator", module = "openqudit.circuit")]
     pub struct PyWireListIterator {
         wires: Vec<Wire>,
         index: usize,
@@ -1099,6 +1113,7 @@ mod python {
         }
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyWireListIterator {
         fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
@@ -1157,6 +1172,7 @@ mod python {
     /// Registers the Wire class with the Python module.
     fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
         parent_module.add_class::<PyWireList>()?;
+        parent_module.add_class::<PyWireListIterator>()?;
         Ok(())
     }
     inventory::submit!(PyCircuitRegistrar { func: register });

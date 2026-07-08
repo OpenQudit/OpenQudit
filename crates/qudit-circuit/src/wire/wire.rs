@@ -355,16 +355,30 @@ mod python {
     use super::Wire;
     use crate::python::PyCircuitRegistrar;
     use pyo3::prelude::*;
+    use pyo3_stub_gen::derive::*;
+    use pyo3_stub_gen::impl_stub_type;
+
+    impl_stub_type!(Wire = PyWire);
 
     /// Python wrapper for the Wire struct.
     ///
     /// Provides access to quantum circuit wire functionality from Python.
-    #[pyclass(name = "Wire", frozen, hash, eq, ord, from_py_object)]
+    #[gen_stub_pyclass]
+    #[pyclass(
+        name = "Wire",
+        module = "openqudit.circuit",
+        frozen,
+        hash,
+        eq,
+        ord,
+        from_py_object
+    )]
     #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
     pub struct PyWire {
         inner: Wire,
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyWire {
         /// Create a quantum wire with the given index.

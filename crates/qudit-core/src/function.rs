@@ -806,17 +806,30 @@ mod python {
     use super::*;
     use pyo3::prelude::*;
     use pyo3::types::PyIterator;
+    use pyo3_stub_gen::derive::*;
+    use pyo3_stub_gen::impl_stub_type;
+
+    impl_stub_type!(ParamIndices = PyParamIndices);
 
     /// Python wrapper for parameter indices.
     ///
     /// This provides parameter index functionality to Python, supporting both
     /// consecutive (Joint) and disjoint parameter representations.
-    #[pyclass(name = "ParamIndices", frozen, eq, hash, from_py_object)]
+    #[gen_stub_pyclass]
+    #[pyclass(
+        name = "ParamIndices",
+        module = "openqudit",
+        frozen,
+        eq,
+        hash,
+        from_py_object
+    )]
     #[derive(Clone, Debug, PartialEq, Eq, Hash)]
     pub struct PyParamIndices {
         inner: ParamIndices,
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyParamIndices {
         /// Creates new parameter indices.
@@ -972,12 +985,14 @@ mod python {
         }
     }
 
-    #[pyclass]
+    #[gen_stub_pyclass]
+    #[pyclass(name = "ParamIndicesIterator", module = "openqudit")]
     struct PyParamIndicesIterator {
         indices: Vec<usize>,
         index: usize,
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyParamIndicesIterator {
         fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
@@ -1026,4 +1041,11 @@ mod python {
             Ok(py_indices.into())
         }
     }
+
+    fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
+        parent_module.add_class::<PyParamIndices>()?;
+        parent_module.add_class::<PyParamIndicesIterator>()?;
+        Ok(())
+    }
+    inventory::submit! { crate::PyRegistrar { func: register } }
 }

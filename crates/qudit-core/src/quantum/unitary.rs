@@ -783,16 +783,19 @@ mod python {
     use super::*;
     use crate::PyRegistrar;
     use pyo3::{exceptions::PyTypeError, prelude::*};
+    use pyo3_stub_gen::derive::*;
 
     use numpy::{PyArray2, PyReadonlyArray2, PyUntypedArrayMethods};
 
     /// Python wrapper for UnitaryMatrix
-    #[pyclass(name = "UnitaryMatrix", from_py_object)]
+    #[gen_stub_pyclass]
+    #[pyclass(name = "UnitaryMatrix", module = "openqudit", from_py_object)]
     #[derive(Clone)]
     pub struct PyUnitaryMatrix {
         inner: UnitaryMatrix<c64>,
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyUnitaryMatrix {
         /// Create a new unitary matrix from a numpy array

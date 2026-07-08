@@ -40,6 +40,9 @@ mod python {
     use num::ToPrimitive;
     use pyo3::prelude::*;
     use pyo3::types::PyFloat;
+    use pyo3_stub_gen::impl_stub_type;
+
+    impl_stub_type!(Parameter = Option<f64>);
 
     impl<'py> IntoPyObject<'py> for Parameter {
         type Target = PyAny;

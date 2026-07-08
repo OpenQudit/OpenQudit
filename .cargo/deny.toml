@@ -73,6 +73,12 @@ ignore = [
     { id = "RUSTSEC-2024-0436", reason = "World won't end and see: https://github.com/sarah-quinones/gemm/pull/36" },
     { id = "RUSTSEC-2026-0194", reason = "quick-xml pulled in transitively via pprof(flamegraph) -> inferno, a dev-dependency used only for criterion benchmarks. We never parse untrusted XML with it. inferno 0.12.6 (latest) still pins quick-xml to \"0.39\", so no update can reach the patched >=0.41.0 yet." },
     { id = "RUSTSEC-2026-0195", reason = "Same transitive dev-dependency path as RUSTSEC-2026-0194 (pprof(flamegraph) -> inferno -> quick-xml); no untrusted XML is parsed in this codebase." },
+    { id = "RUSTSEC-2025-0081", reason = "unic-char-property is pulled in only as a build-dependency of pyo3-stub-gen (via rustpython-parser), used to generate Python type stubs at build time. It never ships in the compiled qudit-python extension and never processes untrusted input." },
+    { id = "RUSTSEC-2025-0075", reason = "unic-char-range, same build-only path as RUSTSEC-2025-0081 (pyo3-stub-gen -> rustpython-parser)." },
+    { id = "RUSTSEC-2025-0080", reason = "unic-common, same build-only path as RUSTSEC-2025-0081 (pyo3-stub-gen -> rustpython-parser)." },
+    { id = "RUSTSEC-2025-0090", reason = "unic-emoji-char, same build-only path as RUSTSEC-2025-0081 (pyo3-stub-gen -> rustpython-parser)." },
+    { id = "RUSTSEC-2025-0100", reason = "unic-ucd-ident, same build-only path as RUSTSEC-2025-0081 (pyo3-stub-gen -> rustpython-parser)." },
+    { id = "RUSTSEC-2025-0098", reason = "unic-ucd-version, same build-only path as RUSTSEC-2025-0081 (pyo3-stub-gen -> rustpython-parser)." },
     #"RUSTSEC-0000-0000",
     #{ id = "RUSTSEC-0000-0000", reason = "you can specify a reason the advisory is ignored" },
     #"a-crate-that-is-yanked@0.1.1", # you can also ignore yanked crate versions if you wish
@@ -111,6 +117,11 @@ exceptions = [
     # Each entry is the crate and version constraint, and its specific allow
     # list
     #{ allow = ["Zlib"], crate = "adler32" },
+    # Both pulled in only as build-dependencies of pyo3-stub-gen (via
+    # rustpython-parser), used to generate Python type stubs at build time.
+    # Neither ships in the compiled qudit-python extension.
+    { allow = ["CC0-1.0"], crate = "tiny-keccak" },
+    { allow = ["MIT", "Apache-2.0", "Unicode-DFS-2016"], crate = "unicode_names2" },
 ]
 
 # Some crates don't have (easily) machine readable licensing information,

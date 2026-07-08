@@ -43,6 +43,20 @@ repos:
         always_run: true
         stages: [pre-push]
 
+      - id: python-stubs
+        name: cargo run --bin stub_gen
+        description: Mirrors the "Check stubs are up to date" CI step.
+        entry: >
+          bash -c '
+            cd crates/qudit-python &&
+            cargo run --bin stub_gen &&
+            git diff --exit-code -- openqudit/
+          '
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
       - id: cargo-doc
         name: cargo doc --workspace
         description: Mirrors the "Build docs" CI step.

@@ -4,38 +4,47 @@ version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
 description = { workspace = true }
+readme = { workspace = true }
 repository = { workspace = true }
-readme = { workspace = true } 
+license = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
-license = { workspace = true }
+
+[[bench]]
+harness = false
+name = "unitary"
 
 [dependencies]
+dyn-clone = { workspace = true }
+faer = { workspace = true }
+faer-traits = { workspace = true }
+num-complex = { workspace = true }
+qudit-circuit = { workspace = true }
 qudit-core = { workspace = true }
 qudit-expr = { workspace = true }
 qudit-tensor = { workspace = true }
-qudit-circuit = { workspace = true }
-num-complex = { workspace = true }
-faer = { workspace = true }
-faer-traits = { workspace = true }
 rand = { workspace = true }
-dyn-clone = { workspace = true }
 
-pyo3 = { workspace = true, optional = true }
 inventory = { workspace = true, optional = true }
 numpy = { workspace = true, optional = true }
+pyo3 = { workspace = true, optional = true }
+pyo3-stub-gen = { workspace = true, optional = true }
 
 [dev-dependencies]
-proptest = { workspace = true }
 criterion = { workspace = true }
 pprof = { workspace = true }
-
-[[bench]]
-name = "unitary"
-harness = false
+proptest = { workspace = true }
 
 [features]
-python = ["qudit-core/python", "qudit-expr/python", "qudit-circuit/python", "dep:numpy", "dep:pyo3", "dep:inventory"]
+python = [
+  "dep:inventory",
+  "dep:numpy",
+  "dep:pyo3",
+  "dep:pyo3-stub-gen",
+  "qudit-circuit/python",
+  "qudit-core/python",
+  "qudit-expr/python"
+]
 
 [lints]
 workspace = true

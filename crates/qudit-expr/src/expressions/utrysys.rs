@@ -134,14 +134,16 @@ mod python {
     use super::*;
     use crate::python::PyExpressionRegistrar;
     use pyo3::prelude::*;
+    use pyo3_stub_gen::derive::*;
     use qudit_core::Radix;
 
-    #[pyclass]
-    #[pyo3(name = "UnitarySystemExpression")]
+    #[gen_stub_pyclass]
+    #[pyclass(name = "UnitarySystemExpression", module = "openqudit.expressions")]
     pub struct PyUnitarySystemExpression {
         expr: UnitarySystemExpression,
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyUnitarySystemExpression {
         #[new]

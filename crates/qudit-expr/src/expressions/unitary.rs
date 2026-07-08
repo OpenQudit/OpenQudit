@@ -522,15 +522,18 @@ mod python {
     use numpy::ndarray::ArrayViewMut2;
     use pyo3::prelude::*;
     use pyo3::types::PyTuple;
+    use pyo3_stub_gen::derive::*;
+    use pyo3_stub_gen::impl_stub_type;
     use qudit_core::Radix;
     use qudit_core::c64;
 
-    #[pyclass]
-    #[pyo3(name = "UnitaryExpression")]
+    #[gen_stub_pyclass]
+    #[pyclass(name = "UnitaryExpression", module = "openqudit.expressions")]
     pub struct PyUnitaryExpression {
         expr: UnitaryExpression,
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyUnitaryExpression {
         #[new]
@@ -647,6 +650,8 @@ mod python {
             value.expr
         }
     }
+
+    impl_stub_type!(UnitaryExpression = PyUnitaryExpression);
 
     impl<'py> IntoPyObject<'py> for UnitaryExpression {
         type Target = <PyUnitaryExpression as IntoPyObject<'py>>::Target;

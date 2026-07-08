@@ -17,15 +17,21 @@ use numpy::PyArrayMethods;
 use numpy::ndarray::ArrayViewMut3;
 use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyBytes, PyTuple};
+use pyo3::types::PyBytes;
+use pyo3::types::PyTuple;
+use pyo3_stub_gen::derive::*;
+use pyo3_stub_gen::impl_stub_type;
+
+impl_stub_type!(QuditCircuit = PyQuditCircuit);
 use qudit_core::c64;
 
-#[pyclass]
-#[pyo3(name = "ParameterVector")]
+#[gen_stub_pyclass]
+#[pyclass(name = "ParameterVector", module = "openqudit.circuit")]
 pub struct PyParameterVector {
     circuit_ref: Py<PyQuditCircuit>,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyParameterVector {
     fn assign_all<'py>(&mut self, py: Python<'py>, values: Vec<crate::param::Value>) {
@@ -38,8 +44,8 @@ impl PyParameterVector {
     }
 }
 
-#[pyclass]
-#[pyo3(name = "QuditCircuitIterator")]
+#[gen_stub_pyclass]
+#[pyclass(name = "QuditCircuitIterator", module = "openqudit.circuit")]
 struct PyQuditCircuitIterator {
     circuit_ref: Py<PyQuditCircuit>,
     cycle_index: CycleIndex,
@@ -64,6 +70,7 @@ impl PyQuditCircuitIterator {
     }
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyQuditCircuitIterator {
     fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
@@ -114,13 +121,14 @@ fn parse_int_or_iterable<'py>(input: &Bound<'py, PyAny>) -> PyResult<Vec<usize>>
     }
 }
 
-#[pyclass(from_py_object, module = "openqudit.circuit")]
-#[pyo3(name = "QuditCircuit")]
+#[gen_stub_pyclass]
+#[pyclass(name = "QuditCircuit", module = "openqudit.circuit", from_py_object)]
 #[derive(Clone)]
 pub struct PyQuditCircuit {
     pub(crate) circuit: QuditCircuit,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyQuditCircuit {
     /// Creates a new QuditCircuit instance.
@@ -554,6 +562,8 @@ impl From<PyQuditCircuit> for QuditCircuit {
 
 /// Registers the QuditCircuit class with the Python module.
 fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
+    parent_module.add_class::<PyParameterVector>()?;
+    parent_module.add_class::<PyQuditCircuitIterator>()?;
     parent_module.add_class::<PyQuditCircuit>()?;
     Ok(())
 }

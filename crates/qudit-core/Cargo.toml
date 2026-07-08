@@ -4,44 +4,45 @@ version = { workspace = true }
 authors = { workspace = true }
 edition = { workspace = true }
 description = { workspace = true }
+readme = { workspace = true }
 repository = { workspace = true }
-readme = { workspace = true } 
+license = { workspace = true }
 keywords = { workspace = true }
 categories = { workspace = true }
-license = { workspace = true }
+
+[[bench]]
+harness = false
+name = "frpr"
 
 [dependencies]
+aligned-vec = { workspace = true }
+bit-set = { workspace = true }
+bytemuck = { workspace = true }
+coe-rs = { workspace = true }
 faer = { workspace = true }
 faer-traits = { workspace = true }
-num-traits = { workspace = true }
-num = { workspace = true }
 nano-gemm = { workspace = true }
-aligned-vec = { workspace = true }
-bytemuck = { workspace = true }
-rand = { workspace = true }
-coe-rs = { workspace = true }
-bit-set = { workspace = true }
-rand_distr = { workspace = true }
+num = { workspace = true }
 num-complex = { workspace = true }
+num-traits = { workspace = true }
+rand = { workspace = true }
+rand_distr = { workspace = true }
 
+inventory = { workspace = true, optional = true }
 # python
 numpy = { workspace = true, optional = true }
 pyo3 = { workspace = true, optional = true }
-inventory = { workspace = true, optional = true }
+pyo3-stub-gen = { workspace = true, optional = true }
 serde = "1.0.228"
 
 [dev-dependencies]
-proptest = { workspace = true }
 criterion = { workspace = true }
 pprof = { workspace = true }
+proptest = { workspace = true }
 qudit-macros = { workspace = true }
 
-[[bench]]
-name = "frpr"
-harness = false
-
 [features]
-python = ["dep:pyo3", "dep:inventory", "dep:numpy"]
+python = ["dep:inventory", "dep:numpy", "dep:pyo3", "dep:pyo3-stub-gen"]
 
 [lints]
 workspace = true

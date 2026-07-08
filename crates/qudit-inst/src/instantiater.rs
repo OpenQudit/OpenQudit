@@ -44,6 +44,7 @@ pub mod python {
         prelude::*,
         types::{PyDict, PyList},
     };
+    use pyo3_stub_gen::derive::*;
     use qudit_core::c64;
 
     fn pydict_to_datamap(py_dict: Option<&Bound<'_, PyDict>>) -> PyResult<Arc<DataMap>> {
@@ -67,11 +68,13 @@ pub mod python {
 
     pub trait InstantiaterWrapper: Instantiater<c64> + Send + Sync + DynClone {}
 
-    #[pyclass(name = "NativeInstantiater")]
+    #[gen_stub_pyclass]
+    #[pyclass(name = "NativeInstantiater", module = "openqudit.instantiation")]
     pub struct BoxedInstantiater {
         pub inner: Box<dyn InstantiaterWrapper>,
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl BoxedInstantiater {
         #[pyo3(name = "instantiate")]
@@ -125,9 +128,11 @@ pub mod python {
         }
     }
 
-    #[pyclass(name = "Instantiater", subclass)]
+    #[gen_stub_pyclass]
+    #[pyclass(name = "Instantiater", module = "openqudit.instantiation", subclass)]
     struct PyInstantiaterABC;
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyInstantiaterABC {
         fn instantiate(
@@ -277,4 +282,11 @@ pub mod python {
             }
         }
     }
+
+    fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
+        parent_module.add_class::<BoxedInstantiater>()?;
+        parent_module.add_class::<PyInstantiaterABC>()?;
+        Ok(())
+    }
+    inventory::submit!(crate::python::PyInstantiationRegistrar { func: register });
 }

@@ -41,17 +41,31 @@ impl std::fmt::Display for InstructionId {
 pub(crate) mod python {
     use super::*;
     use pyo3::prelude::*;
+    use pyo3_stub_gen::derive::*;
+    use pyo3_stub_gen::impl_stub_type;
+
+    impl_stub_type!(InstructionId = PyInstructionId);
 
     /// Python wrapper for `InstructionId` providing access to instruction identifiers.
     ///
     /// This wrapper allows Python code to work with instruction identifiers while
     /// maintaining type safety and preventing invalid construction.
-    #[pyclass(name = "InstructionId", frozen, hash, eq, ord, from_py_object)]
+    #[gen_stub_pyclass]
+    #[pyclass(
+        name = "InstructionId",
+        module = "openqudit.circuit",
+        frozen,
+        hash,
+        eq,
+        ord,
+        from_py_object
+    )]
     #[derive(Clone, Copy, Debug, Hash, PartialEq, Eq, Ord, PartialOrd)]
     pub struct PyInstructionId {
         inner: InstructionId,
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyInstructionId {
         /// Returns the cycle identifier component of this instruction ID.
@@ -101,6 +115,13 @@ pub(crate) mod python {
             Ok(py_inst_id.inner)
         }
     }
+
+    use crate::python::PyCircuitRegistrar;
+    fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
+        parent_module.add_class::<PyInstructionId>()?;
+        Ok(())
+    }
+    inventory::submit!(PyCircuitRegistrar { func: register });
 }
 
 #[cfg(test)]

@@ -134,13 +134,19 @@ mod python {
     use super::*;
     use crate::python::PyCircuitRegistrar;
     use pyo3::{exceptions::PyTypeError, prelude::*};
+    use pyo3_stub_gen::derive::*;
+    use pyo3_stub_gen::impl_stub_type;
 
-    #[pyclass(name = "Operation", from_py_object)]
+    impl_stub_type!(Operation = PyOperation);
+
+    #[gen_stub_pyclass]
+    #[pyclass(name = "Operation", module = "openqudit.circuit", from_py_object)]
     #[derive(Clone)]
     pub struct PyOperation {
         pub(crate) inner: Operation,
     }
 
+    #[gen_stub_pymethods]
     #[pymethods]
     impl PyOperation {
         fn num_qudits(&self) -> Option<usize> {

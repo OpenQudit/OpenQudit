@@ -630,6 +630,9 @@ pub mod strategies {
 mod python {
     use super::*;
     use pyo3::{exceptions::PyTypeError, prelude::*};
+    use pyo3_stub_gen::impl_stub_type;
+
+    impl_stub_type!(Radices = usize | Vec<usize>);
 
     impl<'a, 'py> FromPyObject<'a, 'py> for Radices {
         type Error = PyErr;

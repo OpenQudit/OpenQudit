@@ -27,6 +27,7 @@ num = { workspace = true, features = ["serde"] }
 numpy = { workspace = true, optional = true }
 ordered-float = { workspace = true }
 pyo3 = { workspace = true, optional = true }
+pyo3-stub-gen = { workspace = true, optional = true }
 qudit-core = { workspace = true }
 rand = { workspace = true }
 rustc-hash = { workspace = true }
@@ -40,7 +41,13 @@ proptest = { workspace = true }
 [features]
 llvm-dynamic = ["llvm-sys/force-dynamic"]
 llvm-static = ["llvm-sys/force-static"]
-python = ["dep:inventory", "dep:numpy", "dep:pyo3", "qudit-core/python"]
+python = [
+  "dep:inventory",
+  "dep:numpy",
+  "dep:pyo3",
+  "dep:pyo3-stub-gen",
+  "qudit-core/python"
+]
 
 [lints]
 workspace = true

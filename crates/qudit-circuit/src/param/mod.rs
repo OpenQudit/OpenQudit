@@ -57,6 +57,9 @@ mod python {
     use pyo3::exceptions::PyTypeError;
     use pyo3::prelude::*;
     use pyo3::types::PyFloat;
+    use pyo3_stub_gen::impl_stub_type;
+
+    impl_stub_type!(Value = f64);
 
     impl<'a, 'py> FromPyObject<'a, 'py> for Value {
         type Error = PyErr;
