@@ -599,7 +599,7 @@ impl ExpressionCache {
     // Simplify and differentiate to prepare expression to evaluate up to diff_level.
     pub fn prepare(&mut self, diff_level: DifferentiationLevel) {
         let mut should_uncompile = false;
-        for (_, cexpr) in self.expressions.iter_mut() {
+        for cexpr in self.expressions.values_mut() {
             if cexpr.prepare(diff_level) {
                 should_uncompile = true;
             }
@@ -613,7 +613,7 @@ impl ExpressionCache {
     pub fn compile<R: RealScalar>(&mut self) {
         let mut module_builder: ModuleBuilder<R> = ModuleBuilder::new("cache");
         // For each base expression
-        for (_, cexpr) in self.expressions.iter() {
+        for cexpr in self.expressions.values_mut() {
             module_builder = cexpr.add_to_builder(module_builder);
         }
         *self._get_module_mut() = Some(module_builder.build());
