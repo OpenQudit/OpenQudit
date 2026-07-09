@@ -16,70 +16,270 @@ __all__ = [
 
 @typing.final
 class BraExpression:
-    def __new__(cls, expr: builtins.str) -> BraExpression: ...
-    def num_params(self) -> builtins.int: ...
-    def name(self) -> builtins.str: ...
-    def radices(self) -> builtins.list[builtins.int]: ...
-    def dimension(self) -> builtins.int: ...
+    r"""
+    A symbolic bra (row) vector expression over a qudit system.
+    """
+    def __new__(cls, expr: builtins.str) -> BraExpression:
+        r"""
+        Parses a bra expression from its string representation.
+        
+        # Arguments
+        
+        * `expr` - The textual definition of the bra expression.
+        """
+    def num_params(self) -> builtins.int:
+        r"""
+        Returns the number of free (unbound) parameters in this expression.
+        """
+    def name(self) -> builtins.str:
+        r"""
+        Returns the name assigned to this expression.
+        """
+    def radices(self) -> builtins.list[builtins.int]:
+        r"""
+        Returns the radix of each qudit that this bra acts on.
+        """
+    def dimension(self) -> builtins.int:
+        r"""
+        Returns the total Hilbert space dimension of the underlying qudit system.
+        """
     def __repr__(self) -> builtins.str: ...
 
 @typing.final
 class BraSystemExpression:
-    def __new__(cls, expr: builtins.str) -> BraSystemExpression: ...
-    def num_params(self) -> builtins.int: ...
-    def name(self) -> builtins.str: ...
-    def radices(self) -> builtins.list[builtins.int]: ...
-    def num_qudits(self) -> builtins.int: ...
-    def num_states(self) -> builtins.int: ...
-    def dimension(self) -> builtins.int: ...
+    r"""
+    A symbolic expression representing a batched system of bra (row) vectors.
+    """
+    def __new__(cls, expr: builtins.str) -> BraSystemExpression:
+        r"""
+        Parses a bra system expression from its string representation.
+        
+        # Arguments
+        
+        * `expr` - The textual definition of the bra system expression.
+        """
+    def num_params(self) -> builtins.int:
+        r"""
+        Returns the number of free (unbound) parameters in this expression.
+        """
+    def name(self) -> builtins.str:
+        r"""
+        Returns the name assigned to this expression.
+        """
+    def radices(self) -> builtins.list[builtins.int]:
+        r"""
+        Returns the radix of each qudit that this bra system acts on.
+        """
+    def num_qudits(self) -> builtins.int:
+        r"""
+        Returns the number of qudits in the system.
+        """
+    def num_states(self) -> builtins.int:
+        r"""
+        Returns the number of individual bra states batched in this system.
+        """
+    def dimension(self) -> builtins.int:
+        r"""
+        Returns the total Hilbert space dimension of the underlying qudit system.
+        """
     def __repr__(self) -> builtins.str: ...
 
 @typing.final
 class KetExpression:
-    def __new__(cls, expr: builtins.str) -> KetExpression: ...
-    def num_params(self) -> builtins.int: ...
-    def name(self) -> builtins.str: ...
-    def radices(self) -> builtins.list[builtins.int]: ...
-    def dimension(self) -> builtins.int: ...
+    r"""
+    A symbolic ket (column) vector expression over a qudit system.
+    """
+    def __new__(cls, expr: builtins.str) -> KetExpression:
+        r"""
+        Parses a ket expression from its string representation.
+        
+        # Arguments
+        
+        * `expr` - The textual definition of the ket expression.
+        """
+    def num_params(self) -> builtins.int:
+        r"""
+        Returns the number of free (unbound) parameters in this expression.
+        """
+    def name(self) -> builtins.str:
+        r"""
+        Returns the name assigned to this expression.
+        """
+    def radices(self) -> builtins.list[builtins.int]:
+        r"""
+        Returns the radix of each qudit that this ket acts on.
+        """
+    def dimension(self) -> builtins.int:
+        r"""
+        Returns the total Hilbert space dimension of the underlying qudit system.
+        """
     def __repr__(self) -> builtins.str: ...
 
 @typing.final
 class KrausOperatorsExpression:
-    def __new__(cls, expr: builtins.str) -> KrausOperatorsExpression: ...
-    def num_params(self) -> builtins.int: ...
-    def name(self) -> builtins.str: ...
-    def radices(self) -> builtins.list[builtins.int]: ...
-    def num_qudits(self) -> builtins.int: ...
-    def num_operators(self) -> builtins.int: ...
-    def dimension(self) -> builtins.int: ...
+    r"""
+    A symbolic expression representing a set of Kraus operators.
+    """
+    def __new__(cls, expr: builtins.str) -> KrausOperatorsExpression:
+        r"""
+        Parses a Kraus operators expression from its string representation.
+        
+        # Arguments
+        
+        * `expr` - The textual definition of the Kraus operators expression.
+        """
+    def num_params(self) -> builtins.int:
+        r"""
+        Returns the number of free (unbound) parameters in this expression.
+        """
+    def name(self) -> builtins.str:
+        r"""
+        Returns the name assigned to this expression.
+        """
+    def radices(self) -> builtins.list[builtins.int]:
+        r"""
+        Returns the radix of each qudit acted on by these Kraus operators.
+        """
+    def num_qudits(self) -> builtins.int:
+        r"""
+        Returns the number of qudits acted on. Panics if the input and output
+        radices of the Kraus operators differ.
+        """
+    def num_operators(self) -> builtins.int:
+        r"""
+        Returns the number of Kraus operators in this set.
+        """
+    def dimension(self) -> builtins.int:
+        r"""
+        Returns the Hilbert space dimension each Kraus operator acts on.
+        """
     def __repr__(self) -> builtins.str: ...
 
 @typing.final
 class UnitaryExpression:
-    def __new__(cls, expr: builtins.str) -> UnitaryExpression: ...
+    r"""
+    A symbolic, parameterized expression representing a unitary matrix.
+    """
+    def __new__(cls, expr: builtins.str) -> UnitaryExpression:
+        r"""
+        Parses a unitary expression from its string representation.
+        
+        # Arguments
+        
+        * `expr` - The textual definition of the unitary expression.
+        """
     @staticmethod
-    def identity(name: builtins.str, radices: typing.Sequence[builtins.int]) -> UnitaryExpression: ...
-    def __call__(self, *args: typing.Any) -> numpy.typing.NDArray[numpy.complex128]: ...
-    def num_params(self) -> builtins.int: ...
-    def name(self) -> builtins.str: ...
-    def radices(self) -> builtins.list[builtins.int]: ...
-    def dimension(self) -> builtins.int: ...
-    def transpose(self) -> None: ...
-    def dagger(self) -> None: ...
-    def otimes(self, other: UnitaryExpression) -> UnitaryExpression: ...
-    def dot(self, other: UnitaryExpression) -> UnitaryExpression: ...
-    def embed(self, sub_matrix: UnitaryExpression, top_left_row_idx: builtins.int, top_left_col_idx: builtins.int) -> None: ...
+    def identity(name: builtins.str, radices: typing.Sequence[builtins.int]) -> UnitaryExpression:
+        r"""
+        Constructs an identity unitary expression over the given radices.
+        
+        # Arguments
+        
+        * `name` - The name to assign to the resulting expression.
+        * `radices` - The radix of each qudit in the system.
+        """
+    def __call__(self, *args: typing.Any) -> numpy.typing.NDArray[numpy.complex128]:
+        r"""
+        Evaluates this expression at the given parameter values and returns
+        the resulting unitary matrix as a NumPy array.
+        
+        # Arguments
+        
+        * `args` - The real-valued parameters to substitute into the expression,
+          in the same order as `variables()`.
+        """
+    def num_params(self) -> builtins.int:
+        r"""
+        Returns the number of free (unbound) parameters in this expression.
+        """
+    def name(self) -> builtins.str:
+        r"""
+        Returns the name assigned to this expression.
+        """
+    def radices(self) -> builtins.list[builtins.int]:
+        r"""
+        Returns the radix of each qudit that this unitary acts on.
+        """
+    def dimension(self) -> builtins.int:
+        r"""
+        Returns the total Hilbert space dimension of the underlying qudit system.
+        """
+    def transpose(self) -> None:
+        r"""
+        Transposes this unitary expression in place.
+        """
+    def dagger(self) -> None:
+        r"""
+        Conjugate-transposes (Hermitian adjoint) this unitary expression in place.
+        """
+    def otimes(self, other: UnitaryExpression) -> UnitaryExpression:
+        r"""
+        Computes the tensor (Kronecker) product of this expression with `other`,
+        returning a new expression over the combined qudit system.
+        
+        # Arguments
+        
+        * `other` - The unitary expression to tensor with this one.
+        """
+    def dot(self, other: UnitaryExpression) -> UnitaryExpression:
+        r"""
+        Computes the matrix product of this expression with `other`,
+        returning a new expression.
+        
+        # Arguments
+        
+        * `other` - The unitary expression to multiply with this one.
+        """
+    def embed(self, sub_matrix: UnitaryExpression, top_left_row_idx: builtins.int, top_left_col_idx: builtins.int) -> None:
+        r"""
+        Embeds `sub_matrix` into this expression's matrix in place, placing its
+        top-left corner at the given row and column index.
+        
+        # Arguments
+        
+        * `sub_matrix` - The smaller unitary expression to embed.
+        * `top_left_row_idx` - Row index at which to place the sub-matrix.
+        * `top_left_col_idx` - Column index at which to place the sub-matrix.
+        """
     def __repr__(self) -> builtins.str: ...
     def __matmul__(self, other: UnitaryExpression) -> UnitaryExpression: ...
 
 @typing.final
 class UnitarySystemExpression:
-    def __new__(cls, expr: builtins.str) -> UnitarySystemExpression: ...
-    def num_params(self) -> builtins.int: ...
-    def name(self) -> builtins.str: ...
-    def radices(self) -> builtins.list[builtins.int]: ...
-    def num_qudits(self) -> builtins.int: ...
-    def num_unitaries(self) -> builtins.int: ...
-    def dimension(self) -> builtins.int: ...
+    r"""
+    A symbolic expression representing a batched system of unitary matrices.
+    """
+    def __new__(cls, expr: builtins.str) -> UnitarySystemExpression:
+        r"""
+        Parses a unitary system expression from its string representation.
+        
+        # Arguments
+        
+        * `expr` - The textual definition of the unitary system expression.
+        """
+    def num_params(self) -> builtins.int:
+        r"""
+        Returns the number of free (unbound) parameters in this expression.
+        """
+    def name(self) -> builtins.str:
+        r"""
+        Returns the name assigned to this expression.
+        """
+    def radices(self) -> builtins.list[builtins.int]:
+        r"""
+        Returns the radix of each qudit that this unitary system acts on.
+        """
+    def num_qudits(self) -> builtins.int:
+        r"""
+        Returns the number of qudits in the system.
+        """
+    def num_unitaries(self) -> builtins.int:
+        r"""
+        Returns the number of individual unitaries batched in this system.
+        """
+    def dimension(self) -> builtins.int:
+        r"""
+        Returns the Hilbert space dimension of each unitary in the system.
+        """
     def __repr__(self) -> builtins.str: ...
 

@@ -137,6 +137,7 @@ mod python {
     use pyo3_stub_gen::derive::*;
     use qudit_core::Radix;
 
+    /// A symbolic expression representing a batched system of unitary matrices.
     #[gen_stub_pyclass]
     #[pyclass(name = "UnitarySystemExpression", module = "openqudit.expressions")]
     pub struct PyUnitarySystemExpression {
@@ -146,6 +147,11 @@ mod python {
     #[gen_stub_pymethods]
     #[pymethods]
     impl PyUnitarySystemExpression {
+        /// Parses a unitary system expression from its string representation.
+        ///
+        /// # Arguments
+        ///
+        /// * `expr` - The textual definition of the unitary system expression.
         #[new]
         fn new(expr: String) -> Self {
             Self {
@@ -153,26 +159,32 @@ mod python {
             }
         }
 
+        /// Returns the number of free (unbound) parameters in this expression.
         fn num_params(&self) -> usize {
             self.expr.num_params()
         }
 
+        /// Returns the name assigned to this expression.
         fn name(&self) -> String {
             self.expr.name().to_string()
         }
 
+        /// Returns the radix of each qudit that this unitary system acts on.
         fn radices(&self) -> Vec<Radix> {
             self.expr.radices.to_vec()
         }
 
+        /// Returns the number of qudits in the system.
         fn num_qudits(&self) -> usize {
             self.expr.num_qudits()
         }
 
+        /// Returns the number of individual unitaries batched in this system.
         fn num_unitaries(&self) -> usize {
             self.expr.num_unitaries
         }
 
+        /// Returns the Hilbert space dimension of each unitary in the system.
         fn dimension(&self) -> usize {
             self.expr.radices.dimension()
         }
