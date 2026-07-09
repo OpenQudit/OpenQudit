@@ -11,6 +11,10 @@ This document provides guidelines to help you get started.
   - [Suggesting Enhancements](#suggesting-enhancements)
   - [Your First Code Contribution](#your-first-code-contribution)
 - [Development Setup](#development-setup)
+  - [Python Development Setup](#python-development-setup)
+    - [Python Tests](#python-tests)
+  - [Pre-commit Hooks (recommended)](#pre-commit-hooks-recommended)
+- [Updating Third-Party Licenses](#updating-third-party-licenses)
 - [Pull Request Process](#pull-request-process)
 - [Licensing](#licensing)
 
@@ -104,6 +108,35 @@ This installs two git hooks:
 - **pre-push** (every push): runs `cargo deny`, `cargo clippy`, `cargo test`, and `cargo doc`.
 
 You can also run all the push-stage checks manually at any time with `pre-commit run --all-files --hook-stage pre-push`.
+
+## Updating Third-Party Licenses
+
+Updating the `THIRD-PARTY-LICENSES.json` file requires [cargo-bundle-licenses](https://github.com/sstadick/cargo-bundle-licenses) to be installed.
+
+1. In the qudit-python crate, regenerate to a temporary JSON file:
+
+```bash
+cargo bundle-licenses --format json --previous THIRD-PARTY-LICENSES.json --output tmp.json
+```
+
+2. Format the JSON to remove duplicate licenses if an MIT license is already present:
+
+```bash
+jq '.third_party_libraries |= map(
+  if (.licenses | any(.license == "MIT")) then
+    .license = "MIT" |
+    .licenses |= map(select(.license == "MIT"))
+  else
+    .
+  end
+)' tmp.json > THIRD-PARTY-LICENSES.json
+```
+
+3. Remove `tmp.json`
+
+4. Review the output for any licenses listed as `"NOT FOUND"`.
+
+If there are any, find the license online, copy the file contents, format (for example on macOS: `pbpaste | jq -Rs | pbcopy`), and replace `"NOT FOUND"`.
 
 ## Pull Request Process
 
