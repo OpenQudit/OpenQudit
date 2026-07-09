@@ -354,7 +354,7 @@ impl<'a, C: Display> Debug for TensorDataDebugHelper<'a, C> {
             // SAFETY: The `current_flat_offset` is calculated based on the tensor's
             // dimensions and strides. It is assumed to be within the bounds of the
             // allocated data, as guaranteed by the `Tensor` and `TensorRef` structures.
-            unsafe { write!(f, "{}", &*self.data_ptr.add(self.current_flat_offset)) }
+            unsafe { write!(f, "{}", *self.data_ptr.add(self.current_flat_offset)) }
         } else {
             // Recursive case: We are at an intermediate dimension.
             // Print this dimension as a list of sub-tensors/elements.
