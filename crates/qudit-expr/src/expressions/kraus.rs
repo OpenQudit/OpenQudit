@@ -138,6 +138,7 @@ mod python {
     use pyo3_stub_gen::derive::*;
     use qudit_core::Radix;
 
+    /// A symbolic expression representing a set of Kraus operators.
     #[gen_stub_pyclass]
     #[pyclass(name = "KrausOperatorsExpression", module = "openqudit.expressions")]
     pub struct PyKrausOperatorsExpression {
@@ -147,6 +148,11 @@ mod python {
     #[gen_stub_pymethods]
     #[pymethods]
     impl PyKrausOperatorsExpression {
+        /// Parses a Kraus operators expression from its string representation.
+        ///
+        /// # Arguments
+        ///
+        /// * `expr` - The textual definition of the Kraus operators expression.
         #[new]
         fn new(expr: String) -> Self {
             Self {
@@ -154,26 +160,33 @@ mod python {
             }
         }
 
+        /// Returns the number of free (unbound) parameters in this expression.
         fn num_params(&self) -> usize {
             self.expr.num_params()
         }
 
+        /// Returns the name assigned to this expression.
         fn name(&self) -> String {
             self.expr.name().to_string()
         }
 
+        /// Returns the radix of each qudit acted on by these Kraus operators.
         fn radices(&self) -> Vec<Radix> {
             self.expr.input_radices.to_vec()
         }
 
+        /// Returns the number of qudits acted on. Panics if the input and output
+        /// radices of the Kraus operators differ.
         fn num_qudits(&self) -> usize {
             self.expr.num_qudits()
         }
 
+        /// Returns the number of Kraus operators in this set.
         fn num_operators(&self) -> usize {
             self.expr.num_operators
         }
 
+        /// Returns the Hilbert space dimension each Kraus operator acts on.
         fn dimension(&self) -> usize {
             self.expr.input_radices.dimension()
         }

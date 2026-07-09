@@ -527,6 +527,7 @@ mod python {
     use qudit_core::Radix;
     use qudit_core::c64;
 
+    /// A symbolic, parameterized expression representing a unitary matrix.
     #[gen_stub_pyclass]
     #[pyclass(name = "UnitaryExpression", module = "openqudit.expressions")]
     pub struct PyUnitaryExpression {
@@ -536,6 +537,11 @@ mod python {
     #[gen_stub_pymethods]
     #[pymethods]
     impl PyUnitaryExpression {
+        /// Parses a unitary expression from its string representation.
+        ///
+        /// # Arguments
+        ///
+        /// * `expr` - The textual definition of the unitary expression.
         #[new]
         fn new(expr: String) -> Self {
             Self {
@@ -543,6 +549,12 @@ mod python {
             }
         }
 
+        /// Constructs an identity unitary expression over the given radices.
+        ///
+        /// # Arguments
+        ///
+        /// * `name` - The name to assign to the resulting expression.
+        /// * `radices` - The radix of each qudit in the system.
         #[staticmethod]
         fn identity(name: String, radices: Vec<usize>) -> Self {
             Self {
@@ -550,6 +562,13 @@ mod python {
             }
         }
 
+        /// Evaluates this expression at the given parameter values and returns
+        /// the resulting unitary matrix as a NumPy array.
+        ///
+        /// # Arguments
+        ///
+        /// * `args` - The real-valued parameters to substitute into the expression,
+        ///   in the same order as `variables()`.
         #[pyo3(signature = (*args))]
         fn __call__<'py>(&self, args: &Bound<'py, PyTuple>) -> PyResult<Bound<'py, PyArray2<c64>>> {
             let py = args.py();
@@ -572,42 +591,68 @@ mod python {
             Ok(py_array)
         }
 
+        /// Returns the number of free (unbound) parameters in this expression.
         fn num_params(&self) -> usize {
             self.expr.num_params()
         }
 
+        /// Returns the name assigned to this expression.
         fn name(&self) -> String {
             self.expr.name().to_string()
         }
 
+        /// Returns the radix of each qudit that this unitary acts on.
         fn radices(&self) -> Vec<Radix> {
             self.expr.radices().to_vec()
         }
 
+        /// Returns the total Hilbert space dimension of the underlying qudit system.
         fn dimension(&self) -> usize {
             self.expr.dimension()
         }
 
+        /// Transposes this unitary expression in place.
         fn transpose(&mut self) {
             self.expr.transpose();
         }
 
+        /// Conjugate-transposes (Hermitian adjoint) this unitary expression in place.
         fn dagger(&mut self) {
             self.expr.dagger();
         }
 
+        /// Computes the tensor (Kronecker) product of this expression with `other`,
+        /// returning a new expression over the combined qudit system.
+        ///
+        /// # Arguments
+        ///
+        /// * `other` - The unitary expression to tensor with this one.
         fn otimes(&self, other: &PyUnitaryExpression) -> Self {
             Self {
                 expr: self.expr.otimes(&other.expr),
             }
         }
 
+        /// Computes the matrix product of this expression with `other`,
+        /// returning a new expression.
+        ///
+        /// # Arguments
+        ///
+        /// * `other` - The unitary expression to multiply with this one.
         fn dot(&self, other: &PyUnitaryExpression) -> Self {
             Self {
                 expr: self.expr.dot(&other.expr),
             }
         }
 
+        /// Embeds `sub_matrix` into this expression's matrix in place, placing its
+        /// top-left corner at the given row and column index.
+        ///
+        /// # Arguments
+        ///
+        /// * `sub_matrix` - The smaller unitary expression to embed.
+        /// * `top_left_row_idx` - Row index at which to place the sub-matrix.
+        /// * `top_left_col_idx` - Column index at which to place the sub-matrix.
         fn embed(
             &mut self,
             sub_matrix: &PyUnitaryExpression,
