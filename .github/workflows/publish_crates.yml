@@ -1,0 +1,38 @@
+name: Publish to crates.io
+
+on:
+  push:
+    tags: ["*.*.*"]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: crates-io
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Setup LLVM
+        uses: ZhongRuoyu/setup-llvm@v0
+        with:
+          llvm-version: 21
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: auth
+      - name: Publish crates in dependency order
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        # crates.io's index takes a bit to propagate after a publish
+        # and cargo publish for the next crate resolves deps against the index
+        run: |
+          cargo publish -p qudit-macros
+          sleep 30
+          cargo publish -p qudit-core
+          sleep 30
+          cargo publish -p qudit-expr
+          sleep 30
+          cargo publish -p qudit-tensor
+          sleep 30
+          cargo publish -p qudit-circuit
+          sleep 30
+          cargo publish -p qudit-inst
