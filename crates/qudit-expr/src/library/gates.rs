@@ -1,9 +1,15 @@
 use crate::UnitaryExpression;
 use crate::UnitarySystemExpression;
+#[cfg(feature = "python")]
+use pyo3_stub_gen::derive::gen_stub_pyfunction;
 use qudit_core::QuditSystem;
 use qudit_core::Radices;
 
 /// The identity or no-op gate.
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
 pub fn IGate(radix: usize) -> UnitaryExpression {
@@ -56,6 +62,10 @@ pub fn IGate(radix: usize) -> UnitaryExpression {
 /// - <https://www.frontiersin.org/articles/10.3389/fphy.2020.589504/full>
 /// - <https://pubs.aip.org/aip/jmp/article-abstract/56/3/032202/763827>
 /// - <https://arxiv.org/pdf/1701.07902.pdf>
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
 pub fn HGate(radix: usize) -> UnitaryExpression {
@@ -124,6 +134,10 @@ pub fn HGate(radix: usize) -> UnitaryExpression {
 /// References:
 /// - <https://link.springer.com/article/10.1007/s11128-013-0621-x>
 /// - <https://arxiv.org/pdf/1105.5485.pdf>
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
 pub fn SwapGate(radix: usize) -> UnitaryExpression {
@@ -178,6 +192,10 @@ pub fn SwapGate(radix: usize) -> UnitaryExpression {
 ///
 /// References:
 ///     - <https://arxiv.org/pdf/2302.07966.pdf>
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
 pub fn XGate(radix: usize) -> UnitaryExpression {
@@ -226,6 +244,10 @@ pub fn XGate(radix: usize) -> UnitaryExpression {
 ///
 /// References:
 ///     - <https://arxiv.org/pdf/2302.07966.pdf>
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
 pub fn ZGate(radix: usize) -> UnitaryExpression {
@@ -269,6 +291,10 @@ pub fn ZGate(radix: usize) -> UnitaryExpression {
 ///
 /// In general the non-zero entry at row $(j+1 \bmod d)$, column $j$ is
 /// $\omega^{(d-1)/2} \cdot \omega^{j} = e^{2\pi i (2j + d - 1)/(2d)}$.
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
 pub fn YGate(radix: usize) -> UnitaryExpression {
@@ -312,6 +338,10 @@ pub fn YGate(radix: usize) -> UnitaryExpression {
 /// - Gheorghiu, V. (2014). Standard form of qudit stabilizer groups.
 ///   Physics Letters A, 378(30–31), 2016–2021.
 /// - Yeh, L. & van de Wetering, J. (2023). Completeness of the ZH-calculus.
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
 pub fn SGate(radix: usize) -> UnitaryExpression {
@@ -361,6 +391,10 @@ pub fn SGate(radix: usize) -> UnitaryExpression {
 ///   Physical Review A, 86(2), 022316.
 /// - Cui, S. X., Gottesman, D. & Krishna, A. (2017). Diagonal gates in the
 ///   Clifford hierarchy. Physical Review A, 95(1), 012329.
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
 pub fn TGate(radix: usize) -> UnitaryExpression {
@@ -414,6 +448,10 @@ pub fn TGate(radix: usize) -> UnitaryExpression {
 /// References:
 /// - <https://www.nature.com/articles/s41467-022-34851-z>
 /// - <https://arxiv.org/pdf/2204.13681.pdf>
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
 pub fn PGate(radix: usize) -> UnitaryExpression {
@@ -447,6 +485,10 @@ pub fn PGate(radix: usize) -> UnitaryExpression {
     UnitaryExpression::new(proto + "{" + &body + "}")
 }
 
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 pub fn U3Gate() -> UnitaryExpression {
     let proto = "U(θ0, θ1, θ2)";
@@ -462,6 +504,10 @@ pub fn U3Gate() -> UnitaryExpression {
 /// $$
 /// U1(\lambda) = \begin{pmatrix} 1 & 0 \\\\ 0 & e^{i\lambda} \end{pmatrix}
 /// $$
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 pub fn U1Gate() -> UnitaryExpression {
     let proto = "U1(θ0)";
@@ -475,6 +521,10 @@ pub fn U1Gate() -> UnitaryExpression {
 /// U2(\phi, \lambda) = \frac{1}{\sqrt{2}}
 /// \begin{pmatrix} 1 & -e^{i\lambda} \\\\ e^{i\phi} & e^{i(\phi+\lambda)} \end{pmatrix}
 /// $$
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 pub fn U2Gate() -> UnitaryExpression {
     let proto = "U2(θ0, θ1)";
@@ -491,6 +541,10 @@ pub fn U2Gate() -> UnitaryExpression {
 /// Note: a qudit generalization of this gate as $X^{1/2}$ is mathematically
 /// well-defined but its matrix entries involve geometric sums with non-integer
 /// exponents that do not reduce to a simple closed-form expression in QGL.
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 pub fn SXGate() -> UnitaryExpression {
     let proto = "SX()";
@@ -503,6 +557,10 @@ pub fn SXGate() -> UnitaryExpression {
 /// $$
 /// RX(\theta) = \begin{pmatrix} \cos(\theta/2) & -i\sin(\theta/2) \\\\ -i\sin(\theta/2) & \cos(\theta/2) \end{pmatrix}
 /// $$
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 pub fn RXGate() -> UnitaryExpression {
     let proto = "RX(θ0)";
@@ -515,6 +573,10 @@ pub fn RXGate() -> UnitaryExpression {
 /// $$
 /// RY(\theta) = \begin{pmatrix} \cos(\theta/2) & -\sin(\theta/2) \\\\ \sin(\theta/2) & \cos(\theta/2) \end{pmatrix}
 /// $$
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 pub fn RYGate() -> UnitaryExpression {
     let proto = "RY(θ0)";
@@ -527,6 +589,10 @@ pub fn RYGate() -> UnitaryExpression {
 /// $$
 /// RZ(\theta) = \begin{pmatrix} e^{-i\theta/2} & 0 \\\\ 0 & e^{i\theta/2} \end{pmatrix}
 /// $$
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 pub fn RZGate() -> UnitaryExpression {
     let proto = "RZ(θ0)";
@@ -599,6 +665,10 @@ fn generate_embedded_su2(dimension: usize, i: usize, j: usize) -> UnitaryExpress
 ///     -i\sin(\theta/2) & 0 & 0 & \cos(\theta/2)
 /// \end{pmatrix}
 /// $$
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 pub fn RXXGate() -> UnitaryExpression {
     let proto = "RXX<2, 2>(θ0)";
@@ -622,6 +692,10 @@ pub fn RXXGate() -> UnitaryExpression {
 ///     i\sin(\theta/2) & 0 & 0 & \cos(\theta/2)
 /// \end{pmatrix}
 /// $$
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 pub fn RYYGate() -> UnitaryExpression {
     let proto = "RYY<2, 2>(θ0)";
@@ -645,6 +719,10 @@ pub fn RYYGate() -> UnitaryExpression {
 ///     0 & 0 & 0 & e^{-i\theta/2}
 /// \end{pmatrix}
 /// $$
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 pub fn RZZGate() -> UnitaryExpression {
     let proto = "RZZ<2, 2>(θ0)";
@@ -670,6 +748,10 @@ fn embed_one_larger(unitary: UnitaryExpression) -> UnitaryExpression {
 /// - de Guise, Hubert, Olivia Di Matteo, and Luis L. Sánchez-Soto.
 ///   "Simple factorization of unitary transformations."
 ///   Physical Review A 97.2 (2018): 022328.
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radices = Radices::new([2]))))]
 pub fn ParameterizedUnitary(radices: Radices) -> UnitaryExpression {
@@ -704,6 +786,10 @@ pub fn ParameterizedUnitary(radices: Radices) -> UnitaryExpression {
 }
 
 /// Invert an expression
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 pub fn Invert(mut expr: UnitaryExpression) -> UnitaryExpression {
     expr.dagger();
@@ -716,6 +802,10 @@ pub fn Invert(mut expr: UnitaryExpression) -> UnitaryExpression {
 /// obtain the inverse of any gate without defining a separate gate function;
 /// for example, `Dagger(SGate(2))` gives $S^\dagger$ and `Dagger(TGate(2))`
 /// gives $T^\dagger$.
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 pub fn Dagger(mut expr: UnitaryExpression) -> UnitaryExpression {
     let new_name = format!("Dagger({})", expr.name());
@@ -894,6 +984,10 @@ fn cartesian_product(control_levels: Vec<Vec<usize>>) -> Vec<Vec<usize>> {
 ///   corresponding radix in `control_radixes`.
 ///
 /// * If any level in `control_levels` is not unique.
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (expr, control_radices = Radices::new([2]), control_levels = None)))]
 pub fn Controlled(
@@ -965,6 +1059,10 @@ pub fn Controlled(
     expr
 }
 
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (expr, control_radices = Radices::new([2]), control_levels = None)))]
 pub fn ClassicallyControlled(
