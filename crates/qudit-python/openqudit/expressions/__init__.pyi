@@ -8,10 +8,34 @@ import typing
 __all__ = [
     "BraExpression",
     "BraSystemExpression",
+    "ClassicallyControlled",
+    "Controlled",
+    "Dagger",
+    "HGate",
+    "IGate",
+    "Invert",
     "KetExpression",
     "KrausOperatorsExpression",
+    "PGate",
+    "ParameterizedUnitary",
+    "RXGate",
+    "RXXGate",
+    "RYGate",
+    "RYYGate",
+    "RZGate",
+    "RZZGate",
+    "SGate",
+    "SXGate",
+    "SwapGate",
+    "TGate",
+    "U1Gate",
+    "U2Gate",
+    "U3Gate",
     "UnitaryExpression",
     "UnitarySystemExpression",
+    "XGate",
+    "YGate",
+    "ZGate",
 ]
 
 @typing.final
@@ -282,4 +306,530 @@ class UnitarySystemExpression:
         Returns the Hilbert space dimension of each unitary in the system.
         """
     def __repr__(self) -> builtins.str: ...
+
+def ClassicallyControlled(expr: UnitaryExpression, control_radices: builtins.int | typing.Sequence[builtins.int] = [2], control_levels: typing.Optional[typing.Sequence[typing.Sequence[builtins.int]]] = None) -> UnitarySystemExpression: ...
+
+def Controlled(expr: UnitaryExpression, control_radices: builtins.int | typing.Sequence[builtins.int] = [2], control_levels: typing.Optional[typing.Sequence[typing.Sequence[builtins.int]]] = None) -> UnitaryExpression:
+    r"""
+    An arbitrary controlled gate.
+    
+    Given any gate, ControlledGate can add control qudits.
+    
+    A controlled gate adds arbitrarily controls, and is generalized
+    for qudit or even mixed-qudit representation.
+    
+    A controlled gate has a circuit structure as follows:
+    
+    ```text
+        controls ----/----■----
+                          |
+                         .-.
+        targets  ----/---|G|---
+                         '-'
+    ```
+    
+    Where $G$ is the gate being controlled.
+    
+    To calculate the unitary for a controlled gate, given the unitary of
+    the gate being controlled, we can use the following equation:
+    
+    $$U_{control} = P_i \otimes I + P_c \otimes G$$
+    
+    Where $P_i$ is the projection matrix for the states that don't
+    activate the gate, $P_c$ is the projection matrix for the
+    states that do activate the gate, $I$ is the identity matrix
+    of dimension equal to the gate being controlled, and $G$ is
+    the unitary matrix of the gate being controlled.
+    
+    In the simple case of a normal qubit CNOT ($G = X$), $P_i$ and $P_c$
+    are defined as follows:
+    
+    $$
+        P_i = \ket{0}\bra{0}
+        P_c = \ket{1}\bra{1}
+    $$
+    
+    This is because the $\ket{0}$ state is the state that doesn't
+    activate the gate, and the $\ket{1}$ state is the state that
+    does activate the gate.
+    
+    We can also decide to invert this, and have the $\ket{0}$
+    state activate the gate, and the $\ket{1}$ state not activate
+    the gate. This is equivalent to swapping $P_i$ and $P_c$,
+    and usually drawn diagrammatically as follows:
+    
+    ```text
+        controls ----/----□----
+                          |
+                         .-.
+        targets  ----/---|G|---
+                         '-'
+    ```
+    
+    When we add more controls the projection matrices become more complex,
+    but the basic idea stays the same: we have a projection matrix for
+    the states that activate the gate, and a projection matrix for the
+    states that don't activate the gate. As in the case of a toffoli gate,
+    the projection matrices are defined as follows:
+    
+    $$
+        P_i = \ket{00}\bra{00} + \ket{01}\bra{01} + \ket{10}\bra{10}
+        P_c = \ket{11}\bra{11}
+    $$
+    
+    This is because the $\ket{00}$, $\ket{01}$, and
+    $\ket{10}$ states are the states that don't activate the
+    gate, and the $\ket{11}$ state is the state that does
+    activate the gate.
+    
+    With qudits, we have more states and as such, more complex
+    projection matrices; however, the basic idea is the same.
+    For example, a qutrit controlled-not gate that is activated by
+    the $\ket{2}$ state and not activated by the $\ket{0}$
+    and $\ket{1}$ states is defined as follows:
+    
+    $$
+        P_i = \ket{0}\bra{0} + \ket{1}\bra{1}
+        P_c = \ket{2}\bra{2}
+    $$
+    
+    One interesting concept with qudits is that we can have multiple
+    active control levels. For example, a qutrit controlled-not gate that
+    is activated by the $\ket{1}$ and $\ket{2}$ states
+    and not activated by the $\ket{0}$ state is defined similarly
+    as follows:
+    
+    $$
+        P_i = \ket{0}\bra{0}
+        P_c = \ket{1}\bra{1} + \ket{2}\bra{2}
+    $$
+    
+    Note that we can always define $P_i$ simply from $P_c$:
+    
+    $$P_i = I_p - P_c$$
+    
+    Where $I_p$ is the identity matrix of dimension equal to the
+    dimension of the control qudits. This leaves us with out final
+    equation:
+    
+    
+    $$U_{control} = (I_p - P_c) \otimes I + P_c \otimes G$$
+    
+    If, G is a unitary-valued function of real parameters, then the
+    gradient of the controlled gate simply discards the constant half
+    of the equation:
+    
+    $$
+        \frac{\partial U_{control}}{\partial \theta} =
+            P_c \otimes \frac{\partial G}{\partial \theta}
+    $$
+    
+    # Arguments
+    
+    * `expr` - The gate to control.
+    
+    * `control_radixes` - The number of levels for each control qudit.
+    
+    * `control_levels` - The levels of the control qudits that activate the
+      gate. If more than one level is selected, the subspace spanned by the
+      levels acts as a control subspace. If all levels are selected for a
+      given qudit, the operation is equivalent to the original gate without
+      controls.
+    # Panics
+    
+    * If `control_radixes` and `control_levels` have different lengths.
+    
+    * If `control_levels` contains an empty level.
+    
+    * If any level in `control_levels` is greater than or equal to the
+      corresponding radix in `control_radixes`.
+    
+    * If any level in `control_levels` is not unique.
+    """
+
+def Dagger(expr: UnitaryExpression) -> UnitaryExpression:
+    r"""
+    Apply the conjugate transpose (dagger / adjoint) to a unitary expression.
+    
+    For any unitary $U$ this produces $U^\dagger$. Use this transformer to
+    obtain the inverse of any gate without defining a separate gate function;
+    for example, `Dagger(SGate(2))` gives $S^\dagger$ and `Dagger(TGate(2))`
+    gives $T^\dagger$.
+    """
+
+def HGate(radix: builtins.int = 2) -> UnitaryExpression:
+    r"""
+    The one-qudit Hadamard gate. This is a Clifford/Weyl-Heisenberg gate.
+    
+    The qubit (radix = 2) Hadamard gate is given by the following matrix:
+    
+    $$
+    \begin{pmatrix}
+        \frac{\sqrt{2}}{2} & \frac{\sqrt{2}}{2} \\\\
+        \frac{\sqrt{2}}{2} & -\frac{\sqrt{2}}{2} \\\\
+    \end{pmatrix}
+    $$
+    
+    However, generally it is given by the following formula:
+    
+    $$
+    H = \frac{1}{\sqrt{d}} \sum_{ij} \omega^{ij} \ket{i}\bra{j}
+    $$
+    
+    where
+    
+    $$
+    \omega = \exp\Big(\frac{2\pi i}{d}\Big)
+    $$
+    
+    and $d$ is the number of levels (2 levels is a qubit, 3 levels is a qutrit,
+    etc.)
+    
+    References:
+    - <https://www.frontiersin.org/articles/10.3389/fphy.2020.589504/full>
+    - <https://pubs.aip.org/aip/jmp/article-abstract/56/3/032202/763827>
+    - <https://arxiv.org/pdf/1701.07902.pdf>
+    """
+
+def IGate(radix: builtins.int = 2) -> UnitaryExpression:
+    r"""
+    The identity or no-op gate.
+    """
+
+def Invert(expr: UnitaryExpression) -> UnitaryExpression:
+    r"""
+    Invert an expression
+    """
+
+def PGate(radix: builtins.int = 2) -> UnitaryExpression:
+    r"""
+    The single-qudit phase gate.
+    
+    The common qubit phase gate is given by the following matrix:
+    
+    $$
+    \begin{pmatrix}
+        1 & 0 \\\\
+        0 & \exp({i\theta}) \\\\
+    \end{pmatrix}
+    $$
+    
+    The qutrit phase gate has two parameterized relative phases:
+    
+    $$
+    \begin{pmatrix}
+        1 & 0 & 0 \\\\
+        0 & \exp({i\theta_0}) & 0 \\\\
+       0 & 0 & \exp({i\theta_1}) \\\\
+    \end{pmatrix}
+    $$
+    
+    The d-level phase gate has d-1 parameterized relative phases. This
+    gate is Clifford iff all of the relative phases are powers of roots
+    of unity.
+    
+    References:
+    - <https://www.nature.com/articles/s41467-022-34851-z>
+    - <https://arxiv.org/pdf/2204.13681.pdf>
+    """
+
+def ParameterizedUnitary(radices: builtins.int | typing.Sequence[builtins.int] = [2]) -> UnitaryExpression:
+    r"""
+    Generates a fully parameterized unitary expression
+    
+    References:
+    - de Guise, Hubert, Olivia Di Matteo, and Luis L. Sánchez-Soto.
+      "Simple factorization of unitary transformations."
+      Physical Review A 97.2 (2018): 022328.
+    """
+
+def RXGate() -> UnitaryExpression:
+    r"""
+    The single-qubit RX gate (rotation around the X-axis).
+    
+    $$
+    RX(\theta) = \begin{pmatrix} \cos(\theta/2) & -i\sin(\theta/2) \\\\ -i\sin(\theta/2) & \cos(\theta/2) \end{pmatrix}
+    $$
+    """
+
+def RXXGate() -> UnitaryExpression:
+    r"""
+    The two-qubit RXX gate (Ising XX coupling).
+    
+    $$
+    RXX(\theta) = e^{-i\theta/2 \, X \otimes X} =
+    \begin{pmatrix}
+        \cos(\theta/2) & 0 & 0 & -i\sin(\theta/2) \\\\
+        0 & \cos(\theta/2) & -i\sin(\theta/2) & 0 \\\\
+        0 & -i\sin(\theta/2) & \cos(\theta/2) & 0 \\\\
+        -i\sin(\theta/2) & 0 & 0 & \cos(\theta/2)
+    \end{pmatrix}
+    $$
+    """
+
+def RYGate() -> UnitaryExpression:
+    r"""
+    The single-qubit RY gate (rotation around the Y-axis).
+    
+    $$
+    RY(\theta) = \begin{pmatrix} \cos(\theta/2) & -\sin(\theta/2) \\\\ \sin(\theta/2) & \cos(\theta/2) \end{pmatrix}
+    $$
+    """
+
+def RYYGate() -> UnitaryExpression:
+    r"""
+    The two-qubit RYY gate (Ising YY coupling).
+    
+    $$
+    RYY(\theta) = e^{-i\theta/2 \, Y \otimes Y} =
+    \begin{pmatrix}
+        \cos(\theta/2) & 0 & 0 & i\sin(\theta/2) \\\\
+        0 & \cos(\theta/2) & -i\sin(\theta/2) & 0 \\\\
+        0 & -i\sin(\theta/2) & \cos(\theta/2) & 0 \\\\
+        i\sin(\theta/2) & 0 & 0 & \cos(\theta/2)
+    \end{pmatrix}
+    $$
+    """
+
+def RZGate() -> UnitaryExpression:
+    r"""
+    The single-qubit RZ gate (rotation around the Z-axis).
+    
+    $$
+    RZ(\theta) = \begin{pmatrix} e^{-i\theta/2} & 0 \\\\ 0 & e^{i\theta/2} \end{pmatrix}
+    $$
+    """
+
+def RZZGate() -> UnitaryExpression:
+    r"""
+    The two-qubit RZZ gate (Ising ZZ coupling).
+    
+    $$
+    RZZ(\theta) = e^{-i\theta/2 \, Z \otimes Z} =
+    \begin{pmatrix}
+        e^{-i\theta/2} & 0 & 0 & 0 \\\\
+        0 & e^{i\theta/2} & 0 & 0 \\\\
+        0 & 0 & e^{i\theta/2} & 0 \\\\
+        0 & 0 & 0 & e^{-i\theta/2}
+    \end{pmatrix}
+    $$
+    """
+
+def SGate(radix: builtins.int = 2) -> UnitaryExpression:
+    r"""
+    The one-qudit S gate (Clifford level 2).
+    
+    Defined as:
+    
+    $$
+    S|k\rangle = e^{i\pi k^2 / d}|k\rangle
+    $$
+    
+    where $d$ is the number of levels. For qubits ($d = 2$) this reproduces
+    the standard S gate $S = \text{diag}(1, i)$. Note that $S^2 = T^2\cdot T^2$
+    and $T^2 = S$, i.e. the T gate defined below is the square root of S.
+    
+    This gate is Clifford (level 2 of the Clifford hierarchy): conjugation
+    by S maps every Pauli to another Pauli.
+    
+    For qutrits ($d = 3$), up to the global-phase convention of Yeh & van de
+    Wetering (ζ⁸ with ζ = e^{2πi/9}), this agrees with their Definition 3.
+    
+    References:
+    - Gheorghiu, V. (2014). Standard form of qudit stabilizer groups.
+      Physics Letters A, 378(30–31), 2016–2021.
+    - Yeh, L. & van de Wetering, J. (2023). Completeness of the ZH-calculus.
+    """
+
+def SXGate() -> UnitaryExpression:
+    r"""
+    The single-qubit SX gate (square-root of X / square-root of Pauli-X).
+    
+    $$
+    SX = \sqrt{X} = \frac{1}{2}\begin{pmatrix} 1+i & 1-i \\\\ 1-i & 1+i \end{pmatrix}
+    $$
+    
+    Note: a qudit generalization of this gate as $X^{1/2}$ is mathematically
+    well-defined but its matrix entries involve geometric sums with non-integer
+    exponents that do not reduce to a simple closed-form expression in QGL.
+    """
+
+def SwapGate(radix: builtins.int = 2) -> UnitaryExpression:
+    r"""
+    The qudit swap gate. This is a two-qudit Clifford/Weyl-Heisenberg gate
+    that swaps the state of two qudits.
+    
+    The qubit (radix = 2) version is given by the following matrix:
+    
+    $$
+    \begin{pmatrix}
+        1 & 0 & 0 & 0 \\\\
+        0 & 0 & 1 & 0 \\\\
+        0 & 1 & 0 & 0 \\\\
+        0 & 0 & 0 & 1 \\\\
+    \end{pmatrix}
+    $$
+    
+    The qutrit (radix = 3) version is given by the following matrix:
+    
+    $$
+    \begin{pmatrix}
+        1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\\\
+        0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 \\\\
+        0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 \\\\
+        0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 & 0 \\\\
+        0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 & 0 \\\\
+        0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 & 0 \\\\
+        0 & 0 & 1 & 0 & 0 & 0 & 0 & 0 & 0 \\\\
+        0 & 0 & 0 & 0 & 0 & 1 & 0 & 0 & 0 \\\\
+        0 & 0 & 0 & 0 & 0 & 0 & 0 & 0 & 1 \\\\
+    \end{pmatrix}
+    $$
+    
+    However, generally it is given by the following formula:
+    
+    $$
+    SWAP_d = \sum_{a, b} \ket{ab}\bra{ba}
+    $$
+    
+    where $d$ is the number of levels (2 levels is a qubit, 3 levels is a
+    qutrit, etc.)
+    
+    References:
+    - <https://link.springer.com/article/10.1007/s11128-013-0621-x>
+    - <https://arxiv.org/pdf/1105.5485.pdf>
+    """
+
+def TGate(radix: builtins.int = 2) -> UnitaryExpression:
+    r"""
+    The one-qudit T gate (Clifford level 3).
+    
+    Defined as the square root of the S gate:
+    
+    $$
+    T|k\rangle = e^{i\pi k^2 / (2d)}|k\rangle
+    $$
+    
+    so that $T^2 = S$. For qubits ($d = 2$) this reproduces the standard
+    T gate $T = \text{diag}(1,\, e^{i\pi/4})$. For qutrits ($d = 3$),
+    with ζ = e^{2πi/9}, this gives $T = \text{diag}(1, e^{i\pi/6}, e^{2i\pi/3})$;
+    the Yeh–van de Wetering convention $T = \text{diag}(1, \zeta, \zeta^8)$
+    (Definition 8 ibid.) differs by a global phase, and both are in level 3
+    of the Clifford hierarchy.
+    
+    The T gate is the standard resource gate for universal quantum computation
+    beyond the Clifford group: it can be injected via magic states and its
+    magic states are distillable.
+    
+    References:
+    - Howard, M. & Vala, J. (2012). Qudit versions of the qubit π/8 gate.
+      Physical Review A, 86(2), 022316.
+    - Cui, S. X., Gottesman, D. & Krishna, A. (2017). Diagonal gates in the
+      Clifford hierarchy. Physical Review A, 95(1), 012329.
+    """
+
+def U1Gate() -> UnitaryExpression:
+    r"""
+    The single-qubit U1 gate (phase gate up to global phase).
+    
+    $$
+    U1(\lambda) = \begin{pmatrix} 1 & 0 \\\\ 0 & e^{i\lambda} \end{pmatrix}
+    $$
+    """
+
+def U2Gate() -> UnitaryExpression:
+    r"""
+    The single-qubit U2 gate.
+    
+    $$
+    U2(\phi, \lambda) = \frac{1}{\sqrt{2}}
+    \begin{pmatrix} 1 & -e^{i\lambda} \\\\ e^{i\phi} & e^{i(\phi+\lambda)} \end{pmatrix}
+    $$
+    """
+
+def U3Gate() -> UnitaryExpression: ...
+
+def XGate(radix: builtins.int = 2) -> UnitaryExpression:
+    r"""
+    The one-qudit shift (X) gate. This is a Weyl-Heisenberg gate.
+    
+    This gate shifts the state of a qudit up by one level modulo. For
+    example, the shift gate on a qubit is the Pauli-X gate. The shift
+    gate on a qutrit is the following matrix:
+    
+    $$
+    \begin{pmatrix}
+        0 & 0 & 1 \\\\
+        1 & 0 & 0 \\\\
+        0 & 1 & 0 \\\\
+    \end{pmatrix}
+    $$
+    
+    The shift gate is generally given by the following formula:
+    
+    $$
+    \begin{equation}
+        X = \sum_a |a + 1 mod d ><a|
+    \end{equation}
+    $$
+    
+    where d is the number of levels (2 levels is a qubit, 3 levels is
+    a qutrit, etc.)
+    
+    References:
+        - <https://arxiv.org/pdf/2302.07966.pdf>
+    """
+
+def YGate(radix: builtins.int = 2) -> UnitaryExpression:
+    r"""
+    The one-qudit Y gate. This is a Weyl-Heisenberg gate.
+    
+    Defined as:
+    
+    $$
+    Y = \omega^{(d-1)/2} X Z
+    $$
+    
+    where $\omega = e^{2\pi i / d}$, $X$ is the shift gate, and $Z$ is the
+    clock gate. This choice of global phase is the natural qudit generalization
+    of the Pauli Y gate: for $d = 2$ it reproduces
+    
+    $$
+    Y = \begin{pmatrix} 0 & -i \\\\ i & 0 \end{pmatrix}
+    $$
+    
+    In general the non-zero entry at row $(j+1 \bmod d)$, column $j$ is
+    $\omega^{(d-1)/2} \cdot \omega^{j} = e^{2\pi i (2j + d - 1)/(2d)}$.
+    """
+
+def ZGate(radix: builtins.int = 2) -> UnitaryExpression:
+    r"""
+    The one-qudit clock (Z) gate. This is a Weyl-Heisenberg gate.
+    
+    This gate shifts the state of a qudit up by one level modulo. For
+    example, the clock gate on a qubit is the Pauli-Z gate. The clock
+    gate on a qutrit is the following matrix:
+    
+    $$
+    \begin{pmatrix}
+        1 & 0 & 0 \\\\
+        0 & e^{\frac{2\pi i}{3} & 0 \\\\
+        0 & 0 & e^{\frac{4\pi i}{3} \\\\
+    \end{pmatrix}
+    $$
+    
+    The clock gate is generally given by the following formula:
+    
+    $$
+    \begin{equation}
+        X = \sum_a e^{\frac{2a\pi i}{d}|a><a|
+    \end{equation}
+    $$
+    
+    where d is the number of levels (2 levels is a qubit, 3 levels is
+    a qutrit, etc.)
+    
+    References:
+        - <https://arxiv.org/pdf/2302.07966.pdf>
+    """
 

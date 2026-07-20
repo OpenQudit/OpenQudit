@@ -135,6 +135,7 @@ mod python {
     use crate::python::PyExpressionRegistrar;
     use pyo3::prelude::*;
     use pyo3_stub_gen::derive::*;
+    use pyo3_stub_gen::impl_stub_type;
     use qudit_core::Radix;
 
     /// A symbolic expression representing a batched system of unitary matrices.
@@ -211,6 +212,8 @@ mod python {
             value.expr
         }
     }
+
+    impl_stub_type!(UnitarySystemExpression = PyUnitarySystemExpression);
 
     impl<'py> IntoPyObject<'py> for UnitarySystemExpression {
         type Target = <PyUnitarySystemExpression as IntoPyObject<'py>>::Target;

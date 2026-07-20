@@ -649,6 +649,23 @@ mod python {
             }
         }
     }
+
+    impl<'py> IntoPyObject<'py> for Radices {
+        type Target = pyo3::types::PyList;
+        type Output = Bound<'py, Self::Target>;
+        type Error = PyErr;
+
+        /// Converts into a Python list of ints, mirroring `FromPyObject`.
+        ///
+        /// This only exists so that `pyo3-stub-gen` can render `Radices`
+        /// default parameter values (e.g. `Radices::new([2])`) in generated
+        /// `.pyi` stubs; `Radices` is otherwise only ever a pyfunction
+        /// input, never a return value.
+        fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+            let ints: Vec<usize> = self.iter().map(|&r| usize::from(r)).collect();
+            pyo3::types::PyList::new(py, ints)
+        }
+    }
 }
 
 #[cfg(test)]
