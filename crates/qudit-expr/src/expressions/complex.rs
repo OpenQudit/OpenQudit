@@ -73,6 +73,45 @@ impl ComplexExpression {
                 }
             }
             CiscExpression::Binary { op, lhs, rhs } => {
+                if op == '^' {
+                    // Fold (e^X)^Y => e^(X*Y) symbolically, using the exact
+                    // identity x^y = e^(y*ln(x)) with x = e^X (so ln(x) = X).
+                    // QGL's power operator otherwise only supports a literal
+                    // `e` base (the "exponential of an imaginary number"
+                    // special case below) or a symbolically-real base; a
+                    // compound base like `e^(2*pi*i/d)` is neither, even
+                    // though its magnitude is provably 1. This shows up in
+                    // the generalized qudit gate formulas that raise a root
+                    // of unity to an integer power, e.g. `omega^(i*j)` in
+                    // HGate's radix > 2 case.
+                    let is_e_power_base = matches!(
+                        lhs.as_ref(),
+                        CiscExpression::Binary { op: '^', lhs: base, .. }
+                            if matches!(base.as_ref(), CiscExpression::Variable(v) if v == "e")
+                    );
+
+                    if is_e_power_base {
+                        let CiscExpression::Binary {
+                            lhs: base,
+                            rhs: exponent,
+                            ..
+                        } = *lhs
+                        else {
+                            unreachable!("checked above")
+                        };
+                        let combined_exponent = CiscExpression::Binary {
+                            op: '*',
+                            lhs: exponent,
+                            rhs,
+                        };
+                        return ComplexExpression::new(CiscExpression::Binary {
+                            op: '^',
+                            lhs: base,
+                            rhs: Box::new(combined_exponent),
+                        });
+                    }
+                }
+
                 let risc_lhs = ComplexExpression::new(*lhs);
                 let risc_rhs = ComplexExpression::new(*rhs);
                 match op {
@@ -82,7 +121,17 @@ impl ComplexExpression {
                     '/' => risc_lhs / risc_rhs,
                     '^' => {
                         if risc_lhs.is_e() {
-                            assert!(risc_rhs.is_imag(), "Exponential power must be imaginary");
+                            // Require only that the real part vanishes (not
+                            // that the imaginary part is nonzero): the
+                            // Cos/Sin construction below is exact for a
+                            // zero exponent too (e^0 = Cos(0) + i*Sin(0)),
+                            // which shows up when folding (e^X)^Y for Y=0,
+                            // e.g. the diagonal entries of the generalized
+                            // qudit Hadamard gate.
+                            assert!(
+                                risc_rhs.real.is_zero(),
+                                "Exponential power must be imaginary",
+                            );
                             ComplexExpression {
                                 real: Expression::Cos(Box::new(risc_rhs.imag.clone())),
                                 imag: Expression::Sin(Box::new(risc_rhs.imag)),
