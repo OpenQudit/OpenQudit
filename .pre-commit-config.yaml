@@ -34,6 +34,28 @@ repos:
         always_run: true
         stages: [pre-push]
 
+      - id: cargo-check-each-crate
+        name: cargo check (per-crate isolation)
+        description: >
+          Mirrors CI's per-crate build check. Checks each workspace crate
+          individually rather than via `--workspace`, so feature-unification
+          leaks (e.g. a crate relying on a sibling to enable `serde/derive`)
+          get caught instead of silently masked.
+        entry: >
+          bash -c '
+            set -euo pipefail
+            pkgs=$(cargo metadata --no-deps --format-version=1 |
+              python3 -c "import json,sys; print(\"\n\".join(p[\"name\"] for p in json.load(sys.stdin)[\"packages\"]))")
+            for pkg in $pkgs; do
+              echo "==> cargo check -p $pkg"
+              cargo check -p "$pkg" --all-targets
+            done
+          '
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
+
       - id: cargo-test
         name: cargo test --workspace
         description: Mirrors the "Run tests" CI step.
