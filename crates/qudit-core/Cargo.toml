@@ -27,13 +27,13 @@ num-complex = { workspace = true }
 num-traits = { workspace = true }
 rand = { workspace = true }
 rand_distr = { workspace = true }
+serde = { workspace = true }
 
 inventory = { workspace = true, optional = true }
 # python
 numpy = { workspace = true, optional = true }
 pyo3 = { workspace = true, optional = true }
 pyo3-stub-gen = { workspace = true, optional = true }
-serde = "1.0.228"
 
 [dev-dependencies]
 criterion = { workspace = true }
