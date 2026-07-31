@@ -71,6 +71,19 @@ jobs:
         # Additionally checks build on all targets
         run: cargo clippy --verbose --workspace --features python --all-targets -- -D warnings
 
+      - name: Check each crate individually
+        run: |
+          set -euo pipefail
+          pkgs=$(cargo metadata --no-deps --format-version=1 |
+            python3 -c "import json,sys; print(\"\n\".join(p[\"name\"] for p in json.load(sys.stdin)[\"packages\"]))")
+          for pkg in $pkgs; do
+            echo "==> cargo check -p $pkg"
+            cargo check -p "$pkg" --all-targets
+          done
+
+      - name: cargo clippy --workspace
+        run: cargo clippy --workspace --features python --all-targets -- -D warnings
+
       - name: Run tests
         run: cargo test --verbose --workspace --features python --no-fail-fast
 
