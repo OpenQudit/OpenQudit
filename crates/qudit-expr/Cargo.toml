@@ -26,6 +26,7 @@ llvm-sys = { workspace = true }
 num = { workspace = true, features = ["serde"] }
 numpy = { workspace = true, optional = true }
 ordered-float = { workspace = true }
+postcard = { workspace = true }
 pyo3 = { workspace = true, optional = true }
 pyo3-stub-gen = { workspace = true, optional = true }
 qudit-core = { workspace = true }

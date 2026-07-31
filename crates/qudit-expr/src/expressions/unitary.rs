@@ -6,6 +6,7 @@ use qudit_core::ComplexScalar;
 use qudit_core::QuditSystem;
 use qudit_core::Radices;
 use qudit_core::UnitaryMatrix;
+use serde::{Deserialize, Serialize};
 
 use crate::{ComplexExpression, UnitarySystemExpression};
 use crate::{
@@ -16,7 +17,7 @@ use crate::{
 
 use super::NamedExpression;
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
 pub struct UnitaryExpression {
     inner: NamedExpression,
     radices: Radices,
@@ -604,10 +605,13 @@ mod python {
     use numpy::PyArray2;
     use numpy::PyArray3;
     use numpy::PyArrayMethods;
-    use numpy::ndarray::ArrayViewMut2;
-    use numpy::ndarray::ArrayViewMut3;
-    use pyo3::prelude::*;
-    use pyo3::types::PyTuple;
+    use numpy::ndarray::{ArrayViewMut2, ArrayViewMut3};
+    use pyo3::{
+        PyResult,
+        exceptions::PyTypeError,
+        prelude::*,
+        types::{PyBytes, PyTuple},
+    };
     use pyo3_stub_gen::derive::*;
     use pyo3_stub_gen::impl_stub_type;
     use qudit_core::Radix;
@@ -812,6 +816,24 @@ mod python {
             Self {
                 expr: self.expr.dot(&other),
             }
+        }
+
+        pub fn __setstate__(&mut self, state: &Bound<'_, PyBytes>) -> PyResult<()> {
+            self.expr = postcard::from_bytes(state.as_bytes())
+                .map_err(|e| PyTypeError::new_err(format!("Failed to deserialize circuit: {e}")))?;
+            Ok(())
+        }
+
+        pub fn __getstate__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+            let bytes: Vec<u8> = postcard::to_allocvec(&self.expr)
+                .map_err(|e| PyTypeError::new_err(format!("Failed to serialize circuit: {e}")))?;
+            Ok(PyBytes::new(py, &bytes))
+        }
+
+        pub fn __getnewargs__(&self) -> PyResult<(String,)> {
+            // Dummy arg: __setstate__ fully restores the expression, so we just
+            // need any valid value for the expr argument of __new__.
+            Ok(("I<2>(){[[1,0,],[0,1,],]}".to_string(),))
         }
     }
 

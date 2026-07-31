@@ -89,7 +89,7 @@ impl DerefMut for ExpressionBody {
     }
 }
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
 pub struct BoundExpressionBody {
     variables: Vec<String>,
     body: ExpressionBody,
@@ -185,7 +185,7 @@ impl DerefMut for BoundExpressionBody {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NamedExpression {
     name: String,
     body: BoundExpressionBody,
