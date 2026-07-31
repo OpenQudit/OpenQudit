@@ -390,6 +390,90 @@ impl UnitaryExpression {
         }
         UnitaryMatrix::new(self.radices.clone(), mat)
     }
+
+    /// Evaluates the matrix-by-vector derivative of this expression at `args`.
+    ///
+    /// Returns one matrix per parameter (in the same order as `variables()`),
+    /// where the `k`-th matrix is the elementwise partial derivative of the
+    /// unitary with respect to the `k`-th parameter.
+    pub fn eval_grad<C: ComplexScalar>(&self, args: &[C::R]) -> Vec<Mat<C>> {
+        let arg_map = self.get_arg_map::<C>(args);
+        let dim = self.radices.dimension();
+        self.variables()
+            .iter()
+            .map(|var| {
+                let mut mat = Mat::zeros(dim, dim);
+                for i in 0..dim {
+                    for j in 0..dim {
+                        *mat.get_mut(i, j) = self[i * dim + j].differentiate(var).eval(&arg_map);
+                    }
+                }
+                mat
+            })
+            .collect()
+    }
+
+    /// Returns the canonical OpenQASM 2.0 (`qelib1.inc`) gate name for this
+    /// expression, if one exists, based on its name, qudit count, and
+    /// parameter count. Returns `None` for expressions with no fixed QASM
+    /// 2.0 equivalent (e.g. arbitrary/custom unitaries).
+    pub fn qasm_name(&self) -> Option<&'static str> {
+        qasm_gate_name_lookup(self.name(), self.radices().len(), self.num_params())
+    }
+}
+
+pub(crate) fn qasm_gate_name_lookup(
+    name: &str,
+    n_qudits: usize,
+    n_params: usize,
+) -> Option<&'static str> {
+    let mut name = name;
+    while let Some(stripped) = name.strip_suffix("_subbed") {
+        name = stripped;
+    }
+    name = name.strip_prefix("Stacked_").unwrap_or(name);
+
+    match (name, n_qudits, n_params) {
+        // Built-in primitives
+        ("U", 1, 3) => Some("U"),
+        // qelib1.inc standard gates
+        ("U2", 1, 2) => Some("u2"),
+        ("U1", 1, 1) => Some("u1"),
+        ("I", 1, 0) => Some("id"),
+        ("X", 1, 0) => Some("x"),
+        ("Y", 1, 0) => Some("y"),
+        ("Z", 1, 0) => Some("z"),
+        ("H", 1, 0) => Some("h"),
+        ("S", 1, 0) => Some("s"),
+        ("T", 1, 0) => Some("t"),
+        ("SX", 1, 0) => Some("sx"),
+        ("P", 1, 1) => Some("p"),
+        ("RX", 1, 1) => Some("rx"),
+        ("RY", 1, 1) => Some("ry"),
+        ("RZ", 1, 1) => Some("rz"),
+        ("Swap", 2, 0) => Some("swap"),
+        ("RXX", 2, 1) => Some("rxx"),
+        ("RZZ", 2, 1) => Some("rzz"),
+        ("Controlled(X)", 2, 0) => Some("cx"),
+        ("Controlled(X)", 3, 0) => Some("ccx"),
+        ("Controlled(X)", 4, 0) => Some("c3x"),
+        ("Controlled(X)", 5, 0) => Some("c4x"),
+        ("Controlled(Z)", 2, 0) => Some("cz"),
+        ("Controlled(Y)", 2, 0) => Some("cy"),
+        ("Controlled(H)", 2, 0) => Some("ch"),
+        ("Controlled(Swap)", 3, 0) => Some("cswap"),
+        ("Controlled(SX)", 2, 0) => Some("csx"),
+        ("Controlled(RX)", 2, 1) => Some("crx"),
+        ("Controlled(RY)", 2, 1) => Some("cry"),
+        ("Controlled(RZ)", 2, 1) => Some("crz"),
+        ("Controlled(U1)", 2, 1) => Some("cu1"),
+        ("Controlled(P)", 2, 1) => Some("cp"),
+        ("Controlled(U)", 2, 3) => Some("cu3"),
+        ("Dagger(S)", 1, 0) => Some("sdg"),
+        ("Dagger(T)", 1, 0) => Some("tdg"),
+        ("Dagger(SX)", 1, 0) => Some("sxdg"),
+        _ => None,
+    }
 }
 
 impl JittableExpression for UnitaryExpression {
@@ -609,6 +693,13 @@ mod python {
         /// Returns the total Hilbert space dimension of the underlying qudit system.
         fn dimension(&self) -> usize {
             self.expr.dimension()
+        }
+
+        /// Returns the canonical OpenQASM 2.0 (`qelib1.inc`) gate name for this
+        /// expression (e.g. `"rz"`, `"cx"`), or `None` if it has no fixed QASM
+        /// 2.0 equivalent, such as an arbitrary or custom unitary.
+        fn qasm_name(&self) -> Option<&'static str> {
+            self.expr.qasm_name()
         }
 
         /// Transposes this unitary expression in place.
