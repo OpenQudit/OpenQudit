@@ -212,6 +212,21 @@ class UnitaryExpression:
         * `args` - The real-valued parameters to substitute into the expression,
           in the same order as `variables()`.
         """
+    def gradient(self, *args: typing.Any) -> numpy.typing.NDArray[numpy.complex128]:
+        r"""
+        Evaluates the matrix-by-vector derivative of this expression at the
+        given parameter values.
+        
+        Returns a NumPy array of shape `(num_params, dim, dim)`, where the
+        `k`-th entry along the first axis is the elementwise partial
+        derivative of the unitary matrix with respect to the `k`-th
+        parameter, in the same order as `variables()`.
+        
+        # Arguments
+        
+        * `args` - The real-valued parameters to substitute into the expression,
+          in the same order as `variables()`.
+        """
     def num_params(self) -> builtins.int:
         r"""
         Returns the number of free (unbound) parameters in this expression.
@@ -227,6 +242,12 @@ class UnitaryExpression:
     def dimension(self) -> builtins.int:
         r"""
         Returns the total Hilbert space dimension of the underlying qudit system.
+        """
+    def qasm_name(self) -> typing.Optional[builtins.str]:
+        r"""
+        Returns the canonical OpenQASM 2.0 (`qelib1.inc`) gate name for this
+        expression (e.g. `"rz"`, `"cx"`), or `None` if it has no fixed QASM
+        2.0 equivalent, such as an arbitrary or custom unitary.
         """
     def transpose(self) -> None:
         r"""
