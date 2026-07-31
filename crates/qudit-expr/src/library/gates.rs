@@ -1169,6 +1169,7 @@ mod python {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use qudit_core::c64;
 
     #[test]
     fn dagger_renames_s() {
@@ -1180,5 +1181,34 @@ mod tests {
     fn dagger_renames_t() {
         let dg = Dagger(TGate(2));
         assert_eq!(dg.name(), "Dagger(T)");
+    }
+
+    #[test]
+    fn hgate_qutrit_is_unitary() {
+        // radix > 2 exercises the omega^(i*j) pattern in HGate, which
+        // requires folding (e^X)^Y => e^(X*Y) during parsing; this used
+        // to panic with "Power base must be real". try_eval also checks
+        // unitarity internally before returning Ok, so a successful
+        // result already confirms the matrix is unitary.
+        let h = HGate(3);
+        h.try_eval::<c64>(&[])
+            .expect("HGate(3) should parse and evaluate");
+    }
+
+    #[test]
+    fn hgate_ququart_is_unitary() {
+        let h = HGate(4);
+        h.try_eval::<c64>(&[])
+            .expect("HGate(4) should parse and evaluate");
+    }
+
+    #[test]
+    fn try_eval_reports_error_instead_of_panicking() {
+        // An extreme parameter magnitude can degrade floating-point
+        // precision enough that the evaluated matrix fails the unitarity
+        // check; this should surface as an Err, not a panic.
+        let rx = RXGate();
+        let result = rx.try_eval::<c64>(&[f64::MAX]);
+        assert!(result.is_err());
     }
 }

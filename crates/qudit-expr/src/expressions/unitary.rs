@@ -379,7 +379,25 @@ impl UnitaryExpression {
             .collect()
     }
 
+    /// Evaluates this expression at `args`, panicking if the result isn't unitary.
+    ///
+    /// Prefer [`Self::try_eval`] whenever `args` comes from an untrusted or
+    /// unbounded source (e.g. a numerical optimizer or Python caller): for
+    /// extreme parameter magnitudes, floating-point precision loss in the
+    /// trig/exponential evaluation can produce a matrix that fails the
+    /// unitarity check, and this method turns that into a panic rather than
+    /// a recoverable error.
     pub fn eval<C: ComplexScalar>(&self, args: &[C::R]) -> UnitaryMatrix<C> {
+        self.try_eval(args).unwrap_or_else(|e| panic!("{e}"))
+    }
+
+    /// Evaluates this expression at `args`, returning an error instead of
+    /// panicking if the resulting matrix fails the unitarity check.
+    ///
+    /// This can happen for otherwise-valid `args` when floating-point
+    /// precision degrades at extreme parameter magnitudes; it does not
+    /// indicate a bug in the expression itself.
+    pub fn try_eval<C: ComplexScalar>(&self, args: &[C::R]) -> Result<UnitaryMatrix<C>, String> {
         let arg_map = self.get_arg_map::<C>(args);
         let dim = self.radices.dimension();
         let mut mat = Mat::zeros(dim, dim);
@@ -388,7 +406,15 @@ impl UnitaryExpression {
                 *mat.get_mut(i, j) = self[i * self.dimension() + j].eval(&arg_map);
             }
         }
-        UnitaryMatrix::new(self.radices.clone(), mat)
+        if !UnitaryMatrix::<C>::is_unitary(&mat) {
+            return Err(format!(
+                "Evaluating '{}' at the given parameters did not produce a \
+                unitary matrix; this is likely due to floating-point \
+                precision loss for extreme parameter magnitudes.",
+                self.name(),
+            ));
+        }
+        Ok(UnitaryMatrix::new(self.radices.clone(), mat))
     }
 }
 
@@ -520,6 +546,7 @@ mod python {
     use numpy::PyArray2;
     use numpy::PyArrayMethods;
     use numpy::ndarray::ArrayViewMut2;
+    use pyo3::exceptions::PyValueError;
     use pyo3::prelude::*;
     use pyo3::types::PyTuple;
     use pyo3_stub_gen::derive::*;
@@ -573,7 +600,7 @@ mod python {
         fn __call__<'py>(&self, args: &Bound<'py, PyTuple>) -> PyResult<Bound<'py, PyArray2<c64>>> {
             let py = args.py();
             let args: Vec<f64> = args.extract()?;
-            let unitary = self.expr.eval(&args);
+            let unitary = self.expr.try_eval(&args).map_err(PyValueError::new_err)?;
             let py_array: Bound<'py, PyArray2<c64>> =
                 PyArray2::zeros(py, (unitary.dimension(), unitary.dimension()), false);
 
