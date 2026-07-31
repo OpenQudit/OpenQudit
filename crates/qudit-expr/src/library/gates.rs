@@ -72,7 +72,7 @@ pub fn HGate(radix: usize) -> UnitaryExpression {
     let proto = format!("H<{}>()", radix);
     let mut body = "".to_string();
     if radix == 2 {
-        body += "[[1/sqrt(2), 1/sqrt(2)], [1/sqrt(2), ~1/sqrt(2)]]";
+        body += "[[sqrt(2)/2, sqrt(2)/2], [sqrt(2)/2, ~sqrt(2)/2]]";
         return UnitaryExpression::new(proto + "{" + &body + "}");
     }
     let omega = format!("e^(2*π*i/{})", radix);
