@@ -82,7 +82,13 @@ impl ComplexExpression {
                     '/' => risc_lhs / risc_rhs,
                     '^' => {
                         if risc_lhs.is_e() {
-                            assert!(risc_rhs.is_imag(), "Exponential power must be imaginary");
+                            // checking `is_imag()` requires a non-zero imaginary part
+                            // and therefore rejects an exponent that simplifies to zero
+                            // (e.g. 'i*0')
+                            assert!(
+                                risc_rhs.real.is_zero(),
+                                "Exponential power must be imaginary",
+                            );
                             ComplexExpression {
                                 real: Expression::Cos(Box::new(risc_rhs.imag.clone())),
                                 imag: Expression::Sin(Box::new(risc_rhs.imag)),

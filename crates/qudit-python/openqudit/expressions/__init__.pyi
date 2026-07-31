@@ -212,6 +212,21 @@ class UnitaryExpression:
         * `args` - The real-valued parameters to substitute into the expression,
           in the same order as `variables()`.
         """
+    def gradient(self, *args: typing.Any) -> numpy.typing.NDArray[numpy.complex128]:
+        r"""
+        Evaluates the matrix-by-vector derivative of this expression at the
+        given parameter values.
+        
+        Returns a NumPy array of shape `(num_params, dim, dim)`, where the
+        `k`-th entry along the first axis is the elementwise partial
+        derivative of the unitary matrix with respect to the `k`-th
+        parameter, in the same order as `variables()`.
+        
+        # Arguments
+        
+        * `args` - The real-valued parameters to substitute into the expression,
+          in the same order as `variables()`.
+        """
     def num_params(self) -> builtins.int:
         r"""
         Returns the number of free (unbound) parameters in this expression.

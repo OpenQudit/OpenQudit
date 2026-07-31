@@ -602,8 +602,10 @@ mod python {
     use super::*;
     use crate::python::PyExpressionRegistrar;
     use numpy::PyArray2;
+    use numpy::PyArray3;
     use numpy::PyArrayMethods;
     use numpy::ndarray::ArrayViewMut2;
+    use numpy::ndarray::ArrayViewMut3;
     use pyo3::prelude::*;
     use pyo3::types::PyTuple;
     use pyo3_stub_gen::derive::*;
@@ -668,6 +670,44 @@ mod python {
                 for (j, col) in unitary.col_iter().enumerate() {
                     for (i, val) in col.iter().enumerate() {
                         py_array_view[[i, j]] = *val;
+                    }
+                }
+            }
+
+            Ok(py_array)
+        }
+
+        /// Evaluates the matrix-by-vector derivative of this expression at the
+        /// given parameter values.
+        ///
+        /// Returns a NumPy array of shape `(num_params, dim, dim)`, where the
+        /// `k`-th entry along the first axis is the elementwise partial
+        /// derivative of the unitary matrix with respect to the `k`-th
+        /// parameter, in the same order as `variables()`.
+        ///
+        /// # Arguments
+        ///
+        /// * `args` - The real-valued parameters to substitute into the expression,
+        ///   in the same order as `variables()`.
+        #[pyo3(signature = (*args))]
+        fn gradient<'py>(&self, args: &Bound<'py, PyTuple>) -> PyResult<Bound<'py, PyArray3<c64>>> {
+            let py = args.py();
+            let args: Vec<f64> = args.extract()?;
+            let dim = self.expr.dimension();
+            let num_params = self.expr.num_params();
+            let grad = self.expr.eval_grad(&args);
+            let py_array: Bound<'py, PyArray3<c64>> =
+                PyArray3::zeros(py, (num_params, dim, dim), false);
+
+            {
+                let mut readwrite = py_array.readwrite();
+                let mut py_array_view: ArrayViewMut3<c64> = readwrite.as_array_mut();
+
+                for (p, mat) in grad.iter().enumerate() {
+                    for (j, col) in mat.col_iter().enumerate() {
+                        for (i, val) in col.iter().enumerate() {
+                            py_array_view[[p, i, j]] = *val;
+                        }
                     }
                 }
             }
