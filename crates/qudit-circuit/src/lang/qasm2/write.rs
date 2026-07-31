@@ -1,5 +1,6 @@
 use num::ToPrimitive;
 use qudit_core::{ClassicalSystem, QuditSystem};
+use qudit_expr::{UnitaryExpression, UnitarySystemExpression};
 
 use crate::operation::{DirectiveOperation, ExpressionOperation};
 use crate::param::Parameter;
@@ -14,60 +15,33 @@ fn strip_subbed(name: &str) -> &str {
     s
 }
 
-/// Maps an expression base name + wire count + param count to a QASM 2.0 gate name.
-fn qasm2_gate_name(expr_name: &str, n_qwires: usize, n_params: usize) -> Result<&'static str> {
-    let expr_name = strip_subbed(expr_name);
-    match (expr_name, n_qwires, n_params) {
-        // Built-in primitives
-        ("U", 1, 3) => Ok("U"),
-        // qelib1.inc standard gates
-        ("U2", 1, 2) => Ok("u2"),
-        ("U1", 1, 1) => Ok("u1"),
-        ("I", 1, 0) => Ok("id"),
-        ("X", 1, 0) => Ok("x"),
-        ("Y", 1, 0) => Ok("y"),
-        ("Z", 1, 0) => Ok("z"),
-        ("H", 1, 0) => Ok("h"),
-        ("S", 1, 0) => Ok("s"),
-        ("T", 1, 0) => Ok("t"),
-        ("SX", 1, 0) => Ok("sx"),
-        ("P", 1, 1) => Ok("p"),
-        ("RX", 1, 1) => Ok("rx"),
-        ("RY", 1, 1) => Ok("ry"),
-        ("RZ", 1, 1) => Ok("rz"),
-        ("Swap", 2, 0) => Ok("swap"),
-        ("RXX", 2, 1) => Ok("rxx"),
-        ("RZZ", 2, 1) => Ok("rzz"),
-        // Controlled gates — same expression name regardless of control count,
-        // so disambiguate by total wire count.
-        ("Controlled(X)", 2, 0) => Ok("cx"),
-        ("Controlled(X)", 3, 0) => Ok("ccx"),
-        ("Controlled(X)", 4, 0) => Ok("c3x"),
-        ("Controlled(X)", 5, 0) => Ok("c4x"),
-        ("Controlled(Z)", 2, 0) => Ok("cz"),
-        ("Controlled(Y)", 2, 0) => Ok("cy"),
-        ("Controlled(H)", 2, 0) => Ok("ch"),
-        ("Controlled(Swap)", 3, 0) => Ok("cswap"),
-        ("Controlled(SX)", 2, 0) => Ok("csx"),
-        ("Controlled(RX)", 2, 1) => Ok("crx"),
-        // Dagger (conjugate-transpose) variants
-        ("Dagger(S)", 1, 0) => Ok("sdg"),
-        ("Dagger(T)", 1, 0) => Ok("tdg"),
-        ("Dagger(SX)", 1, 0) => Ok("sxdg"),
-        ("Controlled(RY)", 2, 1) => Ok("cry"),
-        ("Controlled(RZ)", 2, 1) => Ok("crz"),
-        ("Controlled(U1)", 2, 1) => Ok("cu1"),
-        ("Controlled(P)", 2, 1) => Ok("cp"),
-        ("Controlled(U)", 2, 3) => Ok("cu3"),
-        _ => Err(crate::Error::LanguageError {
-            message: format!(
-                "Gate '{}' with {} qubit(s) and {} parameter(s) has no QASM 2.0 equivalent. \
-                 QASM 2.0 only supports standard qelib1.inc gates and a fixed set of controlled/dagger variants.",
-                expr_name, n_qwires, n_params
-            ),
-            lineno: 0,
-        }),
+fn no_qasm_equivalent_error(name: &str, n_qudits: usize, n_params: usize) -> crate::Error {
+    crate::Error::LanguageError {
+        message: format!(
+            "Gate '{}' with {} qubit(s) and {} parameter(s) has no QASM 2.0 equivalent. \
+             QASM 2.0 only supports standard qelib1.inc gates and a fixed set of controlled/dagger variants.",
+            strip_subbed(name),
+            n_qudits,
+            n_params,
+        ),
+        lineno: 0,
     }
+}
+
+/// Looks up the QASM 2.0 gate name for a plain unitary expression, erroring
+/// with a diagnostic message if it has no fixed `qelib1.inc` equivalent.
+fn qasm2_gate_name(expr: &UnitaryExpression) -> Result<&'static str> {
+    expr.qasm_name().ok_or_else(|| {
+        no_qasm_equivalent_error(expr.name(), expr.radices().len(), expr.num_params())
+    })
+}
+
+/// Looks up the QASM 2.0 gate name for a classically-controlled unitary
+/// system expression, erroring with a diagnostic message if it has no fixed
+/// `qelib1.inc` equivalent.
+fn qasm2_system_gate_name(expr: &UnitarySystemExpression) -> Result<&'static str> {
+    expr.qasm_name()
+        .ok_or_else(|| no_qasm_equivalent_error(expr.name(), expr.num_qudits(), expr.num_params()))
 }
 
 fn format_float(v: f64) -> String {
@@ -186,8 +160,7 @@ pub(super) fn write_qasm(circuit: &QuditCircuit) -> Result<String> {
 
         match &operation {
             crate::Operation::Expression(ExpressionOperation::UnitaryGate(expr)) => {
-                let expr_name = strip_subbed(expr.name());
-                let gate = qasm2_gate_name(expr_name, qwires.len(), param_strs.len())?;
+                let gate = qasm2_gate_name(expr)?;
                 let qargs: Vec<String> = qwires.iter().map(|&i| format!("q[{}]", i)).collect();
                 if param_strs.is_empty() {
                     out.push_str(&format!("{} {};\n", gate, qargs.join(", ")));
@@ -210,11 +183,7 @@ pub(super) fn write_qasm(circuit: &QuditCircuit) -> Result<String> {
             crate::Operation::Expression(ExpressionOperation::ClassicallyControlledUnitary(
                 expr,
             )) => {
-                // Strip the "Stacked_" prefix that classically_control() adds,
-                // then strip any "_subbed" suffixes from parameter substitution.
-                let raw = strip_subbed(expr.name());
-                let underlying = raw.strip_prefix("Stacked_").unwrap_or(raw);
-                let gate = qasm2_gate_name(underlying, qwires.len(), param_strs.len())?;
+                let gate = qasm2_system_gate_name(expr)?;
                 // The current lowering always activates at the highest level for each
                 // control bit (i.e. all bits == 1), so value = 2^n - 1.
                 let value: u64 = if cwires.is_empty() {

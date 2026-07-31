@@ -6,8 +6,9 @@ import pickle
 
 import numpy as np
 import pytest
+
 from openqudit.circuit import QuditCircuit
-from openqudit.expressions import HGate, RZGate, U3Gate, XGate, ZGate
+from openqudit.expressions import HGate, U3Gate, XGate, ZGate
 
 
 @pytest.fixture

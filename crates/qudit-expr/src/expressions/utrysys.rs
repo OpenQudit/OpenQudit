@@ -25,6 +25,13 @@ impl UnitarySystemExpression {
     pub fn num_qudits(&self) -> usize {
         self.radices.num_qudits()
     }
+
+    /// Returns the canonical OpenQASM 2.0 (`qelib1.inc`) gate name for this
+    /// expression, if one exists. Returns `None` for expressions with no
+    /// fixed QASM 2.0 equivalent (e.g. arbitrary/custom unitaries).
+    pub fn qasm_name(&self) -> Option<&'static str> {
+        super::unitary::qasm_gate_name_lookup(self.name(), self.num_qudits(), self.num_params())
+    }
 }
 
 impl JittableExpression for UnitarySystemExpression {

@@ -243,6 +243,12 @@ class UnitaryExpression:
         r"""
         Returns the total Hilbert space dimension of the underlying qudit system.
         """
+    def qasm_name(self) -> typing.Optional[builtins.str]:
+        r"""
+        Returns the canonical OpenQASM 2.0 (`qelib1.inc`) gate name for this
+        expression (e.g. `"rz"`, `"cx"`), or `None` if it has no fixed QASM
+        2.0 equivalent, such as an arbitrary or custom unitary.
+        """
     def transpose(self) -> None:
         r"""
         Transposes this unitary expression in place.
