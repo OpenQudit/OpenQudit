@@ -72,10 +72,9 @@ pub fn HGate(radix: usize) -> UnitaryExpression {
     let proto = format!("H<{}>()", radix);
     let mut body = "".to_string();
     if radix == 2 {
-        body += "[[1/sqrt(2), 1/sqrt(2)], [1/sqrt(2), ~1/sqrt(2)]]";
+        body += "[[sqrt(2)/2, sqrt(2)/2], [sqrt(2)/2, ~sqrt(2)/2]]";
         return UnitaryExpression::new(proto + "{" + &body + "}");
     }
-    let omega = format!("e^(2*π*i/{})", radix);
     let invsqrt = format!("1/sqrt({})", radix);
     body += invsqrt.as_str();
     body += " * ";
@@ -83,7 +82,11 @@ pub fn HGate(radix: usize) -> UnitaryExpression {
     for i in 0..radix {
         body += "[";
         for j in 0..radix {
-            body += &format!("{}^({}*{}), ", omega, i, j);
+            // ω^(ij) = e^(2πi·ij/d)
+            // (e^x)^y isn't simplified back down to e^(x*y)
+            // by the expression engine, which causes a panic
+            // expecting the base (e^x) to be real
+            body += &format!("e^(2*π*i*{}*{}/{}), ", i, j, radix);
         }
         body += "],";
     }
