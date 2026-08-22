@@ -1,8 +1,8 @@
 use super::QuditCircuit;
 use crate::cycle::CycleIndex;
 use crate::instruction::{Instruction, InstructionId};
-use crate::operation::OpCode;
-use crate::operation::Operation;
+use crate::operation::python::extract_internable_operation;
+use crate::operation::{OpCode, Operation};
 use crate::param::ArgumentList;
 use crate::wire::Wire;
 use crate::wire::WireList;
@@ -323,10 +323,11 @@ impl PyQuditCircuit {
     #[pyo3(signature = (op, loc, args = None))]
     pub fn append<'py>(
         slf: Bound<'py, Self>,
-        op: Operation,
+        op: &Bound<'py, PyAny>,
         loc: &Bound<'py, PyAny>,
         args: Option<ArgumentList>,
     ) -> PyResult<PyInstructionReference> {
+        let op = extract_internable_operation(op)?;
         let num_qudits = op.num_qudits();
 
         // 2. Parse 'loc' as an int, iterable of ints, or tuple of iterables

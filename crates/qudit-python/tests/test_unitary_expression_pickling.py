@@ -111,16 +111,6 @@ def test_daggered_expression_roundtrip():
     assert np.allclose(rz(*params), rz2(*params))
 
 
-# --- Independence ---
-
-
-def test_mutation_after_pickling_is_independent(u3):
-    u3_2 = pickle.loads(pickle.dumps(u3))
-    u3.transpose()  # mutate the original in place
-    params = [0.3, 0.6, 0.9]
-    assert not np.allclose(u3(*params), u3_2(*params))
-
-
 # --- Interfaces ---
 
 

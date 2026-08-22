@@ -250,6 +250,14 @@ impl<B: AsRef<[ComplexExpression]>> PartialEq<B> for NamedExpression {
 
 impl Eq for NamedExpression {}
 
+/// Hashes exactly what [`PartialEq`] compares, so the two stay in agreement:
+/// the element bodies, and neither the name nor the variable list.
+impl std::hash::Hash for NamedExpression {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.elements().hash(state);
+    }
+}
+
 impl Deref for NamedExpression {
     type Target = BoundExpressionBody;
 

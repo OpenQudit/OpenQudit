@@ -933,3 +933,616 @@ impl<R: RealScalar> From<R> for Expression {
         Expression::from_float(value.to64())
     }
 }
+
+#[cfg(feature = "python")]
+pub(crate) mod python {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::Hash as _;
+    use std::hash::Hasher as _;
+
+    use num::Zero as _;
+    use pyo3::exceptions::PyTypeError;
+    use pyo3::exceptions::PyValueError;
+    use pyo3::exceptions::PyZeroDivisionError;
+    use pyo3::intern;
+    use pyo3::prelude::*;
+    use pyo3::sync::PyOnceLock;
+    use pyo3::types::PyDict;
+    use pyo3::types::PyFloat;
+    use pyo3::types::PyString;
+    use pyo3::types::PyType;
+    use pyo3_stub_gen::PyStubType;
+    use pyo3_stub_gen::TypeInfo;
+    use pyo3_stub_gen::derive::*;
+    use pyo3_stub_gen::impl_stub_type;
+
+    use super::*;
+    use crate::python::PyExpressionRegistrar;
+
+    static FRACTION_CLS: PyOnceLock<Py<PyType>> = PyOnceLock::new();
+
+    /// Returns the cached `fractions.Fraction` class object.
+    fn fraction_cls(py: Python<'_>) -> PyResult<&Bound<'_, PyType>> {
+        FRACTION_CLS.import(py, "fractions", "Fraction")
+    }
+
+    /// Reads an exact rational [`Constant`] out of a Python object.
+    ///
+    /// PyO3 already converts `Ratio<BigInt>` to and from `fractions.Fraction`
+    /// by duck typing on the `numerator` and `denominator` attributes, which
+    /// gets `int` (and `bool`) accepted for free. This wrapper exists to paper
+    /// over the two rough edges of that path:
+    ///
+    /// * `float` has no `numerator`, so it would fail with a bare
+    ///   `AttributeError`. Rejecting it is deliberate — `Fraction(0.1)` is
+    ///   `3602879701896397/36028797018963968`, which would wreck the exactness
+    ///   that makes structural equality and hashing meaningful — but the error
+    ///   should say so.
+    /// * `Ratio::new` panics on a zero denominator. A real `Fraction` can never
+    ///   have one, but an arbitrary duck-typed object can, and that panic would
+    ///   unwind across the FFI boundary.
+    ///
+    /// `str` is also accepted and handed to `Fraction` to parse, since the
+    /// extraction path never reaches the `Fraction` constructor itself.
+    pub(crate) fn extract_constant(obj: &Bound<'_, PyAny>) -> PyResult<Constant> {
+        let py = obj.py();
+
+        if obj.is_instance_of::<PyFloat>() {
+            return Err(PyTypeError::new_err(
+                "float is not an exact constant; pass an int, a Fraction such as \
+                 Fraction(1, 3), or a string such as \"1/3\"",
+            ));
+        }
+
+        let obj = match obj.cast::<PyString>() {
+            Ok(source) => fraction_cls(py)?.call1((source,))?,
+            Err(_) => obj.clone(),
+        };
+
+        if let Ok(denominator) = obj.getattr(intern!(py, "denominator"))
+            && denominator.extract::<BigInt>().is_ok_and(|d| d.is_zero())
+        {
+            return Err(PyZeroDivisionError::new_err(
+                "constant has a zero denominator",
+            ));
+        }
+
+        match obj.extract::<Constant>() {
+            Ok(constant) => Ok(constant),
+            Err(_) => {
+                let type_name = obj.get_type().name()?;
+                Err(PyTypeError::new_err(format!(
+                    "expected an int, a fractions.Fraction, or a string such as \
+                     \"1/3\", not {type_name}"
+                )))
+            }
+        }
+    }
+
+    /// An exact rational constant, exposed to Python as a `fractions.Fraction`.
+    ///
+    /// PyO3's `num-rational` conversion does all of the actual work here; this
+    /// wrapper exists only because that conversion is implemented on a foreign
+    /// type, so we can neither implement the foreign `PyStubType` trait for it
+    /// (needed to emit `fractions.Fraction` into the generated stubs) nor
+    /// customize the errors it raises. See [`extract_constant`].
+    #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+    pub struct PyConstant(pub Constant);
+
+    impl From<Constant> for PyConstant {
+        fn from(value: Constant) -> Self {
+            PyConstant(value)
+        }
+    }
+
+    impl From<PyConstant> for Constant {
+        fn from(value: PyConstant) -> Self {
+            value.0
+        }
+    }
+
+    impl<'a, 'py> FromPyObject<'a, 'py> for PyConstant {
+        type Error = PyErr;
+
+        fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+            extract_constant(&ob).map(PyConstant)
+        }
+    }
+
+    impl<'py> IntoPyObject<'py> for PyConstant {
+        type Target = PyAny;
+        type Output = Bound<'py, PyAny>;
+        type Error = PyErr;
+
+        fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+            (&self).into_pyobject(py)
+        }
+    }
+
+    impl<'py> IntoPyObject<'py> for &PyConstant {
+        type Target = PyAny;
+        type Output = Bound<'py, PyAny>;
+        type Error = PyErr;
+
+        fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+            (&self.0).into_pyobject(py)
+        }
+    }
+
+    impl PyStubType for PyConstant {
+        fn type_output() -> TypeInfo {
+            TypeInfo::with_module("fractions.Fraction", "fractions".into())
+        }
+
+        fn type_input() -> TypeInfo {
+            TypeInfo::with_module("fractions.Fraction", "fractions".into())
+                | TypeInfo::builtin("int")
+                | TypeInfo::builtin("str")
+        }
+    }
+
+    /// A node in a symbolic, real-valued scalar expression tree.
+    ///
+    /// Each variant is its own Python class (`Expression.Add`, `Expression.Sin`,
+    /// ...) that subclasses `Expression`, so nodes can be inspected with
+    /// `isinstance` or destructured with `match`. Nodes are immutable; the
+    /// methods on this class all return new trees.
+    #[gen_stub_pyclass_complex_enum]
+    #[pyclass(name = "Expression", module = "openqudit.expressions")]
+    pub enum PyExpression {
+        /// The constant pi.
+        Pi {},
+
+        /// A free parameter, referenced by name.
+        Variable {
+            /// The name of the parameter.
+            name: String,
+        },
+
+        /// An exact rational literal.
+        ///
+        /// Accepts an `int`, a `fractions.Fraction`, or a string such as
+        /// `"1/3"`. `float` is rejected, since converting it would silently
+        /// give up the exactness that makes structural equality and hashing
+        /// meaningful.
+        Constant {
+            /// The value of the literal, as a `fractions.Fraction`.
+            value: PyConstant,
+        },
+
+        /// Arithmetic negation of `operand`.
+        Neg {
+            /// The negated subtree.
+            operand: Py<PyExpression>,
+        },
+
+        /// The sum `lhs + rhs`.
+        Add {
+            /// The left-hand summand.
+            lhs: Py<PyExpression>,
+            /// The right-hand summand.
+            rhs: Py<PyExpression>,
+        },
+
+        /// The difference `lhs - rhs`.
+        Sub {
+            /// The minuend.
+            lhs: Py<PyExpression>,
+            /// The subtrahend.
+            rhs: Py<PyExpression>,
+        },
+
+        /// The product `lhs * rhs`.
+        Mul {
+            /// The left-hand factor.
+            lhs: Py<PyExpression>,
+            /// The right-hand factor.
+            rhs: Py<PyExpression>,
+        },
+
+        /// The quotient `lhs / rhs`.
+        Div {
+            /// The dividend.
+            lhs: Py<PyExpression>,
+            /// The divisor.
+            rhs: Py<PyExpression>,
+        },
+
+        /// The power `base ** exponent`.
+        Pow {
+            /// The base.
+            base: Py<PyExpression>,
+            /// The exponent.
+            exponent: Py<PyExpression>,
+        },
+
+        /// The square root of `operand`.
+        Sqrt {
+            /// The radicand.
+            operand: Py<PyExpression>,
+        },
+
+        /// The sine of `operand`, in radians.
+        Sin {
+            /// The angle.
+            operand: Py<PyExpression>,
+        },
+
+        /// The cosine of `operand`, in radians.
+        Cos {
+            /// The angle.
+            operand: Py<PyExpression>,
+        },
+    }
+
+    /// Rebuilds the Rust expression tree behind a Python AST node.
+    fn to_rust(py: Python<'_>, node: &PyExpression) -> Expression {
+        let child = |c: &Py<PyExpression>| Box::new(to_rust(py, c.bind(py).get()));
+
+        match node {
+            PyExpression::Pi {} => Expression::Pi,
+            PyExpression::Variable { name } => Expression::Variable(name.clone()),
+            PyExpression::Constant { value } => Expression::Constant(value.0.clone()),
+            PyExpression::Neg { operand } => Expression::Neg(child(operand)),
+            PyExpression::Add { lhs, rhs } => Expression::Add(child(lhs), child(rhs)),
+            PyExpression::Sub { lhs, rhs } => Expression::Sub(child(lhs), child(rhs)),
+            PyExpression::Mul { lhs, rhs } => Expression::Mul(child(lhs), child(rhs)),
+            PyExpression::Div { lhs, rhs } => Expression::Div(child(lhs), child(rhs)),
+            PyExpression::Pow { base, exponent } => Expression::Pow(child(base), child(exponent)),
+            PyExpression::Sqrt { operand } => Expression::Sqrt(child(operand)),
+            PyExpression::Sin { operand } => Expression::Sin(child(operand)),
+            PyExpression::Cos { operand } => Expression::Cos(child(operand)),
+        }
+    }
+
+    /// Materializes a Rust expression tree as Python AST nodes.
+    pub(crate) fn to_python<'py>(
+        py: Python<'py>,
+        expr: &Expression,
+    ) -> PyResult<Bound<'py, PyExpression>> {
+        let child =
+            |c: &Expression| -> PyResult<Py<PyExpression>> { Ok(to_python(py, c)?.unbind()) };
+
+        let node = match expr {
+            Expression::Pi => PyExpression::Pi {},
+            Expression::Variable(name) => PyExpression::Variable { name: name.clone() },
+            Expression::Constant(value) => PyExpression::Constant {
+                value: PyConstant(value.clone()),
+            },
+            Expression::Neg(operand) => PyExpression::Neg {
+                operand: child(operand)?,
+            },
+            Expression::Add(lhs, rhs) => PyExpression::Add {
+                lhs: child(lhs)?,
+                rhs: child(rhs)?,
+            },
+            Expression::Sub(lhs, rhs) => PyExpression::Sub {
+                lhs: child(lhs)?,
+                rhs: child(rhs)?,
+            },
+            Expression::Mul(lhs, rhs) => PyExpression::Mul {
+                lhs: child(lhs)?,
+                rhs: child(rhs)?,
+            },
+            Expression::Div(lhs, rhs) => PyExpression::Div {
+                lhs: child(lhs)?,
+                rhs: child(rhs)?,
+            },
+            Expression::Pow(base, exponent) => PyExpression::Pow {
+                base: child(base)?,
+                exponent: child(exponent)?,
+            },
+            Expression::Sqrt(operand) => PyExpression::Sqrt {
+                operand: child(operand)?,
+            },
+            Expression::Sin(operand) => PyExpression::Sin {
+                operand: child(operand)?,
+            },
+            Expression::Cos(operand) => PyExpression::Cos {
+                operand: child(operand)?,
+            },
+        };
+
+        node.into_pyobject(py)
+    }
+
+    /// Reads an operand of an arithmetic dunder: expression nodes pass through,
+    /// anything else is interpreted as an exact constant.
+    fn coerce_operand(py: Python<'_>, obj: &Bound<'_, PyAny>) -> PyResult<Expression> {
+        match obj.cast::<PyExpression>() {
+            Ok(node) => Ok(to_rust(py, node.get())),
+            Err(_) => extract_constant(obj).map(Expression::Constant),
+        }
+    }
+
+    /// Builds the argument map for evaluation, rejecting missing or extra names.
+    fn bind_arguments(
+        expr: &Expression,
+        values: Option<&Bound<'_, PyDict>>,
+    ) -> PyResult<HashMap<String, f64>> {
+        let mut bindings: HashMap<String, f64> = match values {
+            Some(values) => values.extract()?,
+            None => HashMap::new(),
+        };
+
+        let variables = expr.get_unique_variables();
+        for variable in &variables {
+            if !bindings.contains_key(variable) {
+                return Err(PyValueError::new_err(format!(
+                    "no value given for variable '{variable}'"
+                )));
+            }
+        }
+
+        bindings.retain(|name, _| variables.contains(name));
+        Ok(bindings)
+    }
+
+    /// Evaluates an expression against an already-validated binding map.
+    pub(crate) fn eval_bound(expr: &Expression, bindings: &HashMap<String, f64>) -> f64 {
+        let args: HashMap<&str, f64> = bindings.iter().map(|(k, v)| (k.as_str(), *v)).collect();
+        expr.eval(&args)
+    }
+
+    /// Renders a node the way its constructor would be spelled.
+    fn repr_node(py: Python<'_>, node: &PyExpression) -> String {
+        let child = |c: &Py<PyExpression>| repr_node(py, c.bind(py).get());
+
+        match node {
+            PyExpression::Pi {} => "Expression.Pi()".to_string(),
+            PyExpression::Variable { name } => format!("Expression.Variable(name={name:?})"),
+            PyExpression::Constant { value } => format!(
+                "Expression.Constant(value=Fraction({}, {}))",
+                value.0.numer(),
+                value.0.denom()
+            ),
+            PyExpression::Neg { operand } => {
+                format!("Expression.Neg(operand={})", child(operand))
+            }
+            PyExpression::Add { lhs, rhs } => {
+                format!("Expression.Add(lhs={}, rhs={})", child(lhs), child(rhs))
+            }
+            PyExpression::Sub { lhs, rhs } => {
+                format!("Expression.Sub(lhs={}, rhs={})", child(lhs), child(rhs))
+            }
+            PyExpression::Mul { lhs, rhs } => {
+                format!("Expression.Mul(lhs={}, rhs={})", child(lhs), child(rhs))
+            }
+            PyExpression::Div { lhs, rhs } => {
+                format!("Expression.Div(lhs={}, rhs={})", child(lhs), child(rhs))
+            }
+            PyExpression::Pow { base, exponent } => format!(
+                "Expression.Pow(base={}, exponent={})",
+                child(base),
+                child(exponent)
+            ),
+            PyExpression::Sqrt { operand } => {
+                format!("Expression.Sqrt(operand={})", child(operand))
+            }
+            PyExpression::Sin { operand } => {
+                format!("Expression.Sin(operand={})", child(operand))
+            }
+            PyExpression::Cos { operand } => {
+                format!("Expression.Cos(operand={})", child(operand))
+            }
+        }
+    }
+
+    #[gen_stub_pymethods]
+    #[pymethods]
+    impl PyExpression {
+        /// Returns the names of the free parameters in this tree, in the order
+        /// they are first encountered.
+        fn variables(&self, py: Python<'_>) -> Vec<String> {
+            to_rust(py, self).get_unique_variables()
+        }
+
+        /// Returns whether this tree references the named parameter.
+        ///
+        /// # Arguments
+        ///
+        /// * `name` - The parameter name to look for.
+        fn contains_variable(&self, py: Python<'_>, name: &str) -> bool {
+            to_rust(py, self).contains_variable(name)
+        }
+
+        /// Returns whether this tree references any free parameter.
+        fn is_parameterized(&self, py: Python<'_>) -> bool {
+            to_rust(py, self).is_parameterized()
+        }
+
+        /// Returns whether this tree is structurally equivalent to zero.
+        fn is_zero(&self, py: Python<'_>) -> bool {
+            to_rust(py, self).is_zero()
+        }
+
+        /// Returns whether this tree is structurally equivalent to one.
+        fn is_one(&self, py: Python<'_>) -> bool {
+            to_rust(py, self).is_one()
+        }
+
+        /// Evaluates this tree numerically.
+        ///
+        /// # Arguments
+        ///
+        /// * `values` - A value for each free parameter, passed by name.
+        #[pyo3(signature = (**values))]
+        fn evaluate(&self, py: Python<'_>, values: Option<&Bound<'_, PyDict>>) -> PyResult<f64> {
+            let expr = to_rust(py, self);
+            let bindings = bind_arguments(&expr, values)?;
+            Ok(eval_bound(&expr, &bindings))
+        }
+
+        /// Returns the value of this tree as a float.
+        ///
+        /// # Errors
+        ///
+        /// Raises `ValueError` if the tree still has free parameters; use
+        /// `evaluate` instead in that case.
+        fn to_float(&self, py: Python<'_>) -> PyResult<f64> {
+            let expr = to_rust(py, self);
+            if expr.is_parameterized() {
+                return Err(PyValueError::new_err(format!(
+                    "cannot convert a parameterized expression to a float; \
+                     unbound variables: {}",
+                    expr.get_unique_variables().join(", ")
+                )));
+            }
+            Ok(expr.to_float())
+        }
+
+        /// Returns an algebraically simplified version of this tree.
+        fn simplify(&self, py: Python<'_>) -> Expression {
+            to_rust(py, self).simplify()
+        }
+
+        /// Returns the partial derivative of this tree with respect to a
+        /// parameter.
+        ///
+        /// # Arguments
+        ///
+        /// * `wrt` - The name of the parameter to differentiate with respect to.
+        fn differentiate(&self, py: Python<'_>, wrt: &str) -> Expression {
+            to_rust(py, self).differentiate(wrt)
+        }
+
+        /// Returns this tree with every occurrence of one subtree replaced by
+        /// another.
+        ///
+        /// # Arguments
+        ///
+        /// * `original` - The subtree to search for.
+        /// * `substitution` - The subtree to put in its place.
+        fn substitute(
+            &self,
+            py: Python<'_>,
+            original: Expression,
+            substitution: Expression,
+        ) -> Expression {
+            to_rust(py, self).substitute(&original, &substitution)
+        }
+
+        /// Returns this tree with one parameter renamed.
+        ///
+        /// # Arguments
+        ///
+        /// * `original` - The current parameter name.
+        /// * `new` - The replacement name.
+        fn rename_variable(&self, py: Python<'_>, original: &str, new: &str) -> Expression {
+            to_rust(py, self).rename_variable(original, new)
+        }
+
+        fn __neg__(&self, py: Python<'_>) -> Expression {
+            -to_rust(py, self)
+        }
+
+        fn __add__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Expression> {
+            Ok(to_rust(py, self) + coerce_operand(py, other)?)
+        }
+
+        fn __radd__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Expression> {
+            Ok(coerce_operand(py, other)? + to_rust(py, self))
+        }
+
+        fn __sub__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Expression> {
+            Ok(to_rust(py, self) - coerce_operand(py, other)?)
+        }
+
+        fn __rsub__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Expression> {
+            Ok(coerce_operand(py, other)? - to_rust(py, self))
+        }
+
+        fn __mul__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Expression> {
+            Ok(to_rust(py, self) * coerce_operand(py, other)?)
+        }
+
+        fn __rmul__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Expression> {
+            Ok(coerce_operand(py, other)? * to_rust(py, self))
+        }
+
+        fn __truediv__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Expression> {
+            let divisor = coerce_operand(py, other)?;
+            checked_div(to_rust(py, self), divisor)
+        }
+
+        fn __rtruediv__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> PyResult<Expression> {
+            let dividend = coerce_operand(py, other)?;
+            checked_div(dividend, to_rust(py, self))
+        }
+
+        fn __pow__(
+            &self,
+            py: Python<'_>,
+            exponent: &Bound<'_, PyAny>,
+            modulo: Option<&Bound<'_, PyAny>>,
+        ) -> PyResult<Expression> {
+            if modulo.is_some_and(|m| !m.is_none()) {
+                return Err(PyValueError::new_err(
+                    "modular exponentiation is not supported for expressions",
+                ));
+            }
+            Ok(Expression::Pow(
+                Box::new(to_rust(py, self)),
+                Box::new(coerce_operand(py, exponent)?),
+            ))
+        }
+
+        fn __eq__(&self, py: Python<'_>, other: &Bound<'_, PyAny>) -> bool {
+            match other.cast::<PyExpression>() {
+                Ok(other) => to_rust(py, self) == to_rust(py, other.get()),
+                Err(_) => false,
+            }
+        }
+
+        fn __hash__(&self, py: Python<'_>) -> u64 {
+            let mut hasher = DefaultHasher::new();
+            to_rust(py, self).hash(&mut hasher);
+            hasher.finish()
+        }
+
+        fn __repr__(&self, py: Python<'_>) -> String {
+            repr_node(py, self)
+        }
+
+        fn __str__(&self, py: Python<'_>) -> String {
+            to_rust(py, self).to_string()
+        }
+    }
+
+    /// Divides two expressions, turning the Rust divide-by-zero panic into a
+    /// Python `ZeroDivisionError`.
+    fn checked_div(dividend: Expression, divisor: Expression) -> PyResult<Expression> {
+        if divisor.is_zero_fast() {
+            return Err(PyZeroDivisionError::new_err("expression division by zero"));
+        }
+        Ok(dividend / divisor)
+    }
+
+    impl_stub_type!(Expression = PyExpression);
+
+    impl<'py> IntoPyObject<'py> for Expression {
+        type Target = PyExpression;
+        type Output = Bound<'py, Self::Target>;
+        type Error = PyErr;
+
+        fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+            to_python(py, &self)
+        }
+    }
+
+    impl<'a, 'py> FromPyObject<'a, 'py> for Expression {
+        type Error = PyErr;
+
+        fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+            let node = ob.cast::<PyExpression>()?;
+            Ok(to_rust(ob.py(), node.get()))
+        }
+    }
+
+    /// Registers the Expression class with the Python module.
+    fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
+        parent_module.add_class::<PyExpression>()?;
+        Ok(())
+    }
+    inventory::submit!(PyExpressionRegistrar { func: register });
+}

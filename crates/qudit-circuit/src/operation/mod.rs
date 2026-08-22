@@ -1,5 +1,5 @@
 mod code;
-mod directive;
+pub(crate) mod directive;
 mod expression;
 mod kind;
 mod operation;
@@ -11,5 +11,7 @@ pub use directive::DirectiveOperation;
 pub use expression::ExpressionOperation;
 pub use kind::OpKind;
 pub use operation::Operation;
+#[cfg(feature = "python")]
+pub(crate) use operation::python;
 pub use set::OperationSet;
 pub use subcircuit::CircuitOperation;

@@ -10,7 +10,7 @@ use super::NamedExpression;
 use qudit_core::QuditSystem;
 use qudit_core::Radices;
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub struct UnitarySystemExpression {
     inner: NamedExpression,
     radices: Radices,
@@ -138,6 +138,10 @@ impl TryFrom<TensorExpression> for UnitarySystemExpression {
 
 #[cfg(feature = "python")]
 mod python {
+    use std::hash::DefaultHasher;
+    use std::hash::Hash;
+    use std::hash::Hasher;
+
     use super::*;
     use crate::python::PyExpressionRegistrar;
     use pyo3::prelude::*;
@@ -195,6 +199,20 @@ mod python {
         /// Returns the Hilbert space dimension of each unitary in the system.
         fn dimension(&self) -> usize {
             self.expr.radices.dimension()
+        }
+
+        /// Returns a hash of this expression's body and qudit structure.
+        ///
+        /// Mirrors Rust equality, which compares element bodies and qudit
+        /// structure and ignores the name the expression was given.
+        fn __hash__(&self) -> u64 {
+            let mut hasher = DefaultHasher::new();
+            self.expr.hash(&mut hasher);
+            hasher.finish()
+        }
+
+        fn __eq__(&self, other: &PyUnitarySystemExpression) -> bool {
+            self.expr == other.expr
         }
 
         fn __repr__(&self) -> String {

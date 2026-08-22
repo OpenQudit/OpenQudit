@@ -130,12 +130,85 @@ impl InternableOperation for Operation {
 }
 
 #[cfg(feature = "python")]
-mod python {
+pub mod python {
     use super::*;
+    use crate::QuditCircuit;
+    use crate::operation::directive::python::PyDirectiveOperation;
     use crate::python::PyCircuitRegistrar;
     use pyo3::{exceptions::PyTypeError, prelude::*};
     use pyo3_stub_gen::derive::*;
     use pyo3_stub_gen::impl_stub_type;
+
+    #[allow(clippy::large_enum_variant)]
+    pub enum PyInternableOperation {
+        // Neither Operation nor CircuitOperation (should be?) usable in Python
+        // Operation(Operation),
+        // Circuit(CircuitOperation),
+        QuditCircuit(QuditCircuit),
+        Directive(DirectiveOperation),
+        Expression(ExpressionOperation),
+    }
+
+    impl PyInternableOperation {
+        pub fn num_qudits(&self) -> Option<usize> {
+            match self {
+                PyInternableOperation::QuditCircuit(op) => Some(op.num_qudits()),
+                PyInternableOperation::Directive(_) => None,
+                PyInternableOperation::Expression(op) => Some(op.num_qudits()),
+            }
+        }
+    }
+
+    impl InternableOperation for PyInternableOperation {
+        fn intern_operation(
+            self,
+            operation_set: &mut OperationSet,
+            parameter_vector: &mut ParameterVector,
+            args: impl IntoArgumentList,
+            qudit_radices: Radices,
+            dit_radices: Radices,
+        ) -> Result<(OpCode, ParamIndices)> {
+            match self {
+                Self::QuditCircuit(circuit) => circuit.intern_operation(
+                    operation_set,
+                    parameter_vector,
+                    args,
+                    qudit_radices,
+                    dit_radices,
+                ),
+                Self::Directive(op) => op.intern_operation(
+                    operation_set,
+                    parameter_vector,
+                    args,
+                    qudit_radices,
+                    dit_radices,
+                ),
+                Self::Expression(op) => op.intern_operation(
+                    operation_set,
+                    parameter_vector,
+                    args,
+                    qudit_radices,
+                    dit_radices,
+                ),
+            }
+        }
+    }
+
+    pub fn extract_internable_operation<'py>(
+        obj: &Bound<'py, PyAny>,
+    ) -> PyResult<PyInternableOperation> {
+        if let Ok(circuit) = obj.extract::<QuditCircuit>() {
+            Ok(PyInternableOperation::QuditCircuit(circuit))
+        } else if let Ok(op) = obj.extract::<DirectiveOperation>() {
+            Ok(PyInternableOperation::Directive(op))
+        } else if let Ok(op) = obj.extract::<ExpressionOperation>() {
+            Ok(PyInternableOperation::Expression(op))
+        } else {
+            Err(PyTypeError::new_err(
+                "Value is not a valid operation or circuit implementing InternableOperation.",
+            ))
+        }
+    }
 
     impl_stub_type!(Operation = PyOperation);
 
@@ -180,6 +253,8 @@ mod python {
         fn extract(obj: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
             if let Ok(py_operation) = obj.extract::<PyOperation>() {
                 Ok(py_operation.inner)
+            } else if let Ok(dir_op) = obj.extract::<PyDirectiveOperation>() {
+                Ok(Operation::Directive(dir_op.into()))
             } else if let Ok(expr_op) = obj.extract::<ExpressionOperation>() {
                 Ok(Operation::Expression(expr_op))
             } else {

@@ -11,7 +11,7 @@ use super::NamedExpression;
 use qudit_core::QuditSystem;
 use qudit_core::Radices;
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub struct BraExpression {
     inner: NamedExpression,
     radices: Radices,
@@ -102,10 +102,15 @@ impl QuditSystem for BraExpression {
 
 #[cfg(feature = "python")]
 mod python {
+    use std::hash::DefaultHasher;
+    use std::hash::Hash;
+    use std::hash::Hasher;
+
     use super::*;
-    use crate::python::PyExpressionRegistrar;
+    use crate::{ComplexExpression, python::PyExpressionRegistrar};
     use pyo3::prelude::*;
     use pyo3_stub_gen::derive::*;
+    use pyo3_stub_gen::impl_stub_type;
     use qudit_core::Radix;
 
     /// A symbolic bra (row) vector expression over a qudit system.
@@ -145,9 +150,64 @@ mod python {
             self.expr.radices().to_vec()
         }
 
+        /// Returns the number of qudits this unitary acts on.
+        fn num_qudits(&self) -> usize {
+            self.expr.num_qudits()
+        }
+
+        /// Returns true if this unitary acts on a qubit-only system.
+        fn is_qubit_only(&self) -> bool {
+            self.expr.is_qubit_only()
+        }
+
+        /// Returns true if this unitary acts on a qutrit-only system
+        fn is_qutrit_only(&self) -> bool {
+            self.expr.is_qutrit_only()
+        }
+
+        /// Returns true if this unitary acts on a `radix`-only system
+        fn is_qudit_only(&self, radix: Radix) -> bool {
+            self.expr.is_qudit_only(radix)
+        }
+
+        /// Returns true if this unitary acts on a homogenous system
+        fn is_homogenous(&self) -> bool {
+            self.expr.is_homogenous()
+        }
+
+        /// Returns the names of the free parameters in this tree, in the order
+        /// they are first encountered.
+        fn variables(&self) -> Vec<String> {
+            self.expr.variables().to_vec()
+        }
+
+        fn elements(&self) -> Vec<ComplexExpression> {
+            self.expr.elements().to_vec()
+        }
+
+        fn conjugate(&self) -> Self {
+            let mut new = self.expr.clone();
+            new.conjugate();
+            Self { expr: new }
+        }
+
         /// Returns the total Hilbert space dimension of the underlying qudit system.
         fn dimension(&self) -> usize {
             self.expr.dimension()
+        }
+
+        /// Returns a hash of this expression's body and qudit structure.
+        ///
+        /// Mirrors Rust equality, which compares element bodies and qudit
+        /// structure and ignores the name the expression was given.
+        fn __hash__(&self) -> u64 {
+            let mut hasher = DefaultHasher::new();
+            self.expr.hash(&mut hasher);
+            hasher.finish()
+        }
+
+        fn __eq__(&self, other: &PyBraExpression) -> bool {
+            self.expr == other.expr
         }
 
         fn __repr__(&self) -> String {
@@ -191,6 +251,8 @@ mod python {
             Ok(py_expr.expr.clone())
         }
     }
+
+    impl_stub_type!(BraExpression = PyBraExpression);
 
     /// Registers the BraExpression class with the Python module.
     fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {

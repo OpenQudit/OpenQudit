@@ -10,7 +10,7 @@ use super::NamedExpression;
 use qudit_core::QuditSystem;
 use qudit_core::Radices;
 
-#[derive(PartialEq, Eq, Debug, Clone)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone)]
 pub struct BraSystemExpression {
     inner: NamedExpression,
     radices: Radices,
@@ -131,10 +131,16 @@ impl TryFrom<TensorExpression> for BraSystemExpression {
 
 #[cfg(feature = "python")]
 mod python {
+    use std::hash::DefaultHasher;
+    use std::hash::Hash;
+    use std::hash::Hasher;
+
     use super::*;
+    use crate::ComplexExpression;
     use crate::python::PyExpressionRegistrar;
     use pyo3::prelude::*;
     use pyo3_stub_gen::derive::*;
+    use pyo3_stub_gen::impl_stub_type;
     use qudit_core::Radix;
 
     /// A symbolic expression representing a batched system of bra (row) vectors.
@@ -189,6 +195,36 @@ mod python {
             self.expr.radices.dimension()
         }
 
+        /// Returns the names of the free parameters in this tree, in the order
+        /// they are first encountered.
+        fn variables(&self) -> Vec<String> {
+            self.expr.variables().to_vec()
+        }
+
+        fn elements(&self) -> Vec<ComplexExpression> {
+            self.expr.elements().to_vec()
+        }
+
+        fn conjugate(&self) -> Self {
+            let mut new = self.expr.clone();
+            new.conjugate();
+            Self { expr: new }
+        }
+
+        /// Returns a hash of this expression's body and qudit structure.
+        ///
+        /// Mirrors Rust equality, which compares element bodies and qudit
+        /// structure and ignores the name the expression was given.
+        fn __hash__(&self) -> u64 {
+            let mut hasher = DefaultHasher::new();
+            self.expr.hash(&mut hasher);
+            hasher.finish()
+        }
+
+        fn __eq__(&self, other: &PyBraSystemExpression) -> bool {
+            self.expr == other.expr
+        }
+
         fn __repr__(&self) -> String {
             format!(
                 "BraSystemExpression(name='{}', radices={:?}, num_states={}, params={})",
@@ -231,6 +267,8 @@ mod python {
             Ok(py_expr.expr.clone())
         }
     }
+
+    impl_stub_type!(BraSystemExpression = PyBraSystemExpression);
 
     /// Registers the BraSystemExpression class with the Python module.
     fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {

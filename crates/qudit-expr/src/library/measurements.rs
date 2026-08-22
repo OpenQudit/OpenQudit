@@ -1,6 +1,12 @@
 use crate::BraSystemExpression;
+#[cfg(feature = "python")]
+use pyo3_stub_gen::derive::gen_stub_pyfunction;
 
 /// A terminating z-basis measurement for a qudit.
+#[cfg_attr(
+    feature = "python",
+    gen_stub_pyfunction(module = "openqudit.expressions")
+)]
 #[cfg_attr(feature = "python", pyo3::pyfunction)]
 #[cfg_attr(feature = "python", pyo3(signature = (radix = 2)))]
 pub fn ZMeasurement(radix: usize) -> BraSystemExpression {

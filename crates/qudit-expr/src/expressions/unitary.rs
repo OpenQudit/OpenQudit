@@ -17,7 +17,7 @@ use crate::{
 
 use super::NamedExpression;
 
-#[derive(PartialEq, Eq, Debug, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Serialize, Deserialize)]
 pub struct UnitaryExpression {
     inner: NamedExpression,
     radices: Radices,
@@ -600,6 +600,10 @@ impl QuditSystem for UnitaryExpression {
 
 #[cfg(feature = "python")]
 mod python {
+    use std::hash::DefaultHasher;
+    use std::hash::Hash;
+    use std::hash::Hasher;
+
     use super::*;
     use crate::python::PyExpressionRegistrar;
     use numpy::PyArray2;
@@ -734,6 +738,31 @@ mod python {
             self.expr.radices().to_vec()
         }
 
+        /// Returns the number of qudits this unitary acts on.
+        fn num_qudits(&self) -> usize {
+            self.expr.num_qudits()
+        }
+
+        /// Returns true if this unitary acts on a qubit-only system.
+        fn is_qubit_only(&self) -> bool {
+            self.expr.is_qubit_only()
+        }
+
+        /// Returns true if this unitary acts on a qutrit-only system
+        fn is_qutrit_only(&self) -> bool {
+            self.expr.is_qutrit_only()
+        }
+
+        /// Returns true if this unitary acts on a `radix`-only system
+        fn is_qudit_only(&self, radix: Radix) -> bool {
+            self.expr.is_qudit_only(radix)
+        }
+
+        /// Returns true if this unitary acts on a homogenous system
+        fn is_homogenous(&self) -> bool {
+            self.expr.is_homogenous()
+        }
+
         /// Returns the total Hilbert space dimension of the underlying qudit system.
         fn dimension(&self) -> usize {
             self.expr.dimension()
@@ -746,14 +775,34 @@ mod python {
             self.expr.qasm_name()
         }
 
-        /// Transposes this unitary expression in place.
-        fn transpose(&mut self) {
-            self.expr.transpose();
+        /// Return this unitary expression, transposed.
+        fn transpose(&self) -> Self {
+            let mut new = self.expr.clone();
+            new.transpose();
+            Self { expr: new }
         }
 
         /// Conjugate-transposes (Hermitian adjoint) this unitary expression in place.
-        fn dagger(&mut self) {
-            self.expr.dagger();
+        fn dagger(&self) -> Self {
+            let mut new = self.expr.clone();
+            new.dagger();
+            Self { expr: new }
+        }
+
+        /// Returns the names of the free parameters in this tree, in the order
+        /// they are first encountered.
+        fn variables(&self) -> Vec<String> {
+            self.expr.variables().to_vec()
+        }
+
+        fn elements(&self) -> Vec<ComplexExpression> {
+            self.expr.elements().to_vec()
+        }
+
+        fn conjugate(&self) -> Self {
+            let mut new = self.expr.clone();
+            new.conjugate();
+            Self { expr: new }
         }
 
         /// Computes the tensor (Kronecker) product of this expression with `other`,
@@ -789,19 +838,34 @@ mod python {
         /// * `top_left_row_idx` - Row index at which to place the sub-matrix.
         /// * `top_left_col_idx` - Column index at which to place the sub-matrix.
         fn embed(
-            &mut self,
+            &self,
             sub_matrix: &PyUnitaryExpression,
             top_left_row_idx: usize,
             top_left_col_idx: usize,
-        ) {
-            self.expr
-                .embed(sub_matrix.expr.clone(), top_left_row_idx, top_left_col_idx);
+        ) -> Self {
+            let mut new = self.expr.clone();
+            new.embed(sub_matrix.expr.clone(), top_left_row_idx, top_left_col_idx);
+            Self { expr: new }
         }
 
         // fn classically_control(&self, positions: Vec<usize>, new_dim_radices: Vec<usize>) -> crate::python::tensor::PyTensorExpression {
         //     let result = self.expr.classically_control(&positions, &new_dim_radices);
         //     result.into()
         // }
+
+        /// Returns a hash of this expression's body and qudit structure.
+        ///
+        /// Mirrors Rust equality, which compares element bodies and qudit
+        /// structure and ignores the name the expression was given.
+        fn __hash__(&self) -> u64 {
+            let mut hasher = DefaultHasher::new();
+            self.expr.hash(&mut hasher);
+            hasher.finish()
+        }
+
+        fn __eq__(&self, other: &PyUnitaryExpression) -> bool {
+            self.expr == other.expr
+        }
 
         fn __repr__(&self) -> String {
             format!(

@@ -2,6 +2,7 @@
 # ruff: noqa: E501, F401, F403, F405
 
 import builtins
+import fractions
 import numpy
 import numpy.typing
 import typing
@@ -9,12 +10,15 @@ __all__ = [
     "BraExpression",
     "BraSystemExpression",
     "ClassicallyControlled",
+    "ComplexExpression",
     "Controlled",
     "Dagger",
+    "Expression",
     "HGate",
     "IGate",
     "Invert",
     "KetExpression",
+    "KetSystemExpression",
     "KrausOperatorsExpression",
     "PGate",
     "ParameterizedUnitary",
@@ -36,6 +40,8 @@ __all__ = [
     "XGate",
     "YGate",
     "ZGate",
+    "ZMeasurement",
+    "ZeroState",
 ]
 
 @typing.final
@@ -63,10 +69,45 @@ class BraExpression:
         r"""
         Returns the radix of each qudit that this bra acts on.
         """
+    def num_qudits(self) -> builtins.int:
+        r"""
+        Returns the number of qudits this unitary acts on.
+        """
+    def is_qubit_only(self) -> builtins.bool:
+        r"""
+        Returns true if this unitary acts on a qubit-only system.
+        """
+    def is_qutrit_only(self) -> builtins.bool:
+        r"""
+        Returns true if this unitary acts on a qutrit-only system
+        """
+    def is_qudit_only(self, radix: builtins.int) -> builtins.bool:
+        r"""
+        Returns true if this unitary acts on a `radix`-only system
+        """
+    def is_homogenous(self) -> builtins.bool:
+        r"""
+        Returns true if this unitary acts on a homogenous system
+        """
+    def variables(self) -> builtins.list[builtins.str]:
+        r"""
+        Returns the names of the free parameters in this tree, in the order
+        they are first encountered.
+        """
+    def elements(self) -> builtins.list[ComplexExpression]: ...
+    def conjugate(self) -> BraExpression: ...
     def dimension(self) -> builtins.int:
         r"""
         Returns the total Hilbert space dimension of the underlying qudit system.
         """
+    def __hash__(self) -> builtins.int:
+        r"""
+        Returns a hash of this expression's body and qudit structure.
+        
+        Mirrors Rust equality, which compares element bodies and qudit
+        structure and ignores the name the expression was given.
+        """
+    def __eq__(self, other: BraExpression) -> builtins.bool: ...
     def __repr__(self) -> builtins.str: ...
 
 @typing.final
@@ -106,7 +147,397 @@ class BraSystemExpression:
         r"""
         Returns the total Hilbert space dimension of the underlying qudit system.
         """
+    def variables(self) -> builtins.list[builtins.str]:
+        r"""
+        Returns the names of the free parameters in this tree, in the order
+        they are first encountered.
+        """
+    def elements(self) -> builtins.list[ComplexExpression]: ...
+    def conjugate(self) -> BraSystemExpression: ...
+    def __hash__(self) -> builtins.int:
+        r"""
+        Returns a hash of this expression's body and qudit structure.
+        
+        Mirrors Rust equality, which compares element bodies and qudit
+        structure and ignores the name the expression was given.
+        """
+    def __eq__(self, other: BraSystemExpression) -> builtins.bool: ...
     def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class ComplexExpression:
+    r"""
+    A symbolic complex scalar, stored as a pair of real expression trees.
+    
+    This is the element type of every expression body: a `UnitaryExpression`
+    over `d` qudit levels is `d * d` of these.
+    """
+    @property
+    def real(self) -> Expression:
+        r"""
+        The real part of this expression.
+        """
+    @property
+    def imag(self) -> Expression:
+        r"""
+        The imaginary part of this expression.
+        """
+    def variables(self) -> builtins.list[builtins.str]:
+        r"""
+        Returns the names of the free parameters in this expression, in the
+        order they are first encountered.
+        """
+    def is_parameterized(self) -> builtins.bool:
+        r"""
+        Returns whether this expression references any free parameter.
+        """
+    def is_real(self) -> builtins.bool:
+        r"""
+        Returns whether the imaginary part is structurally zero.
+        """
+    def is_imag(self) -> builtins.bool:
+        r"""
+        Returns whether the real part is structurally zero and the imaginary
+        part is not.
+        """
+    def is_cplx(self) -> builtins.bool:
+        r"""
+        Returns whether both parts are structurally non-zero.
+        """
+    def is_zero(self) -> builtins.bool:
+        r"""
+        Returns whether both parts are structurally equivalent to zero.
+        """
+    def is_one(self) -> builtins.bool:
+        r"""
+        Returns whether this expression is structurally equivalent to one.
+        """
+    def conjugate(self) -> ComplexExpression:
+        r"""
+        Returns the complex conjugate of this expression.
+        """
+    def simplify(self) -> ComplexExpression:
+        r"""
+        Returns an algebraically simplified version of this expression.
+        """
+    def differentiate(self, wrt: builtins.str) -> ComplexExpression:
+        r"""
+        Returns the partial derivative of this expression with respect to a
+        parameter.
+        
+        # Arguments
+        
+        * `wrt` - The name of the parameter to differentiate with respect to.
+        """
+    def rename_variable(self, original: builtins.str, new: builtins.str) -> ComplexExpression:
+        r"""
+        Returns this expression with one parameter renamed.
+        
+        # Arguments
+        
+        * `original` - The current parameter name.
+        * `new` - The replacement name.
+        """
+    def substitute(self, original: Expression, substitution: Expression) -> ComplexExpression:
+        r"""
+        Returns this expression with every occurrence of one subtree
+        replaced by another.
+        
+        # Arguments
+        
+        * `original` - The subtree to search for.
+        * `substitution` - The subtree to put in its place.
+        """
+    def evaluate(self, **values: typing.Any) -> builtins.complex:
+        r"""
+        Evaluates this expression numerically.
+        
+        # Arguments
+        
+        * `values` - A value for each free parameter, passed by name.
+        """
+    def __eq__(self, other: typing.Any) -> builtins.bool: ...
+    def __hash__(self) -> builtins.int: ...
+    def __repr__(self) -> builtins.str: ...
+
+class Expression:
+    r"""
+    A node in a symbolic, real-valued scalar expression tree.
+    
+    Each variant is its own Python class (`Expression.Add`, `Expression.Sin`,
+    ...) that subclasses `Expression`, so nodes can be inspected with
+    `isinstance` or destructured with `match`. Nodes are immutable; the
+    methods on this class all return new trees.
+    """
+    def variables(self) -> builtins.list[builtins.str]:
+        r"""
+        Returns the names of the free parameters in this tree, in the order
+        they are first encountered.
+        """
+    def contains_variable(self, name: builtins.str) -> builtins.bool:
+        r"""
+        Returns whether this tree references the named parameter.
+        
+        # Arguments
+        
+        * `name` - The parameter name to look for.
+        """
+    def is_parameterized(self) -> builtins.bool:
+        r"""
+        Returns whether this tree references any free parameter.
+        """
+    def is_zero(self) -> builtins.bool:
+        r"""
+        Returns whether this tree is structurally equivalent to zero.
+        """
+    def is_one(self) -> builtins.bool:
+        r"""
+        Returns whether this tree is structurally equivalent to one.
+        """
+    def evaluate(self, **values: typing.Any) -> builtins.float:
+        r"""
+        Evaluates this tree numerically.
+        
+        # Arguments
+        
+        * `values` - A value for each free parameter, passed by name.
+        """
+    def to_float(self) -> builtins.float:
+        r"""
+        Returns the value of this tree as a float.
+        
+        # Errors
+        
+        Raises `ValueError` if the tree still has free parameters; use
+        `evaluate` instead in that case.
+        """
+    def simplify(self) -> Expression:
+        r"""
+        Returns an algebraically simplified version of this tree.
+        """
+    def differentiate(self, wrt: builtins.str) -> Expression:
+        r"""
+        Returns the partial derivative of this tree with respect to a
+        parameter.
+        
+        # Arguments
+        
+        * `wrt` - The name of the parameter to differentiate with respect to.
+        """
+    def substitute(self, original: Expression, substitution: Expression) -> Expression:
+        r"""
+        Returns this tree with every occurrence of one subtree replaced by
+        another.
+        
+        # Arguments
+        
+        * `original` - The subtree to search for.
+        * `substitution` - The subtree to put in its place.
+        """
+    def rename_variable(self, original: builtins.str, new: builtins.str) -> Expression:
+        r"""
+        Returns this tree with one parameter renamed.
+        
+        # Arguments
+        
+        * `original` - The current parameter name.
+        * `new` - The replacement name.
+        """
+    def __neg__(self) -> Expression: ...
+    def __add__(self, other: typing.Any) -> Expression: ...
+    def __radd__(self, other: typing.Any) -> Expression: ...
+    def __sub__(self, other: typing.Any) -> Expression: ...
+    def __rsub__(self, other: typing.Any) -> Expression: ...
+    def __mul__(self, other: typing.Any) -> Expression: ...
+    def __rmul__(self, other: typing.Any) -> Expression: ...
+    def __truediv__(self, other: typing.Any) -> Expression: ...
+    def __rtruediv__(self, other: typing.Any) -> Expression: ...
+    def __pow__(self, exponent: typing.Any, modulo: typing.Optional[typing.Any] = None) -> Expression: ...
+    def __eq__(self, other: typing.Any) -> builtins.bool: ...
+    def __hash__(self) -> builtins.int: ...
+    def __repr__(self) -> builtins.str: ...
+    def __str__(self) -> builtins.str: ...
+    @typing.final
+    class Pi(Expression):
+        r"""
+        The constant pi.
+        """
+        __match_args__ = ()
+        def __new__(cls) -> Expression.Pi: ...
+    
+    @typing.final
+    class Variable(Expression):
+        r"""
+        A free parameter, referenced by name.
+        """
+        __match_args__ = ("name",)
+        @property
+        def name(self) -> builtins.str:
+            r"""
+            The name of the parameter.
+            """
+        def __new__(cls, name: builtins.str) -> Expression.Variable: ...
+    
+    @typing.final
+    class Constant(Expression):
+        r"""
+        An exact rational literal.
+        
+        Accepts an `int`, a `fractions.Fraction`, or a string such as
+        `"1/3"`. `float` is rejected, since converting it would silently
+        give up the exactness that makes structural equality and hashing
+        meaningful.
+        """
+        __match_args__ = ("value",)
+        @property
+        def value(self) -> fractions.Fraction:
+            r"""
+            The value of the literal, as a `fractions.Fraction`.
+            """
+        def __new__(cls, value: fractions.Fraction | builtins.int | builtins.str) -> Expression.Constant: ...
+    
+    @typing.final
+    class Neg(Expression):
+        r"""
+        Arithmetic negation of `operand`.
+        """
+        __match_args__ = ("operand",)
+        @property
+        def operand(self) -> Expression:
+            r"""
+            The negated subtree.
+            """
+        def __new__(cls, operand: Expression) -> Expression.Neg: ...
+    
+    @typing.final
+    class Add(Expression):
+        r"""
+        The sum `lhs + rhs`.
+        """
+        __match_args__ = ("lhs", "rhs",)
+        @property
+        def lhs(self) -> Expression:
+            r"""
+            The left-hand summand.
+            """
+        @property
+        def rhs(self) -> Expression:
+            r"""
+            The right-hand summand.
+            """
+        def __new__(cls, lhs: Expression, rhs: Expression) -> Expression.Add: ...
+    
+    @typing.final
+    class Sub(Expression):
+        r"""
+        The difference `lhs - rhs`.
+        """
+        __match_args__ = ("lhs", "rhs",)
+        @property
+        def lhs(self) -> Expression:
+            r"""
+            The minuend.
+            """
+        @property
+        def rhs(self) -> Expression:
+            r"""
+            The subtrahend.
+            """
+        def __new__(cls, lhs: Expression, rhs: Expression) -> Expression.Sub: ...
+    
+    @typing.final
+    class Mul(Expression):
+        r"""
+        The product `lhs * rhs`.
+        """
+        __match_args__ = ("lhs", "rhs",)
+        @property
+        def lhs(self) -> Expression:
+            r"""
+            The left-hand factor.
+            """
+        @property
+        def rhs(self) -> Expression:
+            r"""
+            The right-hand factor.
+            """
+        def __new__(cls, lhs: Expression, rhs: Expression) -> Expression.Mul: ...
+    
+    @typing.final
+    class Div(Expression):
+        r"""
+        The quotient `lhs / rhs`.
+        """
+        __match_args__ = ("lhs", "rhs",)
+        @property
+        def lhs(self) -> Expression:
+            r"""
+            The dividend.
+            """
+        @property
+        def rhs(self) -> Expression:
+            r"""
+            The divisor.
+            """
+        def __new__(cls, lhs: Expression, rhs: Expression) -> Expression.Div: ...
+    
+    @typing.final
+    class Pow(Expression):
+        r"""
+        The power `base ** exponent`.
+        """
+        __match_args__ = ("base", "exponent",)
+        @property
+        def base(self) -> Expression:
+            r"""
+            The base.
+            """
+        @property
+        def exponent(self) -> Expression:
+            r"""
+            The exponent.
+            """
+        def __new__(cls, base: Expression, exponent: Expression) -> Expression.Pow: ...
+    
+    @typing.final
+    class Sqrt(Expression):
+        r"""
+        The square root of `operand`.
+        """
+        __match_args__ = ("operand",)
+        @property
+        def operand(self) -> Expression:
+            r"""
+            The radicand.
+            """
+        def __new__(cls, operand: Expression) -> Expression.Sqrt: ...
+    
+    @typing.final
+    class Sin(Expression):
+        r"""
+        The sine of `operand`, in radians.
+        """
+        __match_args__ = ("operand",)
+        @property
+        def operand(self) -> Expression:
+            r"""
+            The angle.
+            """
+        def __new__(cls, operand: Expression) -> Expression.Sin: ...
+    
+    @typing.final
+    class Cos(Expression):
+        r"""
+        The cosine of `operand`, in radians.
+        """
+        __match_args__ = ("operand",)
+        @property
+        def operand(self) -> Expression:
+            r"""
+            The angle.
+            """
+        def __new__(cls, operand: Expression) -> Expression.Cos: ...
+    
 
 @typing.final
 class KetExpression:
@@ -121,6 +552,15 @@ class KetExpression:
         
         * `expr` - The textual definition of the ket expression.
         """
+    @staticmethod
+    def zero(radices: typing.Sequence[builtins.int]) -> KetExpression:
+        r"""
+        Constructs a zero ket expression over the given radices.
+        
+        # Arguments
+        
+        * `radices` - The radix of each qudit in the system.
+        """
     def num_params(self) -> builtins.int:
         r"""
         Returns the number of free (unbound) parameters in this expression.
@@ -133,10 +573,99 @@ class KetExpression:
         r"""
         Returns the radix of each qudit that this ket acts on.
         """
+    def num_qudits(self) -> builtins.int:
+        r"""
+        Returns the number of qudits this unitary acts on.
+        """
+    def is_qubit_only(self) -> builtins.bool:
+        r"""
+        Returns true if this unitary acts on a qubit-only system.
+        """
+    def is_qutrit_only(self) -> builtins.bool:
+        r"""
+        Returns true if this unitary acts on a qutrit-only system
+        """
+    def is_qudit_only(self, radix: builtins.int) -> builtins.bool:
+        r"""
+        Returns true if this unitary acts on a `radix`-only system
+        """
+    def is_homogenous(self) -> builtins.bool:
+        r"""
+        Returns true if this unitary acts on a homogenous system
+        """
+    def variables(self) -> builtins.list[builtins.str]:
+        r"""
+        Returns the names of the free parameters in this tree, in the order
+        they are first encountered.
+        """
+    def elements(self) -> builtins.list[ComplexExpression]: ...
+    def conjugate(self) -> KetExpression: ...
     def dimension(self) -> builtins.int:
         r"""
         Returns the total Hilbert space dimension of the underlying qudit system.
         """
+    def __hash__(self) -> builtins.int:
+        r"""
+        Returns a hash of this expression's body and qudit structure.
+        
+        Mirrors Rust equality, which compares element bodies and qudit
+        structure and ignores the name the expression was given.
+        """
+    def __eq__(self, other: KetExpression) -> builtins.bool: ...
+    def __repr__(self) -> builtins.str: ...
+
+@typing.final
+class KetSystemExpression:
+    r"""
+    A symbolic expression representing a batched system of ket (column) vectors.
+    """
+    def __new__(cls, expr: builtins.str) -> KetSystemExpression:
+        r"""
+        Parses a ket system expression from its string representation.
+        
+        # Arguments
+        
+        * `expr` - The textual definition of the ket system expression.
+        """
+    def num_params(self) -> builtins.int:
+        r"""
+        Returns the number of free (unbound) parameters in this expression.
+        """
+    def name(self) -> builtins.str:
+        r"""
+        Returns the name assigned to this expression.
+        """
+    def radices(self) -> builtins.list[builtins.int]:
+        r"""
+        Returns the radix of each qudit that this ket system acts on.
+        """
+    def num_qudits(self) -> builtins.int:
+        r"""
+        Returns the number of qudits in the system.
+        """
+    def num_states(self) -> builtins.int:
+        r"""
+        Returns the number of individual ket states batched in this system.
+        """
+    def dimension(self) -> builtins.int:
+        r"""
+        Returns the total Hilbert space dimension of the underlying qudit system.
+        """
+    def variables(self) -> builtins.list[builtins.str]:
+        r"""
+        Returns the names of the free parameters in this tree, in the order
+        they are first encountered.
+        """
+    def elements(self) -> builtins.list[ComplexExpression]: ...
+    def conjugate(self) -> KetSystemExpression: ...
+    def __hash__(self) -> builtins.int:
+        r"""
+        Returns a hash of this expression's body and qudit structure.
+        
+        Mirrors Rust equality, which compares element bodies and qudit
+        structure and ignores the name the expression was given.
+        """
+    def __eq__(self, other: KetSystemExpression) -> builtins.bool: ...
     def __repr__(self) -> builtins.str: ...
 
 @typing.final
@@ -160,10 +689,11 @@ class KrausOperatorsExpression:
         r"""
         Returns the name assigned to this expression.
         """
-    def radices(self) -> builtins.list[builtins.int]:
+    def input_radices(self) -> builtins.list[builtins.int]:
         r"""
         Returns the radix of each qudit acted on by these Kraus operators.
         """
+    def output_radices(self) -> builtins.list[builtins.int]: ...
     def num_qudits(self) -> builtins.int:
         r"""
         Returns the number of qudits acted on. Panics if the input and output
@@ -177,6 +707,21 @@ class KrausOperatorsExpression:
         r"""
         Returns the Hilbert space dimension each Kraus operator acts on.
         """
+    def variables(self) -> builtins.list[builtins.str]:
+        r"""
+        Returns the names of the free parameters in this tree, in the order
+        they are first encountered.
+        """
+    def elements(self) -> builtins.list[ComplexExpression]: ...
+    def conjugate(self) -> KrausOperatorsExpression: ...
+    def __hash__(self) -> builtins.int:
+        r"""
+        Returns a hash of this expression's body and qudit structure.
+        
+        Mirrors Rust equality, which compares element bodies and qudit
+        structure and ignores the name the expression was given.
+        """
+    def __eq__(self, other: KrausOperatorsExpression) -> builtins.bool: ...
     def __repr__(self) -> builtins.str: ...
 
 @typing.final
@@ -239,6 +784,26 @@ class UnitaryExpression:
         r"""
         Returns the radix of each qudit that this unitary acts on.
         """
+    def num_qudits(self) -> builtins.int:
+        r"""
+        Returns the number of qudits this unitary acts on.
+        """
+    def is_qubit_only(self) -> builtins.bool:
+        r"""
+        Returns true if this unitary acts on a qubit-only system.
+        """
+    def is_qutrit_only(self) -> builtins.bool:
+        r"""
+        Returns true if this unitary acts on a qutrit-only system
+        """
+    def is_qudit_only(self, radix: builtins.int) -> builtins.bool:
+        r"""
+        Returns true if this unitary acts on a `radix`-only system
+        """
+    def is_homogenous(self) -> builtins.bool:
+        r"""
+        Returns true if this unitary acts on a homogenous system
+        """
     def dimension(self) -> builtins.int:
         r"""
         Returns the total Hilbert space dimension of the underlying qudit system.
@@ -249,14 +814,21 @@ class UnitaryExpression:
         expression (e.g. `"rz"`, `"cx"`), or `None` if it has no fixed QASM
         2.0 equivalent, such as an arbitrary or custom unitary.
         """
-    def transpose(self) -> None:
+    def transpose(self) -> UnitaryExpression:
         r"""
-        Transposes this unitary expression in place.
+        Return this unitary expression, transposed.
         """
-    def dagger(self) -> None:
+    def dagger(self) -> UnitaryExpression:
         r"""
         Conjugate-transposes (Hermitian adjoint) this unitary expression in place.
         """
+    def variables(self) -> builtins.list[builtins.str]:
+        r"""
+        Returns the names of the free parameters in this tree, in the order
+        they are first encountered.
+        """
+    def elements(self) -> builtins.list[ComplexExpression]: ...
+    def conjugate(self) -> UnitaryExpression: ...
     def otimes(self, other: UnitaryExpression) -> UnitaryExpression:
         r"""
         Computes the tensor (Kronecker) product of this expression with `other`,
@@ -275,7 +847,7 @@ class UnitaryExpression:
         
         * `other` - The unitary expression to multiply with this one.
         """
-    def embed(self, sub_matrix: UnitaryExpression, top_left_row_idx: builtins.int, top_left_col_idx: builtins.int) -> None:
+    def embed(self, sub_matrix: UnitaryExpression, top_left_row_idx: builtins.int, top_left_col_idx: builtins.int) -> UnitaryExpression:
         r"""
         Embeds `sub_matrix` into this expression's matrix in place, placing its
         top-left corner at the given row and column index.
@@ -286,6 +858,14 @@ class UnitaryExpression:
         * `top_left_row_idx` - Row index at which to place the sub-matrix.
         * `top_left_col_idx` - Column index at which to place the sub-matrix.
         """
+    def __hash__(self) -> builtins.int:
+        r"""
+        Returns a hash of this expression's body and qudit structure.
+        
+        Mirrors Rust equality, which compares element bodies and qudit
+        structure and ignores the name the expression was given.
+        """
+    def __eq__(self, other: UnitaryExpression) -> builtins.bool: ...
     def __repr__(self) -> builtins.str: ...
     def __matmul__(self, other: UnitaryExpression) -> UnitaryExpression: ...
     def __setstate__(self, state: bytes) -> None: ...
@@ -329,6 +909,14 @@ class UnitarySystemExpression:
         r"""
         Returns the Hilbert space dimension of each unitary in the system.
         """
+    def __hash__(self) -> builtins.int:
+        r"""
+        Returns a hash of this expression's body and qudit structure.
+        
+        Mirrors Rust equality, which compares element bodies and qudit
+        structure and ignores the name the expression was given.
+        """
+    def __eq__(self, other: UnitarySystemExpression) -> builtins.bool: ...
     def __repr__(self) -> builtins.str: ...
 
 def ClassicallyControlled(expr: UnitaryExpression, control_radices: builtins.int | typing.Sequence[builtins.int] = [2], control_levels: typing.Optional[typing.Sequence[typing.Sequence[builtins.int]]] = None) -> UnitarySystemExpression: ...
@@ -855,5 +1443,15 @@ def ZGate(radix: builtins.int = 2) -> UnitaryExpression:
     
     References:
         - <https://arxiv.org/pdf/2302.07966.pdf>
+    """
+
+def ZMeasurement(radix: builtins.int = 2) -> BraSystemExpression:
+    r"""
+    A terminating z-basis measurement for a qudit.
+    """
+
+def ZeroState(radix: builtins.int = 2) -> KetExpression:
+    r"""
+    Creates a zero-state ket expression with the specified radix.
     """
 

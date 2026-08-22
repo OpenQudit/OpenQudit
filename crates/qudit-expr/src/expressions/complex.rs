@@ -597,3 +597,235 @@ impl<C: ComplexScalar> From<C> for ComplexExpression {
         }
     }
 }
+
+#[cfg(feature = "python")]
+mod python {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::Hash as _;
+    use std::hash::Hasher as _;
+
+    use pyo3::exceptions::PyValueError;
+    use pyo3::prelude::*;
+    use pyo3::sync::PyOnceLock;
+    use pyo3::types::PyDict;
+    use pyo3_stub_gen::derive::*;
+    use pyo3_stub_gen::impl_stub_type;
+    use qudit_core::c64;
+
+    use super::*;
+    use crate::expressions::base::python::PyExpression;
+    use crate::expressions::base::python::to_python;
+    use crate::python::PyExpressionRegistrar;
+
+    /// A symbolic complex scalar, stored as a pair of real expression trees.
+    ///
+    /// This is the element type of every expression body: a `UnitaryExpression`
+    /// over `d` qudit levels is `d * d` of these.
+    #[gen_stub_pyclass]
+    #[pyclass(name = "ComplexExpression", module = "openqudit.expressions", frozen)]
+    pub struct PyComplexExpression {
+        expr: ComplexExpression,
+
+        /// Converting a tree into Python allocates one object per node, so the
+        /// two halves are materialized at most once per wrapper.
+        real: PyOnceLock<Py<PyExpression>>,
+        imag: PyOnceLock<Py<PyExpression>>,
+    }
+
+    impl PyComplexExpression {
+        /// Returns one half of the pair, materializing it on first access.
+        fn part<'py>(
+            py: Python<'py>,
+            cache: &PyOnceLock<Py<PyExpression>>,
+            expr: &Expression,
+        ) -> PyResult<Py<PyExpression>> {
+            cache
+                .get_or_try_init(py, || Ok(to_python(py, expr)?.unbind()))
+                .map(|node| node.clone_ref(py))
+        }
+    }
+
+    #[gen_stub_pymethods]
+    #[pymethods]
+    impl PyComplexExpression {
+        /// The real part of this expression.
+        #[getter]
+        fn real(&self, py: Python<'_>) -> PyResult<Py<PyExpression>> {
+            Self::part(py, &self.real, &self.expr.real)
+        }
+
+        /// The imaginary part of this expression.
+        #[getter]
+        fn imag(&self, py: Python<'_>) -> PyResult<Py<PyExpression>> {
+            Self::part(py, &self.imag, &self.expr.imag)
+        }
+
+        /// Returns the names of the free parameters in this expression, in the
+        /// order they are first encountered.
+        fn variables(&self) -> Vec<String> {
+            self.expr.get_unique_variables()
+        }
+
+        /// Returns whether this expression references any free parameter.
+        fn is_parameterized(&self) -> bool {
+            self.expr.is_parameterized()
+        }
+
+        /// Returns whether the imaginary part is structurally zero.
+        fn is_real(&self) -> bool {
+            self.expr.is_real()
+        }
+
+        /// Returns whether the real part is structurally zero and the imaginary
+        /// part is not.
+        fn is_imag(&self) -> bool {
+            self.expr.is_imag()
+        }
+
+        /// Returns whether both parts are structurally non-zero.
+        fn is_cplx(&self) -> bool {
+            self.expr.is_cplx()
+        }
+
+        /// Returns whether both parts are structurally equivalent to zero.
+        fn is_zero(&self) -> bool {
+            self.expr.is_zero()
+        }
+
+        /// Returns whether this expression is structurally equivalent to one.
+        fn is_one(&self) -> bool {
+            self.expr.is_one()
+        }
+
+        /// Returns the complex conjugate of this expression.
+        fn conjugate(&self) -> Self {
+            self.expr.conjugate().into()
+        }
+
+        /// Returns an algebraically simplified version of this expression.
+        fn simplify(&self) -> Self {
+            self.expr.simplify().into()
+        }
+
+        /// Returns the partial derivative of this expression with respect to a
+        /// parameter.
+        ///
+        /// # Arguments
+        ///
+        /// * `wrt` - The name of the parameter to differentiate with respect to.
+        fn differentiate(&self, wrt: &str) -> Self {
+            self.expr.differentiate(wrt).into()
+        }
+
+        /// Returns this expression with one parameter renamed.
+        ///
+        /// # Arguments
+        ///
+        /// * `original` - The current parameter name.
+        /// * `new` - The replacement name.
+        fn rename_variable(&self, original: &str, new: &str) -> Self {
+            self.expr.rename_variable(original, new).into()
+        }
+
+        /// Returns this expression with every occurrence of one subtree
+        /// replaced by another.
+        ///
+        /// # Arguments
+        ///
+        /// * `original` - The subtree to search for.
+        /// * `substitution` - The subtree to put in its place.
+        fn substitute(&self, original: Expression, substitution: Expression) -> Self {
+            self.expr.substitute(&original, &substitution).into()
+        }
+
+        /// Evaluates this expression numerically.
+        ///
+        /// # Arguments
+        ///
+        /// * `values` - A value for each free parameter, passed by name.
+        #[pyo3(signature = (**values))]
+        fn evaluate(&self, values: Option<&Bound<'_, PyDict>>) -> PyResult<c64> {
+            let mut bindings: HashMap<String, f64> = match values {
+                Some(values) => values.extract()?,
+                None => HashMap::new(),
+            };
+
+            let variables = self.expr.get_unique_variables();
+            for variable in &variables {
+                if !bindings.contains_key(variable) {
+                    return Err(PyValueError::new_err(format!(
+                        "no value given for variable '{variable}'"
+                    )));
+                }
+            }
+            bindings.retain(|name, _| variables.contains(name));
+
+            let args: HashMap<&str, f64> = bindings.iter().map(|(k, v)| (k.as_str(), *v)).collect();
+            Ok(self.expr.eval(&args))
+        }
+
+        fn __eq__(&self, other: &Bound<'_, PyAny>) -> bool {
+            match other.cast::<PyComplexExpression>() {
+                Ok(other) => self.expr == other.get().expr,
+                Err(_) => false,
+            }
+        }
+
+        fn __hash__(&self) -> u64 {
+            let mut hasher = DefaultHasher::new();
+            self.expr.hash(&mut hasher);
+            hasher.finish()
+        }
+
+        fn __repr__(&self) -> String {
+            format!(
+                "ComplexExpression(real={}, imag={})",
+                self.expr.real, self.expr.imag
+            )
+        }
+    }
+
+    impl From<ComplexExpression> for PyComplexExpression {
+        fn from(value: ComplexExpression) -> Self {
+            PyComplexExpression {
+                expr: value,
+                real: PyOnceLock::new(),
+                imag: PyOnceLock::new(),
+            }
+        }
+    }
+
+    impl From<PyComplexExpression> for ComplexExpression {
+        fn from(value: PyComplexExpression) -> Self {
+            value.expr
+        }
+    }
+
+    impl_stub_type!(ComplexExpression = PyComplexExpression);
+
+    impl<'py> IntoPyObject<'py> for ComplexExpression {
+        type Target = PyComplexExpression;
+        type Output = Bound<'py, Self::Target>;
+        type Error = PyErr;
+
+        fn into_pyobject(self, py: Python<'py>) -> Result<Self::Output, Self::Error> {
+            Bound::new(py, PyComplexExpression::from(self))
+        }
+    }
+
+    impl<'a, 'py> FromPyObject<'a, 'py> for ComplexExpression {
+        type Error = PyErr;
+
+        fn extract(ob: Borrowed<'a, 'py, PyAny>) -> PyResult<Self> {
+            let wrapper = ob.cast::<PyComplexExpression>()?;
+            Ok(wrapper.get().expr.clone())
+        }
+    }
+
+    /// Registers the ComplexExpression class with the Python module.
+    fn register(parent_module: &Bound<'_, PyModule>) -> PyResult<()> {
+        parent_module.add_class::<PyComplexExpression>()?;
+        Ok(())
+    }
+    inventory::submit!(PyExpressionRegistrar { func: register });
+}
